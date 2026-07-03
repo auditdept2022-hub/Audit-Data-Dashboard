@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Audit Data Dashboard</title>
-  <link rel="icon" type="image/png" href="logo.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -48,7 +47,17 @@
     window.RAW_CSV_DATA = ``;
     window.RAW_ROTATION_DATA = ``;
 
-    let activeData = { summary: {}, branches: [], lowestEfficiency: [], highestRepo: [], topFindings26: [], auditors: [], emergencyHistory: [] };
+    let activeData = { 
+        summary: {}, 
+        branches: [], 
+        lowestEfficiency: [], 
+        highestRepo: [], 
+        highestNoRepo: [],
+        topFindings26: [], 
+        auditors: [],
+        dataAudit: {},
+        emergencyHistory: []
+    };
     let charts = {};
     let currentBranchSort = null;
 
@@ -82,6 +91,7 @@
         const tb = activeData.branches;
         
         activeData.summary = {
+            ...activeData.summary,
             totalBranches: tb.length,
             doneCount: tb.filter(b => b.auditStatus.toUpperCase() === "DONE").length,
             forAuditCount: tb.filter(b => b.auditStatus.toUpperCase() === "FOR AUDIT").length,
@@ -100,11 +110,12 @@
             findings2026: tb.reduce((sum, b) => sum + b.findings2026, 0),
             totalAccounts: tb.reduce((sum, b) => sum + b.accountsMay, 0).toLocaleString(),
             emergencyAuditor: activeData.summary?.emergencyAuditor || "PENDING",
-            trendLabels: ["MARCH", "APRIL", "MAY"]
+            trendLabels: activeData.summary?.trendLabels || ["MARCH", "APRIL", "MAY"]
         };
 
         activeData.lowestEfficiency = [...tb].sort((a,b) => a.effLatest - b.effLatest).slice(0, 10).map(x => ({ branch: x.name, rate: x.effLatest }));
         activeData.highestRepo = [...tb].sort((a,b) => b.repoRate - a.repoRate).slice(0, 10).map(x => ({ branch: x.name, rate: parseFloat(x.repoRate.toFixed(2)) }));
+        activeData.highestNoRepo = [...tb].sort((a,b) => b.noOfRepo - a.noOfRepo).slice(0, 10).map(x => ({ branch: x.name, count: x.noOfRepo }));
         activeData.topFindings26 = [...tb].filter(b => b.auditStatus !== "PENDING").sort((a,b) => b.findings2026 - a.findings2026).slice(0, 10).map(x => ({ name: x.name, count: x.findings2026 }));
     }
 
@@ -327,21 +338,33 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      <div class="bg-coolCard border border-coolBorder rounded-2xl p-6 shadow-md hover:shadow-lg hover:border-accentRose/30 transition-all cursor-pointer active:scale-[0.99]" id="card-lowest-eff">
-        <h3 class="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2 mb-4">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trending-down w-5 h-5 text-accentRose"><path d="M16 17h6v-6"></path><path d="m22 17-8.5-8.5-5 5L2 7"></path></svg>
-          Top 10 Lowest Collection Efficiency (<span id="span-lowest-eff-month">LATEST</span>)
-        </h3>
-        <div id="lowestEfficiencyChart" style="min-height: 395px; pointer-events: auto;"></div>
-      </div>
-
-      <div class="bg-coolCard border border-coolBorder rounded-2xl p-6 shadow-md hover:shadow-lg hover:border-accentAmber/30 transition-all cursor-pointer active:scale-[0.99]" id="card-highest-repo">
-        <h3 class="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2 mb-4">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-shield-alert w-5 h-5 text-accentRose"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg>
-          Top 10 Highest Repo Rate (<span id="span-highest-repo-month">LATEST</span>)
-        </h3>
-        <div id="highestRepoChart" style="min-height: 395px; pointer-events: auto;"></div>
+    <div class="bg-coolCard border border-coolBorder rounded-2xl p-6 shadow-md mb-8">
+      <h3 class="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2 mb-6">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bar-chart-2 w-5 h-5 text-accentIndigo"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+        Top 10 Rankings (<span id="span-rankings-month">LATEST</span>)
+      </h3>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="hover:border-accentRose/30 transition-all cursor-pointer active:scale-[0.99] border border-transparent rounded-xl p-2" id="card-lowest-eff">
+          <h4 class="text-sm font-bold text-slate-700 text-center mb-2 flex items-center justify-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trending-down text-accentRose"><path d="M16 17h6v-6"></path><path d="m22 17-8.5-8.5-5 5L2 7"></path></svg>
+            Lowest Collection Efficiency
+          </h4>
+          <div id="lowestEfficiencyChart" style="min-height: 350px; pointer-events: auto;"></div>
+        </div>
+        <div class="hover:border-accentAmber/30 transition-all cursor-pointer active:scale-[0.99] border border-transparent rounded-xl p-2" id="card-highest-repo">
+          <h4 class="text-sm font-bold text-slate-700 text-center mb-2 flex items-center justify-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-shield-alert text-accentAmber"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg>
+            Highest Repo Rate
+          </h4>
+          <div id="highestRepoChart" style="min-height: 350px; pointer-events: auto;"></div>
+        </div>
+        <div class="hover:border-accentIndigo/30 transition-all cursor-pointer active:scale-[0.99] border border-transparent rounded-xl p-2" id="card-highest-no-repo">
+          <h4 class="text-sm font-bold text-slate-700 text-center mb-2 flex items-center justify-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-warning text-accentIndigo"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+            Highest No. of Repo
+          </h4>
+          <div id="highestNoRepoChart" style="min-height: 350px; pointer-events: auto;"></div>
+        </div>
       </div>
     </div>
 
@@ -474,17 +497,28 @@
               </div>
           </div>`;
       } else if (type === 'emergency') {
-          let historyRows = '';
+          let historyHtml = '';
           if (activeData.emergencyHistory && activeData.emergencyHistory.length > 0) {
-              historyRows = activeData.emergencyHistory.map(h => `
-                  <tr class="border-b border-coolBorder hover:bg-gray-50">
-                      <td class="p-3 text-sm text-slate-800 font-semibold">${h.auditor}</td>
-                      <td class="p-3 text-sm text-slate-600">${h.branch}</td>
-                      <td class="p-3 text-sm text-slate-600">${h.date}</td>
-                  </tr>
+              historyHtml = activeData.emergencyHistory.map(h => `
+                  <div class="bg-gray-50 p-3 rounded-lg border border-coolBorder">
+                      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <div>
+                              <span class="text-[10px] text-slate-400 font-bold uppercase block mb-1">Recent Auditor</span>
+                              <span class="text-sm font-semibold text-slate-800">${h.auditor || 'N/A'}</span>
+                          </div>
+                          <div>
+                              <span class="text-[10px] text-slate-400 font-bold uppercase block mb-1">Branch</span>
+                              <span class="text-sm font-semibold text-slate-800">${h.branch || 'N/A'}</span>
+                          </div>
+                          <div>
+                              <span class="text-[10px] text-slate-400 font-bold uppercase block mb-1">Remarks / Details</span>
+                              <span class="text-sm font-semibold text-slate-800">${h.details || 'N/A'}</span>
+                          </div>
+                      </div>
+                  </div>
               `).join('');
           } else {
-              historyRows = `<tr><td colspan="3" class="p-4 text-center text-sm text-slate-500 italic">No historical emergency records found.</td></tr>`;
+              historyHtml = `<div class="text-sm text-slate-500 italic p-4 text-center">No recent emergency history found.</div>`;
           }
 
           modalBody.innerHTML = `
@@ -493,20 +527,9 @@
             <p class="text-sm">The current emergency auditor is <strong>${activeData.summary.emergencyAuditor || 'PENDING'}</strong>.</p>
           </div>
           <div class="p-5 bg-white border border-coolBorder rounded-xl shadow-sm">
-            <h3 class="font-bold text-sm text-slate-700 mb-3 uppercase tracking-wider">Emergency Audit History</h3>
-            <div class="overflow-y-auto max-h-[40vh] custom-scrollbar border border-coolBorder rounded-lg">
-                <table class="w-full text-left border-collapse">
-                    <thead class="bg-gray-50 sticky top-0 border-b border-coolBorder z-10 shadow-sm">
-                        <tr>
-                            <th class="p-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Auditor (Col D)</th>
-                            <th class="p-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Branch (Col E)</th>
-                            <th class="p-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Date Audited (Col F)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${historyRows}
-                    </tbody>
-                </table>
+            <h3 class="font-bold text-sm text-slate-700 mb-3 uppercase tracking-wider">Emergency Auditor History</h3>
+            <div class="flex flex-col gap-3 max-h-80 overflow-y-auto custom-scrollbar pr-2">
+                ${historyHtml}
             </div>
           </div>`;
       } else {
@@ -564,7 +587,37 @@
       }
 
       const avgSales = (b.salesMar.ins + b.salesApr.ins + b.salesMay.ins) - (b.salesMar.ca + b.salesApr.ca + b.salesMay.ca);
+      const labels = activeData.summary.trendLabels || ["MARCH", "APRIL", "LATEST"];
+
+      // Setup DATA AUDIT Section HTML dynamically
+      const daRecords = activeData.dataAudit ? (activeData.dataAudit[b.name] || []) : [];
+      let daHtml = '';
       
+      const escapeHTML = str => {
+          if (!str) return '';
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+      };
+
+      if (daRecords.length > 0) {
+          const remarksList = daRecords.map(r => `
+              <div class="p-4 bg-white rounded-xl border border-coolBorder shadow-sm mb-3">
+                  <p class="text-[10px] font-bold text-slate-400 uppercase mb-2 tracking-wider">Auditor: ${escapeHTML(r.auditor || 'Unknown')}</p>
+                  <p class="text-sm text-slate-800 whitespace-pre-wrap">${escapeHTML(r.remark || 'No remarks available.')}</p>
+              </div>
+          `).join('');
+
+          daHtml = `
+              <div class="flex flex-col max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                  ${remarksList}
+              </div>
+          `;
+      } else {
+          daHtml = `
+            <div class="flex items-center justify-center p-6 bg-white rounded-xl border border-coolBorder border-dashed">
+                <p class="text-sm text-slate-400 italic">No audit remarks found for this branch in AUDIT REPORT sheet.</p>
+            </div>`;
+      }
+
       container.innerHTML = `
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               
@@ -585,6 +638,10 @@
                       <div class="flex justify-between items-center p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-coolBorder cursor-default">
                           <span class="text-sm font-semibold text-slate-600">Repo Rate</span>
                           <span class="text-sm font-bold ${b.repoRate > 7 ? 'text-accentRose' : 'text-slate-800'}">${b.repoRate.toFixed(2)}%</span>
+                      </div>
+                      <div class="flex justify-between items-center p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-coolBorder cursor-default">
+                          <span class="text-sm font-semibold text-slate-600">No. of Repo</span>
+                          <span class="text-sm font-bold text-slate-800">${b.noOfRepo}</span>
                       </div>
                       <div class="flex justify-between items-center p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-coolBorder cursor-default">
                           <span class="text-sm font-semibold text-slate-600">Total Accounts</span>
@@ -620,19 +677,27 @@
 
               <div class="md:col-span-2 bg-gray-50 rounded-xl p-5 border border-coolBorder shadow-sm mt-2">
                   <h4 class="text-xs font-bold text-slate-500 uppercase mb-4 tracking-wider flex items-center gap-2">
+                      <svg class="w-4 h-4 text-accentAmber" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                      Recent Auditor Remarks (AUDIT REPORT)
+                  </h4>
+                  ${daHtml}
+              </div>
+
+              <div class="md:col-span-2 bg-gray-50 rounded-xl p-5 border border-coolBorder shadow-sm mt-2">
+                  <h4 class="text-xs font-bold text-slate-500 uppercase mb-4 tracking-wider flex items-center gap-2">
                       <svg class="w-4 h-4 text-accentCyan" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
                       3-Month Trend (Accounts & Efficiency)
                   </h4>
                   <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
                       <div class="p-4 bg-white rounded-xl border border-coolBorder shadow-sm hover:border-slate-400 transition-all cursor-default">
-                          <div class="text-xs text-slate-500 mb-1 font-semibold uppercase tracking-wider">MARCH</div>
+                          <div class="text-xs text-slate-500 mb-1 font-semibold uppercase tracking-wider">${labels[0]}</div>
                           <div class="flex justify-center items-center gap-6 mt-3">
                               <div><div class="text-[10px] text-slate-400 uppercase">Accounts</div><div class="text-xl font-bold text-slate-800">${b.accountsMar}</div></div>
                               <div><div class="text-[10px] text-slate-400 uppercase">Efficiency</div><div class="text-xl font-bold text-slate-800">${b.effMar}%</div></div>
                           </div>
                       </div>
                       <div class="p-4 bg-white rounded-xl border border-coolBorder shadow-sm hover:border-slate-400 transition-all cursor-default">
-                          <div class="text-xs text-slate-500 mb-1 font-semibold uppercase tracking-wider">APRIL</div>
+                          <div class="text-xs text-slate-500 mb-1 font-semibold uppercase tracking-wider">${labels[1]}</div>
                           <div class="flex justify-center items-center gap-6 mt-3">
                               <div><div class="text-[10px] text-slate-400 uppercase">Accounts</div><div class="text-xl font-bold text-slate-800">${b.accountsApr}</div></div>
                               <div><div class="text-[10px] text-slate-400 uppercase">Efficiency</div><div class="text-xl font-bold text-slate-800">${b.effApr}%</div></div>
@@ -640,7 +705,7 @@
                       </div>
                       <div class="p-4 bg-white rounded-xl border border-accentBlue/30 shadow-sm relative overflow-hidden cursor-default">
                           <div class="absolute top-0 right-0 px-2 py-0.5 bg-accentBlue text-white text-[9px] font-bold rounded-bl-lg">LATEST</div>
-                          <div class="text-xs text-slate-500 mb-1 font-semibold uppercase tracking-wider mt-1">LATEST</div>
+                          <div class="text-xs text-slate-500 mb-1 font-semibold uppercase tracking-wider mt-1">${labels[2]}</div>
                           <div class="flex justify-center items-center gap-6 mt-3">
                               <div><div class="text-[10px] text-slate-400 uppercase">Accounts</div><div class="text-xl font-bold text-accentBlue">${b.accountsMay}</div></div>
                               <div><div class="text-[10px] text-slate-400 uppercase">Efficiency</div><div class="text-xl font-bold text-accentBlue">${b.effLatest}%</div></div>
@@ -659,7 +724,7 @@
                   </h4>
                   <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div class="bg-white p-4 rounded-xl border border-coolBorder shadow-sm text-center">
-                          <div class="text-xs font-bold text-slate-400 mb-3 border-b pb-2">MARCH</div>
+                          <div class="text-xs font-bold text-slate-400 mb-3 border-b pb-2">${labels[0]}</div>
                           <div class="flex justify-around items-center text-sm">
                               <div><span class="text-[10px] text-slate-400 block font-semibold">INS</span><span class="font-bold text-slate-800 text-lg">${b.salesMar.ins}</span></div>
                               <div><span class="text-[10px] text-slate-400 block font-semibold">COD</span><span class="font-bold text-slate-800 text-lg">${b.salesMar.cod}</span></div>
@@ -667,7 +732,7 @@
                           </div>
                       </div>
                       <div class="bg-white p-4 rounded-xl border border-coolBorder shadow-sm text-center">
-                          <div class="text-xs font-bold text-slate-400 mb-3 border-b pb-2">APRIL</div>
+                          <div class="text-xs font-bold text-slate-400 mb-3 border-b pb-2">${labels[1]}</div>
                           <div class="flex justify-around items-center text-sm">
                               <div><span class="text-[10px] text-slate-400 block font-semibold">INS</span><span class="font-bold text-slate-800 text-lg">${b.salesApr.ins}</span></div>
                               <div><span class="text-[10px] text-slate-400 block font-semibold">COD</span><span class="font-bold text-slate-800 text-lg">${b.salesApr.cod}</span></div>
@@ -675,7 +740,7 @@
                           </div>
                       </div>
                       <div class="bg-white p-4 rounded-xl border border-coolBorder shadow-sm text-center">
-                          <div class="text-xs font-bold text-slate-400 mb-3 border-b pb-2">LATEST</div>
+                          <div class="text-xs font-bold text-slate-400 mb-3 border-b pb-2">${labels[2]}</div>
                           <div class="flex justify-around items-center text-sm">
                               <div><span class="text-[10px] text-slate-400 block font-semibold">INS</span><span class="font-bold text-slate-800 text-lg">${b.salesMay.ins}</span></div>
                               <div><span class="text-[10px] text-slate-400 block font-semibold">COD</span><span class="font-bold text-slate-800 text-lg">${b.salesMay.cod}</span></div>
@@ -695,15 +760,15 @@
                   </h4>
                   <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
                       <div class="bg-white p-4 rounded-xl border border-coolBorder shadow-sm text-center">
-                          <div class="text-xs font-bold text-slate-400 mb-3 border-b pb-2">MARCH</div>
+                          <div class="text-xs font-bold text-slate-400 mb-3 border-b pb-2">${labels[0]}</div>
                           <div class="text-2xl font-bold text-slate-800">₱${Number(b.serviceMar).toLocaleString()}</div>
                       </div>
                       <div class="bg-white p-4 rounded-xl border border-coolBorder shadow-sm text-center">
-                          <div class="text-xs font-bold text-slate-400 mb-3 border-b pb-2">APRIL</div>
+                          <div class="text-xs font-bold text-slate-400 mb-3 border-b pb-2">${labels[1]}</div>
                           <div class="text-2xl font-bold text-slate-800">₱${Number(b.serviceApr).toLocaleString()}</div>
                       </div>
                       <div class="bg-white p-4 rounded-xl border border-coolBorder shadow-sm text-center">
-                          <div class="text-xs font-bold text-slate-400 mb-3 border-b pb-2">LATEST</div>
+                          <div class="text-xs font-bold text-slate-400 mb-3 border-b pb-2">${labels[2]}</div>
                           <div class="text-2xl font-bold text-accentCyan">₱${Number(b.serviceMay).toLocaleString()}</div>
                       </div>
                   </div>
@@ -805,6 +870,7 @@
       renderFindingsChart();
       renderLowestEfficiencyChart();
       renderHighestRepoChart();
+      renderHighestNoRepoChart();
       renderListings();
       renderScorecardTable();
     }
@@ -830,6 +896,9 @@
       
       document.getElementById('stat-findings-2026').innerText = sum.findings2026 || 0;
       document.getElementById('stat-total-accounts').innerText = sum.totalAccounts || 0;
+
+      const labels = activeData.summary.trendLabels || ["MARCH", "APRIL", "LATEST"];
+      if(document.getElementById('span-rankings-month')) document.getElementById('span-rankings-month').innerText = labels[2];
     }
 
     function renderDonutChart() {
@@ -948,7 +1017,7 @@
       if (!items || items.length === 0) return;
       const options = {
         chart: { 
-          type: 'bar', height: 380, background: 'transparent', toolbar: { show: false },
+          type: 'bar', height: 350, background: 'transparent', toolbar: { show: false },
           events: {
             dataPointSelection: function(event, chartContext, config) {
               const branchName = items[config.dataPointIndex].branch;
@@ -977,7 +1046,7 @@
       if (!items || items.length === 0) return;
       const options = {
         chart: { 
-          type: 'bar', height: 380, background: 'transparent', toolbar: { show: false },
+          type: 'bar', height: 350, background: 'transparent', toolbar: { show: false },
           events: {
             dataPointSelection: function(event, chartContext, config) {
               const branchName = items[config.dataPointIndex].branch;
@@ -999,6 +1068,35 @@
       el.innerHTML = '';
       charts.highestRepo = new ApexCharts(el, options);
       charts.highestRepo.render();
+    }
+
+    function renderHighestNoRepoChart() {
+      const items = activeData.highestNoRepo;
+      if (!items || items.length === 0) return;
+      const options = {
+        chart: { 
+          type: 'bar', height: 350, background: 'transparent', toolbar: { show: false },
+          events: {
+            dataPointSelection: function(event, chartContext, config) {
+              const branchName = items[config.dataPointIndex].branch;
+              openModalDetail(branchName);
+            }
+          }
+        },
+        series: [{ name: 'No of Repo', data: items.map(x => x.count) }],
+        xaxis: { categories: items.map(x => x.branch), labels: { style: { colors: '#64748b' } } },
+        yaxis: { labels: { style: { colors: '#64748b' } } },
+        plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '65%', cursor: 'pointer' } },
+        colors: ['#4f46e5'],
+        grid: { borderColor: '#e2e8f0' },
+        tooltip: { theme: 'light' },
+        dataLabels: { enabled: true, style: { colors: ['#ffffff'] } }
+      };
+      const el = document.querySelector("#highestNoRepoChart");
+      if (charts.highestNoRepo) charts.highestNoRepo.destroy();
+      el.innerHTML = '';
+      charts.highestNoRepo = new ApexCharts(el, options);
+      charts.highestNoRepo.render();
     }
 
     function renderListings() {
@@ -1208,6 +1306,7 @@
       if (clonedDoc.querySelector("#findingsBarChart")) clonedDoc.querySelector("#findingsBarChart").innerHTML = '';
       if (clonedDoc.querySelector("#lowestEfficiencyChart")) clonedDoc.querySelector("#lowestEfficiencyChart").innerHTML = '';
       if (clonedDoc.querySelector("#highestRepoChart")) clonedDoc.querySelector("#highestRepoChart").innerHTML = '';
+      if (clonedDoc.querySelector("#highestNoRepoChart")) clonedDoc.querySelector("#highestNoRepoChart").innerHTML = '';
       
       clonedDoc.querySelector("#modalBody").innerHTML = '';
       clonedDoc.querySelector("#dataModal").classList.add('hidden', 'opacity-0');
@@ -1238,7 +1337,7 @@
               tempBranchesMap[branch] = {
                 name: branch, accountsMar: 0, accountsApr: 0, accountsMay: 0,
                 effMar: 0, effApr: 0, effLatest: 0, collection: "Stable", sales: "Stable", service: "Target",
-                repoRate: 0, findings2024: 0, findings2025: 0, findings2026: 0, auditStatus: "PENDING", auditor: "UNASSIGNED",
+                repoRate: 0, noOfRepo: 0, findings2024: 0, findings2025: 0, findings2026: 0, auditStatus: "PENDING", auditor: "UNASSIGNED",
                 salesMar: { ins: 0, cod: 0, ca: 0 }, salesApr: { ins: 0, cod: 0, ca: 0 }, salesMay: { ins: 0, cod: 0, ca: 0 },
                 serviceTarget: 0, serviceMar: 0, serviceApr: 0, serviceMay: 0
               };
@@ -1249,16 +1348,29 @@
           const seenBranches = new Set();
           
           let startIdx = 1;
+          let headerRowIndex = 0;
           for (let i = 0; i < Math.min(20, rawRows.length); i++) {
              if (rawRows[i]) {
                  const hasBranches = rawRows[i].some(cell => String(cell).toUpperCase().trim() === 'BRANCHES');
                  if (hasBranches) {
+                     headerRowIndex = i;
                      startIdx = i + 1;
                      break;
                  }
              }
           }
           
+          let monthLabels = ["MARCH", "APRIL", "LATEST"];
+          if (rawRows[headerRowIndex]) {
+              const hr = rawRows[headerRowIndex];
+              monthLabels = [
+                  String(hr[2] || "MARCH").trim(),
+                  String(hr[3] || "APRIL").trim(),
+                  String(hr[4] || "LATEST").trim()
+              ];
+          }
+          activeData.summary.trendLabels = monthLabels;
+
           for (let i = startIdx; i < rawRows.length; i++) {
             const row = rawRows[i];
             if (!row || row.length === 0) continue;
@@ -1311,6 +1423,7 @@
               accountsApr: parseInt(row[3]) || 0,
               accountsMay: parseInt(row[4]) || 0,
               repoRate: repoParsed,
+              noOfRepo: parseInt(row[7]) || 0,
               effMar: parseInt(row[11]) || 0,
               effApr: parseInt(row[12]) || 0,
               effLatest: parseInt(row[13]) || 0, 
@@ -1362,6 +1475,32 @@
                   parseAuditorCell(r[19], "LAURENCE");
               }
           }
+
+          // DYNAMIC AUDIT REPORT PARSING
+          let dataAuditSheetName = workbook.SheetNames.find(n => n.toUpperCase().replace(/[\s_]/g, '').includes("AUDITREPORT"));
+          
+          activeData.dataAudit = {}; 
+          if (dataAuditSheetName) {
+              const daSheet = workbook.Sheets[dataAuditSheetName];
+              const daRows = XLSX.utils.sheet_to_json(daSheet, { header: 1 });
+              
+              // Skip header row at index 0 and strictly use A=0, B=1, C=2
+              for (let i = 1; i < daRows.length; i++) {
+                  const r = daRows[i];
+                  if (!r || !r[0]) continue;
+                  
+                  const branchName = normalizeName(String(r[0]).trim());
+                  const auditor = String(r[1] || "").trim();
+                  const remark = String(r[2] || "").trim();
+                  
+                  const matchIdx = STRICT_NORMALIZED.indexOf(branchName);
+                  if (matchIdx !== -1) {
+                      const bName = STRICT_BRANCH_LIST[matchIdx];
+                      if (!activeData.dataAudit[bName]) activeData.dataAudit[bName] = [];
+                      activeData.dataAudit[bName].push({ auditor, remark });
+                  }
+              }
+          }
           
           if (matchedAny) {
             activeData.branches = STRICT_BRANCH_LIST.map(b => tempBranchesMap[b]);
@@ -1371,30 +1510,32 @@
                 .filter(aud => aud.count > 0 || ["KARL", "GENESIS", "EDISON", "LAURENCE"].includes(aud.name))
                 .sort((a, b) => b.count - a.count);
 
-            const emergencySheetName = workbook.SheetNames.find(n => n.toUpperCase().includes("EMERGENCY"));
+            const emergencySheetName = workbook.SheetNames.find(n => n.toUpperCase().replace(/\s/g, '').includes("AUDITORSEMERGENCY")) || workbook.SheetNames.find(n => n.toUpperCase().includes("EMERGENCY"));
+            activeData.emergencyHistory = [];
             if (emergencySheetName) {
                 const emergencySheet = workbook.Sheets[emergencySheetName];
+                const emRows = XLSX.utils.sheet_to_json(emergencySheet, { header: 1 });
+
                 const cellA8 = emergencySheet['A8'];
                 if (cellA8 && cellA8.v) {
                     activeData.summary.emergencyAuditor = String(cellA8.v).trim().toUpperCase();
                 }
-                
-                const emerRows = XLSX.utils.sheet_to_json(emergencySheet, { header: 1, raw: false, defval: "" });
-                activeData.emergencyHistory = [];
-                for (let i = 0; i < emerRows.length; i++) {
-                    const r = emerRows[i];
-                    if (r && r.length > 3) {
-                        const dVal = r[3]; 
-                        const eVal = r[4]; 
-                        const fVal = r[5]; 
-                        
-                        if (dVal && String(dVal).trim().toUpperCase() !== 'AUDITOR' && String(dVal).trim() !== '') {
-                            activeData.emergencyHistory.push({
-                                auditor: String(dVal).trim(),
-                                branch: eVal ? String(eVal).trim() : 'N/A',
-                                date: fVal ? String(fVal).trim() : 'N/A'
-                            });
-                        }
+
+                // Parse columns D, E, and F for historical records starting from row 8 (index 7)
+                for (let i = 7; i < emRows.length; i++) {
+                    const r = emRows[i];
+                    if (!r) continue;
+                    
+                    const dVal = r[3] !== undefined ? String(r[3]).trim() : "";
+                    const eVal = r[4] !== undefined ? String(r[4]).trim() : "";
+                    const fVal = r[5] !== undefined ? String(r[5]).trim() : "";
+                    
+                    if (dVal || eVal || fVal) {
+                        activeData.emergencyHistory.push({
+                            auditor: dVal,
+                            branch: eVal,
+                            details: fVal
+                        });
                     }
                 }
             }
@@ -1454,7 +1595,6 @@
     }
 
     document.addEventListener("DOMContentLoaded", () => {
-      // Start entirely blank until data is loaded
       activeData = { 
         summary: {
             totalBranches: 0, doneCount: 0, forAuditCount: 0, pendingCount: 0,
@@ -1462,9 +1602,10 @@
             salesImproving: 0, salesDeclining: 0, salesStable: 0,
             serviceTarget: 0, serviceDeclining: 0,
             findings2024: 0, findings2025: 0, findings2026: 0,
-            totalAccounts: 0, emergencyAuditor: ""
+            totalAccounts: 0, emergencyAuditor: "", recentEmergencyD: "", recentEmergencyE: "", recentEmergencyF: "",
+            trendLabels: ["MARCH", "APRIL", "MAY"]
         }, 
-        branches: [], lowestEfficiency: [], highestRepo: [], topFindings26: [], auditors: [], emergencyHistory: [] 
+        branches: [], lowestEfficiency: [], highestRepo: [], highestNoRepo: [], topFindings26: [], auditors: [], dataAudit: {}, emergencyHistory: [] 
       };
       
       initDashboard();
