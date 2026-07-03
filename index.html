@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Audit Data Dashboard</title>
-  <link rel="icon" type="image/png" href="logo.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -44,10 +43,6 @@
   </style>
 
   <script id="data-source">
-    window.DEFAULT_DATA = null;
-    window.RAW_CSV_DATA = ``;
-    window.RAW_ROTATION_DATA = ``;
-
     let activeData = { 
         summary: {}, 
         branches: [], 
@@ -62,22 +57,6 @@
     let charts = {};
     let currentBranchSort = null;
 
-    const STRICT_BRANCH_LIST = [
-        "ALFONSO", "ANGELES", "ATIMONAN", "BACOOR 2", "BACOOR CAVITE", 
-        "BATAAN", "BATANGAS", "BAY", "BAYAMBANG", "BINALONAN", 
-        "BINANGONAN", "CALAMBA", "CALAPAN", "CALAUAG", "CALIT-CALIT SAN JUAN", 
-        "CARMEN", "CATANAUAN", "DAET", "DAGUPAN", "GENERAL TRIAS", 
-        "GUMACA", "INFANTA", "LAIYA SAN JUAN", "LIMAY BATAAN", "LIPA", 
-        "LOPEZ", "LOS BAÑOS", "LUCENA", "MALOLOS", "MARILAO", 
-        "NAGCARLAN", "NAIC", "ORANI", "PAGBILAO", "PANIQUI", 
-        "PILILLA", "PINAMALAYAN", "PLARIDEL", "PUERTO GALERA", "SAN FRANCISCO", 
-        "SAN PABLO", "SILANG CAVITE", "SINILOAN", "STA CRUZ", "STA. ROSA", 
-        "STO TOMAS", "TANAUAN", "TANAY", "TANZA", "TARLAC",
-        "CALAMBA (YAMAHA EXCLUSIVE)", "GUMACA (HONDA EXCLUSIVE)", 
-        "INFANTA (HONDA EXCLUSIVE)", "LUCENA (YAMAHA EXCLUSIVE)", 
-        "SAN PABLO (YAMAHA EXCLUSIVE)", "STA ROSA (YAMAHA EXCLUSIVE)"
-    ];
-
     const normalizeName = (name) => {
         let n = String(name).toUpperCase()
             .normalize("NFD").replace(/[\u0300-\u036f]/g, "") 
@@ -86,7 +65,6 @@
         if (n === "PILILIA") n = "PILILLA"; 
         return n;
     };
-    const STRICT_NORMALIZED = STRICT_BRANCH_LIST.map(normalizeName);
 
     function updateCalculations() {
         const tb = activeData.branches;
@@ -96,7 +74,7 @@
             totalBranches: tb.length,
             doneCount: tb.filter(b => b.auditStatus.toUpperCase() === "DONE").length,
             forAuditCount: tb.filter(b => b.auditStatus.toUpperCase() === "FOR AUDIT").length,
-            pendingCount: tb.filter(b => b.auditStatus.toUpperCase() === "PENDING").length,
+            pendingCount: tb.filter(b => b.auditStatus.toUpperCase() !== "DONE" && b.auditStatus.toUpperCase() !== "FOR AUDIT").length,
             improvingCollection: tb.filter(b => b.collection === 'Improving').length,
             decliningCollection: tb.filter(b => b.collection === 'Declining').length,
             stableCollection: tb.filter(b => b.collection === 'Stable').length,
@@ -154,8 +132,8 @@
 
       <div class="flex items-center gap-2 w-full lg:w-auto justify-end">
         <button onclick="fetchSheet()" class="flex items-center gap-2 px-3 py-2 bg-white hover:bg-gray-50 active:scale-95 border border-transparent rounded-xl cursor-pointer text-sm font-semibold transition-all duration-200 shadow-sm text-royalBlue whitespace-nowrap">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-cloud-download text-royalBlue"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="m8 17 4 4 4-4"></path></svg>
-          <span class="hidden xl:inline">Load Data</span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-refresh-cw text-royalBlue"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M3 21v-5h5"></path></svg>
+          <span class="hidden xl:inline">Update Data</span>
         </button>
         
         <label class="flex items-center gap-2 px-3 py-2 bg-white hover:bg-gray-50 active:scale-95 border border-transparent rounded-xl cursor-pointer text-sm font-semibold transition-all duration-200 shadow-sm text-royalBlue whitespace-nowrap">
@@ -430,7 +408,7 @@
               <th class="p-4 bg-gray-50 text-center">Service</th>
               <th class="p-4 bg-gray-50 text-center">Findings '26</th>
               <th class="p-4 bg-gray-50 text-right">Repo Rate</th>
-              <th class="p-4 bg-gray-50 text-center">Audit Status</th>
+              <th class="p-4 bg-gray-50 text-center">Engagement Status</th>
             </tr>
           </thead>
           <tbody id="scorecardTableBody" class="divide-y divide-coolBorder text-sm"></tbody>
@@ -590,7 +568,6 @@
       const avgSales = (b.salesMar.ins + b.salesApr.ins + b.salesMay.ins) - (b.salesMar.ca + b.salesApr.ca + b.salesMay.ca);
       const labels = activeData.summary.trendLabels || ["MARCH", "APRIL", "LATEST"];
 
-      // Setup DATA AUDIT Section HTML dynamically
       const daRecords = activeData.dataAudit ? (activeData.dataAudit[b.name] || []) : [];
       let daHtml = '';
       
@@ -880,7 +857,7 @@
       const sum = activeData.summary;
       
       document.getElementById('stat-total-branches').innerText = sum.totalBranches || 0;
-      document.getElementById('stat-branches-sub').innerText = `${sum.doneCount || 0} done · ${sum.forAuditCount || 0} for audit · ${sum.pendingCount || 0} pending`;
+      document.getElementById('stat-branches-sub').innerText = `${sum.doneCount || 0} done · ${sum.forAuditCount || 0} for audit · ${sum.pendingCount || 0} pending/others`;
       
       document.getElementById('stat-collection-improving').innerHTML = `${sum.improvingCollection || 0} <span class="text-sm font-medium text-slate-500">improving</span>`;
       document.getElementById('stat-collection-sub').innerText = `${sum.decliningCollection || 0} declining · ${sum.stableCollection || 0} stable · ${sum.recoveringCollection || 0} recovering`;
@@ -1223,9 +1200,13 @@
 
         let doneBadge = "";
         let aStatus = branch.auditStatus;
-        if (aStatus.toUpperCase() === "DONE") doneBadge = `<span class="whitespace-nowrap px-2.5 py-1 text-xs font-bold bg-accentBlue/10 text-accentBlue border border-accentBlue/20 rounded-lg">DONE</span>`;
-        else if (aStatus.toUpperCase() === "FOR AUDIT") doneBadge = `<span class="whitespace-nowrap px-2.5 py-1 text-xs font-bold bg-accentAmber/10 text-accentAmber border border-accentAmber/20 rounded-lg">FOR AUDIT</span>`;
-        else doneBadge = `<span class="whitespace-nowrap px-2.5 py-1 text-xs font-bold bg-slate-100 text-slate-400 border border-slate-200 rounded-lg">${aStatus}</span>`;
+        if (aStatus && aStatus.toUpperCase() === "DONE") {
+            doneBadge = `<span class="whitespace-nowrap px-2.5 py-1 text-xs font-bold bg-accentBlue/10 text-accentBlue border border-accentBlue/20 rounded-lg">DONE</span>`;
+        } else if (aStatus && aStatus.toUpperCase() === "FOR AUDIT") {
+            doneBadge = `<span class="whitespace-nowrap px-2.5 py-1 text-xs font-bold bg-accentAmber/10 text-accentAmber border border-accentAmber/20 rounded-lg">FOR AUDIT</span>`;
+        } else {
+            doneBadge = `<span class="whitespace-nowrap px-2.5 py-1 text-xs font-bold bg-slate-100 text-slate-500 border border-slate-200 rounded-lg">${aStatus || 'PENDING'}</span>`;
+        }
         
         const repoColor = branch.repoRate > 7 ? 'text-accentRose font-bold' : 'text-slate-600';
         
@@ -1263,44 +1244,9 @@
     }
 
     function downloadSelf() {
-      const sourceScript = document.getElementById('data-source');
-      const scriptContent = `
-    window.DEFAULT_DATA = ${JSON.stringify(activeData, null, 2)};
-    window.RAW_CSV_DATA = \`\`;
-    window.RAW_ROTATION_DATA = \`\`;
-
-    const STRICT_BRANCH_LIST = [
-        "ALFONSO", "ANGELES", "ATIMONAN", "BACOOR 2", "BACOOR CAVITE", 
-        "BATAAN", "BATANGAS", "BAY", "BAYAMBANG", "BINALONAN", 
-        "BINANGONAN", "CALAMBA", "CALAPAN", "CALAUAG", "CALIT-CALIT SAN JUAN", 
-        "CARMEN", "CATANAUAN", "DAET", "DAGUPAN", "GENERAL TRIAS", 
-        "GUMACA", "INFANTA", "LAIYA SAN JUAN", "LIMAY BATAAN", "LIPA", 
-        "LOPEZ", "LOS BAÑOS", "LUCENA", "MALOLOS", "MARILAO", 
-        "NAGCARLAN", "NAIC", "ORANI", "PAGBILAO", "PANIQUI", 
-        "PILILLA", "PINAMALAYAN", "PLARIDEL", "PUERTO GALERA", "SAN FRANCISCO", 
-        "SAN PABLO", "SILANG CAVITE", "SINILOAN", "STA CRUZ", "STA. ROSA", 
-        "STO TOMAS", "TANAUAN", "TANAY", "TANZA", "TARLAC",
-        "CALAMBA (YAMAHA EXCLUSIVE)", "GUMACA (HONDA EXCLUSIVE)", 
-        "INFANTA (HONDA EXCLUSIVE)", "LUCENA (YAMAHA EXCLUSIVE)", 
-        "SAN PABLO (YAMAHA EXCLUSIVE)", "STA ROSA (YAMAHA EXCLUSIVE)"
-    ];
-
-    const normalizeName = (name) => {
-        let n = String(name).toUpperCase()
-            .normalize("NFD").replace(/[\\u0300-\\u036f]/g, "") 
-            .replace(/[^A-Z0-9\\(\\)]/g, '')
-            .trim();
-        if (n === "PILILIA") n = "PILILLA";
-        return n;
-    };
-    const STRICT_NORMALIZED = STRICT_BRANCH_LIST.map(normalizeName);
-
-    function updateCalculations() { } 
-  `;
-      
-      sourceScript.textContent = scriptContent;
-      
       const clonedDoc = document.documentElement.cloneNode(true);
+      
+      // Clean up charts for re-render in offline mode
       if (clonedDoc.querySelector("#collectionDonutChart")) clonedDoc.querySelector("#collectionDonutChart").innerHTML = '';
       if (clonedDoc.querySelector("#salesDonutChart")) clonedDoc.querySelector("#salesDonutChart").innerHTML = '';
       if (clonedDoc.querySelector("#serviceDonutChart")) clonedDoc.querySelector("#serviceDonutChart").innerHTML = '';
@@ -1312,6 +1258,11 @@
       clonedDoc.querySelector("#modalBody").innerHTML = '';
       clonedDoc.querySelector("#dataModal").classList.add('hidden', 'opacity-0');
 
+      // Inject the current data perfectly into the downloaded file
+      const dataScript = clonedDoc.createElement('script');
+      dataScript.textContent = `window.DEFAULT_DATA = ${JSON.stringify(activeData)};`;
+      clonedDoc.head.insertBefore(dataScript, clonedDoc.head.firstChild);
+
       let htmlContent = "<!DOCTYPE html>\n" + clonedDoc.outerHTML;
       const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
       const link = document.createElement('a');
@@ -1321,7 +1272,7 @@
       link.click();
       document.body.removeChild(link);
       
-      showToast("File downloaded! Your newly uploaded dashboard data is safely stored inside.");
+      showToast("File downloaded! Your newly updated dashboard data is safely stored inside.");
     }
 
     function processExcelData(arrayBuffer) {
@@ -1329,27 +1280,18 @@
           const data = new Uint8Array(arrayBuffer);
           const workbook = XLSX.read(data, { type: 'array' });
           
-          let targetSheet = workbook.SheetNames.find(name => name.toUpperCase().replace(/\\s/g, '').includes("DASHBOARDDATA")) || workbook.SheetNames[0];
+          let targetSheet = workbook.SheetNames.find(name => name.toUpperCase().replace(/\s/g, '').includes("DASHBOARDDATA")) || workbook.SheetNames[0];
           const mainSheet = workbook.Sheets[targetSheet];
           const rawRows = XLSX.utils.sheet_to_json(mainSheet, { header: 1 });
           
           const tempBranchesMap = {};
-          STRICT_BRANCH_LIST.forEach(branch => {
-              tempBranchesMap[branch] = {
-                name: branch, accountsMar: 0, accountsApr: 0, accountsMay: 0,
-                effMar: 0, effApr: 0, effLatest: 0, collection: "Stable", sales: "Stable", service: "Target",
-                repoRate: 0, noOfRepo: 0, findings2024: 0, findings2025: 0, findings2026: 0, auditStatus: "PENDING", auditor: "UNASSIGNED",
-                salesMar: { ins: 0, cod: 0, ca: 0 }, salesApr: { ins: 0, cod: 0, ca: 0 }, salesMay: { ins: 0, cod: 0, ca: 0 },
-                serviceTarget: 0, serviceMar: 0, serviceApr: 0, serviceMay: 0
-              };
-          });
-          
-          let matchedAny = false;
-          let auditorMap = { "KARL": [], "GENESIS": [], "EDISON": [], "LAURENCE": [] };
           const seenBranches = new Set();
           
+          let auditorMap = { "KARL": [], "GENESIS": [], "EDISON": [], "LAURENCE": [] };
+          let matchedAny = false;
           let startIdx = 1;
           let headerRowIndex = 0;
+
           for (let i = 0; i < Math.min(20, rawRows.length); i++) {
              if (rawRows[i]) {
                  const hasBranches = rawRows[i].some(cell => String(cell).toUpperCase().trim() === 'BRANCHES');
@@ -1377,14 +1319,9 @@
             if (!row || row.length === 0) continue;
             
             const rawName = String(row[1] || row[0] || "").trim();
-            if (!rawName) continue;
+            if (!rawName || rawName.toUpperCase().includes("TOTAL")) continue; // Skip totals/blanks
             
-            const normalizedInput = normalizeName(rawName);
-            const matchedIndex = STRICT_NORMALIZED.indexOf(normalizedInput);
-            
-            if (matchedIndex === -1) continue; 
-            const branchName = STRICT_BRANCH_LIST[matchedIndex];
-            
+            let branchName = rawName;
             if (seenBranches.has(branchName)) continue;
             seenBranches.add(branchName);
             matchedAny = true;
@@ -1404,10 +1341,11 @@
             let finalServStat = "Target";
             if(servStat.includes("declin")) finalServStat = "Declining";
 
-            let auditStatRaw = String(row[36] || "").trim().toUpperCase();
-            let finalAuditStat = "PENDING";
-            if(auditStatRaw.includes("DONE")) finalAuditStat = "DONE";
-            else if(auditStatRaw.includes("FOR AUDIT")) finalAuditStat = "FOR AUDIT";
+            // PULLING PRECISE STATUS FROM COLUMN AK (Index 36) - ENGAGEMENT STATUS
+            let finalAuditStat = String(row[36] || "").trim();
+            if (finalAuditStat === "") {
+                finalAuditStat = "PENDING";
+            }
             
             const assignedAuditor = String(row[39] || "UNASSIGNED").trim();
 
@@ -1446,12 +1384,13 @@
             };
           }
           
-          const rotationSheetName = workbook.SheetNames.find(n => n.toUpperCase().replace(/\\s/g, '').includes("ROTATION"));
+          let normalizedSeen = {};
+          Array.from(seenBranches).forEach(b => normalizedSeen[normalizeName(b)] = b);
+
+          const rotationSheetName = workbook.SheetNames.find(n => n.toUpperCase().replace(/\s/g, '').includes("ROTATION"));
           if (rotationSheetName) {
               const rotationSheet = workbook.Sheets[rotationSheetName];
               const rotRows = XLSX.utils.sheet_to_json(rotationSheet, { header: 1 });
-              
-              auditorMap = { "KARL": [], "GENESIS": [], "EDISON": [], "LAURENCE": [] };
               
               for (let i = 1; i < rotRows.length; i++) {
                   const r = rotRows[i];
@@ -1462,10 +1401,8 @@
                           let rawVal = String(cellValue).trim();
                           if (rawVal && isNaN(rawVal) && rawVal.length > 2) { 
                               let normalizedInput = normalizeName(rawVal);
-                              let matchIdx = STRICT_NORMALIZED.indexOf(normalizedInput);
-                              if (matchIdx !== -1) {
-                                  auditorMap[auditorName].push(STRICT_BRANCH_LIST[matchIdx]);
-                              }
+                              let bName = normalizedSeen[normalizedInput] || rawVal;
+                              auditorMap[auditorName].push(bName);
                           }
                       }
                   };
@@ -1477,15 +1414,12 @@
               }
           }
 
-          // DYNAMIC AUDIT REPORT PARSING
           let dataAuditSheetName = workbook.SheetNames.find(n => n.toUpperCase().replace(/[\s_]/g, '').includes("AUDITREPORT"));
-          
           activeData.dataAudit = {}; 
           if (dataAuditSheetName) {
               const daSheet = workbook.Sheets[dataAuditSheetName];
               const daRows = XLSX.utils.sheet_to_json(daSheet, { header: 1 });
               
-              // Skip header row at index 0 and strictly use A=0, B=1, C=2
               for (let i = 1; i < daRows.length; i++) {
                   const r = daRows[i];
                   if (!r || !r[0]) continue;
@@ -1494,17 +1428,14 @@
                   const auditor = String(r[1] || "").trim();
                   const remark = String(r[2] || "").trim();
                   
-                  const matchIdx = STRICT_NORMALIZED.indexOf(branchName);
-                  if (matchIdx !== -1) {
-                      const bName = STRICT_BRANCH_LIST[matchIdx];
-                      if (!activeData.dataAudit[bName]) activeData.dataAudit[bName] = [];
-                      activeData.dataAudit[bName].push({ auditor, remark });
-                  }
+                  const mappedBName = normalizedSeen[branchName] || branchName;
+                  if (!activeData.dataAudit[mappedBName]) activeData.dataAudit[mappedBName] = [];
+                  activeData.dataAudit[mappedBName].push({ auditor, remark });
               }
           }
           
           if (matchedAny) {
-            activeData.branches = STRICT_BRANCH_LIST.map(b => tempBranchesMap[b]);
+            activeData.branches = Array.from(seenBranches).map(b => tempBranchesMap[b]);
             
             activeData.auditors = Object.keys(auditorMap)
                 .map(aud => ({ name: aud, count: auditorMap[aud].length, branches: auditorMap[aud] }))
@@ -1518,7 +1449,6 @@
                 const emRows = XLSX.utils.sheet_to_json(emergencySheet, { header: 1 });
 
                 let emerAuditor = "";
-                // Robust extraction for A8 (using Sheet object directly or falling back to array index 7)
                 if (emergencySheet['A8'] && emergencySheet['A8'].v) {
                     emerAuditor = String(emergencySheet['A8'].v).trim().toUpperCase();
                 } else if (emRows.length > 7 && emRows[7][0]) {
@@ -1528,7 +1458,6 @@
                     activeData.summary.emergencyAuditor = emerAuditor;
                 }
 
-                // Parse columns D, E, and F for historical records starting from row 7 (index 6) to catch everything after the header
                 for (let i = 6; i < emRows.length; i++) {
                     const r = emRows[i];
                     if (!r) continue;
@@ -1536,7 +1465,6 @@
                     const dVal = r[3] !== undefined ? String(r[3]).trim() : "";
                     const eVal = r[4] !== undefined ? String(r[4]).trim() : "";
                     
-                    // Fixed Format Logic applied specifically to Date column (F -> index 5)
                     let fValRaw = r[5] !== undefined ? String(r[5]).trim() : "";
                     let fVal = fValRaw;
                     if (fValRaw) {
@@ -1602,7 +1530,7 @@
     async function fetchSheet(isAutoLoad = false) {
       let fetchUrl = defaultGoogleSheetUrl + '&nocache=' + new Date().getTime();
       try {
-          if (!isAutoLoad) showToast("Fetching data from Google Sheets...");
+          if (!isAutoLoad) showToast("Fetching latest data from Google Sheets...");
           
           const response = await fetchWithProxy(fetchUrl);
           if (!response.ok) throw new Error("Network response was not ok");
@@ -1610,7 +1538,7 @@
           const arrayBuffer = await response.arrayBuffer();
           processExcelData(arrayBuffer);
           
-          if (!isAutoLoad) showToast("Dashboard successfully updated from Web Link!");
+          if (!isAutoLoad) showToast("Dashboard successfully updated!");
       } catch (error) {
           console.error(error);
           if (!isAutoLoad) showToast("Failed to fetch sheet. Check your internet connection.");
@@ -1618,6 +1546,8 @@
     }
 
     document.addEventListener("DOMContentLoaded", () => {
+      
+      // Removed the blank initialization rule: Now strictly fetches live from the Google Sheet immediately upon opening.
       activeData = { 
         summary: {
             totalBranches: 0, doneCount: 0, forAuditCount: 0, pendingCount: 0,
@@ -1632,6 +1562,7 @@
       };
       
       initDashboard();
+      fetchSheet(false); // Make it show the toast and update immediately
       
       document.getElementById('tableSearch').addEventListener('input', renderScorecardTable);
       document.getElementById('filterCollection').addEventListener('change', renderScorecardTable);
