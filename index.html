@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Audit Data Dashboard</title>
-  <link rel="icon" type="image/png" href="logo.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -45,89 +44,10 @@
 
   <script id="data-source">
     window.DEFAULT_DATA = null;
-    window.RAW_CSV_DATA = `NO,BRANCHES,MAR,APR,MAY,MAR,APR,MAY,MAR,APR,MAY,MAR,APR,MAY,STATUS,INS,COD,INS,COD,CA,INS,COD,CA,INS,COD,CA,CA/INS,STATUS,TARGET,MAR,APR,MAY,STATUS,2024,2025,2026,ENGAGEMENT STATUS,LAST DATE OF ENGAGEMENT,EXPECTED DATE TO AUDIT,RECENT AUDITOR,AUDITOR,DATE OF 1ST ROTATION,AUDITOR,DATE OF 2ND ROTATION,AUDITOR,DATE OF 3RD ROTATION,AUDITOR,DATE OF 4TH ROTATION
-1,ALFONSO,257,257,265,1,2,1,0.003891050584,0.007782101167,0.003773584906,80,80,78,Stable,10,8,11,8,8,8,8,3,13,5,7,14,Improving,5750,9260,6115,6175,Target,1,1,2,DONE,2026-01-27,,KARL,LAURENCE,2026-01-27,,,,,,
-2,ANGELES,371,363,367,30,30,31,0.08086253369,0.0826446281,0.08446866485,61,64,65,Improving,20,10,16,10,16,12,10,8,16,17,10,10,Improving,5500,2770,2725,1675,Declining,5,15,6,DONE,2026-04-13,,GENESIS,LAURENCE,2026-04-13,,,,,,
-3,ATIMONAN,152,151,158,1,1,1,0.006578947368,0.006622516556,0.006329113924,74,78,75,Stable,7,5,6,6,3,2,5,3,9,5,4,7,Improving,5500,5290,5410,5520,Target,1,3,2,DONE,2026-03-23,,GENESIS,LAURENCE,2026-03-23,,,,,,
-4,BACOOR 2,514,502,501,23,23,20,0.04474708171,0.04581673307,0.03992015968,60,59,58,Declining,18,15,21,8,16,14,15,18,12,18,13,0,Stable,11500,5840,4400,11086,Declining,2,2,3,FOR AUDIT,2026-05-20,,LAURENCE,GENESIS,2026-05-20,,,,,,
-5,BACOOR CAVITE,774,803,812,76,75,76,0.09819121447,0.09339975093,0.09359605911,68,68,66,Stable,30,30,33,20,18,42,23,30,43,20,18,52,Improving,11500,26508,18855,17750,Target,8,2,8,DONE,2026-01-26,,EDISON,LAURENCE,2026-01-26,,,,,,
-6,BATAAN,315,313,308,17,17,16,0.05396825397,0.05431309904,0.05194805195,42,38,39,Stable,15,13,11,5,11,10,14,10,6,6,8,-2,Declining,11500,6470,5210,6600,Declining,8,2,10,FOR AUDIT,2026-01-12,2026-06-30,KARL,LAURENCE,2026-01-12,,2026-07-08,,,,
-7,BATANGAS,174,176,179,6,6,6,0.03448275862,0.03409090909,0.03351955307,68,66,66,Stable,12,8,10,4,5,7,9,1,6,4,6,11,Improving,5500,2300,920,2430,Declining,1,1,5,FOR AUDIT,2026-05-05,,LAURENCE,LAURENCE,2026-05-05,,,,,,
-8,BAY,127,122,121,5,5,5,0.03937007874,0.04098360656,0.04132231405,61,66,60,Declining,7,5,6,5,6,3,1,4,5,3,2,2,Improving,5500,210,30,30,Declining,4,5,3,DONE,2026-06-09,2026-06-13,LAURENCE,LAURENCE,2026-06-09,,,,,,
-9,BAYAMBANG,293,286,288,14,14,16,0.04778156997,0.04895104895,0.05555555556,40,40,37,Stable,10,10,3,6,8,2,4,9,10,3,11,-13,Declining,5750,4170,5530,3340,Declining,1,10,4,DONE,2026-04-15,,KARL,KARL,2026-04-15,,,,,,
-10,BINALONAN,114,111,112,5,6,5,0.04385964912,0.05405405405,0.04464285714,54,52,56,Recovering,10,10,3,3,6,1,2,4,7,2,8,-7,Declining,5750,1560,2955,4060,Declining,2,6,3,DONE,2026-04-13,,LAURENCE,EDISON,2026-04-13,,,,,,
-11,BINANGONAN,302,283,279,9,9,7,0.0298013245,0.03180212014,0.02508960573,27,24,25,Stable,15,10,2,7,15,5,7,10,7,5,12,-23,Declining,5750,6000,5940,6045,Target,2,3,10,DONE,2026-01-12,2026-06-04,GENESIS,KARL,2026-01-12,GENESIS,2026-06-03,,,,
-12,CALAMBA,411,407,408,9,9,9,0.02189781022,0.02211302211,0.02205882353,65,65,63,Declining,20,15,20,9,19,15,5,19,18,9,17,-2,Declining,5750,2490,2380,2600,Declining,7,7,1,FOR AUDIT,2026-06-09,2026-06-09,GENESIS,LAURENCE,2026-06-09,,,,,,
-13,CALAMBA (YAMAHA EXCLUSIVE),180,190,182,3,4,4,0.01666666667,0.02105263158,0.02197802198,78,83,81,Stable,15,20,10,16,13,22,16,24,24,15,21,-2,Declining,17250,57740,54210,61565,Target,9,10,9,FOR AUDIT,2026-02-25,,LAURENCE,KARL,2026-02-25,,,,,,
-14,CALAPAN,124,116,111,13,11,12,0.1048387097,0.09482758621,0.1081081081,58,62,55,Stable,10,5,4,3,7,1,3,7,3,2,7,-13,Declining,5500,2950,2070,2680,Declining,0,10,1,PENDING,2026-02-09,2026-06-23,GENESIS,KARL,2026-02-09,LAURENCE,2026-06-23,,,,
-15,CALAUAG,128,125,127,8,9,8,0.0625,0.072,0.06299212598,75,70,69,Declining,10,5,6,13,5,2,4,1,3,11,2,3,Improving,5500,2735,5260,5520,Target,1,3,1,PENDING,2026-05-14,,LAURENCE,EDISON,2026-05-14,,,,,,
-16,CALIT-CALIT SAN JUAN,174,185,197,2,2,2,0.01149425287,0.01081081081,0.01015228426,89,87,89,Stable,12,6,18,2,4,15,3,4,16,4,10,31,Improving,5750,4030,5590,5320,Declining,0,2,3,PENDING,2026-01-13,2026-06-08,GENESIS,EDISON,2026-01-13,GENESIS,2026-06-08,,,,
-17,CARMEN,302,296,302,2,1,1,0.006622516556,0.003378378378,0.003311258278,73,78,82,Improving,15,15,10,1,11,10,6,10,12,6,7,4,Improving,5750,8755,7745,9030,Target,3,7,3,PENDING,2026-04-15,,LAURENCE,EDISON,2026-04-15,,,,,,
-18,CATANAUAN,121,122,123,9,9,11,0.07438016529,0.0737704918,0.08943089431,56,52,55,Declining,5,12,3,3,4,4,4,2,2,6,7,-4,Declining,5500,720,1150,1430,Declining,2,5,4,PENDING,2026-05-05,,LAURENCE,GENESIS,2026-05-05,,,,,,
-19,DAET,33,32,31,3,3,3,0.09090909091,0.09375,0.09677419355,71,91,83,Improving,4,8,2,4,1,1,3,2,2,4,1,1,Improving,5500,150,140,120,Declining,3,4,2,PENDING,2026-05-05,,GENESIS,GENESIS,2026-05-05,,,,,,
-20,DAGUPAN,144,138,136,8,9,11,0.05555555556,0.0652173913,0.08088235294,34,35,34,Stable,5,7,2,2,8,4,0,4,2,0,4,-8,Declining,5500,3140,4035,5670,Target,3,18,7,PENDING,2026-04-13,,EDISON,KARL,2026-04-13,,,,,,
-21,GENERAL TRIAS,314,299,293,17,18,20,0.05414012739,0.0602006689,0.06825938567,67,59,64,Declining,15,10,10,6,13,1,3,11,9,3,9,-13,Declining,5750,5660,3720,3800,Declining,3,2,5,PENDING,2026-01-14,2026-06-10,KARL,EDISON,2026-01-14,EDISON,2026-06-10,,,,
-22,GUMACA,240,235,228,20,20,19,0.08333333333,0.08510638298,0.08333333333,46,49,50,Improving,10,10,3,6,7,6,7,12,4,7,6,-12,Declining,5750,5420,5920,7360,Target,5,10,3,PENDING,2026-03-24,,LAURENCE,LAURENCE,2026-03-24,,,,,,
-23,GUMACA (HONDA EXCLUSIVE),117,114,112,15,12,10,0.1282051282,0.1052631579,0.08928571429,77,76,73,Declining,10,15,5,4,5,2,9,5,4,13,9,-8,Declining,11500,25030,22006,20081.07,Target,2,4,3,PENDING,2026-05-14,,GENESIS,KARL,2026-05-14,,,,,,
-24,INFANTA,389,378,380,9,9,9,0.02313624679,0.02380952381,0.02368421053,53,51,56,Recovering,20,15,15,13,17,8,17,10,13,27,18,-9,Declining,5500,6135,2135,210,Declining,4,6,2,PENDING,2026-03-23,,GENESIS,LAURENCE,2026-03-23,,,,,,
-25,INFANTA (HONDA EXCLUSIVE),105,114,118,0,0,0,0,0,0,95,94,96,Recovering,15,20,6,7,4,13,12,6,9,13,7,11,Improving,11500,11550,10740,17230,Target,0,0,2,PENDING,2026-03-23,,LAURENCE,KARL,2026-03-23,,,,,,
-26,LAIYA SAN JUAN,205,205,212,3,3,2,0.01463414634,0.01463414634,0.009433962264,85,87,91,Improving,10,5,11,4,10,6,1,3,12,5,5,11,Improving,5750,6320,5860,5670,Declining,1,1,2,PENDING,2026-01-12,2026-03-09,EDISON,EDISON,2026-01-12,KARL,2026-03-09,,,,
-27,LIMAY BATAAN,268,281,294,3,3,3,0.01119402985,0.01067615658,0.01020408163,73,70,71,Declining,10,8,13,6,3,17,2,2,15,3,6,34,Improving,5500,3530,2000,2180,Declining,4,2,2,PENDING,2026-01-16,,LAURENCE,LAURENCE,2026-01-16,,,,,,
-28,LIPA,404,395,397,9,10,9,0.02227722772,0.0253164557,0.02267002519,61,63,64,Improving,15,10,10,6,16,11,7,11,17,10,19,-8,Declining,5750,3070,5780,4320,Declining,10,14,3,PENDING,2026-02-25,,KARL,EDISON,2026-02-25,,,,,,
-29,LOPEZ,155,149,155,3,3,4,0.01935483871,0.02013422819,0.02580645161,80,83,78,Declining,8,7,6,7,9,3,8,4,12,14,3,5,Improving,5500,5380,5385,5295,Declining,1,3,0,PENDING,2026-05-15,,EDISON,EDISON,2026-05-15,,,,,,
-30,LOS BAÑOS,131,132,130,7,7,6,0.0534351145,0.05303030303,0.04615384615,45,46,43,Declining,7,5,7,6,2,2,5,5,4,6,1,5,Improving,5500,2045,705,1810,Declining,5,3,0,PENDING,2026-02-27,,KARL,KARL,2026-02-27,,,,,,
-31,LUCENA,265,271,281,5,4,3,0.01886792453,0.0147601476,0.01067615658,75,78,77,Improving,15,10,19,7,8,16,12,9,18,9,7,29,Improving,5750,4860,6550,6260,Target,5,5,0,PENDING,2026-05-12,,EDISON,KARL,2026-05-12,,,,,,
-32,LUCENA (YAMAHA EXCLUSIVE),182,188,204,12,11,12,0.06593406593,0.0585106383,0.05882352941,72,69,76,Recovering,10,15,18,8,6,12,7,5,20,5,12,27,Improving,17250,37240,40710,45980,Target,15,11,6,PENDING,2026-05-12,,KARL,EDISON,2026-05-12,,,,,,
-33,MALOLOS,335,339,341,5,7,7,0.01492537313,0.02064896755,0.02052785924,63,59,55,Declining,15,15,8,12,6,11,4,6,9,10,4,12,Improving,5750,2210,1780,2530,Declining,4,2,2,PENDING,2026-01-28,,LAURENCE,GENESIS,2026-01-28,,,,,,
-34,MARILAO,134,138,143,11,12,13,0.08208955224,0.08695652174,0.09090909091,12,12,14,Improving,10,10,9,11,2,6,16,4,7,10,3,13,Improving,5750,5110,6880,6790,Target,4,2,2,PENDING,2026-01-26,,LAURENCE,GENESIS,2026-01-26,,,,,,
-35,NAGCARLAN,78,81,82,1,1,1,0.01282051282,0.01234567901,0.01219512195,82,83,85,Improving,5,5,6,2,4,8,3,10,9,7,7,2,Improving,5500,1710,1130,1350,Declining,2,2,1,PENDING,2026-03-11,,LAURENCE,KARL,2026-03-11,,,,,,
-36,NAIC,277,273,275,7,8,7,0.02527075812,0.0293040293,0.02545454545,60,60,68,Improving,18,10,9,9,10,9,6,9,11,15,14,-4,Declining,5750,3285,2370,2030,Declining,4,4,7,PENDING,2026-01-28,,LAURENCE,LAURENCE,2026-01-28,,,,,,
-37,ORANI,443,455,457,20,20,18,0.04514672686,0.04395604396,0.03938730853,72,70,69,Declining,20,10,10,5,12,25,6,18,21,8,21,5,Improving,5750,4300,6150,2645,Declining,3,1,3,PENDING,2026-01-14,,KARL,LAURENCE,2026-01-14,,,,,,
-38,PAGBILAO,164,180,189,0,0,0,0,0,0,89,89,91,Improving,7,5,8,4,4,18,6,6,14,3,6,24,Improving,5500,3025,1120,910,Declining,3,11,2,PENDING,2026-05-13,,LAURENCE,KARL,2026-05-13,,,,,,
-39,PANIQUI,188,180,177,10,9,10,0.05319148936,0.05,0.05649717514,53,54,51,Declining,5,10,4,0,10,3,2,4,2,3,5,-10,Declining,5500,1910,1620,540,Declining,3,12,5,PENDING,2026-02-19,,LAURENCE,LAURENCE,2026-02-19,,,,,,
-40,PILILLA,52,46,41,3,3,3,0.05769230769,0.0652173913,0.07317073171,43,48,39,Declining,5,5,4,1,5,3,0,6,1,7,3,-6,Declining,5750,6510,6210,6080,Target,1,2,1,PENDING,2026-01-14,,EDISON,GENESIS,2026-01-14,,,,,,
-41,PINAMALAYAN,117,115,113,4,4,1,0.03418803419,0.0347826087,0.008849557522,46,54,62,Improving,10,5,1,3,0,0,6,3,2,3,4,-4,Declining,5500,1000,3145,2850,Declining,3,6,3,PENDING,2026-02-10,2026-06-25,KARL,LAURENCE,2026-02-10,LAURENCE,2026-06-25,,,,
-42,PLARIDEL,200,208,204,1,1,1,0.005,0.004807692308,0.004901960784,86,84,86,Stable,10,10,8,7,4,13,5,8,7,5,3,13,Improving,5750,7550,4075,7055,Target,5,3,2,PENDING,2026-01-27,,KARL,GENESIS,2026-01-27,,,,,,
-43,PUERTO GALERA,98,97,95,8,8,6,0.08163265306,0.0824742268,0.06315789474,41,47,39,Declining,8,4,3,4,2,2,2,1,0,3,7,-5,Declining,5500,30,110,60,Declining,0,5,1,PENDING,2026-02-10,2026-06-23,EDISON,KARL,2026-02-10,KARL,2026-06-23,,,,
-44,SAN FRANCISCO,131,130,128,4,5,4,0.03053435115,0.03846153846,0.03125,70,79,75,Improving,10,5,6,3,7,5,5,5,2,20,2,-1,Declining,5500,3570,1680,2910,Declining,3,6,6,PENDING,2026-02-09,,LAURENCE,EDISON,2026-02-09,,,,,,
-45,SAN PABLO,215,214,208,7,6,5,0.03255813953,0.02803738318,0.02403846154,82,80,78,Declining,20,15,14,15,17,17,17,20,9,13,14,-11,Declining,17250,46290,42835,49610,Target,3,0,2,PENDING,2026-03-12,,LAURENCE,LAURENCE,2026-03-12,,,,,,
-46,SAN PABLO (YAMAHA EXCLUSIVE),122,127,129,5,3,3,0.04098360656,0.02362204724,0.02325581395,89,91,97,Improving,15,15,8,19,6,11,12,7,10,9,8,8,Improving,17250,55920,58175,54245,Target,8,6,6,PENDING,2026-03-11,,GENESIS,LAURENCE,2026-03-11,,,,,,
-47,SILANG CAVITE,155,149,148,9,9,10,0.05806451613,0.06040268456,0.06756756757,43,42,49,Recovering,10,8,4,5,7,2,5,4,3,13,3,-5,Declining,5750,5970,5990,5250,Declining,2,8,1,PENDING,2026-05-07,,GENESIS,LAURENCE,2026-05-07,,,,,,
-48,SINILOAN,125,124,122,14,15,15,0.112,0.1209677419,0.1229508197,62,61,63,Recovering,10,5,1,5,5,5,3,7,6,2,8,-8,Declining,11500,17660,14350,17935,Target,5,0,6,PENDING,2026-01-26,,LAURENCE,EDISON,2026-01-26,,,,,,
-49,STA CRUZ,138,135,135,15,16,15,0.1086956522,0.1185185185,0.1111111111,58,53,54,Declining,10,5,3,3,6,4,3,3,6,4,9,-5,Declining,5750,5560,5890,3990,Declining,2,4,7,PENDING,2026-01-28,2026-06-25,KARL,EDISON,2026-01-28,GENESIS,2026-06-26,,,,
-50,STA ROSA (YAMAHA EXCLUSIVE),246,254,247,2,1,1,0.008130081301,0.003937007874,0.004048582996,70,71,72,Improving,15,30,20,29,14,29,19,23,18,30,8,22,Improving,17250,61335,57585,48290,Target,6,5,7,PENDING,2026-01-26,,EDISON,KARL,2026-01-26,,,,,,
-51,STA. ROSA,318,325,331,9,9,8,0.02830188679,0.02769230769,0.02416918429,56,58,57,Improving,15,10,9,2,9,16,3,10,19,5,10,15,Improving,5750,5450,6350,5280,Declining,7,8,2,PENDING,2026-06-10,2026-06-15,KARL,KARL,2026-06-10,,,,,,
-52,STO TOMAS,131,137,137,1,1,1,0.007633587786,0.007299270073,0.007299270073,55,53,57,Recovering,7,5,9,6,1,9,3,6,6,5,7,10,Improving,5500,2795,1695,2865,Declining,1,2,0,PENDING,2026-06-16,2026-06-16,EDISON,GENESIS,,,,,,,
-53,TANAUAN,271,271,269,15,13,14,0.05535055351,0.0479704797,0.05204460967,37,37,37,Stable,12,6,8,3,4,8,3,8,8,1,9,3,Improving,5500,1510,1665,135,Declining,1,2,2,PENDING,2026-03-10,,EDISON,EDISON,2026-03-10,,,,,,
-54,TANAY,325,317,319,13,11,10,0.04,0.03470031546,0.03134796238,32,29,31,Declining,12,8,9,5,15,8,7,8,12,8,7,-1,Declining,11500,12740,11310,12342,Target,3,2,2,PENDING,2026-01-12,,KARL,GENESIS,2026-01-12,,,,,,
-55,TANZA,496,492,478,2,4,2,0.004032258065,0.008130081301,0.004184100418,53,58,57,Improving,18,10,10,7,10,10,9,22,12,8,30,-30,Declining,5750,5495,4580,2120,Declining,4,6,2,PENDING,2026-05-20,,GENESIS,LAURENCE,2026-05-20,,,,,,
-56,TARLAC,333,335,345,1,0,2,0.003003003003,0,0.005797101449,66,67,67,Improving,15,15,15,11,15,16,9,6,15,5,5,20,Improving,5500,7375,5198,5583,Target,2,4,3,PENDING,2026-04-15,,LAURENCE,LAURENCE,2026-04-15,,,,,,`;
+    window.RAW_CSV_DATA = ``;
+    window.RAW_ROTATION_DATA = ``;
 
-    window.RAW_ROTATION_DATA = `NO,BRANCH ,AUDITOR,1ST ENGAGEMENT,AUDITOR,2ND ENGAGEMENT,AUDITOR,3RD ENGAGEMENT,AUDITOR,4TH ENGAGEMENT,AUDIT INTERVAL,,,,,,,,,
-1,ALFONSO,LAURENCE,2026-01-27,,,,,,,"5Months,5Days",,,KARL,,GENESIS,,EDISON,,LAURENCE
-2,ANGELES,LAURENCE,2026-04-13,,,,,,,"2Months,19Days",,1,BAYAMBANG,1,BACOOR 2,1,BINALONAN,1,ALFONSO
-3,ATIMONAN,LAURENCE,2026-03-23,,,,,,,"3Months,10Days",,2,BINANGONAN,2,BINANGONAN,2,CALAUAG,2,ANGELES
-4,BACOOR 2,GENESIS,2026-05-20,,,,,,,"1Months,12Days",,3,CALAMBA (YAMAHA EXCLUSIVE),3,CALIT-CALIT SAN JUAN,3,CALIT-CALIT SAN JUAN,3,ATIMONAN
-5,BACOOR CAVITE,LAURENCE,2026-01-26,,,,,,,"5Months,6Days",,4,CALAPAN,4,CATANAUAN,4,CARMEN,4,BACOOR CAVITE
-6,BATAAN,LAURENCE,2026-01-12,,,,,,,"5Months,20Days",,5,DAGUPAN,5,DAET,5,GENERAL TRIAS,5,BATAAN
-7,BATANGAS,LAURENCE,2026-05-05,,,,,,,"1Months,27Days",,6,GUMACA (HONDA EXCLUSIVE),6,MALOLOS,6,GENERAL TRIAS,6,BATANGAS
-8,BAY,LAURENCE,2026-06-09,,,,,,,"0Months,22Days",,7,INFANTA (HONDA EXCLUSIVE),7,MARILAO,7,INFANTA,7,BAY
-9,BAYAMBANG,KARL,2026-04-15,,,,,,,"2Months,17Days",,8,LAIYA SAN JUAN,8,PILILIA,8,LAIYA SAN JUAN,8,CALAMBA
-10,BINALONAN,EDISON,2026-04-13,,,,,,,"2Months,19Days",,9,LOS BAÑOS,9,PLARIDEL,9,LIPA,9,CALAPAN
-11,BINANGONAN,KARL,2026-01-12,GENESIS,2026-06-03,,,,,"0Months,28Days",,10,LUCENA,10,STA CRUZ,10,LOPEZ,10,GUMACA
-12,CALAMBA,LAURENCE,2026-06-09,,,,,,,"0Months,22Days",,11,NAGCARLAN,11,STO TOMAS,11,LUCENA (YAMAHA EXCLUSIVE),11,LIMAY BATAAN
-13,CALAMBA (YAMAHA EXCLUSIVE),KARL,2026-02-25,,,,,,,"4Months,6Days",,12,PAGBILAO,12,TANAY,12,SAN FRANCISCO,12,NAIC
-14,CALAPAN,KARL,2026-02-09,LAURENCE,2026-06-23,,,,,"0Months,8Days",,13,PUERTO GALERA,13,,13,SINILOAN,13,ORANI
-15,CALAUAG,EDISON,2026-05-14,,,,,,,"1Months,18Days",,14,PUERTO GALERA,14,,14,STA CRUZ,14,PANIQUI
-16,CALIT-CALIT SAN JUAN,EDISON,2026-01-13,GENESIS,2026-06-08,,,,,"0Months,23Days",,15,STA ROSA (YAMAHA EXCLUSIVE),15,,15,TANAUAN,15,PINAMALAYAN
-17,CARMEN,EDISON,2026-04-15,,,,,,,"2Months,17Days",,16,STA. ROSA,16,,16,,16,PINAMALAYAN
-18,CATANAUAN,GENESIS,2026-05-05,,,,,,,"1Months,27Days",,17,,17,,17,,17,SAN PABLO
-19,DAET,GENESIS,2026-05-05,,,,,,,"1Months,27Days",,18,,18,,18,,18,SAN PABLO (YAMAHA EXCLUSIVE)
-20,DAGUPAN,KARL,2026-04-13,,,,,,,"2Months,19Days",,19,,19,,19,,19,SILANG CAVITE
-21,GENERAL TRIAS,EDISON,2026-01-14,EDISON,2026-06-10,,,,,"0Months,21Days",,20,,20,,20,,20,TANZA
-22,GUMACA,LAURENCE,2026-03-24,,,,,,,"3Months,9Days",,21,,21,,21,,21,TARLAC`;
-
-    let activeData = { summary: {}, branches: [], lowestEfficiency: [], highestRepo: [], topFindings26: [], auditors: [] };
+    let activeData = { summary: {}, branches: [], lowestEfficiency: [], highestRepo: [], topFindings26: [], auditors: [], emergencyHistory: [] };
     let charts = {};
     let currentBranchSort = null;
 
@@ -157,109 +77,6 @@
     };
     const STRICT_NORMALIZED = STRICT_BRANCH_LIST.map(normalizeName);
 
-    // Initial parsing of the default CSV data injected above
-    function parseInitialCSV() {
-        const lines = RAW_CSV_DATA.trim().split('\n');
-        const tempBranchesMap = {};
-        const auditorMap = { "KARL": [], "GENESIS": [], "EDISON": [], "LAURENCE": [] };
-
-        // Find the start of the data safely
-        let startIdx = 1;
-        for (let i = 0; i < lines.length; i++) {
-           const rowCheck = lines[i].split(',');
-           if (rowCheck[1] && rowCheck[1].toUpperCase().trim() === 'BRANCHES') {
-               startIdx = i + 1;
-               break;
-           }
-        }
-
-        for (let i = startIdx; i < lines.length; i++) {
-            const row = lines[i].split(',');
-            if (row.length < 35 || !row[1]) continue;
-
-            const rawName = String(row[1]).trim();
-            const normalizedInput = normalizeName(rawName);
-            const matchedIndex = STRICT_NORMALIZED.indexOf(normalizedInput);
-            
-            if (matchedIndex === -1) continue; 
-            const branchName = STRICT_BRANCH_LIST[matchedIndex];
-
-            let repoRaw = row[10];
-            let repoParsed = 0;
-            if (repoRaw) {
-               let val = parseFloat(String(repoRaw).replace('%', ''));
-               repoParsed = val < 1 ? val * 100 : val; // Convert true decimals back to %
-            }
-
-            const branch = {
-                name: branchName,
-                accountsMar: parseInt(row[2]) || 0,
-                accountsApr: parseInt(row[3]) || 0,
-                accountsMay: parseInt(row[4]) || 0,
-                effMar: parseInt(row[11]) || 0,
-                effApr: parseInt(row[12]) || 0,
-                effLatest: parseInt(row[13]) || 0, 
-                collection: row[14] || 'Stable',
-                sales: row[27] || 'Stable',
-                serviceTarget: parseInt(row[28]) || 0,
-                serviceMar: parseInt(row[29]) || 0,
-                serviceApr: parseInt(row[30]) || 0,
-                serviceMay: parseInt(row[31]) || 0,
-                service: String(row[32] || 'Target').trim(),
-                findings2024: parseInt(row[33]) || 0,
-                findings2025: parseInt(row[34]) || 0,
-                findings2026: parseInt(row[35]) || 0,
-                auditStatus: row[36] || 'PENDING',
-                repoRate: repoParsed,
-                auditor: String(row[39] || 'UNASSIGNED').trim(),
-                salesMar: { ins: parseInt(row[17])||0, cod: parseInt(row[18])||0, ca: parseInt(row[19])||0 }, 
-                salesApr: { ins: parseInt(row[20])||0, cod: parseInt(row[21])||0, ca: parseInt(row[22])||0 }, 
-                salesMay: { ins: parseInt(row[23])||0, cod: parseInt(row[24])||0, ca: parseInt(row[25])||0 }  
-            };
-            
-            tempBranchesMap[branchName] = branch;
-        }
-
-        // Accurately parse ROTATION data from embedded Rotation string
-        if(window.RAW_ROTATION_DATA) {
-            const rotLines = RAW_ROTATION_DATA.trim().split('\n');
-            for (let i = 1; i < rotLines.length; i++) {
-                const r = rotLines[i].split(',');
-                if (r.length < 14) continue;
-                
-                const parseAuditorCell = (cellValue, auditorName) => {
-                    if (cellValue) {
-                        let rawVal = String(cellValue).trim();
-                        // Make sure it's not empty, not a pure number (indices like 1, 2, 3), and reasonably sized
-                        if (rawVal && isNaN(rawVal) && rawVal.length > 2) { 
-                            let normalizedInput = normalizeName(rawVal);
-                            let matchIdx = STRICT_NORMALIZED.indexOf(normalizedInput);
-                            if (matchIdx !== -1) {
-                                auditorMap[auditorName].push(STRICT_BRANCH_LIST[matchIdx]);
-                            }
-                        }
-                    }
-                };
-                
-                // Col N = 13 (KARL), Col P = 15 (GENESIS), Col R = 17 (EDISON), Col T = 19 (LAURENCE)
-                parseAuditorCell(r[13], "KARL");
-                parseAuditorCell(r[15], "GENESIS");
-                parseAuditorCell(r[17], "EDISON");
-                parseAuditorCell(r[19], "LAURENCE");
-            }
-        }
-
-        // Fill in array following strict branch list ordering
-        activeData.branches = STRICT_BRANCH_LIST.map(name => tempBranchesMap[name]).filter(b => b);
-        
-        activeData.auditors = Object.keys(auditorMap)
-            .map(aud => ({ name: aud, count: auditorMap[aud].length, branches: auditorMap[aud] }))
-            .filter(aud => aud.count > 0 || ["KARL", "GENESIS", "EDISON", "LAURENCE"].includes(aud.name))
-            .sort((a, b) => b.count - a.count);
-
-        updateCalculations();
-    }
-
     function updateCalculations() {
         const tb = activeData.branches;
         
@@ -281,11 +98,10 @@
             findings2025: tb.reduce((sum, b) => sum + b.findings2025, 0),
             findings2026: tb.reduce((sum, b) => sum + b.findings2026, 0),
             totalAccounts: tb.reduce((sum, b) => sum + b.accountsMay, 0).toLocaleString(),
-            emergencyAuditor: activeData.summary?.emergencyAuditor || "KARL", // Retain value set by overriding sheet
+            emergencyAuditor: activeData.summary?.emergencyAuditor || "PENDING",
             trendLabels: ["MARCH", "APRIL", "MAY"]
         };
 
-        // Top 10 lists evaluating all branches regardless of audit status
         activeData.lowestEfficiency = [...tb].sort((a,b) => a.effLatest - b.effLatest).slice(0, 10).map(x => ({ branch: x.name, rate: x.effLatest }));
         activeData.highestRepo = [...tb].sort((a,b) => b.repoRate - a.repoRate).slice(0, 10).map(x => ({ branch: x.name, rate: parseFloat(x.repoRate.toFixed(2)) }));
         activeData.topFindings26 = [...tb].filter(b => b.auditStatus !== "PENDING").sort((a,b) => b.findings2026 - a.findings2026).slice(0, 10).map(x => ({ name: x.name, count: x.findings2026 }));
@@ -322,19 +138,16 @@
       <div class="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-start">
         <h1 class="text-xl font-bold tracking-tight text-white whitespace-nowrap">Audit Data Dashboard</h1>
       </div>
-      
-      <div class="flex-1 w-full max-w-2xl flex items-center gap-2">
-        <input type="text" id="sheetLink" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vRL-t-SmVdUckJky-Y7cNAtH19QlqPScO2LLNbQE029Yda6HMjFSPxNWpXhydWrkqy1YiGTXjCPBqo9/pubhtml" placeholder="Paste published Google Sheets link..." class="w-full px-4 py-2 bg-blue-900/50 border border-blue-700 rounded-xl text-xs text-white placeholder-blue-300 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all">
-        <button onclick="fetchSheet()" class="flex items-center gap-2 px-4 py-2 bg-accentCyan hover:bg-cyan-500 active:scale-95 border border-transparent rounded-xl cursor-pointer text-sm font-semibold transition-all duration-200 shadow-sm text-white whitespace-nowrap">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
-          <span class="hidden sm:inline">Load Link</span>
-        </button>
-      </div>
 
       <div class="flex items-center gap-2 w-full lg:w-auto justify-end">
+        <button onclick="fetchSheet()" class="flex items-center gap-2 px-3 py-2 bg-white hover:bg-gray-50 active:scale-95 border border-transparent rounded-xl cursor-pointer text-sm font-semibold transition-all duration-200 shadow-sm text-royalBlue whitespace-nowrap">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-cloud-download text-royalBlue"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="m8 17 4 4 4-4"></path></svg>
+          <span class="hidden xl:inline">Load Data</span>
+        </button>
+        
         <label class="flex items-center gap-2 px-3 py-2 bg-white hover:bg-gray-50 active:scale-95 border border-transparent rounded-xl cursor-pointer text-sm font-semibold transition-all duration-200 shadow-sm text-royalBlue whitespace-nowrap">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-spreadsheet text-royalBlue"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M8 13h2"></path><path d="M14 13h2"></path><path d="M8 17h2"></path><path d="M14 17h2"></path></svg>
-          <span class="hidden xl:inline">Upload</span>
+          <span class="hidden xl:inline">Upload File</span>
           <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" class="hidden">
         </label>
         
@@ -445,9 +258,9 @@
       <div class="bg-coolCard border border-coolBorder rounded-2xl p-6 shadow-md lg:col-span-2 flex flex-col justify-between hover:shadow-lg transition-all">
         <h3 class="text-lg font-bold tracking-tight text-slate-900 mb-6 flex items-center gap-2">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pie-chart w-5 h-5 text-accentCyan"><path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z"></path><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path></svg>
-          COLLECTION, SALES &amp; AUDIT OVERVIEW
+          COLLECTION, SALES, SERVICE & AUDIT OVERVIEW
         </h3>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 h-full items-center">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 h-full items-center">
           <div class="cursor-pointer active:scale-[0.98] transition-transform">
             <span class="text-xs font-semibold text-slate-500 tracking-wider uppercase block mb-3 text-center">Collection Status Breakdown</span>
             <div id="collectionDonutChart" style="min-height: 200px;"></div>
@@ -455,6 +268,10 @@
           <div class="cursor-pointer active:scale-[0.98] transition-transform">
             <span class="text-xs font-semibold text-slate-500 tracking-wider uppercase block mb-3 text-center">Sales Status Breakdown</span>
             <div id="salesDonutChart" style="min-height: 200px;"></div>
+          </div>
+          <div class="cursor-pointer active:scale-[0.98] transition-transform">
+            <span class="text-xs font-semibold text-slate-500 tracking-wider uppercase block mb-3 text-center">Service Status Breakdown</span>
+            <div id="serviceDonutChart" style="min-height: 200px;"></div>
           </div>
           <div class="cursor-pointer active:scale-[0.98] transition-transform">
             <span class="text-xs font-semibold text-slate-500 tracking-wider uppercase block mb-3 text-center">Audit Findings Trend</span>
@@ -656,10 +473,40 @@
               </div>
           </div>`;
       } else if (type === 'emergency') {
+          let historyRows = '';
+          if (activeData.emergencyHistory && activeData.emergencyHistory.length > 0) {
+              historyRows = activeData.emergencyHistory.map(h => `
+                  <tr class="border-b border-coolBorder hover:bg-gray-50">
+                      <td class="p-3 text-sm text-slate-800 font-semibold">${h.auditor}</td>
+                      <td class="p-3 text-sm text-slate-600">${h.branch}</td>
+                      <td class="p-3 text-sm text-slate-600">${h.date}</td>
+                  </tr>
+              `).join('');
+          } else {
+              historyRows = `<tr><td colspan="3" class="p-4 text-center text-sm text-slate-500 italic">No historical emergency records found.</td></tr>`;
+          }
+
           modalBody.innerHTML = `
-          <div class="p-5 bg-accentRose/10 border border-accentRose/20 text-accentRose rounded-xl">
+          <div class="p-5 bg-accentRose/10 border border-accentRose/20 text-accentRose rounded-xl mb-4">
             <h3 class="font-bold text-lg mb-2">Emergency Auditor Standby</h3>
             <p class="text-sm">The current emergency auditor is <strong>${activeData.summary.emergencyAuditor || 'PENDING'}</strong>.</p>
+          </div>
+          <div class="p-5 bg-white border border-coolBorder rounded-xl shadow-sm">
+            <h3 class="font-bold text-sm text-slate-700 mb-3 uppercase tracking-wider">Emergency Audit History</h3>
+            <div class="overflow-y-auto max-h-[40vh] custom-scrollbar border border-coolBorder rounded-lg">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-gray-50 sticky top-0 border-b border-coolBorder z-10 shadow-sm">
+                        <tr>
+                            <th class="p-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Auditor (Col D)</th>
+                            <th class="p-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Branch (Col E)</th>
+                            <th class="p-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Date Audited (Col F)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${historyRows}
+                    </tbody>
+                </table>
+            </div>
           </div>`;
       } else {
           if (type === 'all') branchesToDisplay = activeData.branches;
@@ -843,20 +690,20 @@
                         <svg class="w-4 h-4 text-accentCyan" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
                         Service Metrics (3-Month Trend)
                       </span>
-                      <span class="bg-accentCyan/10 text-accentCyan px-3 py-1 rounded-lg border border-accentCyan/20">Target: <strong class="ml-1">${b.serviceTarget}</strong></span>
+                      <span class="bg-accentCyan/10 text-accentCyan px-3 py-1 rounded-lg border border-accentCyan/20">Target: <strong class="ml-1">₱${Number(b.serviceTarget).toLocaleString()}</strong></span>
                   </h4>
                   <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
                       <div class="bg-white p-4 rounded-xl border border-coolBorder shadow-sm text-center">
                           <div class="text-xs font-bold text-slate-400 mb-3 border-b pb-2">MARCH</div>
-                          <div class="text-2xl font-bold text-slate-800">${b.serviceMar}</div>
+                          <div class="text-2xl font-bold text-slate-800">₱${Number(b.serviceMar).toLocaleString()}</div>
                       </div>
                       <div class="bg-white p-4 rounded-xl border border-coolBorder shadow-sm text-center">
                           <div class="text-xs font-bold text-slate-400 mb-3 border-b pb-2">APRIL</div>
-                          <div class="text-2xl font-bold text-slate-800">${b.serviceApr}</div>
+                          <div class="text-2xl font-bold text-slate-800">₱${Number(b.serviceApr).toLocaleString()}</div>
                       </div>
                       <div class="bg-white p-4 rounded-xl border border-coolBorder shadow-sm text-center">
                           <div class="text-xs font-bold text-slate-400 mb-3 border-b pb-2">LATEST</div>
-                          <div class="text-2xl font-bold text-accentCyan">${b.serviceMay}</div>
+                          <div class="text-2xl font-bold text-accentCyan">₱${Number(b.serviceMay).toLocaleString()}</div>
                       </div>
                   </div>
               </div>
@@ -953,6 +800,7 @@
       updateStatCards();
       renderDonutChart();
       renderSalesDonutChart();
+      renderServiceDonutChart();
       renderFindingsChart();
       renderLowestEfficiencyChart();
       renderHighestRepoChart();
@@ -963,24 +811,24 @@
     function updateStatCards() {
       const sum = activeData.summary;
       
-      document.getElementById('stat-total-branches').innerText = sum.totalBranches;
-      document.getElementById('stat-branches-sub').innerText = `${sum.doneCount} done · ${sum.forAuditCount} for audit · ${sum.pendingCount} pending`;
+      document.getElementById('stat-total-branches').innerText = sum.totalBranches || 0;
+      document.getElementById('stat-branches-sub').innerText = `${sum.doneCount || 0} done · ${sum.forAuditCount || 0} for audit · ${sum.pendingCount || 0} pending`;
       
-      document.getElementById('stat-collection-improving').innerHTML = `${sum.improvingCollection} <span class="text-sm font-medium text-slate-500">improving</span>`;
-      document.getElementById('stat-collection-sub').innerText = `${sum.decliningCollection} declining · ${sum.stableCollection} stable · ${sum.recoveringCollection} recovering`;
-      document.getElementById('stat-sales-improving').innerHTML = `${sum.salesImproving} <span class="text-sm font-medium text-slate-500">improving</span>`;
-      document.getElementById('stat-sales-sub').innerText = `${sum.salesDeclining} declining · ${sum.salesStable} stable`;
-      document.getElementById('stat-service-target').innerHTML = `${sum.serviceTarget} <span class="text-sm font-medium text-slate-500">on target</span>`;
-      document.getElementById('stat-service-sub').innerText = `${sum.serviceDeclining} declining`;
+      document.getElementById('stat-collection-improving').innerHTML = `${sum.improvingCollection || 0} <span class="text-sm font-medium text-slate-500">improving</span>`;
+      document.getElementById('stat-collection-sub').innerText = `${sum.decliningCollection || 0} declining · ${sum.stableCollection || 0} stable · ${sum.recoveringCollection || 0} recovering`;
+      document.getElementById('stat-sales-improving').innerHTML = `${sum.salesImproving || 0} <span class="text-sm font-medium text-slate-500">improving</span>`;
+      document.getElementById('stat-sales-sub').innerText = `${sum.salesDeclining || 0} declining · ${sum.salesStable || 0} stable`;
+      document.getElementById('stat-service-target').innerHTML = `${sum.serviceTarget || 0} <span class="text-sm font-medium text-slate-500">on target</span>`;
+      document.getElementById('stat-service-sub').innerText = `${sum.serviceDeclining || 0} declining`;
       
       const pctChange = sum.findings2024 > 0 ? Math.round(((sum.findings2025 - sum.findings2024) / sum.findings2024) * 100) : 0;
       
-      document.getElementById('stat-findings-2024').innerText = sum.findings2024;
-      document.getElementById('stat-findings-2025').innerText = sum.findings2025;
+      document.getElementById('stat-findings-2024').innerText = sum.findings2024 || 0;
+      document.getElementById('stat-findings-2025').innerText = sum.findings2025 || 0;
       document.getElementById('stat-findings-2025-sub').innerText = pctChange >= 0 ? `+${pctChange}% vs 2024` : `${pctChange}% vs 2024`;
       
-      document.getElementById('stat-findings-2026').innerText = sum.findings2026;
-      document.getElementById('stat-total-accounts').innerText = sum.totalAccounts;
+      document.getElementById('stat-findings-2026').innerText = sum.findings2026 || 0;
+      document.getElementById('stat-total-accounts').innerText = sum.totalAccounts || 0;
     }
 
     function renderDonutChart() {
@@ -996,7 +844,7 @@
             }
           }
         },
-        series: [sum.improvingCollection, sum.decliningCollection, sum.stableCollection, sum.recoveringCollection],
+        series: [sum.improvingCollection || 0, sum.decliningCollection || 0, sum.stableCollection || 0, sum.recoveringCollection || 0],
         labels: ['Improving', 'Declining', 'Stable', 'Recovering'],
         colors: ['#10b981', '#f43f5e', '#64748b', '#d97706'],
         stroke: { show: false },
@@ -1023,7 +871,7 @@
             }
           }
         },
-        series: [sum.salesImproving, sum.salesDeclining, sum.salesStable],
+        series: [sum.salesImproving || 0, sum.salesDeclining || 0, sum.salesStable || 0],
         labels: ['Improving', 'Declining', 'Stable'],
         colors: ['#4f46e5', '#f43f5e', '#64748b'], 
         stroke: { show: false },
@@ -1036,6 +884,33 @@
       el.innerHTML = '';
       charts.salesDonut = new ApexCharts(el, options);
       charts.salesDonut.render();
+    }
+
+    function renderServiceDonutChart() {
+      const sum = activeData.summary;
+      const options = {
+        chart: { 
+          type: 'donut', height: 200, background: 'transparent',
+          events: {
+            dataPointSelection: function(event, chartContext, config) {
+              const labels = ['Target', 'Declining'];
+              openModal(`Service Status: ${labels[config.dataPointIndex]}`, 'service', labels[config.dataPointIndex]);
+            }
+          }
+        },
+        series: [sum.serviceTarget || 0, sum.serviceDeclining || 0],
+        labels: ['Target', 'Declining'],
+        colors: ['#0891b2', '#f43f5e'], 
+        stroke: { show: false },
+        legend: { position: 'bottom', labels: { colors: '#64748b' } },
+        dataLabels: { enabled: false },
+        tooltip: { theme: 'light' }
+      };
+      const el = document.querySelector("#serviceDonutChart");
+      if (charts.serviceDonut) charts.serviceDonut.destroy();
+      el.innerHTML = '';
+      charts.serviceDonut = new ApexCharts(el, options);
+      charts.serviceDonut.render();
     }
 
     function renderFindingsChart() {
@@ -1051,7 +926,7 @@
             }
           }
         },
-        series: [{ name: 'Findings', data: [sum.findings2024, sum.findings2025, sum.findings2026] }],
+        series: [{ name: 'Findings', data: [sum.findings2024 || 0, sum.findings2025 || 0, sum.findings2026 || 0] }],
         xaxis: { categories: ['2024', '2025', '2026'], labels: { style: { colors: '#64748b' } }, tooltip: { enabled: false } },
         yaxis: { labels: { style: { colors: '#64748b' } } },
         colors: ['#0891b2'],
@@ -1069,6 +944,7 @@
 
     function renderLowestEfficiencyChart() {
       const items = activeData.lowestEfficiency;
+      if (!items || items.length === 0) return;
       const options = {
         chart: { 
           type: 'bar', height: 380, background: 'transparent', toolbar: { show: false },
@@ -1097,6 +973,7 @@
 
     function renderHighestRepoChart() {
       const items = activeData.highestRepo;
+      if (!items || items.length === 0) return;
       const options = {
         chart: { 
           type: 'bar', height: 380, background: 'transparent', toolbar: { show: false },
@@ -1126,6 +1003,9 @@
     function renderListings() {
       const listContainer = document.getElementById('top-findings-list');
       listContainer.innerHTML = '';
+      if(activeData.topFindings26.length === 0) {
+          listContainer.innerHTML = '<li class="text-xs text-slate-500 italic p-2">No data available.</li>';
+      }
       activeData.topFindings26.forEach((item, index) => {
         const li = document.createElement('li');
         li.className = "flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-coolBorder hover:border-accentRose/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer";
@@ -1315,7 +1195,7 @@
     };
     const STRICT_NORMALIZED = STRICT_BRANCH_LIST.map(normalizeName);
 
-    function parseInitialCSV() { } 
+    function updateCalculations() { } 
   `;
       
       sourceScript.textContent = scriptContent;
@@ -1323,6 +1203,7 @@
       const clonedDoc = document.documentElement.cloneNode(true);
       if (clonedDoc.querySelector("#collectionDonutChart")) clonedDoc.querySelector("#collectionDonutChart").innerHTML = '';
       if (clonedDoc.querySelector("#salesDonutChart")) clonedDoc.querySelector("#salesDonutChart").innerHTML = '';
+      if (clonedDoc.querySelector("#serviceDonutChart")) clonedDoc.querySelector("#serviceDonutChart").innerHTML = '';
       if (clonedDoc.querySelector("#findingsBarChart")) clonedDoc.querySelector("#findingsBarChart").innerHTML = '';
       if (clonedDoc.querySelector("#lowestEfficiencyChart")) clonedDoc.querySelector("#lowestEfficiencyChart").innerHTML = '';
       if (clonedDoc.querySelector("#highestRepoChart")) clonedDoc.querySelector("#highestRepoChart").innerHTML = '';
@@ -1489,8 +1370,6 @@
                 .filter(aud => aud.count > 0 || ["KARL", "GENESIS", "EDISON", "LAURENCE"].includes(aud.name))
                 .sort((a, b) => b.count - a.count);
 
-            updateCalculations();
-            
             const emergencySheetName = workbook.SheetNames.find(n => n.toUpperCase().includes("EMERGENCY"));
             if (emergencySheetName) {
                 const emergencySheet = workbook.Sheets[emergencySheetName];
@@ -1498,8 +1377,28 @@
                 if (cellA8 && cellA8.v) {
                     activeData.summary.emergencyAuditor = String(cellA8.v).trim().toUpperCase();
                 }
+                
+                const emerRows = XLSX.utils.sheet_to_json(emergencySheet, { header: 1, raw: false, defval: "" });
+                activeData.emergencyHistory = [];
+                for (let i = 0; i < emerRows.length; i++) {
+                    const r = emerRows[i];
+                    if (r && r.length > 3) {
+                        const dVal = r[3]; 
+                        const eVal = r[4]; 
+                        const fVal = r[5]; 
+                        
+                        if (dVal && String(dVal).trim().toUpperCase() !== 'AUDITOR' && String(dVal).trim() !== '') {
+                            activeData.emergencyHistory.push({
+                                auditor: String(dVal).trim(),
+                                branch: eVal ? String(eVal).trim() : 'N/A',
+                                date: fVal ? String(fVal).trim() : 'N/A'
+                            });
+                        }
+                    }
+                }
             }
 
+            updateCalculations();
             initDashboard();
           } else {
             showToast("No matching branches found. Check if DASHBOARDDATA columns match layout.");
@@ -1520,42 +1419,23 @@
     }
 
     async function fetchWithProxy(url) {
-        // Try reliable proxy 1
         try {
             const res1 = await fetch('https://corsproxy.io/?' + encodeURIComponent(url));
             if (res1.ok) return res1;
         } catch(e) { console.warn("Proxy 1 failed"); }
         
-        // Try fallback proxy 2
         try {
             const res2 = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url));
             if (res2.ok) return res2;
         } catch(e) { console.warn("Proxy 2 failed"); }
         
-        // Direct attempt
         return await fetch(url);
     }
 
+    const defaultGoogleSheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRL-t-SmVdUckJky-Y7cNAtH19QlqPScO2LLNbQE029Yda6HMjFSPxNWpXhydWrkqy1YiGTXjCPBqo9/pub?output=xlsx";
+
     async function fetchSheet(isAutoLoad = false) {
-      let linkInput = document.getElementById('sheetLink').value;
-      if (!linkInput) {
-          if (!isAutoLoad) showToast("Please enter a valid Google Sheets link.");
-          return;
-      }
-      
-      // Clean up the URL to format it correctly for XLSX download
-      let fetchUrl = linkInput.split('?')[0]; 
-      if (fetchUrl.endsWith('/pubhtml')) {
-          fetchUrl = fetchUrl.replace('/pubhtml', '/pub?output=xlsx');
-      } else if (fetchUrl.includes('/edit')) {
-          fetchUrl = fetchUrl.replace(/\/edit.*$/, '/export?format=xlsx');
-      } else if (!fetchUrl.includes('output=xlsx') && !fetchUrl.includes('format=xlsx')) {
-          if(fetchUrl.includes('/pub')) fetchUrl += '?output=xlsx';
-      }
-
-      // Bypass proxy cache to ensure auto-updates actually grab fresh data
-      fetchUrl += (fetchUrl.includes('?') ? '&' : '?') + 'nocache=' + new Date().getTime();
-
+      let fetchUrl = defaultGoogleSheetUrl + '&nocache=' + new Date().getTime();
       try {
           if (!isAutoLoad) showToast("Fetching data from Google Sheets...");
           
@@ -1566,35 +1446,28 @@
           processExcelData(arrayBuffer);
           
           if (!isAutoLoad) showToast("Dashboard successfully updated from Web Link!");
-          else console.log("Dashboard automatically loaded latest web data.");
-
       } catch (error) {
           console.error(error);
-          if (!isAutoLoad) showToast("Failed to fetch sheet. Check your internet or link permissions.");
+          if (!isAutoLoad) showToast("Failed to fetch sheet. Check your internet connection.");
       }
     }
 
     document.addEventListener("DOMContentLoaded", () => {
-      // Check if viewing from a saved file vs a fresh instance
-      if (typeof DEFAULT_DATA !== 'undefined' && DEFAULT_DATA && DEFAULT_DATA.branches && DEFAULT_DATA.branches.length > 0) {
-          activeData = DEFAULT_DATA;
-          updateCalculations();
-      } else {
-          parseInitialCSV();
-      }
+      // Start entirely blank until data is loaded
+      activeData = { 
+        summary: {
+            totalBranches: 0, doneCount: 0, forAuditCount: 0, pendingCount: 0,
+            improvingCollection: 0, decliningCollection: 0, stableCollection: 0, recoveringCollection: 0,
+            salesImproving: 0, salesDeclining: 0, salesStable: 0,
+            serviceTarget: 0, serviceDeclining: 0,
+            findings2024: 0, findings2025: 0, findings2026: 0,
+            totalAccounts: 0, emergencyAuditor: ""
+        }, 
+        branches: [], lowestEfficiency: [], highestRepo: [], topFindings26: [], auditors: [], emergencyHistory: [] 
+      };
       
       initDashboard();
       
-      // Attempt background auto-fetch if a link is pre-loaded in the box
-      setTimeout(() => {
-          const defaultLink = document.getElementById('sheetLink');
-          if(defaultLink && defaultLink.value.trim() !== '') {
-              fetchSheet(true); 
-              // Refresh automatically every 5 minutes (300,000 ms) in the background
-              setInterval(() => fetchSheet(true), 300000);
-          }
-      }, 500);
-
       document.getElementById('tableSearch').addEventListener('input', renderScorecardTable);
       document.getElementById('filterCollection').addEventListener('change', renderScorecardTable);
       document.getElementById('filterSales').addEventListener('change', renderScorecardTable);
