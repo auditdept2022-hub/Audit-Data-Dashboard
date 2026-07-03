@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Audit Data Dashboard</title>
-  <link rel="icon" type="image/png" href="logo.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -165,7 +164,7 @@
         </label>
         
         <button onclick="downloadSelf()" class="flex items-center gap-2 px-3 py-2 bg-white hover:bg-gray-50 active:scale-95 border border-transparent rounded-xl cursor-pointer text-sm font-semibold transition-all duration-200 shadow-sm text-royalBlue whitespace-nowrap">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download text-royalBlue"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download text-royalBlue"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg>
           <span class="hidden xl:inline">Download File</span>
         </button>
       </div>
@@ -512,7 +511,7 @@
                               <span class="text-sm font-semibold text-slate-800">${h.branch || 'N/A'}</span>
                           </div>
                           <div>
-                              <span class="text-[10px] text-slate-400 font-bold uppercase block mb-1">Remarks / Details</span>
+                              <span class="text-[10px] text-slate-400 font-bold uppercase block mb-1">Date of Audit</span>
                               <span class="text-sm font-semibold text-slate-800">${h.details || 'N/A'}</span>
                           </div>
                       </div>
@@ -1517,21 +1516,43 @@
                 const emergencySheet = workbook.Sheets[emergencySheetName];
                 const emRows = XLSX.utils.sheet_to_json(emergencySheet, { header: 1 });
 
-                const cellA8 = emergencySheet['A8'];
-                if (cellA8 && cellA8.v) {
-                    activeData.summary.emergencyAuditor = String(cellA8.v).trim().toUpperCase();
+                let emerAuditor = "";
+                // Robust extraction for A8 (using Sheet object directly or falling back to array index 7)
+                if (emergencySheet['A8'] && emergencySheet['A8'].v) {
+                    emerAuditor = String(emergencySheet['A8'].v).trim().toUpperCase();
+                } else if (emRows.length > 7 && emRows[7][0]) {
+                    emerAuditor = String(emRows[7][0]).trim().toUpperCase();
+                }
+                if (emerAuditor) {
+                    activeData.summary.emergencyAuditor = emerAuditor;
                 }
 
-                // Parse columns D, E, and F for historical records starting from row 8 (index 7)
-                for (let i = 7; i < emRows.length; i++) {
+                // Parse columns D, E, and F for historical records starting from row 7 (index 6) to catch everything after the header
+                for (let i = 6; i < emRows.length; i++) {
                     const r = emRows[i];
                     if (!r) continue;
                     
                     const dVal = r[3] !== undefined ? String(r[3]).trim() : "";
                     const eVal = r[4] !== undefined ? String(r[4]).trim() : "";
-                    const fVal = r[5] !== undefined ? String(r[5]).trim() : "";
                     
-                    if (dVal || eVal || fVal) {
+                    // Fixed Format Logic applied specifically to Date column (F -> index 5)
+                    let fValRaw = r[5] !== undefined ? String(r[5]).trim() : "";
+                    let fVal = fValRaw;
+                    if (fValRaw) {
+                        let d;
+                        if (!isNaN(fValRaw) && Number(fValRaw) > 10000) {
+                            d = new Date(1899, 11, 30);
+                            d.setDate(d.getDate() + Number(fValRaw));
+                        } else {
+                            d = new Date(fValRaw);
+                        }
+                        if (!isNaN(d.getTime())) {
+                            const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                            fVal = `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+                        }
+                    }
+                    
+                    if ((dVal || eVal || fVal) && dVal.toUpperCase() !== "AUDITOR") {
                         activeData.emergencyHistory.push({
                             auditor: dVal,
                             branch: eVal,
