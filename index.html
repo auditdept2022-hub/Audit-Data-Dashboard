@@ -2357,13 +2357,14 @@ rect.legend-mouseover-inactive,
     const AUDIT_STATUS_OPTIONS = ['DONE', 'PENDING', 'FOR AUDIT'];
 
     function buildStatusFilterBar(type, activeValue) {
-      const options = STATUS_FILTER_OPTIONS[type] || [];
+      const options = ['ALL', ...(STATUS_FILTER_OPTIONS[type] || [])];
       const buttonsHtml = options.map(opt => {
-          const isActive = opt === activeValue;
+          const isActive = opt === (activeValue || 'ALL');
           const activeClass = isActive
               ? 'bg-accentCyan text-white border-accentCyan shadow-sm'
               : 'bg-white text-slate-600 border-coolBorder hover:border-accentCyan/50 hover:bg-accentCyan/5';
-          return `<button onclick="setModalStatusFilter('${opt}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all active:scale-95 ${activeClass}">${opt}</button>`;
+          const label = opt === 'ALL' ? `All ${type.charAt(0).toUpperCase() + type.slice(1)}` : opt;
+          return `<button onclick="setModalStatusFilter('${opt}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all active:scale-95 ${activeClass}">${label}</button>`;
       }).join('');
       return `<div class="flex flex-wrap items-center gap-2 mb-3"><span class="text-xs font-semibold text-slate-500 mr-1">Filter by status:</span>${buttonsHtml}</div>`;
     }
@@ -2385,7 +2386,7 @@ rect.legend-mouseover-inactive,
       if (!state) return;
 
       let list = activeData.branches;
-      if (state.type === 'collection' || state.type === 'sales' || state.type === 'service') {
+      if ((state.type === 'collection' || state.type === 'sales' || state.type === 'service') && state.statusValue !== 'ALL') {
           list = list.filter(b => b[state.type] === state.statusValue);
       }
       if (state.auditStatus && state.auditStatus !== 'ALL') {
@@ -2398,7 +2399,7 @@ rect.legend-mouseover-inactive,
       if (state.type === 'all') {
           titleText = (state.auditStatus === 'ALL') ? 'All Branches Overview' : `${state.auditStatus} Branches Overview`;
       } else {
-          titleText = `${state.statusValue} ${label} Overview`;
+          titleText = (state.statusValue === 'ALL') ? `All ${label} Overview` : `${state.statusValue} ${label} Overview`;
           if (state.auditStatus !== 'ALL') titleText += ` — ${state.auditStatus}`;
       }
       modalTitle.innerHTML = titleText;
@@ -2475,163 +2476,187 @@ rect.legend-mouseover-inactive,
             </div>`;
       }
 
+      // --- derived values for the redesigned profile ---
+      const accVals = [b.accountsMar, b.accountsApr, b.accountsMay];
+      const effVals = [b.effMar, b.effApr, b.effLatest];
+      const maxAcc = Math.max(...accVals, 1);
+      const accDelta = b.accountsMay - b.accountsMar;
+      const effDelta = b.effLatest - b.effMar;
+      const target = Number(b.serviceTarget) || 0;
+      const serviceVals = [b.serviceMar, b.serviceApr, b.serviceMay];
+      const totalIns = b.salesMar.ins + b.salesApr.ins + b.salesMay.ins;
+      const totalCod = b.salesMar.cod + b.salesApr.cod + b.salesMay.cod;
+      const totalCa = b.salesMar.ca + b.salesApr.ca + b.salesMay.ca;
+
+      const effAccent = b.effLatest < 50 ? 'text-accentRose' : (b.effLatest < 70 ? 'text-accentAmber' : 'text-accentEmerald');
+      const repoAccent = b.repoRate > 7 ? 'text-accentRose' : (b.repoRate > 4 ? 'text-accentAmber' : 'text-accentEmerald');
+
+      const trendTag = (delta, unit) => {
+          if (delta > 0) return `<span class="inline-flex items-center gap-1 text-[11px] font-bold text-accentEmerald">▲ +${delta}${unit}</span>`;
+          if (delta < 0) return `<span class="inline-flex items-center gap-1 text-[11px] font-bold text-accentRose">▼ ${delta}${unit}</span>`;
+          return `<span class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-400">— 0${unit}</span>`;
+      };
+
+      const statCard = (label, value, accent) => `
+          <div class="bg-white rounded-xl border border-coolBorder p-4 shadow-sm">
+              <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">${label}</p>
+              <p class="text-2xl font-extrabold ${accent}">${value}</p>
+          </div>`;
+
+      const miniBarCol = (value, heightPx, isLatest, label, suffix) => `
+          <div class="flex flex-col items-center">
+              <span class="text-xs font-bold ${isLatest ? 'text-accentBlue' : 'text-slate-700'} mb-1">${value}${suffix || ''}</span>
+              <div class="w-full max-w-[36px] rounded-t-md ${isLatest ? 'bg-accentBlue' : 'bg-slate-300'}" style="height:${heightPx}px"></div>
+              <span class="text-[10px] text-slate-400 font-semibold uppercase mt-2">${label}</span>
+          </div>`;
+
+      const accountsBars = accVals.map((v, i) => miniBarCol(v, Math.max(6, Math.round((v / maxAcc) * 72)), i === 2, labels[i], '')).join('');
+      const effBars = effVals.map((v, i) => miniBarCol(v, Math.max(6, Math.round((v / 100) * 72)), i === 2, labels[i], '%')).join('');
+
+      const serviceRows = serviceVals.map((v, i) => {
+          const pct = target > 0 ? Math.round((v / target) * 100) : 0;
+          const barPct = Math.min(100, pct);
+          const barColor = pct >= 100 ? 'bg-accentEmerald' : (pct >= 70 ? 'bg-accentAmber' : 'bg-accentRose');
+          const pctColor = pct >= 100 ? 'text-accentEmerald' : (pct >= 70 ? 'text-accentAmber' : 'text-accentRose');
+          return `
+          <div>
+              <div class="flex justify-between items-center mb-1.5">
+                  <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">${labels[i]}</span>
+                  <span class="text-sm text-slate-800">₱${Number(v).toLocaleString()} <span class="font-bold ${pctColor}">(${pct}% of target)</span></span>
+              </div>
+              <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div class="${barColor} h-full rounded-full" style="width:${barPct}%"></div>
+              </div>
+          </div>`;
+      }).join('');
+
       container.innerHTML = `
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              <div class="bg-gray-50 rounded-xl p-5 border border-coolBorder shadow-sm">
-                  <h4 class="text-xs font-bold text-slate-400 uppercase mb-4 tracking-wider flex items-center gap-2">
-                      <svg class="w-4 h-4 text-accentBlue" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-                      Operational Metrics (LATEST)
-                  </h4>
-                  <div class="space-y-4">
-                      <div class="flex justify-between items-center p-2 bg-white rounded-lg border border-accentIndigo/20 shadow-sm cursor-default">
-                          <span class="text-sm font-semibold text-slate-600">Assigned Auditor</span>
-                          <span class="text-xs font-bold px-2.5 py-1 bg-accentIndigo/10 text-accentIndigo rounded-md">${b.auditor}</span>
+          <div class="space-y-5">
+
+              <div class="rounded-2xl p-5 bg-gradient-to-r from-royalBlue to-accentIndigo text-white shadow-lg flex flex-wrap items-center justify-between gap-4">
+                  <div class="flex items-center gap-4">
+                      <div class="w-14 h-14 rounded-2xl bg-white/15 flex items-center justify-center text-xl font-extrabold border border-white/20 flex-shrink-0">
+                          ${escapeHTML((b.auditor || '?').charAt(0))}
                       </div>
-                      <div class="flex justify-between items-center p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-coolBorder cursor-default">
-                          <span class="text-sm font-semibold text-slate-600">Efficiency Rate</span>
-                          <span class="text-sm font-bold text-slate-800">${b.effLatest}%</span>
-                      </div>
-                      <div class="flex justify-between items-center p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-coolBorder cursor-default">
-                          <span class="text-sm font-semibold text-slate-600">Repo Rate</span>
-                          <span class="text-sm font-bold ${b.repoRate > 7 ? 'text-accentRose' : 'text-slate-800'}">${b.repoRate.toFixed(2)}%</span>
-                      </div>
-                      <div class="flex justify-between items-center p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-coolBorder cursor-default">
-                          <span class="text-sm font-semibold text-slate-600">No. of Repo</span>
-                          <span class="text-sm font-bold text-slate-800">${b.noOfRepo}</span>
-                      </div>
-                      <div class="flex justify-between items-center p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-coolBorder cursor-default">
-                          <span class="text-sm font-semibold text-slate-600">Total Accounts</span>
-                          <span class="text-sm font-bold text-slate-800">${b.accountsMay}</span>
+                      <div>
+                          <p class="text-[11px] uppercase tracking-wider text-white/70 font-semibold mb-0.5">Assigned Auditor</p>
+                          <p class="text-lg font-bold leading-tight">${escapeHTML(b.auditor || 'Unassigned')}</p>
                       </div>
                   </div>
-              </div>
-              
-              <div class="bg-gray-50 rounded-xl p-5 border border-coolBorder shadow-sm">
-                  <h4 class="text-xs font-bold text-slate-400 uppercase mb-4 tracking-wider flex items-center gap-2">
-                      <svg class="w-4 h-4 text-accentEmerald" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                      Status Overview
-                  </h4>
-                  <div class="space-y-4">
-                      <div class="flex justify-between items-center p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-coolBorder cursor-default">
-                          <span class="text-sm font-semibold text-slate-600">Risk Profile</span>
-                          <span class="px-2.5 py-1 text-xs font-bold rounded-lg border ${riskColor}">${riskLevel}</span>
-                      </div>
-                      <div class="flex justify-between items-center p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-coolBorder cursor-default">
-                          <span class="text-sm font-semibold text-slate-600">Collection</span>
-                          ${getStatusBadge(b.collection)}
-                      </div>
-                      <div class="flex justify-between items-center p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-coolBorder cursor-default">
-                          <span class="text-sm font-semibold text-slate-600">Sales</span>
-                          ${getStatusBadge(b.sales)}
-                      </div>
-                      <div class="flex justify-between items-center p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-coolBorder cursor-default">
-                          <span class="text-sm font-semibold text-slate-600">Service</span>
-                          ${getStatusBadge(b.service)}
-                      </div>
+                  <div class="flex flex-wrap items-center gap-2">
+                      <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white/15 border border-white/25 backdrop-blur-sm">
+                          <span class="w-2 h-2 rounded-full ${riskLevel === 'High Risk' ? 'bg-accentRose' : (riskLevel === 'Medium Risk' ? 'bg-accentAmber' : 'bg-accentEmerald')}"></span>
+                          ${riskLevel}
+                      </span>
+                      <span class="px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-royalBlue shadow-sm">${escapeHTML((b.auditStatus || 'PENDING').toUpperCase())}</span>
                   </div>
               </div>
 
-              <div class="md:col-span-2 bg-gray-50 rounded-xl p-5 border border-coolBorder shadow-sm mt-2">
-                  <h4 class="text-xs font-bold text-slate-500 uppercase mb-4 tracking-wider flex items-center gap-2">
-                      <svg class="w-4 h-4 text-accentAmber" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                      Recent Auditor Remarks (AUDIT REPORT)
-                  </h4>
-                  ${daHtml}
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div class="bg-white rounded-xl border border-coolBorder p-4 shadow-sm text-center">
+                      <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Collection</p>
+                      ${getStatusBadge(b.collection)}
+                  </div>
+                  <div class="bg-white rounded-xl border border-coolBorder p-4 shadow-sm text-center">
+                      <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Sales</p>
+                      ${getStatusBadge(b.sales)}
+                  </div>
+                  <div class="bg-white rounded-xl border border-coolBorder p-4 shadow-sm text-center">
+                      <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Service</p>
+                      ${getStatusBadge(b.service)}
+                  </div>
               </div>
 
-              <div class="md:col-span-2 bg-gray-50 rounded-xl p-5 border border-coolBorder shadow-sm mt-2">
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  ${statCard('Efficiency Rate (Latest)', b.effLatest + '%', effAccent)}
+                  ${statCard('Repo Rate', b.repoRate.toFixed(2) + '%', repoAccent)}
+                  ${statCard('No. of Repo', b.noOfRepo, 'text-slate-800')}
+                  ${statCard('Total Accounts (Latest)', b.accountsMay, 'text-accentBlue')}
+              </div>
+
+              <div class="bg-gray-50 rounded-xl p-5 border border-coolBorder shadow-sm">
                   <h4 class="text-xs font-bold text-slate-500 uppercase mb-4 tracking-wider flex items-center gap-2">
                       <svg class="w-4 h-4 text-accentCyan" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
                       3-Month Trend (Accounts & Efficiency)
                   </h4>
-                  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                      <div class="p-4 bg-white rounded-xl border border-coolBorder shadow-sm hover:border-slate-400 transition-all cursor-default">
-                          <div class="text-xs text-slate-500 mb-1 font-semibold uppercase tracking-wider">${labels[0]}</div>
-                          <div class="flex justify-center items-center gap-6 mt-3">
-                              <div><div class="text-[10px] text-slate-400 uppercase">Accounts</div><div class="text-xl font-bold text-slate-800">${b.accountsMar}</div></div>
-                              <div><div class="text-[10px] text-slate-400 uppercase">Efficiency</div><div class="text-xl font-bold text-slate-800">${b.effMar}%</div></div>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div class="bg-white rounded-xl border border-coolBorder p-4">
+                          <div class="flex items-center justify-between mb-3">
+                              <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Accounts</span>
+                              ${trendTag(accDelta, '')}
                           </div>
+                          <div class="grid grid-cols-3 gap-2">${accountsBars}</div>
                       </div>
-                      <div class="p-4 bg-white rounded-xl border border-coolBorder shadow-sm hover:border-slate-400 transition-all cursor-default">
-                          <div class="text-xs text-slate-500 mb-1 font-semibold uppercase tracking-wider">${labels[1]}</div>
-                          <div class="flex justify-center items-center gap-6 mt-3">
-                              <div><div class="text-[10px] text-slate-400 uppercase">Accounts</div><div class="text-xl font-bold text-slate-800">${b.accountsApr}</div></div>
-                              <div><div class="text-[10px] text-slate-400 uppercase">Efficiency</div><div class="text-xl font-bold text-slate-800">${b.effApr}%</div></div>
+                      <div class="bg-white rounded-xl border border-coolBorder p-4">
+                          <div class="flex items-center justify-between mb-3">
+                              <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Efficiency</span>
+                              ${trendTag(effDelta, '%')}
                           </div>
-                      </div>
-                      <div class="p-4 bg-white rounded-xl border border-accentBlue/30 shadow-sm relative overflow-hidden cursor-default">
-                          <div class="absolute top-0 right-0 px-2 py-0.5 bg-accentBlue text-white text-[9px] font-bold rounded-bl-lg">LATEST</div>
-                          <div class="text-xs text-slate-500 mb-1 font-semibold uppercase tracking-wider mt-1">${labels[2]}</div>
-                          <div class="flex justify-center items-center gap-6 mt-3">
-                              <div><div class="text-[10px] text-slate-400 uppercase">Accounts</div><div class="text-xl font-bold text-accentBlue">${b.accountsMay}</div></div>
-                              <div><div class="text-[10px] text-slate-400 uppercase">Efficiency</div><div class="text-xl font-bold text-accentBlue">${b.effLatest}%</div></div>
-                          </div>
+                          <div class="grid grid-cols-3 gap-2">${effBars}</div>
                       </div>
                   </div>
               </div>
 
-              <div class="md:col-span-2 bg-gray-50 rounded-xl p-5 border border-coolBorder shadow-sm mt-2">
-                  <h4 class="text-xs font-bold text-slate-500 uppercase mb-4 tracking-wider flex items-center justify-between">
+              <div class="bg-gray-50 rounded-xl p-5 border border-coolBorder shadow-sm">
+                  <h4 class="text-xs font-bold text-slate-500 uppercase mb-4 tracking-wider flex items-center justify-between flex-wrap gap-2">
                       <span class="flex items-center gap-2">
                         <svg class="w-4 h-4 text-accentIndigo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
                         Sales Details (INS, COD, CA)
                       </span>
-                      <span class="bg-accentIndigo/10 text-accentIndigo px-3 py-1 rounded-lg border border-accentIndigo/20">3-Month Avg Sales: <strong class="ml-1">${avgSales}</strong></span>
+                      <span class="bg-accentIndigo/10 text-accentIndigo px-3 py-1 rounded-lg border border-accentIndigo/20 normal-case tracking-normal font-semibold">3-Month Avg Sales (INS − CA): <strong class="ml-1">${avgSales}</strong></span>
                   </h4>
-                  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div class="bg-white p-4 rounded-xl border border-coolBorder shadow-sm text-center">
-                          <div class="text-xs font-bold text-slate-400 mb-3 border-b pb-2">${labels[0]}</div>
-                          <div class="flex justify-around items-center text-sm">
-                              <div><span class="text-[10px] text-slate-400 block font-semibold">INS</span><span class="font-bold text-slate-800 text-lg">${b.salesMar.ins}</span></div>
-                              <div><span class="text-[10px] text-slate-400 block font-semibold">COD</span><span class="font-bold text-slate-800 text-lg">${b.salesMar.cod}</span></div>
-                              <div><span class="text-[10px] text-slate-400 block font-semibold">CA</span><span class="font-bold text-slate-800 text-lg">${b.salesMar.ca}</span></div>
-                          </div>
-                      </div>
-                      <div class="bg-white p-4 rounded-xl border border-coolBorder shadow-sm text-center">
-                          <div class="text-xs font-bold text-slate-400 mb-3 border-b pb-2">${labels[1]}</div>
-                          <div class="flex justify-around items-center text-sm">
-                              <div><span class="text-[10px] text-slate-400 block font-semibold">INS</span><span class="font-bold text-slate-800 text-lg">${b.salesApr.ins}</span></div>
-                              <div><span class="text-[10px] text-slate-400 block font-semibold">COD</span><span class="font-bold text-slate-800 text-lg">${b.salesApr.cod}</span></div>
-                              <div><span class="text-[10px] text-slate-400 block font-semibold">CA</span><span class="font-bold text-slate-800 text-lg">${b.salesApr.ca}</span></div>
-                          </div>
-                      </div>
-                      <div class="bg-white p-4 rounded-xl border border-coolBorder shadow-sm text-center">
-                          <div class="text-xs font-bold text-slate-400 mb-3 border-b pb-2">${labels[2]}</div>
-                          <div class="flex justify-around items-center text-sm">
-                              <div><span class="text-[10px] text-slate-400 block font-semibold">INS</span><span class="font-bold text-slate-800 text-lg">${b.salesMay.ins}</span></div>
-                              <div><span class="text-[10px] text-slate-400 block font-semibold">COD</span><span class="font-bold text-slate-800 text-lg">${b.salesMay.cod}</span></div>
-                              <div><span class="text-[10px] text-slate-400 block font-semibold">CA</span><span class="font-bold text-slate-800 text-lg">${b.salesMay.ca}</span></div>
-                          </div>
-                      </div>
+                  <div class="overflow-x-auto rounded-xl border border-coolBorder">
+                      <table class="w-full text-sm text-center border-collapse">
+                          <thead class="bg-white text-[10px] uppercase tracking-wider text-slate-500 font-bold">
+                              <tr>
+                                  <th class="p-3 text-left bg-white">Metric</th>
+                                  <th class="p-3 bg-white">${labels[0]}</th>
+                                  <th class="p-3 bg-white">${labels[1]}</th>
+                                  <th class="p-3 bg-white">${labels[2]}</th>
+                                  <th class="p-3 bg-accentIndigo/5 text-accentIndigo">3-Mo Total</th>
+                              </tr>
+                          </thead>
+                          <tbody class="divide-y divide-coolBorder bg-white">
+                              <tr>
+                                  <td class="p-3 text-left font-semibold text-slate-600">Installment (INS)</td>
+                                  <td class="p-3 font-bold text-slate-800">${b.salesMar.ins}</td>
+                                  <td class="p-3 font-bold text-slate-800">${b.salesApr.ins}</td>
+                                  <td class="p-3 font-bold text-slate-800">${b.salesMay.ins}</td>
+                                  <td class="p-3 font-bold text-accentIndigo bg-accentIndigo/5">${totalIns}</td>
+                              </tr>
+                              <tr>
+                                  <td class="p-3 text-left font-semibold text-slate-600">Cash on Delivery (COD)</td>
+                                  <td class="p-3 font-bold text-slate-800">${b.salesMar.cod}</td>
+                                  <td class="p-3 font-bold text-slate-800">${b.salesApr.cod}</td>
+                                  <td class="p-3 font-bold text-slate-800">${b.salesMay.cod}</td>
+                                  <td class="p-3 font-bold text-accentIndigo bg-accentIndigo/5">${totalCod}</td>
+                              </tr>
+                              <tr>
+                                  <td class="p-3 text-left font-semibold text-slate-600">Cancelled (CA)</td>
+                                  <td class="p-3 font-bold text-slate-800">${b.salesMar.ca}</td>
+                                  <td class="p-3 font-bold text-slate-800">${b.salesApr.ca}</td>
+                                  <td class="p-3 font-bold text-slate-800">${b.salesMay.ca}</td>
+                                  <td class="p-3 font-bold text-accentIndigo bg-accentIndigo/5">${totalCa}</td>
+                              </tr>
+                          </tbody>
+                      </table>
                   </div>
               </div>
 
-              <div class="md:col-span-2 bg-gray-50 rounded-xl p-5 border border-coolBorder shadow-sm mt-2">
-                  <h4 class="text-xs font-bold text-slate-500 uppercase mb-4 tracking-wider flex items-center justify-between">
+              <div class="bg-gray-50 rounded-xl p-5 border border-coolBorder shadow-sm">
+                  <h4 class="text-xs font-bold text-slate-500 uppercase mb-4 tracking-wider flex items-center justify-between flex-wrap gap-2">
                       <span class="flex items-center gap-2">
                         <svg class="w-4 h-4 text-accentCyan" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
                         Service Metrics (3-Month Trend)
                       </span>
-                      <span class="bg-accentCyan/10 text-accentCyan px-3 py-1 rounded-lg border border-accentCyan/20">Target: <strong class="ml-1">₱${Number(b.serviceTarget).toLocaleString()}</strong></span>
+                      <span class="bg-accentCyan/10 text-accentCyan px-3 py-1 rounded-lg border border-accentCyan/20 normal-case tracking-normal font-semibold">Monthly Target: <strong class="ml-1">₱${Number(b.serviceTarget).toLocaleString()}</strong></span>
                   </h4>
-                  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                      <div class="bg-white p-4 rounded-xl border border-coolBorder shadow-sm text-center">
-                          <div class="text-xs font-bold text-slate-400 mb-3 border-b pb-2">${labels[0]}</div>
-                          <div class="text-2xl font-bold text-slate-800">₱${Number(b.serviceMar).toLocaleString()}</div>
-                      </div>
-                      <div class="bg-white p-4 rounded-xl border border-coolBorder shadow-sm text-center">
-                          <div class="text-xs font-bold text-slate-400 mb-3 border-b pb-2">${labels[1]}</div>
-                          <div class="text-2xl font-bold text-slate-800">₱${Number(b.serviceApr).toLocaleString()}</div>
-                      </div>
-                      <div class="bg-white p-4 rounded-xl border border-coolBorder shadow-sm text-center">
-                          <div class="text-xs font-bold text-slate-400 mb-3 border-b pb-2">${labels[2]}</div>
-                          <div class="text-2xl font-bold text-accentCyan">₱${Number(b.serviceMay).toLocaleString()}</div>
-                      </div>
+                  <div class="bg-white rounded-xl border border-coolBorder p-4 space-y-4">
+                      ${serviceRows}
                   </div>
               </div>
-              
-              <div class="md:col-span-2 bg-gray-50 rounded-xl p-5 border border-coolBorder shadow-sm mt-2">
+
+              <div class="bg-gray-50 rounded-xl p-5 border border-coolBorder shadow-sm">
                   <h4 class="text-xs font-bold text-slate-500 uppercase mb-4 tracking-wider flex items-center gap-2">
                       <svg class="w-4 h-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
                       Audit Findings History
@@ -2651,9 +2676,19 @@ rect.legend-mouseover-inactive,
                       </div>
                   </div>
               </div>
+
+              <div class="bg-gray-50 rounded-xl p-5 border border-coolBorder shadow-sm">
+                  <h4 class="text-xs font-bold text-slate-500 uppercase mb-4 tracking-wider flex items-center gap-2">
+                      <svg class="w-4 h-4 text-accentAmber" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                      Recent Auditor Remarks (AUDIT REPORT)
+                  </h4>
+                  ${daHtml}
+              </div>
+
           </div>
       `;
     }
+
 
     function renderBranchTable(branches, container, type, filterValue) {
       let extraColHeader = '';
