@@ -3508,23 +3508,24 @@ rect.legend-mouseover-inactive,
     }
 
     async function fetchWithProxy(url) {
-        // Try a direct connection first — published Google Sheets links usually
-        // allow this already, and it's far faster than routing through a proxy.
-        try {
-            const direct = await fetchWithTimeout(url, 6000);
-            if (direct.ok) return direct;
-        } catch(e) { console.warn("Direct fetch failed, falling back to proxy"); }
+        // Race the direct connection and both proxies simultaneously instead of
+        // trying them one at a time. Previously each failed attempt had to time
+        // out (up to 6-8s) before the next one even started, so a blocked direct
+        // fetch meant waiting ~20s+ before the sheet (and audit remarks) updated.
+        // Racing them means we finish as soon as the fastest one succeeds.
+        const attempts = [
+            fetchWithTimeout(url, 6000),
+            fetchWithTimeout('https://corsproxy.io/?' + encodeURIComponent(url), 7000),
+            fetchWithTimeout('https://api.allorigins.win/raw?url=' + encodeURIComponent(url), 7000)
+        ];
 
-        try {
-            const res1 = await fetchWithTimeout('https://corsproxy.io/?' + encodeURIComponent(url), 8000);
-            if (res1.ok) return res1;
-        } catch(e) { console.warn("Proxy 1 failed"); }
-        
-        try {
-            const res2 = await fetchWithTimeout('https://api.allorigins.win/raw?url=' + encodeURIComponent(url), 8000);
-            if (res2.ok) return res2;
-        } catch(e) { console.warn("Proxy 2 failed"); }
-        
+        const results = await Promise.allSettled(attempts);
+        const success = results.find(r => r.status === 'fulfilled' && r.value.ok);
+        if (success) return success.value;
+
+        results.forEach((r, i) => {
+            if (r.status === 'rejected') console.warn(`Fetch attempt ${i} failed:`, r.reason);
+        });
         throw new Error("All fetch attempts failed");
     }
 
