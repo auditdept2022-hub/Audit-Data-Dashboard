@@ -2315,7 +2315,7 @@ rect.legend-mouseover-inactive,
       if (state.type === 'collection' || state.type === 'sales' || state.type === 'service') {
           barsHtml += buildStatusFilterBar(state.type, state.statusValue);
       }
-      if (state.type === 'all' || state.type === 'collection') {
+      if (state.type === 'all') {
           barsHtml += buildAuditStatusFilterBar(state.auditStatus);
       }
 
@@ -2594,8 +2594,7 @@ rect.legend-mouseover-inactive,
         detailHeaders = `
           <th class="p-2 bg-gray-50 text-center">Eff Mar</th>
           <th class="p-2 bg-gray-50 text-center">Eff Apr</th>
-          <th class="p-2 bg-gray-50 text-center">Eff Latest</th>
-          <th class="p-2 bg-gray-50 text-center">No. Repo</th>`;
+          <th class="p-2 bg-gray-50 text-center">Eff Latest</th>`;
         showEffRepo = false;
       } else if (type === 'sales') {
         detailHeaders = `
@@ -2660,8 +2659,7 @@ rect.legend-mouseover-inactive,
             detailCells = `
               <td class="p-2 text-center text-slate-600">${b.effMar}%</td>
               <td class="p-2 text-center text-slate-600">${b.effApr}%</td>
-              <td class="p-2 text-center font-semibold text-slate-800">${b.effLatest}%</td>
-              <td class="p-2 text-center ${b.noOfRepo > 10 ? 'text-accentRose font-bold' : 'text-slate-600'}">${b.noOfRepo}</td>`;
+              <td class="p-2 text-center font-semibold text-slate-800">${b.effLatest}%</td>`;
           } else if (type === 'sales') {
             const avgSales = (b.salesMar.ins + b.salesApr.ins + b.salesMay.ins) - (b.salesMar.ca + b.salesApr.ca + b.salesMay.ca);
             const fmtMonth = (m) => `${m.ins}/${m.cod}/${m.ca}`;
