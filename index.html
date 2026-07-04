@@ -122,10 +122,9 @@
         activeData.topFindings26 = [...tb].filter(b => b.auditStatus !== "PENDING").sort((a,b) => b.findings2026 - a.findings2026).slice(0, 10).map(x => ({ name: x.name, count: x.findings2026 }));
 
         activeData.topDecliningCollection = [...tb]
-            .filter(b => b.collection === 'Declining')
             .sort((a,b) => a.effLatest - b.effLatest)
             .slice(0, 10)
-            .map(x => ({ name: x.name, label: `${x.effLatest}% Eff.` }));
+            .map(x => ({ name: x.name, label: `${x.effLatest}% (Latest)` }));
 
         activeData.topDecliningSales = [...tb]
             .filter(b => b.sales === 'Declining')
