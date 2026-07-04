@@ -54,6 +54,9 @@
         highestRepo: [], 
         highestNoRepo: [],
         topFindings26: [], 
+        topDecliningCollection: [],
+        topDecliningSales: [],
+        topDecliningService: [],
         auditors: [],
         dataAudit: {},
         emergencyHistory: []
@@ -117,6 +120,30 @@
         activeData.highestRepo = [...tb].sort((a,b) => b.repoRate - a.repoRate).slice(0, 10).map(x => ({ branch: x.name, rate: parseFloat(x.repoRate.toFixed(2)) }));
         activeData.highestNoRepo = [...tb].sort((a,b) => b.noOfRepo - a.noOfRepo).slice(0, 10).map(x => ({ branch: x.name, count: x.noOfRepo }));
         activeData.topFindings26 = [...tb].filter(b => b.auditStatus !== "PENDING").sort((a,b) => b.findings2026 - a.findings2026).slice(0, 10).map(x => ({ name: x.name, count: x.findings2026 }));
+
+        activeData.topDecliningCollection = [...tb]
+            .filter(b => b.collection === 'Declining')
+            .sort((a,b) => a.effLatest - b.effLatest)
+            .slice(0, 10)
+            .map(x => ({ name: x.name, label: `${x.effLatest}% Eff.` }));
+
+        activeData.topDecliningSales = [...tb]
+            .filter(b => b.sales === 'Declining')
+            .map(x => {
+                const marTotal = (x.salesMar?.ins || 0) + (x.salesMar?.cod || 0) + (x.salesMar?.ca || 0);
+                const mayTotal = (x.salesMay?.ins || 0) + (x.salesMay?.cod || 0) + (x.salesMay?.ca || 0);
+                return { name: x.name, drop: marTotal - mayTotal };
+            })
+            .sort((a,b) => b.drop - a.drop)
+            .slice(0, 10)
+            .map(x => ({ name: x.name, label: `-${x.drop} units` }));
+
+        activeData.topDecliningService = [...tb]
+            .filter(b => b.service === 'Declining')
+            .map(x => ({ name: x.name, shortfall: x.serviceTarget - x.serviceMay }))
+            .sort((a,b) => b.shortfall - a.shortfall)
+            .slice(0, 10)
+            .map(x => ({ name: x.name, label: `-${x.shortfall.toLocaleString()}` }));
     }
 
   </script>
@@ -1303,13 +1330,19 @@ rect.legend-mouseover-inactive,
       </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      <div class="bg-coolCard border border-coolBorder rounded-2xl p-6 shadow-md">
-        <h3 class="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2 mb-4">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-alert-triangle w-5 h-5 text-accentRose"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
-          Top 10 Findings in 2026
-        </h3>
-        <ul class="space-y-3" id="top-findings-list"><li class="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-coolBorder hover:border-accentRose/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer">
+    <div class="bg-coolCard border border-coolBorder rounded-2xl p-6 shadow-md">
+      <h3 class="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2 mb-1">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-layout-list w-5 h-5 text-accentIndigo"><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect><path d="M14 4h7"></path><path d="M14 9h7"></path><path d="M14 15h7"></path><path d="M14 20h7"></path></svg>
+        Findings, Recovery &amp; Declining Branches
+      </h3>
+      <p class="text-xs text-slate-500 mb-6">Consolidated view of audit findings, active recovery branches, and top declining branches across collection, sales, and service.</p>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div>
+          <h4 class="text-sm font-bold text-slate-700 flex items-center gap-2 mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-alert-triangle w-5 h-5 text-accentRose"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+            Top 10 Findings in 2026
+          </h4>
+          <ul class="space-y-3" id="top-findings-list"><li class="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-coolBorder hover:border-accentRose/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer">
           <div class="flex items-center gap-2">
             <span class="w-5 h-5 rounded-md bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold">1</span>
             <span class="text-xs font-semibold text-slate-700">BATAAN</span>
@@ -1370,15 +1403,15 @@ rect.legend-mouseover-inactive,
           </div>
           <span class="text-xs font-bold px-2 py-0.5 bg-accentRose/10 text-accentRose rounded-md">3</span>
         </li></ul>
-      </div>
+        </div>
 
-      <div class="bg-coolCard border border-coolBorder rounded-2xl p-6 shadow-md">
-        <h3 class="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2 mb-4">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-refresh-cw w-5 h-5 text-accentAmber"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M3 21v-5h5"></path></svg>
-          Branches in Recovery Phase
-        </h3>
-        <p class="text-xs text-slate-500 mb-4">Currently tracking active recovery engagements based on collection status.</p>
-        <ul class="space-y-3" id="top-recovery-list"><li class="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-coolBorder hover:border-accentAmber/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer">
+        <div>
+          <h4 class="text-sm font-bold text-slate-700 flex items-center gap-2 mb-1">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-refresh-cw w-5 h-5 text-accentAmber"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M3 21v-5h5"></path></svg>
+            Branches in Recovery Phase
+          </h4>
+          <p class="text-xs text-slate-500 mb-4">Currently tracking active recovery engagements based on collection status.</p>
+          <ul class="space-y-3" id="top-recovery-list"><li class="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-coolBorder hover:border-accentAmber/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer">
             <div class="flex items-center gap-2">
               <span class="w-5 h-5 rounded-md bg-accentAmber/10 text-accentAmber text-xs flex items-center justify-center font-bold">1</span>
               <span class="text-xs font-semibold text-slate-700">BINALONAN</span>
@@ -1421,6 +1454,22 @@ rect.legend-mouseover-inactive,
             </div>
             <span class="text-xs font-bold px-2 py-0.5 bg-accentAmber/10 text-accentAmber rounded-md uppercase">Recovering</span>
           </li></ul>
+        </div>
+
+        <div>
+          <h4 class="text-sm font-bold text-slate-700 flex items-center gap-2 mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trending-down w-5 h-5 text-accentRose"><path d="M16 17h6v-6"></path><path d="m22 17-8.5-8.5-5 5L2 7"></path></svg>
+            Top 10 Declining Branches
+          </h4>
+          <div class="flex gap-2 mb-4">
+            <button type="button" onclick="switchDecliningTab('collection')" id="declining-tab-collection" class="declining-tab-btn px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all bg-accentRose text-white border-accentRose">Collection</button>
+            <button type="button" onclick="switchDecliningTab('sales')" id="declining-tab-sales" class="declining-tab-btn px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all bg-gray-50 text-slate-600 border-coolBorder">Sales</button>
+            <button type="button" onclick="switchDecliningTab('service')" id="declining-tab-service" class="declining-tab-btn px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all bg-gray-50 text-slate-600 border-coolBorder">Service</button>
+          </div>
+          <ul class="space-y-3" id="declining-collection-list"></ul>
+          <ul class="space-y-3 hidden" id="declining-sales-list"></ul>
+          <ul class="space-y-3 hidden" id="declining-service-list"></ul>
+        </div>
       </div>
     </div>
 
@@ -2975,6 +3024,10 @@ rect.legend-mouseover-inactive,
         });
       }
 
+      renderDecliningList('declining-collection-list', activeData.topDecliningCollection);
+      renderDecliningList('declining-sales-list', activeData.topDecliningSales);
+      renderDecliningList('declining-service-list', activeData.topDecliningService);
+
       const workloadContainer = document.getElementById('auditor-workload-list');
       workloadContainer.innerHTML = '';
       const totalWork = activeData.auditors.reduce((acc, curr) => acc + curr.count, 0);
@@ -3002,6 +3055,44 @@ rect.legend-mouseover-inactive,
       let emerName = activeData.summary.emergencyAuditor || "PENDING";
       document.getElementById('emergency-auditor-name').innerText = emerName;
       document.getElementById('emergency-auditor-initial').innerText = emerName && emerName !== "PENDING" && emerName.length > 0 ? emerName[0].toUpperCase() : "?";
+    }
+
+    function renderDecliningList(containerId, items) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      container.innerHTML = '';
+      if (!items || items.length === 0) {
+        container.innerHTML = '<li class="text-xs text-slate-500 italic p-2">No declining branches found.</li>';
+        return;
+      }
+      items.forEach((item, index) => {
+        const li = document.createElement('li');
+        li.className = "flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-coolBorder hover:border-accentRose/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer";
+        li.onclick = () => openModalDetail(item.name);
+        li.innerHTML = `
+          <div class="flex items-center gap-2">
+            <span class="w-5 h-5 rounded-md bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold">${index + 1}</span>
+            <span class="text-xs font-semibold text-slate-700">${item.name}</span>
+          </div>
+          <span class="text-xs font-bold px-2 py-0.5 bg-accentRose/10 text-accentRose rounded-md">${item.label}</span>
+        `;
+        container.appendChild(li);
+      });
+    }
+
+    function switchDecliningTab(tab) {
+      ['collection', 'sales', 'service'].forEach(t => {
+        const list = document.getElementById(`declining-${t}-list`);
+        const btn = document.getElementById(`declining-tab-${t}`);
+        if (!list || !btn) return;
+        if (t === tab) {
+          list.classList.remove('hidden');
+          btn.className = "declining-tab-btn px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all bg-accentRose text-white border-accentRose";
+        } else {
+          list.classList.add('hidden');
+          btn.className = "declining-tab-btn px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all bg-gray-50 text-slate-600 border-coolBorder";
+        }
+      });
     }
 
     function renderScorecardTable() {
@@ -3447,7 +3538,7 @@ rect.legend-mouseover-inactive,
                 totalAccounts: 0, emergencyAuditor: "", recentEmergencyD: "", recentEmergencyE: "", recentEmergencyF: "",
                 trendLabels: ["MARCH", "APRIL", "MAY"]
             }, 
-            branches: [], lowestEfficiency: [], highestRepo: [], highestNoRepo: [], topFindings26: [], auditors: [], dataAudit: {}, emergencyHistory: [] 
+            branches: [], lowestEfficiency: [], highestRepo: [], highestNoRepo: [], topFindings26: [], topDecliningCollection: [], topDecliningSales: [], topDecliningService: [], auditors: [], dataAudit: {}, emergencyHistory: [] 
           };
       }
       
