@@ -2203,23 +2203,27 @@ rect.legend-mouseover-inactive,
             </div>
           </div>`;
       } else {
-          if (type === 'all') branchesToDisplay = activeData.branches;
-          else if (type === 'collection') branchesToDisplay = activeData.branches.filter(b => b.collection === filterValue);
-          else if (type === 'sales') branchesToDisplay = activeData.branches.filter(b => b.sales === filterValue);
-          else if (type === 'service') branchesToDisplay = activeData.branches.filter(b => b.service === filterValue);
-          else if (type === 'findings') branchesToDisplay = [...activeData.branches].sort((a, b) => b[filterValue] - a[filterValue]);
-          else if (type === 'accounts') branchesToDisplay = [...activeData.branches].sort((a, b) => b.accountsMay - a.accountsMay);
-
-          let filterBarHtml = '';
-          if (type === 'collection' || type === 'sales' || type === 'service') {
-              filterBarHtml = buildStatusFilterBar(type, filterValue);
+          if (type === 'findings') {
+              branchesToDisplay = [...activeData.branches].sort((a, b) => b[filterValue] - a[filterValue]);
+              modalBody.innerHTML = '<div id="modalTableContainer"></div>';
+              const tableContainer = document.getElementById('modalTableContainer');
+              if (branchesToDisplay.length > 0) renderBranchTable(branchesToDisplay, tableContainer, type, filterValue);
+              else tableContainer.innerHTML = '<div class="p-8 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No targeted branch parameters found.</div>';
+          } else if (type === 'accounts') {
+              branchesToDisplay = [...activeData.branches].sort((a, b) => b.accountsMay - a.accountsMay);
+              modalBody.innerHTML = '<div id="modalTableContainer"></div>';
+              const tableContainer = document.getElementById('modalTableContainer');
+              if (branchesToDisplay.length > 0) renderBranchTable(branchesToDisplay, tableContainer, type, filterValue);
+              else tableContainer.innerHTML = '<div class="p-8 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No targeted branch parameters found.</div>';
+          } else {
+              // all, collection, sales, service — use combinable filter state (status + audit status)
+              window.modalFilterState = {
+                  type: type,
+                  statusValue: (type === 'all') ? null : filterValue,
+                  auditStatus: 'ALL'
+              };
+              renderModalFilteredView();
           }
-
-          modalBody.innerHTML = `${filterBarHtml}<div id="modalTableContainer"></div>`;
-          const tableContainer = document.getElementById('modalTableContainer');
-
-          if (branchesToDisplay.length > 0) renderBranchTable(branchesToDisplay, tableContainer, type, filterValue);
-          else tableContainer.innerHTML = '<div class="p-8 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No targeted branch parameters found.</div>';
       }
       
       const modal = document.getElementById('dataModal');
@@ -2258,6 +2262,8 @@ rect.legend-mouseover-inactive,
       service: ['Target', 'Declining']
     };
 
+    const AUDIT_STATUS_OPTIONS = ['DONE', 'PENDING', 'FOR AUDIT'];
+
     function buildStatusFilterBar(type, activeValue) {
       const options = STATUS_FILTER_OPTIONS[type] || [];
       const buttonsHtml = options.map(opt => {
@@ -2265,24 +2271,72 @@ rect.legend-mouseover-inactive,
           const activeClass = isActive
               ? 'bg-accentCyan text-white border-accentCyan shadow-sm'
               : 'bg-white text-slate-600 border-coolBorder hover:border-accentCyan/50 hover:bg-accentCyan/5';
-          return `<button onclick="filterModalStatus('${type}','${opt}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all active:scale-95 ${activeClass}">${opt}</button>`;
+          return `<button onclick="setModalStatusFilter('${opt}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all active:scale-95 ${activeClass}">${opt}</button>`;
       }).join('');
-      return `<div class="flex flex-wrap items-center gap-2 mb-4"><span class="text-xs font-semibold text-slate-500 mr-1">Filter by status:</span>${buttonsHtml}</div>`;
+      return `<div class="flex flex-wrap items-center gap-2 mb-3"><span class="text-xs font-semibold text-slate-500 mr-1">Filter by status:</span>${buttonsHtml}</div>`;
     }
 
-    function filterModalStatus(type, value) {
-      const branchesToDisplay = activeData.branches.filter(b => b[type] === value);
-      const label = type.charAt(0).toUpperCase() + type.slice(1);
+    function buildAuditStatusFilterBar(activeAudit) {
+      const options = ['ALL', ...AUDIT_STATUS_OPTIONS];
+      const buttonsHtml = options.map(opt => {
+          const isActive = opt === (activeAudit || 'ALL');
+          const activeClass = isActive
+              ? 'bg-slate-800 text-white border-slate-800 shadow-sm'
+              : 'bg-white text-slate-600 border-coolBorder hover:border-slate-400 hover:bg-slate-50';
+          return `<button onclick="setModalAuditFilter('${opt}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all active:scale-95 ${activeClass}">${opt}</button>`;
+      }).join('');
+      return `<div class="flex flex-wrap items-center gap-2 mb-4"><span class="text-xs font-semibold text-slate-500 mr-1">Filter by audit status:</span>${buttonsHtml}</div>`;
+    }
+
+    function renderModalFilteredView() {
+      const state = window.modalFilterState;
+      if (!state) return;
+
+      let list = activeData.branches;
+      if (state.type === 'collection' || state.type === 'sales' || state.type === 'service') {
+          list = list.filter(b => b[state.type] === state.statusValue);
+      }
+      if (state.auditStatus && state.auditStatus !== 'ALL') {
+          list = list.filter(b => (b.auditStatus || '').toUpperCase() === state.auditStatus);
+      }
 
       const modalTitle = document.getElementById('modalTitle');
-      modalTitle.innerHTML = `${value} ${label} Overview`;
+      const label = state.type.charAt(0).toUpperCase() + state.type.slice(1);
+      let titleText;
+      if (state.type === 'all') {
+          titleText = (state.auditStatus === 'ALL') ? 'All Branches Overview' : `${state.auditStatus} Branches Overview`;
+      } else {
+          titleText = `${state.statusValue} ${label} Overview`;
+          if (state.auditStatus !== 'ALL') titleText += ` — ${state.auditStatus}`;
+      }
+      modalTitle.innerHTML = titleText;
+
+      let barsHtml = '';
+      if (state.type === 'collection' || state.type === 'sales' || state.type === 'service') {
+          barsHtml += buildStatusFilterBar(state.type, state.statusValue);
+      }
+      if (state.type === 'all' || state.type === 'collection') {
+          barsHtml += buildAuditStatusFilterBar(state.auditStatus);
+      }
 
       const modalBody = document.getElementById('modalBody');
-      modalBody.innerHTML = `${buildStatusFilterBar(type, value)}<div id="modalTableContainer"></div>`;
+      modalBody.innerHTML = `${barsHtml}<div id="modalTableContainer"></div>`;
       const tableContainer = document.getElementById('modalTableContainer');
 
-      if (branchesToDisplay.length > 0) renderBranchTable(branchesToDisplay, tableContainer, type, value);
+      if (list.length > 0) renderBranchTable(list, tableContainer, state.type, state.statusValue);
       else tableContainer.innerHTML = '<div class="p-8 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No targeted branch parameters found.</div>';
+    }
+
+    function setModalStatusFilter(value) {
+      if (!window.modalFilterState) return;
+      window.modalFilterState.statusValue = value;
+      renderModalFilteredView();
+    }
+
+    function setModalAuditFilter(value) {
+      if (!window.modalFilterState) return;
+      window.modalFilterState.auditStatus = value;
+      renderModalFilteredView();
     }
 
     function renderBranchDetail(b, container) {
