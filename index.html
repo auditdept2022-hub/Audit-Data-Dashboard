@@ -47,6 +47,22 @@
       #scorecardScrollWrap { scroll-snap-type: x proximity; }
       #scorecardScrollWrap table { min-width: 900px; }
     }
+
+    /* Fluid container: scales with the actual screen/viewport instead of
+       stopping at a fixed 1280px "standard" width. Uses more of the screen
+       on large monitors/TVs, stays comfortably padded on small ones. */
+    .dash-container {
+      width: 100%;
+      max-width: min(1800px, 96vw);
+      margin-left: auto;
+      margin-right: auto;
+      padding-left: clamp(1rem, 2vw, 2.5rem);
+      padding-right: clamp(1rem, 2vw, 2.5rem);
+      box-sizing: border-box;
+    }
+    @media (min-width: 1600px) {
+      .dash-container { max-width: min(2200px, 94vw); }
+    }
   </style>
 
   <script id="data-source">
@@ -1315,7 +1331,7 @@ input#tableSearch:focus, select:focus{
   </div>
 
   <header class="border-b border-blue-800 bg-royalBlue sticky top-0 z-40 shadow-md">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 min-h-[5rem] flex flex-col lg:flex-row items-center justify-between gap-4">
+    <div class="dash-container py-3 min-h-[5rem] flex flex-col lg:flex-row items-center justify-between gap-4">
       
       <div class="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-start">
         <h1 class="text-xl font-bold tracking-tight text-white whitespace-nowrap">Audit Data Dashboard</h1>
@@ -1337,7 +1353,7 @@ input#tableSearch:focus, select:focus{
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-8">
+  <main class="dash-container mt-8 space-y-8">
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
       <div onclick="openModal('All Branches Overview', 'all', null)" class="bg-coolCard border border-coolBorder rounded-2xl p-5 hover:border-accentBlue/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
@@ -2282,7 +2298,7 @@ input#tableSearch:focus, select:focus{
                   </div>
               </div>
 
-              <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div class="grid grid-cols-2 gap-3">
                   ${statCardTrend('Efficiency Rate', [b.effMar, b.effApr, b.effLatest], '%', effAccent)}
                   ${statCardTrend('Repo Rate', [
                       (Number(b.repoRateMar ?? b.repoRate) || 0).toFixed(2),
@@ -2309,7 +2325,7 @@ input#tableSearch:focus, select:focus{
                       </span>
                   </h4>
                   <div class="overflow-x-auto rounded-xl border border-coolBorder">
-                      <table class="w-full text-sm text-center border-collapse">
+                      <table class="w-full min-w-[480px] text-sm text-center border-collapse">
                           <thead class="bg-white text-[10px] uppercase tracking-wider text-slate-500 font-bold">
                               <tr>
                                   <th class="p-3 text-left bg-white">Metric</th>
@@ -2609,8 +2625,8 @@ input#tableSearch:focus, select:focus{
       }
 
       let tableHtml = `
-      <div class="rounded-xl border border-coolBorder max-h-[60vh] overflow-y-auto overflow-x-hidden custom-scrollbar">
-          <table class="w-full text-left border-collapse bg-white relative table-fixed">
+      <div class="rounded-xl border border-coolBorder max-h-[60vh] overflow-auto custom-scrollbar">
+          <table class="w-full min-w-[640px] text-left border-collapse bg-white relative table-fixed">
             <thead class="bg-gray-50 border-b border-coolBorder text-xs text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-10 shadow-sm">
               <tr>
                 <th class="p-2 bg-gray-50 text-center w-8">#</th>
