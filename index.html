@@ -2800,7 +2800,10 @@ input#tableSearch:focus, select:focus{
                         <svg class="w-4 h-4 text-accentIndigo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
                         Sales Details (INS, COD, CA)
                       </span>
-                      <span class="bg-accentIndigo/10 text-accentIndigo px-3 py-1 rounded-lg border border-accentIndigo/20 normal-case tracking-normal font-semibold">3-Month Avg Sales (INS − CA): <strong class="ml-1">${avgSales}</strong></span>
+                      <span class="flex flex-wrap items-center gap-2">
+                        <span class="bg-accentIndigo/10 text-accentIndigo px-3 py-1 rounded-lg border border-accentIndigo/20 normal-case tracking-normal font-semibold">3-Month Avg Sales (INS − CA): <strong class="ml-1">${avgSales}</strong></span>
+                        <span class="bg-accentAmber/10 text-accentAmber px-3 py-1 rounded-lg border border-accentAmber/20 normal-case tracking-normal font-semibold">Expected Sales (INS/COD): <strong class="ml-1">${b.expectedIns || 0} / ${b.expectedCod || 0}</strong></span>
+                      </span>
                   </h4>
                   <div class="overflow-x-auto rounded-xl border border-coolBorder">
                       <table class="w-full text-sm text-center border-collapse">
@@ -3689,6 +3692,7 @@ input#tableSearch:focus, select:focus{
                 effMar: 0, effApr: 0, effLatest: 0, collection: "Stable", sales: "Stable", service: "Target",
                 repoRate: 0, noOfRepo: 0, findings2024: 0, findings2025: 0, findings2026: 0, auditStatus: "PENDING", auditor: "UNASSIGNED",
                 salesMar: { ins: 0, cod: 0, ca: 0 }, salesApr: { ins: 0, cod: 0, ca: 0 }, salesMay: { ins: 0, cod: 0, ca: 0 },
+                expectedIns: 0, expectedCod: 0,
                 serviceTarget: 0, serviceMar: 0, serviceApr: 0, serviceMay: 0
               };
           });
@@ -3791,7 +3795,9 @@ input#tableSearch:focus, select:focus{
               auditor: assignedAuditor,
               salesMar: { ins: parseInt(row[17])||0, cod: parseInt(row[18])||0, ca: parseInt(row[19])||0 }, 
               salesApr: { ins: parseInt(row[20])||0, cod: parseInt(row[21])||0, ca: parseInt(row[22])||0 }, 
-              salesMay: { ins: parseInt(row[23])||0, cod: parseInt(row[24])||0, ca: parseInt(row[25])||0 }  
+              salesMay: { ins: parseInt(row[23])||0, cod: parseInt(row[24])||0, ca: parseInt(row[25])||0 },
+              expectedIns: parseInt(row[15]) || 0,
+              expectedCod: parseInt(row[16]) || 0
             };
           }
           
