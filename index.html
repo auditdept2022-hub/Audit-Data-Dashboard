@@ -2707,19 +2707,15 @@ body.bg-coolDark{
                   <span class="text-accentRose">${m.ca}</span>
                 </div>
               </td>`;
-            const netMar = b.salesMar.ins - b.salesMar.ca;
-            const netMay = b.salesMay.ins - b.salesMay.ca;
-            const trendUp = netMay > netMar, trendFlat = netMay === netMar;
-            const trendIcon = trendFlat ? '→' : (trendUp ? '▲' : '▼');
-            const trendColor = trendFlat ? 'text-slate-400' : (trendUp ? 'text-accentEmerald' : 'text-accentRose');
+            const avgSalesColor = avgSales < 0 ? 'text-accentRose' : (avgSales > 0 ? 'text-accentEmerald' : 'text-slate-800');
+            const avgSalesDisplay = avgSales > 0 ? `+${avgSales}` : `${avgSales}`;
             detailCells = `
               ${fmtMonth(b.salesMar, 'border-l border-coolBorder')}
               ${fmtMonth(b.salesApr)}
               ${fmtMonth(b.salesMay, 'border-r border-coolBorder')}
               <td class="p-2 text-center">
                 <div class="flex items-center justify-center gap-1.5">
-                  <span class="font-bold text-slate-800 text-sm">${avgSales}</span>
-                  <span class="${trendColor} text-[10px]">${trendIcon}</span>
+                  <span class="font-bold ${avgSalesColor} text-sm">${avgSalesDisplay}</span>
                 </div>
               </td>`;
           } else if (type === 'service') {
