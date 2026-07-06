@@ -2700,6 +2700,37 @@ input#tableSearch:focus, select:focus{
               <p class="text-2xl font-extrabold ${accent}">${value}</p>
           </div>`;
 
+      const statCardTrend = (label, values, suffix, accent, invert) => {
+          const numeric = values.map(v => parseFloat(v));
+          const delta = numeric[numeric.length - 1] - numeric[0];
+          const deltaRounded = Math.round(delta * 100) / 100;
+          const isGood = invert ? deltaRounded < 0 : deltaRounded > 0;
+          const isBad = invert ? deltaRounded > 0 : deltaRounded < 0;
+          const deltaHtml = isGood
+              ? `<span class="inline-flex items-center gap-0.5 text-[10px] font-bold text-accentEmerald">${deltaRounded > 0 ? '▲ +' : '▼ '}${deltaRounded}${suffix || ''}</span>`
+              : isBad
+              ? `<span class="inline-flex items-center gap-0.5 text-[10px] font-bold text-accentRose">${deltaRounded > 0 ? '▲ +' : '▼ '}${deltaRounded}${suffix || ''}</span>`
+              : `<span class="inline-flex items-center gap-0.5 text-[10px] font-bold text-slate-400">— 0${suffix || ''}</span>`;
+
+          return `
+          <div class="bg-white rounded-xl border border-coolBorder p-4 shadow-sm">
+              <div class="flex items-center justify-between mb-3">
+                  <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">${label}</p>
+                  ${deltaHtml}
+              </div>
+              <div class="flex items-stretch divide-x divide-coolBorder">
+                  ${values.map((v, i) => {
+                      const isLatest = i === values.length - 1;
+                      return `
+                      <div class="flex flex-col items-center flex-1 ${isLatest ? 'bg-slate-50 rounded-lg -my-1 py-1' : ''}">
+                          <span class="text-base sm:text-lg font-extrabold leading-tight ${isLatest ? accent : 'text-slate-500'}">${v}${suffix || ''}</span>
+                          <span class="text-[9px] text-slate-400 font-semibold uppercase mt-1 tracking-wide truncate max-w-full px-1">${labels[i]}</span>
+                      </div>`;
+                  }).join('')}
+              </div>
+          </div>`;
+      };
+
       const miniBarCol = (value, heightPx, isLatest, label, suffix) => `
           <div class="flex flex-col items-center">
               <span class="text-xs font-bold ${isLatest ? 'text-accentBlue' : 'text-slate-700'} mb-1">${value}${suffix || ''}</span>
@@ -2765,9 +2796,17 @@ input#tableSearch:focus, select:focus{
               </div>
 
               <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  ${statCard('Efficiency Rate (Latest)', b.effLatest + '%', effAccent)}
-                  ${statCard('Repo Rate', b.repoRate.toFixed(2) + '%', repoAccent)}
-                  ${statCard('No. of Repo', b.noOfRepo, 'text-slate-800')}
+                  ${statCardTrend('Efficiency Rate (Latest)', [b.effMar, b.effApr, b.effLatest], '%', effAccent)}
+                  ${statCardTrend('Repo Rate', [
+                      (Number(b.repoRateMar ?? b.repoRate) || 0).toFixed(2),
+                      (Number(b.repoRateApr ?? b.repoRate) || 0).toFixed(2),
+                      (Number(b.repoRateLatest ?? b.repoRate) || 0).toFixed(2)
+                  ], '%', repoAccent, true)}
+                  ${statCardTrend('No. of Repo', [
+                      b.noOfRepoMar ?? b.noOfRepo,
+                      b.noOfRepoApr ?? b.noOfRepo,
+                      b.noOfRepoLatest ?? b.noOfRepo
+                  ], '', 'text-slate-800', true)}
                   ${statCard('Total Accounts (Latest)', b.accountsMay, 'text-accentBlue')}
               </div>
 
@@ -2801,8 +2840,8 @@ input#tableSearch:focus, select:focus{
                         Sales Details (INS, COD, CA)
                       </span>
                       <span class="flex flex-wrap items-center gap-2">
-                        <span class="bg-accentIndigo/10 text-accentIndigo px-3 py-1 rounded-lg border border-accentIndigo/20 normal-case tracking-normal font-semibold">3-Month Avg Sales (INS − CA): <strong class="ml-1">${avgSales}</strong></span>
                         <span class="bg-accentAmber/10 text-accentAmber px-3 py-1 rounded-lg border border-accentAmber/20 normal-case tracking-normal font-semibold">Expected Sales (INS/COD): <strong class="ml-1">${b.expectedIns || 0} / ${b.expectedCod || 0}</strong></span>
+                        <span class="bg-accentIndigo/10 text-accentIndigo px-3 py-1 rounded-lg border border-accentIndigo/20 normal-case tracking-normal font-semibold">3-Month Avg Sales (INS − CA): <strong class="ml-1">${avgSales}</strong></span>
                       </span>
                   </h4>
                   <div class="overflow-x-auto rounded-xl border border-coolBorder">
@@ -3058,32 +3097,33 @@ input#tableSearch:focus, select:focus{
       // (mirroring the sections found in the individual Branch Detailed Profile).
       let detailHeaders = '';
       let showEffRepo = true;
+      const trendLbls = activeData.summary.trendLabels || ["MAR", "APR", "MAY"];
       if (type === 'collection') {
         const sortState = (window.modalFilterState && window.modalFilterState.effSort) || null;
         const sortIcon = sortState === 'desc' ? '↓' : (sortState === 'asc' ? '↑' : '↕');
         detailHeaders = `
-          <th class="p-2 bg-gray-50 text-center">Eff Mar</th>
-          <th class="p-2 bg-gray-50 text-center">Eff Apr</th>
-          <th class="p-2 bg-gray-50 text-center cursor-pointer select-none hover:text-accentIndigo transition-colors" onclick="toggleCollectionSort()">Eff Latest <span class="inline-block ml-0.5">${sortIcon}</span></th>`;
+          <th class="p-2 bg-gray-50 text-center">Eff ${trendLbls[0]}</th>
+          <th class="p-2 bg-gray-50 text-center">Eff ${trendLbls[1]}</th>
+          <th class="p-2 bg-gray-50 text-center cursor-pointer select-none hover:text-accentIndigo transition-colors" onclick="toggleCollectionSort()">Eff ${trendLbls[2]} <span class="inline-block ml-0.5">${sortIcon}</span></th>`;
         showEffRepo = false;
       } else if (type === 'sales') {
         const sortState = (window.modalFilterState && window.modalFilterState.avgSort) || null;
         const sortIcon = sortState === 'desc' ? '↓' : (sortState === 'asc' ? '↑' : '↕');
         detailHeaders = `
           <th class="p-2 bg-gray-50 text-center border-l border-coolBorder">
-            MAR<br>
+            ${trendLbls[0]}<br>
             <span class="inline-flex gap-1.5 mt-0.5 text-[9px] font-bold normal-case">
               <span class="text-accentEmerald">INS</span><span class="text-accentBlue">COD</span><span class="text-accentRose">CA</span>
             </span>
           </th>
           <th class="p-2 bg-gray-50 text-center">
-            APR<br>
+            ${trendLbls[1]}<br>
             <span class="inline-flex gap-1.5 mt-0.5 text-[9px] font-bold normal-case">
               <span class="text-accentEmerald">INS</span><span class="text-accentBlue">COD</span><span class="text-accentRose">CA</span>
             </span>
           </th>
           <th class="p-2 bg-gray-50 text-center border-r border-coolBorder">
-            MAY<br>
+            ${trendLbls[2]}<br>
             <span class="inline-flex gap-1.5 mt-0.5 text-[9px] font-bold normal-case">
               <span class="text-accentEmerald">INS</span><span class="text-accentBlue">COD</span><span class="text-accentRose">CA</span>
             </span>
@@ -3095,9 +3135,9 @@ input#tableSearch:focus, select:focus{
         const sortIcon = sortState === 'desc' ? '↓' : (sortState === 'asc' ? '↑' : '↕');
         detailHeaders = `
           <th class="p-2 bg-gray-50 text-center">Target</th>
-          <th class="p-2 bg-gray-50 text-center">Mar</th>
-          <th class="p-2 bg-gray-50 text-center">Apr</th>
-          <th class="p-2 bg-gray-50 text-center cursor-pointer select-none hover:text-accentIndigo transition-colors" onclick="toggleServiceSort()">May <span class="inline-block ml-0.5">${sortIcon}</span></th>`;
+          <th class="p-2 bg-gray-50 text-center">${trendLbls[0]}</th>
+          <th class="p-2 bg-gray-50 text-center">${trendLbls[1]}</th>
+          <th class="p-2 bg-gray-50 text-center cursor-pointer select-none hover:text-accentIndigo transition-colors" onclick="toggleServiceSort()">${trendLbls[2]} <span class="inline-block ml-0.5">${sortIcon}</span></th>`;
         showEffRepo = false;
       } else if (type === 'all') {
         detailHeaders = `<th class="p-2 bg-gray-50 text-center">Audit Status</th>`;
@@ -3258,6 +3298,8 @@ input#tableSearch:focus, select:focus{
 
       const labels = activeData.summary.trendLabels || ["MARCH", "APRIL", "LATEST"];
       if(document.getElementById('span-rankings-month')) document.getElementById('span-rankings-month').innerText = labels[2];
+      if(document.getElementById('span-accounts-month')) document.getElementById('span-accounts-month').innerText = labels[2];
+      if(document.getElementById('th-eff-month')) document.getElementById('th-eff-month').innerText = labels[2];
     }
 
     function renderDonutChart() {
@@ -3690,7 +3732,9 @@ input#tableSearch:focus, select:focus{
               tempBranchesMap[branch] = {
                 name: branch, accountsMar: 0, accountsApr: 0, accountsMay: 0,
                 effMar: 0, effApr: 0, effLatest: 0, collection: "Stable", sales: "Stable", service: "Target",
-                repoRate: 0, noOfRepo: 0, findings2024: 0, findings2025: 0, findings2026: 0, auditStatus: "PENDING", auditor: "UNASSIGNED",
+                repoRate: 0, repoRateMar: 0, repoRateApr: 0, repoRateLatest: 0,
+                noOfRepo: 0, noOfRepoMar: 0, noOfRepoApr: 0, noOfRepoLatest: 0,
+                findings2024: 0, findings2025: 0, findings2026: 0, auditStatus: "PENDING", auditor: "UNASSIGNED",
                 salesMar: { ins: 0, cod: 0, ca: 0 }, salesApr: { ins: 0, cod: 0, ca: 0 }, salesMay: { ins: 0, cod: 0, ca: 0 },
                 expectedIns: 0, expectedCod: 0,
                 serviceTarget: 0, serviceMar: 0, serviceApr: 0, serviceMay: 0
@@ -3764,20 +3808,34 @@ input#tableSearch:focus, select:focus{
             
             const assignedAuditor = String(row[39] || "UNASSIGNED").trim();
 
-            let repoRaw = row[10];
-            let repoParsed = 0;
-            if (repoRaw !== undefined && repoRaw !== null) {
-               let val = parseFloat(String(repoRaw).replace('%', ''));
-               repoParsed = val < 1 ? val * 100 : val;
-            }
+            const parseRepoPct = (raw) => {
+               if (raw === undefined || raw === null || raw === "") return 0;
+               let val = parseFloat(String(raw).replace('%', ''));
+               if (isNaN(val)) return 0;
+               return val < 1 ? val * 100 : val;
+            };
+
+            let repoRateMarParsed = parseRepoPct(row[8]);   // Column I
+            let repoRateAprParsed = parseRepoPct(row[9]);   // Column J
+            let repoRateLatestParsed = parseRepoPct(row[10]); // Column K
+
+            let noOfRepoMarParsed = parseInt(row[5]) || 0;   // Column F
+            let noOfRepoAprParsed = parseInt(row[6]) || 0;   // Column G
+            let noOfRepoLatestParsed = parseInt(row[7]) || 0; // Column H
 
             tempBranchesMap[branchName] = {
               name: branchName,
               accountsMar: parseInt(row[2]) || 0,
               accountsApr: parseInt(row[3]) || 0,
               accountsMay: parseInt(row[4]) || 0,
-              repoRate: repoParsed,
-              noOfRepo: parseInt(row[7]) || 0,
+              repoRate: repoRateLatestParsed,
+              repoRateMar: repoRateMarParsed,
+              repoRateApr: repoRateAprParsed,
+              repoRateLatest: repoRateLatestParsed,
+              noOfRepo: noOfRepoLatestParsed,
+              noOfRepoMar: noOfRepoMarParsed,
+              noOfRepoApr: noOfRepoAprParsed,
+              noOfRepoLatest: noOfRepoLatestParsed,
               effMar: parseInt(row[11]) || 0,
               effApr: parseInt(row[12]) || 0,
               effLatest: parseInt(row[13]) || 0, 
