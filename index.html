@@ -1146,6 +1146,27 @@ header .bg-white:hover{
 header .text-royalBlue{ color:#3730a3 !important; }
 header svg.text-royalBlue{ color:#3730a3 !important; }
 
+/* ---------- side menu ---------- */
+.side-menu-link{
+  display:flex;
+  align-items:center;
+  gap:0.75rem;
+  padding:0.85rem 1.25rem;
+  font-size:0.875rem;
+  font-weight:600;
+  color:#334155;
+  border-bottom:1px solid #f1f5f9;
+  transition:all 0.15s ease;
+  text-decoration:none;
+}
+.side-menu-link:hover{
+  background:#f8fafc;
+  color:#3730a3;
+  padding-left:1.5rem;
+}
+.side-menu-link:hover svg{ color:#3730a3; }
+#sideMenu.menu-open{ transform:translateX(0); }
+
 /* ---------- surfaces / cards ---------- */
 .bg-coolCard{
   background:linear-gradient(180deg, rgba(255,255,255,1), rgba(250,250,255,1)) !important;
@@ -1352,7 +1373,12 @@ body.bg-coolDark{
     <div class="dash-container py-3 min-h-[5rem] flex flex-col lg:flex-row items-center justify-between gap-4">
       
       <div class="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-start">
-        <h1 class="text-xl font-bold tracking-tight text-white whitespace-nowrap">Audit Data Dashboard</h1>
+        <div class="flex items-center gap-3">
+          <button id="hamburgerBtn" type="button" aria-label="Open menu" class="flex items-center justify-center w-10 h-10 shrink-0 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 border border-white/10 transition-all duration-200 text-white">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-menu"><line x1="4" x2="20" y1="6" y2="6"></line><line x1="4" x2="20" y1="12" y2="12"></line><line x1="4" x2="20" y1="18" y2="18"></line></svg>
+          </button>
+          <h1 class="text-xl font-bold tracking-tight text-white whitespace-nowrap">Audit Data Dashboard</h1>
+        </div>
         <span id="lastSyncedLabel" class="hidden sm:inline text-xs text-white/70 font-medium whitespace-nowrap"></span>
       </div>
 
@@ -1370,6 +1396,43 @@ body.bg-coolDark{
       </div>
     </div>
   </header>
+
+  <div id="menuOverlay" class="fixed inset-0 bg-black/50 z-[60] hidden opacity-0 transition-opacity duration-300"></div>
+
+  <aside id="sideMenu" class="fixed top-0 left-0 h-full w-72 max-w-[85vw] bg-white z-[70] shadow-2xl transform -translate-x-full transition-transform duration-300 ease-out flex flex-col">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-blue-800 bg-royalBlue shrink-0">
+      <h2 class="text-white font-bold text-base tracking-tight">Quick Links</h2>
+      <button id="closeMenuBtn" type="button" aria-label="Close menu" class="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-white/10 active:scale-95 transition-all duration-200 text-white">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+      </button>
+    </div>
+    <nav class="flex-1 overflow-y-auto custom-scrollbar py-2">
+      <a href="https://docs.google.com/spreadsheets/d/1_5VBVpcHYpdRIuEWLg5Rry-BIgWq8bJiVQZZHRNM05k/edit?pli=1&gid=2018045970#gid=2018045970" target="_blank" rel="noopener noreferrer" class="side-menu-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue shrink-0"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M8 13h2"></path><path d="M14 13h2"></path><path d="M8 17h2"></path><path d="M14 17h2"></path></svg>
+        <span>AUDIT ATTENDANCE</span>
+      </a>
+      <a href="https://docs.google.com/spreadsheets/d/1_5VBVpcHYpdRIuEWLg5Rry-BIgWq8bJiVQZZHRNM05k/edit?pli=1&gid=2018045970#gid=2018045970" target="_blank" rel="noopener noreferrer" class="side-menu-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue shrink-0"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M8 13h2"></path><path d="M14 13h2"></path><path d="M8 17h2"></path><path d="M14 17h2"></path></svg>
+        <span>AUDIT DATA</span>
+      </a>
+      <a href="https://docs.google.com/spreadsheets/d/1yLY-tGKPRmxwrt40lONmlncJM7kpc5j5Id0YVA40xSw/edit?pli=1&gid=0#gid=0" target="_blank" rel="noopener noreferrer" class="side-menu-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue shrink-0"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M8 13h2"></path><path d="M14 13h2"></path><path d="M8 17h2"></path><path d="M14 17h2"></path></svg>
+        <span>AUDIT FINDINGS</span>
+      </a>
+      <a href="https://docs.google.com/spreadsheets/d/1UICt5iKvQjiX-86Zq-7defZYGJc4W5gWRq-LvQwrLyk/edit?pli=1&gid=931928269#gid=931928269" target="_blank" rel="noopener noreferrer" class="side-menu-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue shrink-0"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M8 13h2"></path><path d="M14 13h2"></path><path d="M8 17h2"></path><path d="M14 17h2"></path></svg>
+        <span>AUDIT OPEX</span>
+      </a>
+      <a href="https://docs.google.com/spreadsheets/d/1lYL15dFpM6Ic3HlG1uiAh71DWjUucWOIk_aqmr95fBw/edit?gid=1343475244#gid=1343475244" target="_blank" rel="noopener noreferrer" class="side-menu-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue shrink-0"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M8 13h2"></path><path d="M14 13h2"></path><path d="M8 17h2"></path><path d="M14 17h2"></path></svg>
+        <span>AUDIT SHEET</span>
+      </a>
+      <a href="https://docs.google.com/spreadsheets/d/1eAX9Imva0Do6_qtdrkU_gXtD66vUwll3/edit?pli=1&gid=1950506450#gid=1950506450" target="_blank" rel="noopener noreferrer" class="side-menu-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue shrink-0"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M8 13h2"></path><path d="M14 13h2"></path><path d="M8 17h2"></path><path d="M14 17h2"></path></svg>
+        <span>PERSONNEL</span>
+      </a>
+    </nav>
+  </aside>
 
   <main class="dash-container mt-8 space-y-8">
 
@@ -3628,6 +3691,31 @@ body.bg-coolDark{
           if (e.target.files.length > 0) handleExcel(e.target.files[0]);
         });
       }
+
+      // ---------- hamburger side menu ----------
+      const hamburgerBtn = document.getElementById('hamburgerBtn');
+      const closeMenuBtn = document.getElementById('closeMenuBtn');
+      const sideMenu = document.getElementById('sideMenu');
+      const menuOverlay = document.getElementById('menuOverlay');
+
+      function openSideMenu() {
+        sideMenu.classList.remove('-translate-x-full');
+        menuOverlay.classList.remove('hidden');
+        requestAnimationFrame(() => menuOverlay.classList.remove('opacity-0'));
+        document.body.style.overflow = 'hidden';
+      }
+      function closeSideMenu() {
+        sideMenu.classList.add('-translate-x-full');
+        menuOverlay.classList.add('opacity-0');
+        document.body.style.overflow = '';
+        setTimeout(() => menuOverlay.classList.add('hidden'), 300);
+      }
+      if (hamburgerBtn) hamburgerBtn.addEventListener('click', openSideMenu);
+      if (closeMenuBtn) closeMenuBtn.addEventListener('click', closeSideMenu);
+      if (menuOverlay) menuOverlay.addEventListener('click', closeSideMenu);
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeSideMenu();
+      });
     });
   </script>
 
