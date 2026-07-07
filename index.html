@@ -1477,7 +1477,7 @@ body.bg-coolDark{
           </div>
           <span id="loadingPercent" class="absolute -bottom-1 right-1 text-[10px] font-bold text-slate-600 bg-white rounded-full px-1.5 py-0.5 border border-coolBorder shadow-sm">0%</span>
         </div>
-        <h2 class="text-lg font-bold text-slate-900 mb-1">Preparing your dashboard</h2>
+        <h2 id="loadingTitleText" class="text-lg font-bold text-slate-900 mb-1">Preparing your dashboard</h2>
         <p id="loadingStatusText" class="text-xs text-slate-500 min-h-[1rem]">Connecting to secure server&hellip;</p>
       </div>
 
@@ -1542,6 +1542,7 @@ body.bg-coolDark{
       const loadingRing = document.getElementById('loadingRingProgress');
       const loadingPercentEl = document.getElementById('loadingPercent');
       const loadingStatusEl = document.getElementById('loadingStatusText');
+      const loadingTitleEl = document.getElementById('loadingTitleText');
 
       const RING_CIRCUMFERENCE = 339.292;
       const MIN_LOADING_MS = 1300;
@@ -1552,6 +1553,7 @@ body.bg-coolDark{
         'Crunching the numbers\u2026',
         'Putting the finishing touches\u2026'
       ];
+      let currentMessages = STATUS_MESSAGES;
 
       let statusIndex = 0;
       let statusTimer = null;
@@ -1569,11 +1571,12 @@ body.bg-coolDark{
         // eslint-disable-next-line no-unused-expressions
         loadingStatusEl.offsetHeight; // restart the fade-up animation
         loadingStatusEl.style.animation = '';
-        loadingStatusEl.textContent = STATUS_MESSAGES[statusIndex % STATUS_MESSAGES.length];
+        loadingStatusEl.textContent = currentMessages[statusIndex % currentMessages.length];
         statusIndex++;
       }
 
-      function startProgress() {
+      function startProgress(messages) {
+        currentMessages = (messages && messages.length) ? messages : STATUS_MESSAGES;
         fakeProgress = 0;
         statusIndex = 0;
         setRingProgress(0);
@@ -1591,14 +1594,16 @@ body.bg-coolDark{
         clearInterval(progressTimer);
       }
 
-      function openLoadingScreen() {
+      function openLoadingScreen(opts) {
+        opts = opts || {};
         loadingErrorBox.classList.add('hidden');
         loadingCore.classList.remove('hidden');
         loadingScreen.classList.remove('hidden');
         loadingScreen.style.display = 'flex';
         loadingScreen.style.opacity = '1';
         document.body.style.overflow = 'hidden';
-        startProgress();
+        loadingTitleEl.textContent = opts.title || 'Preparing your dashboard';
+        startProgress(opts.messages);
       }
 
       function showError() {
@@ -1607,10 +1612,10 @@ body.bg-coolDark{
         loadingErrorBox.classList.remove('hidden');
       }
 
-      function revealDashboard() {
+      function revealDashboard(readyText) {
         stopProgress();
         setRingProgress(100);
-        loadingStatusEl.textContent = 'Dashboard ready!';
+        loadingStatusEl.textContent = readyText || 'Dashboard ready!';
         setTimeout(function() {
           loadingScreen.style.opacity = '0';
           setTimeout(function() {
@@ -1623,6 +1628,18 @@ body.bg-coolDark{
               setTimeout(function() { dashEl.classList.remove('dash-reveal'); }, 1300);
             }
           }, 350);
+        }, 350);
+      }
+
+      // Closes the loading screen immediately without the "ready" success
+      // beat — used when a manual refresh fails partway through.
+      function closeLoadingScreen() {
+        stopProgress();
+        loadingScreen.style.opacity = '0';
+        setTimeout(function() {
+          loadingScreen.style.display = 'none';
+          loadingScreen.classList.add('hidden');
+          document.body.style.overflow = '';
         }, 350);
       }
 
@@ -1639,6 +1656,15 @@ body.bg-coolDark{
       window.__runDashboardLoadingSequence = function() {
         openLoadingScreen();
         waitThenSettle(window.dashboardDataReady, Date.now());
+      };
+
+      // Reusable full-screen loading controls for any manual data refresh
+      // (e.g. the "Update data" button), so it shows the same immersive
+      // loading screen instead of a small toast while new data loads.
+      window.__loadingUI = {
+        open: openLoadingScreen,
+        reveal: revealDashboard,
+        close: closeLoadingScreen
       };
 
       loadingRetryBtn.addEventListener('click', function() {
@@ -4246,18 +4272,49 @@ body.bg-coolDark{
 
     async function fetchSheet(isAutoLoad = false) {
       let fetchUrl = defaultGoogleSheetUrl + '&nocache=' + new Date().getTime();
+      // On a manual click ("Update data" button), show the full immersive
+      // loading screen — same one used on initial load — instead of a small
+      // toast, and keep it up until the new data has finished loading.
+      const useFullLoader = !isAutoLoad && window.__loadingUI;
+      const startedAt = Date.now();
+      const MIN_LOADER_MS = 900; // avoid a jarring instant flash on fast responses
+
+      function finishLoader(success) {
+        if (!useFullLoader) return;
+        const elapsed = Date.now() - startedAt;
+        const remaining = Math.max(0, MIN_LOADER_MS - elapsed);
+        setTimeout(function() {
+          if (success) window.__loadingUI.reveal('Dashboard updated!');
+          else window.__loadingUI.close();
+        }, remaining);
+      }
+
       try {
-          if (!isAutoLoad) showToast("Fetching data from Google Sheets...");
-          
+          if (useFullLoader) {
+            window.__loadingUI.open({
+              title: 'Updating your dashboard',
+              messages: [
+                'Connecting to Google Sheets\u2026',
+                'Fetching latest audit records\u2026',
+                'Syncing branch performance data\u2026',
+                'Crunching the numbers\u2026'
+              ]
+            });
+          } else if (!isAutoLoad) {
+            showToast("Fetching data from Google Sheets...");
+          }
+
           const response = await fetchWithProxy(fetchUrl);
           if (!response.ok) throw new Error("Network response was not ok");
-          
+
           const arrayBuffer = await response.arrayBuffer();
           processExcelData(arrayBuffer);
-          
-          if (!isAutoLoad) showToast("Dashboard successfully updated from Web Link!");
+
+          finishLoader(true);
+          if (!useFullLoader && !isAutoLoad) showToast("Dashboard successfully updated from Web Link!");
       } catch (error) {
           console.error(error);
+          finishLoader(false);
           if (!isAutoLoad) showToast("Failed to fetch sheet. Check your internet connection.");
       }
     }
