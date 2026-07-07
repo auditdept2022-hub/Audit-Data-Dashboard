@@ -3921,7 +3921,33 @@ body.bg-coolDark{
         try {
           const data = new Uint8Array(arrayBuffer);
           const workbook = XLSX.read(data, { type: 'array' });
-          
+          processWorkbook(workbook);
+        } catch (err) {
+          console.error(err);
+          showToast("Error reading spreadsheet structure.");
+        }
+    }
+
+    // Builds a SheetJS-compatible workbook out of plain arrays-of-arrays --
+    // e.g. { "DASHBOARDDATA": [[...],[...]], "AUDIT ROTATION (FINAL)": [[...]] }.
+    // This is exactly what a pure Apps Script (SpreadsheetApp + ContentService
+    // JSON) response gives us, with no XLSX/export step required.
+    function processJsonSheets(sheetsObj) {
+        try {
+          const workbook = { SheetNames: [], Sheets: {} };
+          Object.keys(sheetsObj || {}).forEach(name => {
+              workbook.SheetNames.push(name);
+              workbook.Sheets[name] = XLSX.utils.aoa_to_sheet(sheetsObj[name] || []);
+          });
+          processWorkbook(workbook);
+        } catch (err) {
+          console.error(err);
+          showToast("Error reading spreadsheet structure.");
+        }
+    }
+
+    function processWorkbook(workbook) {
+        try {
           let targetSheet = workbook.SheetNames.find(name => name.toUpperCase().replace(/\\s/g, '').includes("DASHBOARDDATA")) || workbook.SheetNames[0];
           const mainSheet = workbook.Sheets[targetSheet];
           const rawRows = XLSX.utils.sheet_to_json(mainSheet, { header: 1 });
@@ -4360,15 +4386,18 @@ body.bg-coolDark{
           const response = await fetchWithProxy(fetchUrl);
           if (!response.ok) throw new Error("Network response was not ok");
 
-          const arrayBuffer = await response.arrayBuffer();
-          processExcelData(arrayBuffer);
+          const payload = await response.json();
+          if (!payload || payload.success === false) {
+              throw new Error((payload && payload.message) ? payload.message : "Request rejected by Apps Script");
+          }
+          processJsonSheets(payload.sheets);
 
           finishLoader(true);
           if (!useFullLoader && !isAutoLoad) showToast("Dashboard successfully updated from Web Link!");
       } catch (error) {
           console.error(error);
           finishLoader(false);
-          if (!isAutoLoad) showToast("Failed to fetch sheet. Check your internet connection.");
+          if (!isAutoLoad) showToast(error && error.message ? error.message : "Failed to fetch sheet. Check your internet connection.");
       }
     }
 
