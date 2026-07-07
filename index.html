@@ -2721,6 +2721,7 @@ body.bg-coolDark{
                       <div>
                           <p class="text-[11px] uppercase tracking-wider text-white/70 font-semibold mb-0.5">Last Assigned Auditor</p>
                           <p class="text-lg font-bold leading-tight">${escapeHTML(b.auditor || 'Unassigned')}</p>
+                          ${b.lastAuditDate ? `<p class="text-[10px] text-white/70 mt-0.5">${escapeHTML(b.lastAuditDate)}</p>` : ''}
                       </div>
                   </div>
                   <div class="flex flex-wrap items-center gap-2">
@@ -4063,6 +4064,23 @@ body.bg-coolDark{
               const rotRows = XLSX.utils.sheet_to_json(rotationSheet, { header: 1 });
               
               auditorMap = { "KARL": [], "GENESIS": [], "EDISON": [], "LAURENCE": [] };
+
+              // Helper to turn a cell value (JS Date, Excel serial number, or date string) into a JS Date
+              const parseRotationDate = (val) => {
+                  if (val === undefined || val === null || val === "") return null;
+                  if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+                  if (!isNaN(val) && Number(val) > 10000) {
+                      const d = new Date(1899, 11, 30);
+                      d.setDate(d.getDate() + Number(val));
+                      return d;
+                  }
+                  const d2 = new Date(val);
+                  return isNaN(d2.getTime()) ? null : d2;
+              };
+
+              // Tracks, per branch, the most recent (auditor, date) pair found across
+              // columns C/D, E/F, G/H, I/J (branch name lives in column B)
+              const branchLastAudit = {};
               
               for (let i = 1; i < rotRows.length; i++) {
                   const r = rotRows[i];
@@ -4085,7 +4103,42 @@ body.bg-coolDark{
                   parseAuditorCell(r[15], "GENESIS");
                   parseAuditorCell(r[17], "EDISON");
                   parseAuditorCell(r[19], "LAURENCE");
+
+                  // --- Last Assigned Auditor: branch in column B, auditor/date pairs in C-D, E-F, G-H, I-J ---
+                  const rawBranch = String(r[1] || "").trim();
+                  if (!rawBranch) continue;
+                  const normalizedBranch = normalizeName(rawBranch);
+                  const branchIdx = STRICT_NORMALIZED.indexOf(normalizedBranch);
+                  if (branchIdx === -1) continue;
+                  const branchName = STRICT_BRANCH_LIST[branchIdx];
+
+                  const candidatePairs = [
+                      { auditor: r[2], date: r[3] },   // C, D
+                      { auditor: r[4], date: r[5] },   // E, F
+                      { auditor: r[6], date: r[7] },   // G, H
+                      { auditor: r[8], date: r[9] }    // I, J
+                  ];
+
+                  candidatePairs.forEach(pair => {
+                      const auditorName = String(pair.auditor || "").trim();
+                      const parsedDate = parseRotationDate(pair.date);
+                      if (!auditorName || !parsedDate) return;
+                      const existing = branchLastAudit[branchName];
+                      if (!existing || parsedDate > existing.date) {
+                          branchLastAudit[branchName] = { auditor: auditorName, date: parsedDate };
+                      }
+                  });
               }
+
+              // Apply the most recent (auditor, date) found per branch as the
+              // "Last Assigned Auditor" shown on the branch detail card.
+              Object.keys(branchLastAudit).forEach(branchName => {
+                  if (tempBranchesMap[branchName]) {
+                      const info = branchLastAudit[branchName];
+                      tempBranchesMap[branchName].auditor = info.auditor;
+                      tempBranchesMap[branchName].lastAuditDate = info.date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+                  }
+              });
           }
 
           let dataAuditSheetName = workbook.SheetNames.find(n => n.toUpperCase().replace(/[\s_]/g, '').includes("AUDITREPORT"));
