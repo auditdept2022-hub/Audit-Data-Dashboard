@@ -1297,6 +1297,83 @@ body.bg-coolDark{
 .text-slate-900{ color:#0a0d12 !important; }
 </style>
 
+<style>
+  /* ---------- Soft motion layer ---------- */
+  html { scroll-behavior: smooth; }
+
+  /* Ease every existing Tailwind transition utility into a gentler,
+     more "soft" curve instead of the default linear/snap feel. This
+     rides on top of the generated Tailwind styles above (same
+     specificity, later in the cascade wins), so no markup changes
+     were needed anywhere else in the file. */
+  .transition-all,
+  .transition-colors,
+  .transition-opacity,
+  .transition-transform {
+    transition-duration: 260ms !important;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1) !important;
+  }
+  .duration-200 { transition-duration: 220ms !important; }
+  .duration-300 { transition-duration: 320ms !important; }
+  .duration-1000 { transition-duration: 700ms !important; }
+
+  /* Card lift feels a touch softer with a matching shadow fade */
+  [class*="hover:-translate-y-1"],
+  [class*="hover:-translate-y-0.5"] {
+    will-change: transform;
+  }
+  .active\:scale-95:active,
+  .active\:scale-\[0\.98\]:active,
+  .active\:scale-\[0\.99\]:active {
+    transition-duration: 120ms !important;
+    transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  }
+
+  /* Smoother custom scrollbars everywhere .custom-scrollbar is used */
+  .custom-scrollbar { scroll-behavior: smooth; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { transition: background-color .2s ease; }
+  .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: #94a3b8; }
+
+  /* ---------- Entrance animation ---------- */
+  @keyframes dashFadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  /* Applied once, right after the loading screen clears, so the whole
+     dashboard settles into place instead of just popping into view. */
+  .dash-reveal > * {
+    opacity: 0;
+    animation: dashFadeUp .55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  .dash-reveal > *:nth-child(1) { animation-delay: .02s; }
+  .dash-reveal > *:nth-child(2) { animation-delay: .09s; }
+  .dash-reveal > *:nth-child(3) { animation-delay: .16s; }
+  .dash-reveal > *:nth-child(4) { animation-delay: .23s; }
+  .dash-reveal > *:nth-child(5) { animation-delay: .30s; }
+  .dash-reveal > *:nth-child(n+6) { animation-delay: .36s; }
+
+  /* Number count-up ticks land more gently */
+  .stat-counting { transition: color .3s ease; }
+  @keyframes statPulse {
+    0%   { opacity: .35; transform: translateY(3px); }
+    100% { opacity: 1;   transform: translateY(0); }
+  }
+  .stat-pulse { animation: statPulse .5s cubic-bezier(0.22, 1, 0.36, 1); }
+
+  /* Table rows fade in softly whenever the scorecard re-renders (search/filter) */
+  @keyframes rowFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  #scorecardTableBody tr {
+    animation: rowFadeIn .32s ease-out both;
+  }
+
+  /* Toast slides/settles instead of just appearing */
+  #toast {
+    transition: transform .45s cubic-bezier(0.22, 1, 0.36, 1), opacity .35s ease !important;
+  }
+</style>
 </head>
 <body class="bg-coolDark text-slate-800 min-h-screen selection:bg-accentCyan/30 selection:text-slate-900 pb-16 relative">
 
@@ -1515,6 +1592,11 @@ body.bg-coolDark{
             loadingScreen.style.display = 'none';
             loadingScreen.classList.add('hidden');
             document.body.style.overflow = '';
+            const dashEl = document.querySelector('.dash-container');
+            if (dashEl) {
+              dashEl.classList.add('dash-reveal');
+              setTimeout(function() { dashEl.classList.remove('dash-reveal'); }, 1300);
+            }
           }, 350);
         }, 350);
       }
@@ -3282,6 +3364,18 @@ body.bg-coolDark{
       renderHighestNoRepoChart();
       renderListings();
       renderScorecardTable();
+      pulseStatCards();
+    }
+
+    // A soft, gentle "settle in" pulse on every stat number whenever the
+    // dashboard (re)renders with new or synced data, instead of numbers
+    // just abruptly changing.
+    function pulseStatCards() {
+      document.querySelectorAll('[id^="stat-"]').forEach(function(el) {
+        el.classList.remove('stat-pulse');
+        void el.offsetWidth;
+        el.classList.add('stat-pulse');
+      });
     }
 
     function updateStatCards() {
