@@ -5147,16 +5147,33 @@ body.bg-coolDark{
       return wb;
     }
 
-    // Single attempt: try a direct fetch first (fast — no extra script-tag
-    // overhead), and only fall back to JSONP (slower, but immune to CORS)
-    // if the direct request fails for any reason.
+    // Run both a direct fetch and a JSONP request at the same time, and use
+    // whichever one succeeds first. This is fast when the direct request
+    // works, and never breaks when it doesn't (Apps Script's /exec endpoint
+    // doesn't reliably send CORS headers for plain fetch(), so JSONP is
+    // kept as a guaranteed-working path rather than a slow fallback).
     async function fetchSheetOnce(url) {
-      try {
-        return await fetchDirect(url, 5000);
-      } catch (directErr) {
-        console.warn('Direct fetch failed, falling back to JSONP:', directErr);
-        return await fetchJSONP(url, 6000);
-      }
+      return new Promise(function(resolve, reject) {
+        let settled = false;
+        const errors = [];
+
+        function succeed(data) {
+          if (settled) return;
+          settled = true;
+          resolve(data);
+        }
+
+        function fail(err, label) {
+          errors.push(label + ': ' + (err && err.message ? err.message : err));
+          if (!settled && errors.length >= 2) {
+            settled = true;
+            reject(new Error(errors.join(' | ')));
+          }
+        }
+
+        fetchDirect(url, 6000).then(succeed).catch(function(err) { fail(err, 'direct'); });
+        fetchJSONP(url, 7000).then(succeed).catch(function(err) { fail(err, 'jsonp'); });
+      });
     }
 
     async function fetchSheet(isAutoLoad = false) {
