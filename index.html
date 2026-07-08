@@ -1505,11 +1505,6 @@ body.bg-coolDark{
             </div>
           </div>
 
-          <label class="auth-remember">
-            <input type="checkbox" id="authRemember">
-            <span>Stay logged in</span>
-          </label>
-
           <button type="submit" id="authSubmitBtn"
             class="auth-submit w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold tracking-tight shadow-lg active:scale-[0.98] transition-all duration-200">
             <span id="authSubmitLabel">Sign In</span>
@@ -5152,14 +5147,15 @@ body.bg-coolDark{
       return wb;
     }
 
-    // Single attempt: try JSONP first (immune to CORS), fall back to the
-    // proxy-based fetch if that fails for any reason.
+    // Single attempt: try a direct fetch first (fast — no extra script-tag
+    // overhead), and only fall back to JSONP (slower, but immune to CORS)
+    // if the direct request fails for any reason.
     async function fetchSheetOnce(url) {
       try {
-        return await fetchJSONP(url, 7000);
-      } catch (jsonpErr) {
-        console.warn('JSONP fetch failed, falling back to a direct fetch:', jsonpErr);
-        return await fetchDirect(url, 6000);
+        return await fetchDirect(url, 5000);
+      } catch (directErr) {
+        console.warn('Direct fetch failed, falling back to JSONP:', directErr);
+        return await fetchJSONP(url, 6000);
       }
     }
 
@@ -5441,7 +5437,6 @@ body.bg-coolDark{
       onAuthStateChanged,
       setPersistence,
       browserLocalPersistence,
-      browserSessionPersistence,
       signOut,
       EmailAuthProvider,
       reauthenticateWithCredential
@@ -5501,12 +5496,10 @@ body.bg-coolDark{
       return (auth.currentUser && auth.currentUser.email) || '';
     };
 
-    // Default to session-only persistence: unless the person checks "Stay
-    // logged in" at sign-in, the session clears when the browser/tab is
-    // closed instead of silently auto-signing them back in (which was
-    // skipping straight past the login screen to the loading screen).
-    setPersistence(auth, browserSessionPersistence).catch(function(err) {
-      console.warn('Could not set default auth persistence:', err);
+    // Persist sign-in across page reloads and browser restarts, so
+    // refreshing the dashboard doesn't drop back to the login screen.
+    setPersistence(auth, browserLocalPersistence).catch(function(err) {
+      console.warn('Could not set auth persistence:', err);
     });
 
     const authGate = document.getElementById('authGate');
@@ -5521,7 +5514,6 @@ body.bg-coolDark{
     const authLogoutEmail = document.getElementById('authLogoutEmail');
     const authTogglePass = document.getElementById('authTogglePass');
     const authEyeIcon = document.getElementById('authEyeIcon');
-    const authRemember = document.getElementById('authRemember');
 
     const EYE_OPEN = '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle>';
     const EYE_OFF = '<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c6.5 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3.5 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path><line x1="2" x2="22" y1="2" y2="22"></line>';
@@ -5550,9 +5542,6 @@ body.bg-coolDark{
       authError.classList.add('hidden');
       setSubmitting(true);
       try {
-        // "Stay logged in" checked -> survive browser restarts (local).
-        // Unchecked -> cleared when the browser/tab closes (session only).
-        await setPersistence(auth, authRemember.checked ? browserLocalPersistence : browserSessionPersistence);
         await signInWithEmailAndPassword(auth, authEmail.value.trim(), authPassword.value);
         // onAuthStateChanged below handles revealing the dashboard.
       } catch (err) {
