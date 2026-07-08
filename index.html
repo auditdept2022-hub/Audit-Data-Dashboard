@@ -1793,7 +1793,12 @@ body.bg-coolDark{
     <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="closeExportPicker()"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
       <div class="bg-coolCard w-full max-w-sm rounded-2xl shadow-2xl p-5 pointer-events-auto border border-coolBorder max-h-[85vh] flex flex-col">
-        <h3 class="text-sm font-bold text-slate-800 mb-1" id="exportPickerTitle">Download Report</h3>
+        <div class="flex items-start justify-between gap-3 mb-1">
+          <h3 class="text-sm font-bold text-slate-800" id="exportPickerTitle">Download Report</h3>
+          <button onclick="closeExportPicker()" title="Close" aria-label="Close" class="p-1.5 -mr-1.5 -mt-1 text-slate-400 hover:text-accentRose hover:bg-accentRose/10 active:scale-95 rounded-xl transition-all cursor-pointer flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+          </button>
+        </div>
         <p class="text-xs text-slate-500 mb-3" id="exportPickerSubtitle">Choose what to include and a file format.</p>
 
         <div class="flex items-center justify-between px-1 mb-1">
@@ -1830,9 +1835,17 @@ body.bg-coolDark{
     <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="cancelExportPassword()"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
       <div class="bg-coolCard w-full max-w-xs rounded-2xl shadow-2xl p-5 pointer-events-auto border border-coolBorder">
-        <div class="flex items-center gap-2 mb-1">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue flex-shrink-0"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-          <h3 class="text-sm font-bold text-slate-800">Confirm Your Password</h3>
+        <div class="flex items-start justify-between gap-3 mb-1">
+          <div class="flex items-center gap-2 min-w-0">
+            <button onclick="backToExportPicker()" title="Back" aria-label="Back to download options" class="p-1.5 -ml-1.5 text-slate-400 hover:text-accentBlue hover:bg-accentBlue/10 active:scale-95 rounded-xl transition-all cursor-pointer flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>
+            </button>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue flex-shrink-0"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            <h3 class="text-sm font-bold text-slate-800 truncate">Confirm Your Password</h3>
+          </div>
+          <button onclick="cancelExportPassword()" title="Close" aria-label="Close" class="p-1.5 -mr-1.5 text-slate-400 hover:text-accentRose hover:bg-accentRose/10 active:scale-95 rounded-xl transition-all cursor-pointer flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+          </button>
         </div>
         <p class="text-xs text-slate-500 mb-1">Re-enter your account password to download.</p>
         <p class="text-[11px] text-slate-400 mb-3">Signed in as <span id="exportPasswordUserLabel" class="font-semibold text-slate-500">\u2014</span></p>
@@ -2180,10 +2193,16 @@ body.bg-coolDark{
     </div>
 
     <div id="section-findings" class="bg-coolCard border border-coolBorder rounded-2xl p-6 shadow-md">
-      <h3 class="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2 mb-1">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-layout-list w-5 h-5 text-accentIndigo"><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect><path d="M14 4h7"></path><path d="M14 9h7"></path><path d="M14 15h7"></path><path d="M14 20h7"></path></svg>
-        Findings, Recovery &amp; Declining Branches
-      </h3>
+      <div class="flex items-start justify-between gap-3 mb-1">
+        <h3 class="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-layout-list w-5 h-5 text-accentIndigo"><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect><path d="M14 4h7"></path><path d="M14 9h7"></path><path d="M14 15h7"></path><path d="M14 20h7"></path></svg>
+          Findings, Recovery &amp; Declining Branches
+        </h3>
+        <button onclick="openExportPicker('findings-section')" title="Download findings, recovery &amp; declining data" aria-label="Download findings, recovery and declining branches data" class="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-accentEmerald bg-accentEmerald/10 hover:bg-accentEmerald/20 active:scale-95 rounded-xl transition-all cursor-pointer flex-shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>
+          <span class="hidden sm:inline">Download</span>
+        </button>
+      </div>
       <p class="text-xs text-slate-500 mb-6">Consolidated view of audit findings, active recovery branches, and top declining branches across collection, sales, and service.</p>
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div>
@@ -2747,10 +2766,13 @@ body.bg-coolDark{
       pendingExportKind = kind;
       const titleEl = document.getElementById('exportPickerTitle');
       const subEl = document.getElementById('exportPickerSubtitle');
-      pendingExportPayload = (kind === 'consolidated') ? buildConsolidatedExportPayload() : buildCurrentModalExportPayload();
+      pendingExportPayload = (kind === 'consolidated') ? buildConsolidatedExportPayload() : (kind === 'findings-section') ? buildFindingsSectionExportPayload() : buildCurrentModalExportPayload();
       if (kind === 'consolidated') {
           titleEl.textContent = 'Download Consolidated Report';
           subEl.textContent = 'Pick which sections to include and a file format.';
+      } else if (kind === 'findings-section') {
+          titleEl.textContent = 'Download Findings, Recovery & Declining';
+          subEl.textContent = 'Exports the findings, recovery, and declining branch lists shown below.';
       } else {
           const label = (modalCurrentState && modalCurrentState.title) ? String(modalCurrentState.title).replace(/<[^>]+>/g, '') : 'this view';
           titleEl.textContent = 'Download This Data';
@@ -2844,6 +2866,21 @@ body.bg-coolDark{
       const modal = document.getElementById('exportPasswordModal');
       if (modal) modal.classList.add('hidden');
       pendingExportAfterPassword = null;
+    }
+
+    // Lets the person step back from the password gate to the download
+    // picker (same section/format choices) instead of only being able to
+    // cancel out of the whole flow.
+    function backToExportPicker() {
+      const pending = pendingExportAfterPassword;
+      const modal = document.getElementById('exportPasswordModal');
+      if (modal) modal.classList.add('hidden');
+      pendingExportAfterPassword = null;
+      if (pending && pending.kind) {
+          openExportPicker(pending.kind);
+      } else {
+          closeExportPicker();
+      }
     }
 
     function setExportPasswordSubmitting(isSubmitting) {
@@ -3010,6 +3047,21 @@ body.bg-coolDark{
       return { title: plainTitle, filenameBase: plainTitle, sheets: tables };
     }
 
+    // Exports just the "Findings, Recovery & Declining Branches" section:
+    // top 2026 findings, branches currently in recovery, and the top
+    // declining branches across collection/sales/service.
+    function buildFindingsSectionExportPayload() {
+      const recoveringRows = (activeData.branches || []).filter(function(b) { return b.collection === 'Recovering'; }).map(function(b, i) { return [i + 1, b.name, b.collection]; });
+      const sheets = [
+          { name: 'Top Findings FY26', headers: ['Branch', 'Findings 2026'], rows: (activeData.topFindings26 || []).map(function(x) { return [x.name, x.count]; }) },
+          { name: 'Recovering Branches', headers: ['#', 'Branch', 'Collection Status'], rows: recoveringRows },
+          { name: 'Declining Collection', headers: ['Branch', 'Latest Efficiency'], rows: (activeData.topDecliningCollection || []).map(function(x) { return [x.name, x.label]; }) },
+          { name: 'Declining Sales', headers: ['Branch', 'Unit Drop (Mar\u2192May)'], rows: (activeData.topDecliningSales || []).map(function(x) { return [x.name, x.label]; }) },
+          { name: 'Declining Service', headers: ['Branch', 'Shortfall vs Target'], rows: (activeData.topDecliningService || []).map(function(x) { return [x.name, x.label]; }) }
+      ];
+      return { title: 'Findings, Recovery & Declining Branches', filenameBase: 'Findings_Recovery_Declining_Branches', sheets: sheets };
+    }
+
     function buildConsolidatedExportPayload() {
       const s = activeData.summary || {};
       const summaryRows = [
@@ -3070,6 +3122,7 @@ body.bg-coolDark{
           { name: 'Highest Repo Rate', headers: ['Branch', 'Repo Rate %'], rows: (activeData.highestRepo || []).map(function(x) { return [x.branch, x.rate]; }) },
           { name: 'Highest No. of Repo', headers: ['Branch', 'No. of Repo'], rows: (activeData.highestNoRepo || []).map(function(x) { return [x.branch, x.count]; }) },
           { name: 'Top Findings FY26', headers: ['Branch', 'Findings 2026'], rows: (activeData.topFindings26 || []).map(function(x) { return [x.name, x.count]; }) },
+          { name: 'Recovering Branches', headers: ['#', 'Branch', 'Collection Status'], rows: (activeData.branches || []).filter(function(b) { return b.collection === 'Recovering'; }).map(function(b, i) { return [i + 1, b.name, b.collection]; }) },
           { name: 'Declining Collection', headers: ['Branch', 'Latest Efficiency'], rows: (activeData.topDecliningCollection || []).map(function(x) { return [x.name, x.label]; }) },
           { name: 'Declining Sales', headers: ['Branch', 'Unit Drop (Mar\u2192May)'], rows: (activeData.topDecliningSales || []).map(function(x) { return [x.name, x.label]; }) },
           { name: 'Declining Service', headers: ['Branch', 'Shortfall vs Target'], rows: (activeData.topDecliningService || []).map(function(x) { return [x.name, x.label]; }) },
@@ -4328,8 +4381,8 @@ body.bg-coolDark{
           }
         },
         series: [{ name: 'Findings', data: [sum.findings2024 || 0, sum.findings2025 || 0, sum.findings2026 || 0] }],
-        xaxis: { categories: ['FY2024', 'FY2025', 'FY2026'], labels: { style: { colors: '#64748b' } }, tooltip: { enabled: false } },
-        yaxis: { labels: { style: { colors: '#64748b' } } },
+        xaxis: { categories: ['2024', '2025', '2026'], labels: { style: { colors: '#64748b', fontSize: '10px', fontWeight: 600 }, trim: false }, tooltip: { enabled: false } },
+        yaxis: { labels: { style: { colors: '#64748b', fontSize: '10px' } } },
         colors: ['#0891b2'],
         plotOptions: { bar: { borderRadius: 4, columnWidth: '55%', distributed: true, cursor: 'pointer' } },
         legend: { show: false },
