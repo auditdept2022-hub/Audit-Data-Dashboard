@@ -1697,8 +1697,10 @@ body.bg-coolDark{
         waitThenSettle(window.dashboardDataReady, Date.now());
       };
 
-      // No login gate anymore — start loading immediately on page load.
-      window.__runDashboardLoadingSequence();
+      // Login comes first: the loading screen must NOT cover the sign-in
+      // form. We only expose the trigger here — it gets called by the
+      // Firebase auth logic below, right after a successful sign-in,
+      // never automatically on page load.
 
       // Reusable full-screen loading controls for any manual data refresh
       // (e.g. the "Update data" button), so it shows the same immersive
@@ -1773,8 +1775,10 @@ body.bg-coolDark{
           <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" class="hidden">
         </label>
 
-        <button id="authLogoutBtn" type="button" class="hidden items-center gap-2 px-3 py-2 bg-white/10 hover:bg-accentRose active:scale-95 border border-white/20 rounded-xl cursor-pointer text-sm font-semibold transition-all duration-200 text-white whitespace-nowrap group">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>
+        <button id="authLogoutBtn" type="button" title="Log out" class="hidden items-center gap-2 pl-2.5 pr-3 py-2 bg-white/10 hover:bg-accentRose active:scale-95 border border-white/20 hover:border-accentRose rounded-xl cursor-pointer text-sm font-semibold transition-all duration-200 text-white whitespace-nowrap group">
+          <span class="flex items-center justify-center w-6 h-6 rounded-full bg-white/15 group-hover:bg-white/25 transition-colors duration-200 shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" x2="12" y1="2" y2="12"></line></svg>
+          </span>
           <span id="authLogoutEmail" class="hidden xl:inline text-white/70 group-hover:text-white font-medium"></span>
           <span class="hidden sm:inline">Log out</span>
         </button>
@@ -4752,15 +4756,32 @@ body.bg-coolDark{
       signOut(auth);
     });
 
+    // Ensures the dashboard loading sequence only ever runs once per
+    // sign-in, right after the login screen has been dismissed — never
+    // before, so it can't interrupt/cover the login screen.
+    let dashboardLoadingStarted = false;
+
     onAuthStateChanged(auth, (user) => {
       if (user) {
         authGate.classList.add('hidden');
-        document.body.style.overflow = '';
         authLogoutBtn.classList.remove('hidden');
         authLogoutBtn.classList.add('flex');
         authLogoutEmail.textContent = user.email || '';
         authPassword.value = '';
+
+        // Login phase is done — now it's safe to show the loading screen.
+        if (!dashboardLoadingStarted) {
+          dashboardLoadingStarted = true;
+          if (window.__runDashboardLoadingSequence) {
+            window.__runDashboardLoadingSequence();
+          }
+        } else {
+          // Already loaded once this session (e.g. auth token refresh) —
+          // just make sure the dashboard is visible.
+          document.body.style.overflow = '';
+        }
       } else {
+        dashboardLoadingStarted = false;
         authGate.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
         authLogoutBtn.classList.add('hidden');
