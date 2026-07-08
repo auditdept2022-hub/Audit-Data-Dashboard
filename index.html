@@ -2946,6 +2946,25 @@ body.bg-coolDark{
           ];
       });
 
+      // Every branch's individual "Data Audit" remarks (auditor + note),
+      // flattened into one sheet with the branch name repeated per row so
+      // it opens cleanly as a normal table in Excel/Word/PDF.
+      const dataAuditRows = [];
+      Object.keys(activeData.dataAudit || {}).sort().forEach(function(bName) {
+          (activeData.dataAudit[bName] || []).forEach(function(r) {
+              dataAuditRows.push([bName, r.auditor || '', r.remark || '']);
+          });
+      });
+
+      // Every logged audit finding across all branches/years, flattened the
+      // same way.
+      const findingsDetailRows = [];
+      Object.keys(activeData.auditFindingsDetail || {}).sort().forEach(function(bName) {
+          (activeData.auditFindingsDetail[bName] || []).forEach(function(r) {
+              findingsDetailRows.push([bName, r.date || '', r.year || '', r.category || '', r.finding || '']);
+          });
+      });
+
       const sheets = [
           { name: 'Summary', headers: ['Metric', 'Value'], rows: summaryRows },
           { name: 'Branches', headers: ['#', 'Branch', 'Audit Status', 'Auditor', 'Last Audit Date', 'Collection', 'Sales', 'Service', 'Eff Mar %', 'Eff Apr %', 'Eff Latest %', 'Repo Rate Latest %', 'No. of Repo Latest', 'Accounts (May)', 'Findings 2024', 'Findings 2025', 'Findings 2026'], rows: branchRows },
@@ -2953,8 +2972,13 @@ body.bg-coolDark{
           { name: 'Highest Repo Rate', headers: ['Branch', 'Repo Rate %'], rows: (activeData.highestRepo || []).map(function(x) { return [x.branch, x.rate]; }) },
           { name: 'Highest No. of Repo', headers: ['Branch', 'No. of Repo'], rows: (activeData.highestNoRepo || []).map(function(x) { return [x.branch, x.count]; }) },
           { name: 'Top Findings FY26', headers: ['Branch', 'Findings 2026'], rows: (activeData.topFindings26 || []).map(function(x) { return [x.name, x.count]; }) },
+          { name: 'Declining Collection', headers: ['Branch', 'Latest Efficiency'], rows: (activeData.topDecliningCollection || []).map(function(x) { return [x.name, x.label]; }) },
+          { name: 'Declining Sales', headers: ['Branch', 'Unit Drop (Mar\u2192May)'], rows: (activeData.topDecliningSales || []).map(function(x) { return [x.name, x.label]; }) },
+          { name: 'Declining Service', headers: ['Branch', 'Shortfall vs Target'], rows: (activeData.topDecliningService || []).map(function(x) { return [x.name, x.label]; }) },
           { name: 'Auditors', headers: ['Auditor', 'Assigned Branches'], rows: (activeData.auditors || []).map(function(a) { return [a.name, a.count]; }) },
-          { name: 'Emergency History', headers: ['Auditor', 'Branch', 'Date of Audit'], rows: (activeData.emergencyHistory || []).map(function(h) { return [h.auditor || '', h.branch || '', h.details || '']; }) }
+          { name: 'Emergency History', headers: ['Auditor', 'Branch', 'Date of Audit'], rows: (activeData.emergencyHistory || []).map(function(h) { return [h.auditor || '', h.branch || '', h.details || '']; }) },
+          { name: 'Data Audit Remarks', headers: ['Branch', 'Auditor', 'Remark'], rows: dataAuditRows },
+          { name: 'Audit Findings Detail', headers: ['Branch', 'Date', 'Year', 'Category', 'Finding'], rows: findingsDetailRows }
       ];
 
       return { title: 'Audit Data Dashboard \u2014 Consolidated Report', filenameBase: 'Audit_Dashboard_Consolidated_Report', sheets: sheets };
