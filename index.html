@@ -66,9 +66,6 @@
   </style>
 
   <script id="data-source">
-    window.RAW_CSV_DATA = ``;
-    window.RAW_ROTATION_DATA = ``;
-
     let activeData = { 
         summary: {}, 
         branches: [], 
@@ -1742,12 +1739,56 @@ body.bg-coolDark{
 
   <aside id="sideMenu" class="fixed top-0 left-0 h-full w-72 max-w-[85vw] bg-white z-[70] shadow-2xl transform -translate-x-full transition-transform duration-300 ease-out flex flex-col">
     <div class="flex items-center justify-between px-5 py-4 border-b border-blue-800 bg-royalBlue shrink-0">
-      <h2 class="text-white font-bold text-base tracking-tight">Quick Links</h2>
+      <h2 class="text-white font-bold text-base tracking-tight">Shortcuts</h2>
       <button id="closeMenuBtn" type="button" aria-label="Close menu" class="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-white/10 active:scale-95 transition-all duration-200 text-white">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
       </button>
     </div>
     <nav class="flex-1 overflow-y-auto custom-scrollbar py-2">
+      <p class="px-5 pt-3 pb-1 text-[0.7rem] font-bold tracking-wider text-slate-400 uppercase">Jump to</p>
+
+      <div role="button" tabindex="0" onclick="scrollToSection('section-overview')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();scrollToSection('section-overview');}" class="side-menu-link cursor-pointer select-none">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue shrink-0"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg>
+        <span>Overview</span>
+      </div>
+
+      <div role="button" tabindex="0" onclick="scrollToSection('section-charts')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();scrollToSection('section-charts');}" class="side-menu-link cursor-pointer select-none">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue shrink-0"><path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z"></path><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path></svg>
+        <span>Charts &amp; Breakdown</span>
+      </div>
+
+      <div role="button" tabindex="0" onclick="scrollToSection('section-rankings')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();scrollToSection('section-rankings');}" class="side-menu-link cursor-pointer select-none">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue shrink-0"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+        <span>Top 10 Rankings</span>
+      </div>
+
+      <div role="button" tabindex="0" onclick="scrollToSection('section-findings')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();scrollToSection('section-findings');}" class="side-menu-link cursor-pointer select-none">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue shrink-0"><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect><path d="M14 4h7"></path><path d="M14 9h7"></path><path d="M14 15h7"></path><path d="M14 20h7"></path></svg>
+        <span>Findings &amp; Declining</span>
+      </div>
+
+      <div role="button" tabindex="0" onclick="scrollToSection('section-scorecard')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();scrollToSection('section-scorecard');}" class="side-menu-link cursor-pointer select-none">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue shrink-0"><path d="M12 3v18"></path><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18"></path><path d="M3 15h18"></path></svg>
+        <span>Branch Scorecard</span>
+      </div>
+
+      <p class="px-5 pt-4 pb-1 text-[0.7rem] font-bold tracking-wider text-slate-400 uppercase">Quick actions</p>
+
+      <div role="button" tabindex="0" onclick="updateDataFromMenu()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();updateDataFromMenu();}" class="side-menu-link cursor-pointer select-none">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue shrink-0"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="m8 17 4 4 4-4"></path></svg>
+        <span>Update Data</span>
+      </div>
+
+      <div role="button" tabindex="0" onclick="triggerFileUploadFromMenu()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();triggerFileUploadFromMenu();}" class="side-menu-link cursor-pointer select-none">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue shrink-0"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M8 13h2"></path><path d="M14 13h2"></path><path d="M8 17h2"></path><path d="M14 17h2"></path></svg>
+        <span>Upload File</span>
+      </div>
+
+      <div role="button" tabindex="0" onclick="openEmergencyAuditorFromMenu()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openEmergencyAuditorFromMenu();}" class="side-menu-link cursor-pointer select-none">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentRose shrink-0"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg>
+        <span>Emergency Auditor</span>
+      </div>
+
       <div role="button" tabindex="0" onclick="openAuditFindingsFromMenu()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAuditFindingsFromMenu();}" class="side-menu-link cursor-pointer select-none">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue shrink-0"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M8 13h2"></path><path d="M14 13h2"></path><path d="M8 17h2"></path><path d="M14 17h2"></path></svg>
         <span>AUDIT FINDINGS</span>
@@ -1757,7 +1798,7 @@ body.bg-coolDark{
 
   <main class="dash-container mt-8 space-y-8">
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+    <div id="section-overview" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
       <div onclick="openModal('All Branches Overview', 'all', null)" class="bg-coolCard border border-coolBorder rounded-2xl p-4 sm:p-5 hover:border-accentBlue/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
         <div class="flex items-center justify-between">
           <span class="text-xs font-semibold tracking-wider text-slate-500">TOTAL BRANCHES</span>
@@ -1849,7 +1890,7 @@ body.bg-coolDark{
       </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div id="section-charts" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
       
       <div class="bg-coolCard border border-coolBorder rounded-2xl p-6 shadow-md lg:col-span-2 flex flex-col justify-between hover:shadow-lg transition-all">
         <h3 class="text-lg font-bold tracking-tight text-slate-900 mb-6 flex items-center gap-2">
@@ -1947,7 +1988,7 @@ body.bg-coolDark{
       </div>
     </div>
 
-    <div class="bg-coolCard border border-coolBorder rounded-2xl p-6 shadow-md mb-8">
+    <div id="section-rankings" class="bg-coolCard border border-coolBorder rounded-2xl p-6 shadow-md mb-8">
       <h3 class="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2 mb-6">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bar-chart-2 w-5 h-5 text-accentIndigo"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
         Top 10 Rankings (<span id="span-rankings-month">MAY</span>)
@@ -1977,7 +2018,7 @@ body.bg-coolDark{
       </div>
     </div>
 
-    <div class="bg-coolCard border border-coolBorder rounded-2xl p-6 shadow-md">
+    <div id="section-findings" class="bg-coolCard border border-coolBorder rounded-2xl p-6 shadow-md">
       <h3 class="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2 mb-1">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-layout-list w-5 h-5 text-accentIndigo"><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect><path d="M14 4h7"></path><path d="M14 9h7"></path><path d="M14 15h7"></path><path d="M14 20h7"></path></svg>
         Findings, Recovery &amp; Declining Branches
@@ -2120,7 +2161,7 @@ body.bg-coolDark{
       </div>
     </div>
 
-    <div class="bg-coolCard border border-coolBorder rounded-2xl p-6 shadow-md">
+    <div id="section-scorecard" class="bg-coolCard border border-coolBorder rounded-2xl p-6 shadow-md">
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
         <div>
           <h3 class="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2">
@@ -2424,6 +2465,39 @@ body.bg-coolDark{
     // navigating away to an external spreadsheet.
     function openAuditFindingsFromMenu() {
       openModal('Audit Findings — All Branches (FY2026)', 'findings', 'findings2026');
+      if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
+    }
+
+    // Fired from the shortcuts menu's "Jump to" items — smooth-scrolls to a
+    // section on the dashboard (offset for the sticky header) instead of
+    // linking out anywhere, then closes the menu.
+    function scrollToSection(sectionId) {
+      const el = document.getElementById(sectionId);
+      if (el) {
+        const headerOffset = 96;
+        const top = el.getBoundingClientRect().top + window.pageYOffset - headerOffset;
+        window.scrollTo({ top: top, behavior: 'smooth' });
+      }
+      if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
+    }
+
+    // Fired from the shortcuts menu's "Upload File" item — reuses the same
+    // hidden file input the header button already wires up.
+    function triggerFileUploadFromMenu() {
+      const fileInput = document.getElementById('excelFile');
+      if (fileInput) fileInput.click();
+      if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
+    }
+
+    // Fired from the shortcuts menu's "Update Data" item.
+    function updateDataFromMenu() {
+      fetchSheet();
+      if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
+    }
+
+    // Fired from the shortcuts menu's "Emergency Auditor" item.
+    function openEmergencyAuditorFromMenu() {
+      openModal('Emergency Auditor Status', 'emergency', null);
       if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
     }
 
@@ -2852,21 +2926,6 @@ body.bg-coolDark{
         allDetail.forEach(r => {
             const y = getRecordYear(r);
             if (ALLOWED_FINDING_YEARS.includes(y)) years.add(y);
-        });
-        return Array.from(years).sort((a, b) => a - b);
-    }
-
-    // Union of every year that has findings across ALL branches. Used so the
-    // year-card layout stays consistent even for branches that happen to be
-    // missing a particular year's data.
-    function getAllFindingYears() {
-        const detail = activeData.auditFindingsDetail || {};
-        const years = new Set();
-        Object.keys(detail).forEach(bn => {
-            (detail[bn] || []).forEach(r => {
-                const y = getRecordYear(r);
-                if (ALLOWED_FINDING_YEARS.includes(y)) years.add(y);
-            });
         });
         return Array.from(years).sort((a, b) => a - b);
     }
@@ -4277,21 +4336,9 @@ body.bg-coolDark{
       reader.readAsArrayBuffer(file);
     }
 
-    async function fetchWithTimeout(url, ms) {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), ms);
-        try {
-            const res = await fetch(url, { signal: controller.signal });
-            return res;
-        } finally {
-            clearTimeout(timer);
-        }
-    }
-
     // JSONP loader: bypasses CORS entirely by loading the Apps Script
     // response as a <script> tag (like Google Maps/other JSONP APIs do)
-    // instead of fetch(). This works reliably across every device/network
-    // without depending on flaky third-party CORS proxies.
+    // instead of fetch(). This works reliably across every device/network.
     function fetchJSONP(url, timeoutMs) {
       return new Promise(function(resolve, reject) {
         const callbackName = 'jsonpCb_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
@@ -4329,26 +4376,20 @@ body.bg-coolDark{
       });
     }
 
-    async function fetchWithProxy(url) {
-        // Race the direct connection and both proxies simultaneously instead of
-        // trying them one at a time. Previously each failed attempt had to time
-        // out (up to 6-8s) before the next one even started, so a blocked direct
-        // fetch meant waiting ~20s+ before the sheet (and audit remarks) updated.
-        // Racing them means we finish as soon as the fastest one succeeds.
-        const attempts = [
-            fetchWithTimeout(url, 6000),
-            fetchWithTimeout('https://corsproxy.io/?' + encodeURIComponent(url), 7000),
-            fetchWithTimeout('https://api.allorigins.win/raw?url=' + encodeURIComponent(url), 7000)
-        ];
-
-        const results = await Promise.allSettled(attempts);
-        const success = results.find(r => r.status === 'fulfilled' && r.value.ok);
-        if (success) return success.value;
-
-        results.forEach((r, i) => {
-            if (r.status === 'rejected') console.warn(`Fetch attempt ${i} failed:`, r.reason);
-        });
-        throw new Error("All fetch attempts failed");
+    // Last-resort fallback if JSONP is ever unavailable: a plain direct
+    // fetch straight to Google's Apps Script endpoint. No third-party
+    // proxy services are used — sheet data never passes through any
+    // server other than Google's and your own device.
+    async function fetchDirect(url, ms) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), ms || 8000);
+        try {
+            const res = await fetch(url, { signal: controller.signal });
+            if (!res.ok) throw new Error("Network response was not ok");
+            return await res.json();
+        } finally {
+            clearTimeout(timer);
+        }
     }
 
     const defaultAppsScriptUrl = "https://script.google.com/macros/s/AKfycbznUM-5ohukVLMptwMFqKV-AyQlUrihx0FZ6xPzXmIIjpZ4Ybli2N1o4ehgw3BBJxgGaQ/exec";
@@ -4381,10 +4422,8 @@ body.bg-coolDark{
       try {
         return await fetchJSONP(url, 9000);
       } catch (jsonpErr) {
-        console.warn('JSONP fetch failed, falling back to proxy fetch:', jsonpErr);
-        const response = await fetchWithProxy(url);
-        if (!response.ok) throw new Error("Network response was not ok");
-        return await response.json();
+        console.warn('JSONP fetch failed, falling back to a direct fetch:', jsonpErr);
+        return await fetchDirect(url, 8000);
       }
     }
 
