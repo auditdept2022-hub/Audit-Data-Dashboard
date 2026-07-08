@@ -1826,6 +1826,28 @@ body.bg-coolDark{
     </div>
   </div>
 
+  <div id="exportPasswordModal" class="fixed inset-0 z-[70] hidden">
+    <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="cancelExportPassword()"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+      <div class="bg-coolCard w-full max-w-xs rounded-2xl shadow-2xl p-5 pointer-events-auto border border-coolBorder">
+        <div class="flex items-center gap-2 mb-1">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue flex-shrink-0"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          <h3 class="text-sm font-bold text-slate-800">Confirm Your Password</h3>
+        </div>
+        <p class="text-xs text-slate-500 mb-1">Re-enter your account password to download.</p>
+        <p class="text-[11px] text-slate-400 mb-3">Signed in as <span id="exportPasswordUserLabel" class="font-semibold text-slate-500">\u2014</span></p>
+        <input id="exportPasswordInput" type="password" autocomplete="current-password" placeholder="Your password" onkeydown="if(event.key==='Enter'){submitExportPassword();}" class="w-full px-3 py-2 rounded-xl border border-coolBorder text-sm focus:outline-none focus:ring-2 focus:ring-accentBlue/40 mb-1" />
+        <p id="exportPasswordError" class="text-[11px] text-accentRose mb-1 hidden">Incorrect password. Try again.</p>
+        <div class="flex gap-2 mt-3">
+          <button onclick="cancelExportPassword()" class="flex-1 text-xs font-semibold text-slate-500 hover:text-slate-700 py-2 rounded-xl border border-coolBorder cursor-pointer">Cancel</button>
+          <button id="exportPasswordSubmitBtn" onclick="submitExportPassword()" class="flex-1 text-xs font-semibold text-white bg-royalBlue hover:bg-blue-700 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-60">
+            <span id="exportPasswordSubmitLabel">Unlock &amp; Download</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="printArea"></div>
 
   <div id="toast" class="fixed bottom-6 right-6 z-50 transform transition-all duration-300 bg-coolCard border border-accentCyan/50 text-slate-700 px-5 py-3 rounded-xl shadow-lg shadow-accentCyan/10 flex items-center gap-3 translate-y-20 opacity-0">
@@ -2696,19 +2718,26 @@ body.bg-coolDark{
 
     document.addEventListener('keydown', (e) => {
         if (e.key !== 'Escape') return;
+        const pwModal = document.getElementById('exportPasswordModal');
+        if (pwModal && !pwModal.classList.contains('hidden')) { cancelExportPassword(); return; }
         const exportPicker = document.getElementById('exportPickerModal');
         if (exportPicker && !exportPicker.classList.contains('hidden')) { closeExportPicker(); return; }
         closeModal();
     });
 
-    /* ================= REPORT DOWNLOAD (Excel / Word) =================
+    /* ================= REPORT DOWNLOAD (Excel / Word / PDF) =================
        Two entry points:
        - openExportPicker('current')      -> exports just what's shown in
          the currently open popup (branch profile, findings list, etc.)
        - openExportPicker('consolidated') -> exports every branch, ranking,
          and summary metric on the dashboard, across multiple sheets/sections.
-       Both funnel into runExport(), which builds a small {title, sheets}
-       payload and hands it to either the Excel or Word writer. */
+       Both funnel through confirmExport(), which now re-checks the signed-in
+       person's own account password (via Firebase re-authentication, see
+       window.reauthenticateCurrentUser in the auth script) before handing
+       the picked sections off to runExport(). Only someone who can prove
+       they're that signed-in user right now can generate a download. */
+
+    let pendingExportAfterPassword = null;
 
     let pendingExportKind = null;
     let pendingExportPayload = null;
@@ -2787,10 +2816,79 @@ body.bg-coolDark{
       closeExportPicker();
       if (!kind) return;
       if (selectedSheets.length === 0) { showToast('Select at least one section to export.'); return; }
+      // Hold onto the chosen format/sections and ask for the download
+      // password before anything is actually generated.
+      pendingExportAfterPassword = {
+          kind: kind,
+          format: format,
+          payload: { title: payload.title, filenameBase: payload.filenameBase, sheets: selectedSheets }
+      };
+      openExportPasswordGate();
+    }
+
+    function openExportPasswordGate() {
+      const modal = document.getElementById('exportPasswordModal');
+      const input = document.getElementById('exportPasswordInput');
+      const err = document.getElementById('exportPasswordError');
+      const userLabel = document.getElementById('exportPasswordUserLabel');
+      if (!modal || !input) return;
+      err.classList.add('hidden');
+      input.value = '';
+      if (userLabel) userLabel.textContent = (typeof window.getCurrentUserEmail === 'function' && window.getCurrentUserEmail()) || 'unknown user';
+      setExportPasswordSubmitting(false);
+      modal.classList.remove('hidden');
+      setTimeout(function() { input.focus(); }, 50);
+    }
+
+    function cancelExportPassword() {
+      const modal = document.getElementById('exportPasswordModal');
+      if (modal) modal.classList.add('hidden');
+      pendingExportAfterPassword = null;
+    }
+
+    function setExportPasswordSubmitting(isSubmitting) {
+      const btn = document.getElementById('exportPasswordSubmitBtn');
+      const label = document.getElementById('exportPasswordSubmitLabel');
+      const input = document.getElementById('exportPasswordInput');
+      if (btn) btn.disabled = isSubmitting;
+      if (input) input.disabled = isSubmitting;
+      if (label) label.textContent = isSubmitting ? 'Checking\u2026' : 'Unlock & Download';
+    }
+
+    function exportPasswordErrorMessage(reason) {
+      if (reason === 'not-signed-in') return 'You\u2019re not signed in \u2014 please sign in first.';
+      if (reason === 'auth/too-many-requests') return 'Too many attempts. Please wait a moment and try again.';
+      if (reason === 'auth/network-request-failed') return 'Network error \u2014 check your connection and try again.';
+      return 'Incorrect password. Try again.';
+    }
+
+    async function submitExportPassword() {
+      const pending = pendingExportAfterPassword;
+      const input = document.getElementById('exportPasswordInput');
+      const err = document.getElementById('exportPasswordError');
+      if (!pending || !input) { cancelExportPassword(); return; }
+      if (typeof window.reauthenticateCurrentUser !== 'function') {
+          err.textContent = 'Password check is unavailable right now.';
+          err.classList.remove('hidden');
+          return;
+      }
+      setExportPasswordSubmitting(true);
+      const result = await window.reauthenticateCurrentUser(input.value);
+      setExportPasswordSubmitting(false);
+      if (!result || !result.ok) {
+          err.textContent = exportPasswordErrorMessage(result && result.reason);
+          err.classList.remove('hidden');
+          input.value = '';
+          input.focus();
+          return;
+      }
+      const modal = document.getElementById('exportPasswordModal');
+      if (modal) modal.classList.add('hidden');
+      pendingExportAfterPassword = null;
       try {
-          await runExport(kind, format, { title: payload.title, filenameBase: payload.filenameBase, sheets: selectedSheets });
-      } catch (err) {
-          console.error('Export failed:', err);
+          await runExport(pending.kind, pending.format, pending.payload);
+      } catch (err2) {
+          console.error('Export failed:', err2);
           showToast('Export failed \u2014 please try again.');
       }
     }
@@ -5315,7 +5413,9 @@ body.bg-coolDark{
       setPersistence,
       browserLocalPersistence,
       browserSessionPersistence,
-      signOut
+      signOut,
+      EmailAuthProvider,
+      reauthenticateWithCredential
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
     // TODO: paste your full config from Firebase Console →
@@ -5347,6 +5447,29 @@ body.bg-coolDark{
         console.warn('Could not get Firebase ID token:', err);
         return null;
       }
+    };
+
+    // Gate for downloads: re-checks the *currently signed-in* person's own
+    // account password (not a shared/static one) before a report is
+    // generated, so only someone who can prove they are that signed-in user
+    // right now can download. Uses Firebase's reauthenticateWithCredential,
+    // which verifies the password against that user's account without
+    // starting a new session or affecting anyone else's.
+    window.reauthenticateCurrentUser = async function(password) {
+      if (!auth.currentUser) return { ok: false, reason: 'not-signed-in' };
+      if (!password) return { ok: false, reason: 'empty' };
+      try {
+        const credential = EmailAuthProvider.credential(auth.currentUser.email, password);
+        await reauthenticateWithCredential(auth.currentUser, credential);
+        return { ok: true };
+      } catch (err) {
+        console.warn('Re-authentication failed:', err && err.code);
+        return { ok: false, reason: (err && err.code) || 'error' };
+      }
+    };
+
+    window.getCurrentUserEmail = function() {
+      return (auth.currentUser && auth.currentUser.email) || '';
     };
 
     // Default to session-only persistence: unless the person checks "Stay
