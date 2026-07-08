@@ -1446,6 +1446,29 @@ body.bg-coolDark{
     .auth-submit{ background:linear-gradient(90deg,#4f46e5,#0891b2); color:#ffffff; }
     .auth-submit:hover{ filter:brightness(1.05); }
     .auth-submit:disabled{ filter:grayscale(.15); }
+    .auth-toggle-pass{
+      position:absolute; right:.55rem; top:50%; transform:translateY(-50%);
+      display:flex; align-items:center; justify-content:center;
+      width:1.75rem; height:1.75rem; border-radius:.5rem;
+      color:#94a3b8; background:transparent; border:none; cursor:pointer;
+      transition:color .15s ease, background .15s ease;
+    }
+    .auth-toggle-pass:hover{ color:#4f46e5; background:rgba(79,70,229,0.08); }
+    .auth-remember{
+      display:flex; align-items:center; gap:.5rem; cursor:pointer; user-select:none;
+    }
+    .auth-remember input{
+      appearance:none; -webkit-appearance:none; width:1.05rem; height:1.05rem;
+      border:1.5px solid rgba(99,102,241,0.35); border-radius:.35rem;
+      display:inline-flex; align-items:center; justify-content:center;
+      cursor:pointer; flex-shrink:0; transition:all .15s ease; background:#fff;
+    }
+    .auth-remember input:checked{
+      background:linear-gradient(90deg,#4f46e5,#0891b2); border-color:transparent;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat:no-repeat; background-position:center; background-size:70%;
+    }
+    .auth-remember span{ font-size:.8rem; color:#475569; font-weight:600; }
   </style>
 
   <div id="authGate" class="fixed inset-0 z-[200] flex items-center justify-center p-4">
@@ -1466,13 +1489,23 @@ body.bg-coolDark{
           <div>
             <label for="authEmail" class="auth-label block mb-2">Email</label>
             <input type="email" id="authEmail" autocomplete="username" required
-              class="auth-input" placeholder="you@company.com">
+              class="auth-input">
           </div>
           <div>
             <label for="authPassword" class="auth-label block mb-2">Password</label>
-            <input type="password" id="authPassword" autocomplete="current-password" required
-              class="auth-input" placeholder="••••••••">
+            <div class="relative">
+              <input type="password" id="authPassword" autocomplete="current-password" required
+                class="auth-input pr-10">
+              <button type="button" id="authTogglePass" tabindex="-1" aria-label="Show password" class="auth-toggle-pass">
+                <svg id="authEyeIcon" xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </button>
+            </div>
           </div>
+
+          <label class="auth-remember">
+            <input type="checkbox" id="authRemember">
+            <span>Stay logged in</span>
+          </label>
 
           <button type="submit" id="authSubmitBtn"
             class="auth-submit w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold tracking-tight shadow-lg active:scale-[0.98] transition-all duration-200">
@@ -1586,7 +1619,7 @@ body.bg-coolDark{
       const loadingTitleEl = document.getElementById('loadingTitleText');
 
       const RING_CIRCUMFERENCE = 339.292;
-      const MIN_LOADING_MS = 1300;
+      const MIN_LOADING_MS = 450;
       const STATUS_MESSAGES = [
         'Connecting to secure server\u2026',
         'Fetching latest audit records\u2026',
@@ -4409,7 +4442,7 @@ body.bg-coolDark{
           if (done) return;
           cleanup();
           reject(new Error('JSONP timed out'));
-        }, timeoutMs || 10000);
+        }, timeoutMs || 8000);
 
         window[callbackName] = function(data) {
           if (done) return;
@@ -4435,7 +4468,7 @@ body.bg-coolDark{
     // server other than Google's and your own device.
     async function fetchDirect(url, ms) {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), ms || 8000);
+        const timer = setTimeout(() => controller.abort(), ms || 6000);
         try {
             const res = await fetch(url, { signal: controller.signal });
             if (!res.ok) throw new Error("Network response was not ok");
@@ -4478,10 +4511,10 @@ body.bg-coolDark{
     // proxy-based fetch if that fails for any reason.
     async function fetchSheetOnce(url) {
       try {
-        return await fetchJSONP(url, 9000);
+        return await fetchJSONP(url, 7000);
       } catch (jsonpErr) {
         console.warn('JSONP fetch failed, falling back to a direct fetch:', jsonpErr);
-        return await fetchDirect(url, 8000);
+        return await fetchDirect(url, 6000);
       }
     }
 
@@ -4492,8 +4525,8 @@ body.bg-coolDark{
       // toast, and keep it up until the new data has finished loading.
       const useFullLoader = !isAutoLoad && window.__loadingUI;
       const startedAt = Date.now();
-      const MIN_LOADER_MS = 900; // avoid a jarring instant flash on fast responses
-      const MAX_ATTEMPTS = 3;
+      const MIN_LOADER_MS = 350; // avoid a jarring instant flash on fast responses
+      const MAX_ATTEMPTS = 2;
 
       function finishLoader(success) {
         if (!useFullLoader) return;
@@ -4547,7 +4580,7 @@ body.bg-coolDark{
               showToast("Connection hiccup, retrying\u2026");
             }
             // Brief backoff so a flaky connection gets a moment to recover.
-            await new Promise(function(resolve) { setTimeout(resolve, attempt * 1200); });
+            await new Promise(function(resolve) { setTimeout(resolve, 500); });
           }
         }
       }
@@ -4636,11 +4669,25 @@ body.bg-coolDark{
         });
       };
 
-      fetchSheet(true).then(function() {
-        if (window.__dashboardReadyResolve) window.__dashboardReadyResolve(isDashboardDataUsable());
-      }).catch(function() {
-        if (window.__dashboardReadyResolve) window.__dashboardReadyResolve(isDashboardDataUsable());
-      });
+      // Speed fix: if we already have usable data on screen (cached from a
+      // previous sync, or the bundled default), there's no reason to make
+      // the person stare at the loading screen for a full Apps Script round
+      // trip every single time they log in. Reveal immediately with what we
+      // have, and let the network fetch refresh it quietly in the
+      // background. The loading screen only blocks on the network when we
+      // truly have nothing to show yet (e.g. very first run, cleared cache).
+      if (isDashboardDataUsable()) {
+        if (window.__dashboardReadyResolve) window.__dashboardReadyResolve(true);
+        fetchSheet(true).catch(function(err) {
+          console.warn('Background refresh failed, keeping existing data on screen:', err);
+        });
+      } else {
+        fetchSheet(true).then(function() {
+          if (window.__dashboardReadyResolve) window.__dashboardReadyResolve(isDashboardDataUsable());
+        }).catch(function() {
+          if (window.__dashboardReadyResolve) window.__dashboardReadyResolve(isDashboardDataUsable());
+        });
+      }
       
       document.getElementById('tableSearch').addEventListener('input', renderScorecardTable);
       document.getElementById('filterCollection').addEventListener('change', renderScorecardTable);
@@ -4697,6 +4744,9 @@ body.bg-coolDark{
       getAuth,
       signInWithEmailAndPassword,
       onAuthStateChanged,
+      setPersistence,
+      browserLocalPersistence,
+      browserSessionPersistence,
       signOut
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
@@ -4715,6 +4765,13 @@ body.bg-coolDark{
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
+    // Default to session-only persistence: unless the person checks "Stay
+    // logged in" at sign-in, the session clears when the browser/tab is
+    // closed instead of silently auto-signing them back in (which was
+    // skipping straight past the login screen to the loading screen).
+    setPersistence(auth, browserSessionPersistence).catch(function(err) {
+      console.warn('Could not set default auth persistence:', err);
+    });
 
     const authGate = document.getElementById('authGate');
     const authForm = document.getElementById('authForm');
@@ -4726,6 +4783,19 @@ body.bg-coolDark{
     const authSpinner = document.getElementById('authSpinner');
     const authLogoutBtn = document.getElementById('authLogoutBtn');
     const authLogoutEmail = document.getElementById('authLogoutEmail');
+    const authTogglePass = document.getElementById('authTogglePass');
+    const authEyeIcon = document.getElementById('authEyeIcon');
+    const authRemember = document.getElementById('authRemember');
+
+    const EYE_OPEN = '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle>';
+    const EYE_OFF = '<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c6.5 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3.5 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path><line x1="2" x2="22" y1="2" y2="22"></line>';
+
+    authTogglePass.addEventListener('click', () => {
+      const showing = authPassword.type === 'text';
+      authPassword.type = showing ? 'password' : 'text';
+      authEyeIcon.innerHTML = showing ? EYE_OPEN : EYE_OFF;
+      authTogglePass.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+    });
 
     function setSubmitting(isSubmitting) {
       authSubmitBtn.disabled = isSubmitting;
@@ -4744,6 +4814,9 @@ body.bg-coolDark{
       authError.classList.add('hidden');
       setSubmitting(true);
       try {
+        // "Stay logged in" checked -> survive browser restarts (local).
+        // Unchecked -> cleared when the browser/tab closes (session only).
+        await setPersistence(auth, authRemember.checked ? browserLocalPersistence : browserSessionPersistence);
         await signInWithEmailAndPassword(auth, authEmail.value.trim(), authPassword.value);
         // onAuthStateChanged below handles revealing the dashboard.
       } catch (err) {
@@ -4788,6 +4861,8 @@ body.bg-coolDark{
         document.body.style.overflow = 'hidden';
         authLogoutBtn.classList.add('hidden');
         authLogoutBtn.classList.remove('flex');
+        authPassword.type = 'password';
+        authEyeIcon.innerHTML = EYE_OPEN;
       }
     });
   </script>
