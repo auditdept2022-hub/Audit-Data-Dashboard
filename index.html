@@ -1664,7 +1664,12 @@ body.bg-coolDark{
       window.__loadingUI = {
         open: openLoadingScreen,
         reveal: revealDashboard,
-        close: closeLoadingScreen
+        close: closeLoadingScreen,
+        // Swaps the rotating status messages mid-flight (e.g. to show retry
+        // progress) without resetting the progress ring or restarting the load.
+        setMessages: function(messages) {
+          if (messages && messages.length) currentMessages = messages;
+        }
       };
 
       loadingRetryBtn.addEventListener('click', function() {
@@ -4370,14 +4375,28 @@ body.bg-coolDark{
       return wb;
     }
 
+    // Single attempt: try JSONP first (immune to CORS), fall back to the
+    // proxy-based fetch if that fails for any reason.
+    async function fetchSheetOnce(url) {
+      try {
+        return await fetchJSONP(url, 9000);
+      } catch (jsonpErr) {
+        console.warn('JSONP fetch failed, falling back to proxy fetch:', jsonpErr);
+        const response = await fetchWithProxy(url);
+        if (!response.ok) throw new Error("Network response was not ok");
+        return await response.json();
+      }
+    }
+
     async function fetchSheet(isAutoLoad = false) {
-      let fetchUrl = defaultAppsScriptUrl + '?nocache=' + new Date().getTime();
+      const baseUrl = defaultAppsScriptUrl;
       // On a manual click ("Update data" button), show the full immersive
       // loading screen — same one used on initial load — instead of a small
       // toast, and keep it up until the new data has finished loading.
       const useFullLoader = !isAutoLoad && window.__loadingUI;
       const startedAt = Date.now();
       const MIN_LOADER_MS = 900; // avoid a jarring instant flash on fast responses
+      const MAX_ATTEMPTS = 3;
 
       function finishLoader(success) {
         if (!useFullLoader) return;
@@ -4389,44 +4408,57 @@ body.bg-coolDark{
         }, remaining);
       }
 
-      try {
-          if (useFullLoader) {
-            window.__loadingUI.open({
-              title: 'Updating your dashboard',
-              messages: [
-                'Connecting to Google Sheets\u2026',
-                'Fetching latest audit records\u2026',
-                'Syncing branch performance data\u2026',
-                'Crunching the numbers\u2026'
-              ]
-            });
-          } else if (!isAutoLoad) {
-            showToast("Fetching data from Google Sheets...");
-          }
+      if (useFullLoader) {
+        window.__loadingUI.open({
+          title: 'Updating your dashboard',
+          messages: [
+            'Connecting to your data source\u2026',
+            'Fetching the latest audit records\u2026',
+            'Refreshing branch performance data\u2026',
+            'Crunching the numbers\u2026'
+          ]
+        });
+      } else if (!isAutoLoad) {
+        showToast("Fetching the latest data\u2026");
+      }
 
-          let json;
-          try {
-            // Primary path: JSONP, immune to CORS issues entirely.
-            json = await fetchJSONP(fetchUrl, 10000);
-          } catch (jsonpErr) {
-            console.warn('JSONP fetch failed, falling back to proxy fetch:', jsonpErr);
-            // Fallback path: old fetch+proxy method, in case the Apps
-            // Script backend hasn't been updated with callback support yet.
-            const response = await fetchWithProxy(fetchUrl);
-            if (!response.ok) throw new Error("Network response was not ok");
-            json = await response.json();
-          }
-
+      let lastError = null;
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+          const fetchUrl = baseUrl + '?nocache=' + Date.now() + '_' + attempt;
+          const json = await fetchSheetOnce(fetchUrl);
           const workbook = buildWorkbookFromAppsScript(json);
           processExcelData(workbook);
 
           finishLoader(true);
-          if (!useFullLoader && !isAutoLoad) showToast("Dashboard successfully updated from Apps Script!");
-      } catch (error) {
-          console.error(error);
-          finishLoader(false);
-          if (!isAutoLoad) showToast("Failed to fetch sheet. Check your internet connection.");
+          if (!useFullLoader && !isAutoLoad) showToast("Dashboard successfully updated!");
+          return;
+        } catch (error) {
+          lastError = error;
+          console.warn('Fetch attempt ' + attempt + ' of ' + MAX_ATTEMPTS + ' failed:', error);
+          const isLastAttempt = attempt === MAX_ATTEMPTS;
+          if (!isLastAttempt) {
+            // Connection hiccups happen — keep the loading screen up and
+            // quietly retry instead of surfacing a failure right away.
+            if (useFullLoader) {
+              window.__loadingUI.setMessages([
+                'Connection hiccup, retrying\u2026',
+                'Trying again (' + (attempt + 1) + ' of ' + MAX_ATTEMPTS + ')\u2026',
+                'Hang tight, almost there\u2026'
+              ]);
+            } else if (!isAutoLoad) {
+              showToast("Connection hiccup, retrying\u2026");
+            }
+            // Brief backoff so a flaky connection gets a moment to recover.
+            await new Promise(function(resolve) { setTimeout(resolve, attempt * 1200); });
+          }
+        }
       }
+
+      // Every attempt failed.
+      console.error(lastError);
+      finishLoader(false);
+      if (!isAutoLoad) showToast("Couldn't reach the data source after a few tries. Check your connection.");
     }
 
     function saveDashboardDataToCache() {
