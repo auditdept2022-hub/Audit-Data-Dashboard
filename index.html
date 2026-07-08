@@ -1763,7 +1763,12 @@ body.bg-coolDark{
     <div class="absolute inset-0 flex items-center justify-center p-4 sm:p-6 pointer-events-none">
       <div class="bg-coolCard w-full max-w-5xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col pointer-events-auto transform transition-transform duration-300 border border-coolBorder scale-95" id="modalDialog">
         <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-coolBorder flex justify-between items-center gap-3 bg-gray-50 rounded-t-2xl">
-          <h2 class="text-base sm:text-xl font-bold text-slate-800 flex items-center gap-2 min-w-0" id="modalTitle">BINALONAN — Detailed Profile</h2>
+          <div class="flex items-center gap-2 min-w-0">
+            <button id="modalBackBtn" onclick="modalGoBack()" title="Back" aria-label="Back to previous view" class="hidden p-2 -ml-1 text-slate-400 hover:text-accentBlue hover:bg-accentBlue/10 active:scale-95 rounded-xl transition-all cursor-pointer flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>
+            </button>
+            <h2 class="text-base sm:text-xl font-bold text-slate-800 flex items-center gap-2 min-w-0" id="modalTitle">BINALONAN — Detailed Profile</h2>
+          </div>
           <div class="flex items-center gap-1 flex-shrink-0">
             <button onclick="printModalContent()" title="Print this data" aria-label="Print this data" class="p-2 text-slate-400 hover:text-accentBlue hover:bg-accentBlue/10 active:scale-95 rounded-xl transition-all cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
@@ -2408,7 +2413,45 @@ body.bg-coolDark{
         el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block ${colorClass}">${arrow}</svg>`;
     }
 
-    function openModal(title, type, filterValue) {
+    // Tracks the stack of previously-viewed popup screens (title/type/filterValue)
+    // so the Back button can return to whatever was open before, instead of the
+    // only option being the X button, which drops straight back to the dashboard.
+    let modalHistory = [];
+    let modalCurrentState = null;
+
+    function updateModalBackButton() {
+      const backBtn = document.getElementById('modalBackBtn');
+      if (backBtn) backBtn.classList.toggle('hidden', modalHistory.length === 0);
+    }
+
+    // Pops the last screen off the history stack and re-opens it, without
+    // pushing a new history entry (that would just re-add the screen we're
+    // leaving and break "back" into a loop).
+    function modalGoBack() {
+      if (modalHistory.length === 0) return;
+      const prev = modalHistory.pop();
+      openModal(prev.title, prev.type, prev.filterValue, { fromBack: true });
+    }
+
+    function openModal(title, type, filterValue, navOpts) {
+      navOpts = navOpts || {};
+      const modalEl = document.getElementById('dataModal');
+      const wasAlreadyOpen = modalEl && !modalEl.classList.contains('hidden');
+
+      if (!navOpts.fromBack) {
+          if (wasAlreadyOpen && modalCurrentState) {
+              // Navigating deeper from within an already-open popup (e.g.
+              // clicking a branch inside the findings list) — remember where
+              // we came from so Back can return to it.
+              modalHistory.push(modalCurrentState);
+          } else if (!wasAlreadyOpen) {
+              // Fresh open from the dashboard/menu — start a new history.
+              modalHistory = [];
+          }
+      }
+      modalCurrentState = { title, type, filterValue };
+      updateModalBackButton();
+
       const modalTitle = document.getElementById('modalTitle');
       const modalBody = document.getElementById('modalBody');
       modalTitle.innerHTML = title;
@@ -2596,6 +2639,11 @@ body.bg-coolDark{
       setTimeout(() => {
           modal.classList.add('hidden');
       }, 300);
+      // Fully closing the popup means the next open should be treated as
+      // fresh, not a continuation of whatever screen history built up.
+      modalHistory = [];
+      modalCurrentState = null;
+      updateModalBackButton();
     }
 
     document.addEventListener('keydown', (e) => {
