@@ -8,6 +8,9 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docx@8.5/build/index.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   
   <script>
@@ -1770,6 +1773,9 @@ body.bg-coolDark{
             <h2 class="text-base sm:text-xl font-bold text-slate-800 flex items-center gap-2 min-w-0" id="modalTitle">BINALONAN — Detailed Profile</h2>
           </div>
           <div class="flex items-center gap-1 flex-shrink-0">
+            <button onclick="openExportPicker('current')" title="Download this data" aria-label="Download this data" class="p-2 text-slate-400 hover:text-accentEmerald hover:bg-accentEmerald/10 active:scale-95 rounded-xl transition-all cursor-pointer">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>
+            </button>
             <button onclick="printModalContent()" title="Print this data" aria-label="Print this data" class="p-2 text-slate-400 hover:text-accentBlue hover:bg-accentBlue/10 active:scale-95 rounded-xl transition-all cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
             </button>
@@ -1779,6 +1785,43 @@ body.bg-coolDark{
           </div>
         </div>
         <div class="p-4 sm:p-6 overflow-y-auto custom-scrollbar" id="modalBody"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="exportPickerModal" class="fixed inset-0 z-[60] hidden">
+    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="closeExportPicker()"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+      <div class="bg-coolCard w-full max-w-sm rounded-2xl shadow-2xl p-5 pointer-events-auto border border-coolBorder max-h-[85vh] flex flex-col">
+        <h3 class="text-sm font-bold text-slate-800 mb-1" id="exportPickerTitle">Download Report</h3>
+        <p class="text-xs text-slate-500 mb-3" id="exportPickerSubtitle">Choose what to include and a file format.</p>
+
+        <div class="flex items-center justify-between px-1 mb-1">
+          <span class="text-[11px] font-bold tracking-wide text-slate-400 uppercase">Sections</span>
+          <div class="flex items-center gap-3 text-[11px] font-semibold">
+            <button type="button" onclick="setAllExportSections(true)" class="text-accentBlue hover:underline cursor-pointer">Select all</button>
+            <button type="button" onclick="setAllExportSections(false)" class="text-accentRose hover:underline cursor-pointer">Clear all</button>
+          </div>
+        </div>
+        <div id="exportSectionList" class="flex-1 overflow-y-auto custom-scrollbar border border-coolBorder rounded-xl divide-y divide-coolBorder mb-3">
+          <!-- populated dynamically -->
+        </div>
+
+        <div class="grid grid-cols-3 gap-2">
+          <button onclick="confirmExport('xlsx')" class="flex flex-col items-center gap-1 px-2 py-3 rounded-xl border border-coolBorder hover:border-accentEmerald/50 hover:bg-accentEmerald/5 active:scale-[0.98] transition-all cursor-pointer">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentEmerald flex-shrink-0"><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"></path><path d="m8 13 2 5 2-5 2 5 2-5"></path></svg>
+            <span class="text-[11px] font-semibold text-slate-800">Excel</span>
+          </button>
+          <button onclick="confirmExport('docx')" class="flex flex-col items-center gap-1 px-2 py-3 rounded-xl border border-coolBorder hover:border-accentBlue/50 hover:bg-accentBlue/5 active:scale-[0.98] transition-all cursor-pointer">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentBlue flex-shrink-0"><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"></path><path d="M8 13h1"></path><path d="M8 17h1"></path><path d="M14 13h2"></path><path d="M14 17h2"></path></svg>
+            <span class="text-[11px] font-semibold text-slate-800">Word</span>
+          </button>
+          <button onclick="confirmExport('pdf')" class="flex flex-col items-center gap-1 px-2 py-3 rounded-xl border border-coolBorder hover:border-accentRose/50 hover:bg-accentRose/5 active:scale-[0.98] transition-all cursor-pointer">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentRose flex-shrink-0"><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"></path><path d="M9 15v-2h1.5a1.5 1.5 0 0 1 0 3H9"></path><path d="M13 17v-4h2"></path><path d="M13 15h1.5"></path><path d="M17 17v-4h1.5"></path></svg>
+            <span class="text-[11px] font-semibold text-slate-800">PDF</span>
+          </button>
+        </div>
+        <button onclick="closeExportPicker()" class="mt-3 w-full text-center text-xs font-semibold text-slate-400 hover:text-slate-600 py-1 cursor-pointer">Cancel</button>
       </div>
     </div>
   </div>
@@ -1883,6 +1926,11 @@ body.bg-coolDark{
       <div role="button" tabindex="0" onclick="openAuditFindingsFromMenu()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAuditFindingsFromMenu();}" class="side-menu-link cursor-pointer select-none">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue shrink-0"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M8 13h2"></path><path d="M14 13h2"></path><path d="M8 17h2"></path><path d="M14 17h2"></path></svg>
         <span>AUDIT FINDINGS</span>
+      </div>
+
+      <div role="button" tabindex="0" onclick="openExportPicker('consolidated')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openExportPicker('consolidated');}" class="side-menu-link cursor-pointer select-none">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentEmerald shrink-0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>
+        <span>Download Report</span>
       </div>
     </nav>
   </aside>
@@ -2647,8 +2695,401 @@ body.bg-coolDark{
     }
 
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeModal();
+        if (e.key !== 'Escape') return;
+        const exportPicker = document.getElementById('exportPickerModal');
+        if (exportPicker && !exportPicker.classList.contains('hidden')) { closeExportPicker(); return; }
+        closeModal();
     });
+
+    /* ================= REPORT DOWNLOAD (Excel / Word) =================
+       Two entry points:
+       - openExportPicker('current')      -> exports just what's shown in
+         the currently open popup (branch profile, findings list, etc.)
+       - openExportPicker('consolidated') -> exports every branch, ranking,
+         and summary metric on the dashboard, across multiple sheets/sections.
+       Both funnel into runExport(), which builds a small {title, sheets}
+       payload and hands it to either the Excel or Word writer. */
+
+    let pendingExportKind = null;
+    let pendingExportPayload = null;
+    let exportSectionSelection = {};
+
+    function openExportPicker(kind) {
+      pendingExportKind = kind;
+      const titleEl = document.getElementById('exportPickerTitle');
+      const subEl = document.getElementById('exportPickerSubtitle');
+      pendingExportPayload = (kind === 'consolidated') ? buildConsolidatedExportPayload() : buildCurrentModalExportPayload();
+      if (kind === 'consolidated') {
+          titleEl.textContent = 'Download Consolidated Report';
+          subEl.textContent = 'Pick which sections to include and a file format.';
+      } else {
+          const label = (modalCurrentState && modalCurrentState.title) ? String(modalCurrentState.title).replace(/<[^>]+>/g, '') : 'this view';
+          titleEl.textContent = 'Download This Data';
+          subEl.textContent = 'Exports what\u2019s currently shown: ' + label + '.';
+      }
+      renderExportSectionList();
+      document.getElementById('exportPickerModal').classList.remove('hidden');
+      if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
+    }
+
+    // Renders one checkbox per non-empty sheet in the pending payload so the
+    // person can pick exactly which sections end up in the download, instead
+    // of always getting everything (or everything the current view has).
+    function renderExportSectionList() {
+      const container = document.getElementById('exportSectionList');
+      if (!container) return;
+      container.innerHTML = '';
+      exportSectionSelection = {};
+      const sheets = (pendingExportPayload && pendingExportPayload.sheets) ? pendingExportPayload.sheets.filter(function(s) { return s.rows && s.rows.length > 0; }) : [];
+      if (sheets.length === 0) {
+          container.innerHTML = '<p class="text-xs text-slate-400 px-3 py-4 text-center">Nothing to export yet.</p>';
+          return;
+      }
+      sheets.forEach(function(s, idx) {
+          exportSectionSelection[s.name] = true;
+          const row = document.createElement('label');
+          row.className = 'flex items-center gap-2 px-3 py-2 text-xs text-slate-700 cursor-pointer hover:bg-slate-50 select-none';
+          const rowCount = s.rows.length;
+          row.innerHTML = '<input type="checkbox" checked data-idx="' + idx + '" class="export-section-checkbox w-4 h-4 rounded border-coolBorder text-accentEmerald focus:ring-accentEmerald/40 flex-shrink-0" />' +
+              '<span class="flex-1 truncate font-medium">' + s.name + '</span>' +
+              '<span class="text-[10px] text-slate-400 flex-shrink-0">' + rowCount + ' row' + (rowCount === 1 ? '' : 's') + '</span>';
+          container.appendChild(row);
+      });
+      container.querySelectorAll('.export-section-checkbox').forEach(function(cb) {
+          cb.addEventListener('change', function() {
+              const idx = Number(cb.getAttribute('data-idx'));
+              const name = sheets[idx].name;
+              exportSectionSelection[name] = cb.checked;
+          });
+      });
+    }
+
+    function setAllExportSections(val) {
+      document.querySelectorAll('#exportSectionList .export-section-checkbox').forEach(function(cb) {
+          if (cb.checked !== val) { cb.checked = val; cb.dispatchEvent(new Event('change')); }
+      });
+    }
+
+    function closeExportPicker() {
+      document.getElementById('exportPickerModal').classList.add('hidden');
+      pendingExportKind = null;
+      pendingExportPayload = null;
+      exportSectionSelection = {};
+    }
+
+    async function confirmExport(format) {
+      const kind = pendingExportKind;
+      const payload = pendingExportPayload;
+      if (!payload) { closeExportPicker(); return; }
+      const selectedSheets = (payload.sheets || []).filter(function(s) {
+          return s.rows && s.rows.length > 0 && exportSectionSelection[s.name] !== false;
+      });
+      closeExportPicker();
+      if (!kind) return;
+      if (selectedSheets.length === 0) { showToast('Select at least one section to export.'); return; }
+      try {
+          await runExport(kind, format, { title: payload.title, filenameBase: payload.filenameBase, sheets: selectedSheets });
+      } catch (err) {
+          console.error('Export failed:', err);
+          showToast('Export failed \u2014 please try again.');
+      }
+    }
+
+    function sanitizeFilename(name) {
+      return String(name || 'report').replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, '_').slice(0, 80) || 'report';
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    // Builds Field/Value rows for a single branch's full profile.
+    function buildBranchProfileRows(b) {
+      const rows = [];
+      function add(label, val) { if (val !== undefined && val !== null && val !== '') rows.push([label, val]); }
+      add('Branch', b.name);
+      add('Audit Status', b.auditStatus);
+      add('Assigned Auditor', b.auditor);
+      add('Last Audit Date', b.lastAuditDate);
+      add('Collection Status', b.collection);
+      add('Sales Status', b.sales);
+      add('Service Status', b.service);
+      add('Efficiency \u2014 Mar (%)', b.effMar);
+      add('Efficiency \u2014 Apr (%)', b.effApr);
+      add('Efficiency \u2014 Latest (%)', b.effLatest);
+      add('Repo Rate \u2014 Mar (%)', b.repoRateMar);
+      add('Repo Rate \u2014 Apr (%)', b.repoRateApr);
+      add('Repo Rate \u2014 Latest (%)', b.repoRateLatest);
+      add('No. of Repo \u2014 Mar', b.noOfRepoMar);
+      add('No. of Repo \u2014 Apr', b.noOfRepoApr);
+      add('No. of Repo \u2014 Latest', b.noOfRepoLatest);
+      add('Accounts \u2014 Mar', b.accountsMar);
+      add('Accounts \u2014 Apr', b.accountsApr);
+      add('Accounts \u2014 May', b.accountsMay);
+      if (b.salesMar) add('Sales Mar (INS / COD / CA)', b.salesMar.ins + ' / ' + b.salesMar.cod + ' / ' + b.salesMar.ca);
+      if (b.salesApr) add('Sales Apr (INS / COD / CA)', b.salesApr.ins + ' / ' + b.salesApr.cod + ' / ' + b.salesApr.ca);
+      if (b.salesMay) add('Sales May (INS / COD / CA)', b.salesMay.ins + ' / ' + b.salesMay.cod + ' / ' + b.salesMay.ca);
+      add('Service Target', b.serviceTarget);
+      add('Service \u2014 Mar', b.serviceMar);
+      add('Service \u2014 Apr', b.serviceApr);
+      add('Service \u2014 May', b.serviceMay);
+      add('Findings 2024', b.findings2024);
+      add('Findings 2025', b.findings2025);
+      add('Findings 2026', b.findings2026);
+      return rows;
+    }
+
+    // Generic fallback: reads whatever table(s) are actually rendered inside
+    // the open popup right now (respecting any active sort/filter), so any
+    // popup type — findings, accounts, collection/sales/service, all — is
+    // exported exactly as the person is currently viewing it, without each
+    // needing its own bespoke export code.
+    function extractVisibleModalTables() {
+      const body = document.getElementById('modalBody');
+      if (!body) return [];
+      const tableEls = body.querySelectorAll('table');
+      const result = [];
+      tableEls.forEach(function(tableEl, idx) {
+          const headerCells = tableEl.querySelectorAll('thead th');
+          const headers = Array.prototype.map.call(headerCells, function(th) {
+              return th.textContent.replace(/\s+/g, ' ').trim();
+          });
+          const bodyRows = tableEl.querySelectorAll('tbody tr');
+          const rows = [];
+          bodyRows.forEach(function(tr) {
+              const cells = tr.querySelectorAll('td');
+              if (cells.length === 0) return;
+              rows.push(Array.prototype.map.call(cells, function(td) {
+                  return td.textContent.replace(/\s+/g, ' ').trim();
+              }));
+          });
+          if (headers.length > 0 && rows.length > 0) {
+              result.push({ name: (tableEls.length > 1 ? 'Table ' + (idx + 1) : 'Data'), headers: headers, rows: rows });
+          }
+      });
+      return result;
+    }
+
+    function buildCurrentModalExportPayload() {
+      if (!modalCurrentState) return null;
+      const title = modalCurrentState.title;
+      const type = modalCurrentState.type;
+      const filterValue = modalCurrentState.filterValue;
+      const plainTitle = String(title).replace(/<[^>]+>/g, '');
+
+      if (type === 'branchDetail') {
+          const b = filterValue;
+          return { title: plainTitle, filenameBase: 'Branch_Profile_' + b.name, sheets: [
+              { name: 'Branch Profile', headers: ['Field', 'Value'], rows: buildBranchProfileRows(b) }
+          ]};
+      }
+
+      if (type === 'auditor') {
+          const auditorObj = (activeData.auditors || []).find(function(a) { return a.name === filterValue; }) || { name: filterValue, count: 0, branches: [] };
+          const rows = (auditorObj.branches || []).map(function(b, i) { return [i + 1, b]; });
+          return { title: plainTitle, filenameBase: 'Auditor_' + auditorObj.name, sheets: [
+              { name: 'Assigned Branches', headers: ['#', 'Branch'], rows: rows }
+          ]};
+      }
+
+      if (type === 'emergency') {
+          const rows = (activeData.emergencyHistory || []).map(function(h) { return [h.auditor || '', h.branch || '', h.details || '']; });
+          return { title: plainTitle, filenameBase: 'Emergency_Auditor_Status', sheets: [
+              { name: 'Status', headers: ['Field', 'Value'], rows: [['Current Emergency Auditor', activeData.summary.emergencyAuditor || 'PENDING']] },
+              { name: 'History', headers: ['Auditor', 'Branch', 'Date of Audit'], rows: rows }
+          ]};
+      }
+
+      // findings / accounts / all / collection / sales / service
+      const tables = extractVisibleModalTables();
+      return { title: plainTitle, filenameBase: plainTitle, sheets: tables };
+    }
+
+    function buildConsolidatedExportPayload() {
+      const s = activeData.summary || {};
+      const summaryRows = [
+          ['Total Branches', s.totalBranches],
+          ['Done', s.doneCount],
+          ['For Audit', s.forAuditCount],
+          ['Pending', s.pendingCount],
+          ['Collection \u2014 Improving', s.improvingCollection],
+          ['Collection \u2014 Declining', s.decliningCollection],
+          ['Collection \u2014 Stable', s.stableCollection],
+          ['Collection \u2014 Recovering', s.recoveringCollection],
+          ['Sales \u2014 Improving', s.salesImproving],
+          ['Sales \u2014 Declining', s.salesDeclining],
+          ['Sales \u2014 Stable', s.salesStable],
+          ['Service \u2014 Target', s.serviceTarget],
+          ['Service \u2014 Declining', s.serviceDeclining],
+          ['Findings 2024', s.findings2024],
+          ['Findings 2025', s.findings2025],
+          ['Findings 2026', s.findings2026],
+          ['Total Accounts (May)', s.totalAccounts],
+          ['Emergency Auditor', s.emergencyAuditor]
+      ].filter(function(r) { return r[1] !== undefined && r[1] !== null; });
+
+      const branchRows = (activeData.branches || []).map(function(b, i) {
+          return [
+              i + 1, b.name, b.auditStatus, b.auditor, b.lastAuditDate || '',
+              b.collection, b.sales, b.service,
+              b.effMar, b.effApr, b.effLatest,
+              b.repoRateLatest, b.noOfRepoLatest,
+              b.accountsMay,
+              b.findings2024, b.findings2025, b.findings2026
+          ];
+      });
+
+      const sheets = [
+          { name: 'Summary', headers: ['Metric', 'Value'], rows: summaryRows },
+          { name: 'Branches', headers: ['#', 'Branch', 'Audit Status', 'Auditor', 'Last Audit Date', 'Collection', 'Sales', 'Service', 'Eff Mar %', 'Eff Apr %', 'Eff Latest %', 'Repo Rate Latest %', 'No. of Repo Latest', 'Accounts (May)', 'Findings 2024', 'Findings 2025', 'Findings 2026'], rows: branchRows },
+          { name: 'Lowest Efficiency', headers: ['Branch', 'Efficiency %'], rows: (activeData.lowestEfficiency || []).map(function(x) { return [x.branch, x.rate]; }) },
+          { name: 'Highest Repo Rate', headers: ['Branch', 'Repo Rate %'], rows: (activeData.highestRepo || []).map(function(x) { return [x.branch, x.rate]; }) },
+          { name: 'Highest No. of Repo', headers: ['Branch', 'No. of Repo'], rows: (activeData.highestNoRepo || []).map(function(x) { return [x.branch, x.count]; }) },
+          { name: 'Top Findings FY26', headers: ['Branch', 'Findings 2026'], rows: (activeData.topFindings26 || []).map(function(x) { return [x.name, x.count]; }) },
+          { name: 'Auditors', headers: ['Auditor', 'Assigned Branches'], rows: (activeData.auditors || []).map(function(a) { return [a.name, a.count]; }) },
+          { name: 'Emergency History', headers: ['Auditor', 'Branch', 'Date of Audit'], rows: (activeData.emergencyHistory || []).map(function(h) { return [h.auditor || '', h.branch || '', h.details || '']; }) }
+      ];
+
+      return { title: 'Audit Data Dashboard \u2014 Consolidated Report', filenameBase: 'Audit_Dashboard_Consolidated_Report', sheets: sheets };
+    }
+
+    function exportSheetsToExcel(sheets, filename) {
+      const wb = XLSX.utils.book_new();
+      const usedNames = {};
+      sheets.forEach(function(s) {
+          if (!s.rows || s.rows.length === 0) return;
+          const aoa = [s.headers].concat(s.rows);
+          const ws = XLSX.utils.aoa_to_sheet(aoa);
+          ws['!cols'] = s.headers.map(function(h, i) {
+              let maxLen = String(h).length;
+              s.rows.forEach(function(r) { const v = r[i]; if (v !== undefined && v !== null) maxLen = Math.max(maxLen, String(v).length); });
+              return { wch: Math.min(Math.max(maxLen + 2, 10), 40) };
+          });
+          // Keep the header row visible while scrolling and enable the
+          // filter/sort dropdowns so large sheets stay easy to navigate.
+          ws['!autofilter'] = { ref: ws['!ref'] };
+          ws['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft', state: 'frozen' };
+          let safeName = String(s.name).replace(/[\\\/\?\*\[\]:]/g, '').slice(0, 31) || 'Sheet';
+          if (usedNames[safeName]) { safeName = safeName.slice(0, 28) + '_' + (++usedNames[safeName]); }
+          else { usedNames[safeName] = 1; }
+          XLSX.utils.book_append_sheet(wb, ws, safeName);
+      });
+      if (wb.SheetNames.length === 0) { showToast('Nothing to export yet.'); return; }
+      XLSX.writeFile(wb, filename);
+      showToast('Excel file downloaded.');
+    }
+
+    async function exportSheetsToWord(title, sheets, filename) {
+      const nonEmpty = sheets.filter(function(s) { return s.rows && s.rows.length > 0; });
+      if (nonEmpty.length === 0) { showToast('Nothing to export yet.'); return; }
+
+      const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType } = docx;
+
+      function buildTable(headers, rows) {
+          const headerRow = new TableRow({
+              tableHeader: true,
+              children: headers.map(function(h) {
+                  return new TableCell({
+                      shading: { fill: 'E5E7EB' },
+                      children: [new Paragraph({ children: [new TextRun({ text: String(h), bold: true })] })]
+                  });
+              })
+          });
+          const bodyRows = rows.map(function(r) {
+              return new TableRow({
+                  children: r.map(function(v) {
+                      return new TableCell({ children: [new Paragraph(v === undefined || v === null ? '' : String(v))] });
+                  })
+              });
+          });
+          return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [headerRow].concat(bodyRows) });
+      }
+
+      const children = [
+          new Paragraph({ text: title, heading: HeadingLevel.HEADING_1 }),
+          new Paragraph({ text: 'Generated ' + new Date().toLocaleString(), spacing: { after: 300 } })
+      ];
+
+      nonEmpty.forEach(function(s) {
+          children.push(new Paragraph({ text: s.name, heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }));
+          children.push(buildTable(s.headers, s.rows));
+      });
+
+      const doc = new Document({ sections: [{ properties: {}, children: children }] });
+      const blob = await Packer.toBlob(doc);
+      downloadBlob(blob, filename);
+      showToast('Word document downloaded.');
+    }
+
+    // Renders each section as its own nicely-formatted table (bold blue
+    // header row, striped rows, title + generation date on every page) so
+    // the PDF reads clearly instead of looking like a raw data dump.
+    async function exportSheetsToPDF(title, sheets, filename) {
+      const nonEmpty = sheets.filter(function(s) { return s.rows && s.rows.length > 0; });
+      if (nonEmpty.length === 0) { showToast('Nothing to export yet.'); return; }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const generatedLabel = 'Generated ' + new Date().toLocaleString();
+
+      nonEmpty.forEach(function(s, idx) {
+          if (idx > 0) doc.addPage();
+          doc.setFontSize(14);
+          doc.setTextColor(30, 41, 59);
+          doc.text(String(title), 40, 36);
+          doc.setFontSize(10);
+          doc.setTextColor(37, 99, 235);
+          doc.text(String(s.name), 40, 54);
+          doc.setFontSize(8);
+          doc.setTextColor(148, 163, 184);
+          doc.text(generatedLabel, pageWidth - 40, 36, { align: 'right' });
+
+          doc.autoTable({
+              head: [s.headers.map(function(h) { return String(h); })],
+              body: s.rows.map(function(r) { return r.map(function(v) { return (v === undefined || v === null) ? '' : String(v); }); }),
+              startY: 66,
+              margin: { left: 40, right: 40, bottom: 30 },
+              styles: { fontSize: 8, cellPadding: 5, overflow: 'linebreak' },
+              headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
+              alternateRowStyles: { fillColor: [248, 250, 252] },
+              theme: 'grid',
+              didDrawPage: function() {
+                  const pageCount = doc.internal.getNumberOfPages();
+                  doc.setFontSize(8);
+                  doc.setTextColor(148, 163, 184);
+                  doc.text('Page ' + doc.internal.getCurrentPageInfo().pageNumber + ' of ' + pageCount, pageWidth - 40, doc.internal.pageSize.getHeight() - 14, { align: 'right' });
+              }
+          });
+      });
+
+      doc.save(filename);
+      showToast('PDF downloaded.');
+    }
+
+    async function runExport(kind, format, overridePayload) {
+      const payload = overridePayload || ((kind === 'consolidated') ? buildConsolidatedExportPayload() : buildCurrentModalExportPayload());
+      if (!payload || !payload.sheets || payload.sheets.every(function(s) { return !s.rows || s.rows.length === 0; })) {
+          showToast('Nothing to export yet.');
+          return;
+      }
+      const stamp = new Date().toISOString().slice(0, 10);
+      const baseName = sanitizeFilename(payload.filenameBase) + '_' + stamp;
+      if (format === 'xlsx') {
+          exportSheetsToExcel(payload.sheets, baseName + '.xlsx');
+      } else if (format === 'docx') {
+          await exportSheetsToWord(payload.title, payload.sheets, baseName + '.docx');
+      } else if (format === 'pdf') {
+          await exportSheetsToPDF(payload.title, payload.sheets, baseName + '.pdf');
+      }
+    }
 
     const STATUS_FILTER_OPTIONS = {
       collection: ['Improving', 'Declining', 'Stable', 'Recovering'],
