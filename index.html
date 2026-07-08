@@ -4626,18 +4626,35 @@ body.bg-coolDark{
       document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') closeSideMenu();
       });
-
-      // ---------- logout ----------
-      const logoutBtn = document.getElementById('logoutBtn');
-      if (logoutBtn) {
-        logoutBtn.addEventListener('click', function() {
-          sessionStorage.removeItem('dashboardUnlocked');
-          window.location.reload();
-        });
-      }
-    });
+<script>
+    // ---------- logout ----------
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', function() {
+        sessionStorage.removeItem('dashboardUnlocked');
+        window.location.reload();
+      });
+    }
   </script>
 
+  <script type="module">
+    // Import Firebase App and Firestore
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+    import { getFirestore } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
+    // Your web app's Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyCuntpbNHmez53kWE9nyORhNC62W_FvrTU",
+      authDomain: "audit-dashboard-4ca4a.firebaseapp.com",
+      projectId: "audit-dashboard-4ca4a",
+      storageBucket: "audit-dashboard-4ca4a.firebasestorage.app",
+      messagingSenderId: "508009297337",
+      appId: "1:508009297337:web:b31255a81546216d703268"
+    };
 
-</body></html>
+    // Initialize Firebase and Firestore
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+  </script>
+</body>
+</html>
