@@ -5147,32 +5147,54 @@ body.bg-coolDark{
       return wb;
     }
 
-    // Run both a direct fetch and a JSONP request at the same time, and use
-    // whichever one succeeds first. This is fast when the direct request
-    // works, and never breaks when it doesn't (Apps Script's /exec endpoint
-    // doesn't reliably send CORS headers for plain fetch(), so JSONP is
-    // kept as a guaranteed-working path rather than a slow fallback).
+    // Start with the fast direct fetch. Only bring in JSONP as backup if
+    // the direct request hasn't answered quickly (or fails) — firing both
+    // at the exact same instant would hit the Apps Script backend with two
+    // simultaneous requests, and many Apps Script doGet() handlers
+    // serialize concurrent calls (e.g. via LockService while reading the
+    // Sheet), which can make both requests slow enough to blow past their
+    // timeouts together. Staggering avoids that while still guaranteeing
+    // JSONP kicks in whenever the direct path is slow or unavailable.
     async function fetchSheetOnce(url) {
       return new Promise(function(resolve, reject) {
         let settled = false;
+        let jsonpStarted = false;
         const errors = [];
 
         function succeed(data) {
           if (settled) return;
           settled = true;
+          clearTimeout(hedgeTimer);
           resolve(data);
         }
 
+        function startJSONP() {
+          if (jsonpStarted) return;
+          jsonpStarted = true;
+          clearTimeout(hedgeTimer);
+          fetchJSONP(url, 7000).then(succeed).catch(function(err) { fail(err, 'jsonp'); });
+        }
+
         function fail(err, label) {
+          if (settled) return;
           errors.push(label + ': ' + (err && err.message ? err.message : err));
-          if (!settled && errors.length >= 2) {
+          if (label === 'direct') {
+            // Direct path failed outright (e.g. CORS) — no reason to keep
+            // waiting for the hedge timer, start JSONP right away.
+            startJSONP();
+          }
+          if (errors.length >= 2 && !settled) {
             settled = true;
             reject(new Error(errors.join(' | ')));
           }
         }
 
         fetchDirect(url, 6000).then(succeed).catch(function(err) { fail(err, 'direct'); });
-        fetchJSONP(url, 7000).then(succeed).catch(function(err) { fail(err, 'jsonp'); });
+
+        // Hedge: give the direct request a head start; if it hasn't
+        // answered within this window, start JSONP alongside it rather
+        // than waiting for the full timeout.
+        const hedgeTimer = setTimeout(startJSONP, 1500);
       });
     }
 
