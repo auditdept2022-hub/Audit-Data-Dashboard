@@ -1474,6 +1474,22 @@ body.bg-coolDark{
     box-shadow: 0 4px 10px rgba(15,23,42,.06), 0 24px 40px -18px rgba(15,23,42,.20);
     transform: translateY(-1px);
   }
+  @keyframes miniCalPopIn {
+    from { opacity: 0; transform: translateY(-6px) scale(.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  #miniCalendarPopup.mini-cal-open {
+    animation: miniCalPopIn .18s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  #miniCalGrid .mini-cal-day {
+    display: flex; align-items: center; justify-content: center;
+    height: 1.75rem; border-radius: .5rem; cursor: default;
+    transition: background-color .15s ease, color .15s ease;
+  }
+  #miniCalGrid .mini-cal-day.is-today {
+    background: linear-gradient(90deg,#3355d8,#4169E1); color: #fff; font-weight: 700;
+  }
+  #miniCalGrid .mini-cal-day.is-muted { color: #cbd5e1; }
   #liveTimeText, #liveDateText {
     transition: color .3s ease;
   }
@@ -1759,6 +1775,111 @@ body.bg-coolDark{
   </script>
 
   <script>
+    // Small calendar popup that opens when the header time/date card is
+    // clicked. Purely a display/navigation aid — it doesn't read or write
+    // any dashboard data, so it's safe to init independently of everything
+    // else on the page.
+    (function () {
+      function start() {
+        const trigger = document.getElementById('liveDateTime');
+        const popup = document.getElementById('miniCalendarPopup');
+        const label = document.getElementById('miniCalLabel');
+        const grid = document.getElementById('miniCalGrid');
+        const prevBtn = document.getElementById('miniCalPrev');
+        const nextBtn = document.getElementById('miniCalNext');
+        const todayBtn = document.getElementById('miniCalToday');
+        if (!trigger || !popup || !label || !grid) return;
+
+        const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        let viewYear, viewMonth; // month is 0-indexed
+        let isOpen = false;
+
+        function renderCalendar() {
+          const today = new Date();
+          label.textContent = MONTH_NAMES[viewMonth] + ' ' + viewYear;
+
+          const firstOfMonth = new Date(viewYear, viewMonth, 1);
+          const startDay = firstOfMonth.getDay(); // 0 = Sunday
+          const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+          const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
+
+          let html = '';
+          // Trailing days from previous month, muted, to fill the first row
+          for (let i = startDay - 1; i >= 0; i--) {
+            html += '<span class="mini-cal-day is-muted">' + (daysInPrevMonth - i) + '</span>';
+          }
+          for (let d = 1; d <= daysInMonth; d++) {
+            const isToday = d === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
+            html += '<span class="mini-cal-day' + (isToday ? ' is-today' : '') + '">' + d + '</span>';
+          }
+          // Leading days of next month so the grid always fills complete weeks
+          const totalCells = startDay + daysInMonth;
+          const trailing = (7 - (totalCells % 7)) % 7;
+          for (let d = 1; d <= trailing; d++) {
+            html += '<span class="mini-cal-day is-muted">' + d + '</span>';
+          }
+          grid.innerHTML = html;
+        }
+
+        function openPopup() {
+          const now = new Date();
+          viewYear = now.getFullYear();
+          viewMonth = now.getMonth();
+          renderCalendar();
+          popup.classList.remove('hidden');
+          popup.classList.remove('mini-cal-open');
+          void popup.offsetWidth;
+          popup.classList.add('mini-cal-open');
+          trigger.setAttribute('aria-expanded', 'true');
+          isOpen = true;
+        }
+        function closePopup() {
+          popup.classList.add('hidden');
+          trigger.setAttribute('aria-expanded', 'false');
+          isOpen = false;
+        }
+        function togglePopup() {
+          if (isOpen) closePopup(); else openPopup();
+        }
+
+        trigger.addEventListener('click', togglePopup);
+        trigger.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); togglePopup(); }
+          if (e.key === 'Escape') closePopup();
+        });
+        prevBtn.addEventListener('click', function() {
+          viewMonth--;
+          if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+          renderCalendar();
+        });
+        nextBtn.addEventListener('click', function() {
+          viewMonth++;
+          if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+          renderCalendar();
+        });
+        todayBtn.addEventListener('click', function() {
+          const now = new Date();
+          viewYear = now.getFullYear();
+          viewMonth = now.getMonth();
+          renderCalendar();
+        });
+        // Click-outside and Escape close the popup.
+        document.addEventListener('click', function(e) {
+          if (isOpen && !trigger.contains(e.target)) closePopup();
+        });
+        document.addEventListener('keydown', function(e) {
+          if (isOpen && e.key === 'Escape') closePopup();
+        });
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', start);
+      } else {
+        start();
+      }
+    })();
+  </script>
+
+  <script>
     // Drives the loading screen shown right after unlock: it only steps aside
     // once the dashboard actually has current data (from cache, bundled
     // defaults, or a fresh sync). If nothing is available, it shows a retry
@@ -1788,6 +1909,12 @@ body.bg-coolDark{
       let statusTimer = null;
       let progressTimer = null;
       let fakeProgress = 0;
+      // Bumped every time a new loading operation starts. Async callbacks
+      // from an older operation (e.g. the initial post-login load still
+      // settling when someone quickly clicks "Update data") capture the
+      // token active at their start and check it before touching the UI,
+      // so a stale finish can't clobber whatever is currently showing.
+      let generation = 0;
 
       function setRingProgress(pct) {
         const clamped = Math.max(0, Math.min(100, pct));
@@ -1825,6 +1952,8 @@ body.bg-coolDark{
 
       function openLoadingScreen(opts) {
         opts = opts || {};
+        generation++;
+        const token = generation;
         loadingErrorBox.classList.add('hidden');
         loadingCore.classList.remove('hidden');
         loadingScreen.classList.remove('hidden');
@@ -1833,21 +1962,26 @@ body.bg-coolDark{
         document.body.style.overflow = 'hidden';
         loadingTitleEl.textContent = opts.title || 'Preparing your dashboard';
         startProgress(opts.messages);
+        return token;
       }
 
-      function showError() {
+      function showError(token) {
+        if (token !== undefined && token !== generation) return; // superseded by a newer operation
         stopProgress();
         loadingCore.classList.add('hidden');
         loadingErrorBox.classList.remove('hidden');
       }
 
-      function revealDashboard(readyText) {
+      function revealDashboard(readyText, token) {
+        if (token !== undefined && token !== generation) return; // superseded by a newer operation
         stopProgress();
         setRingProgress(100);
         loadingStatusEl.textContent = readyText || 'Dashboard ready!';
         setTimeout(function() {
+          if (token !== undefined && token !== generation) return;
           loadingScreen.style.opacity = '0';
           setTimeout(function() {
+            if (token !== undefined && token !== generation) return;
             loadingScreen.style.display = 'none';
             loadingScreen.classList.add('hidden');
             document.body.style.overflow = '';
@@ -1862,29 +1996,31 @@ body.bg-coolDark{
 
       // Closes the loading screen immediately without the "ready" success
       // beat — used when a manual refresh fails partway through.
-      function closeLoadingScreen() {
+      function closeLoadingScreen(token) {
+        if (token !== undefined && token !== generation) return; // superseded by a newer operation
         stopProgress();
         loadingScreen.style.opacity = '0';
         setTimeout(function() {
+          if (token !== undefined && token !== generation) return;
           loadingScreen.style.display = 'none';
           loadingScreen.classList.add('hidden');
           document.body.style.overflow = '';
         }, 350);
       }
 
-      function waitThenSettle(promise, startedAt) {
+      function waitThenSettle(promise, startedAt, token) {
         promise.then(function(success) {
           const elapsed = Date.now() - startedAt;
           const remaining = Math.max(0, MIN_LOADING_MS - elapsed);
           setTimeout(function() {
-            if (success) revealDashboard(); else showError();
+            if (success) revealDashboard(undefined, token); else showError(token);
           }, remaining);
         });
       }
 
       window.__runDashboardLoadingSequence = function() {
-        openLoadingScreen();
-        waitThenSettle(window.dashboardDataReady, Date.now());
+        const token = openLoadingScreen();
+        waitThenSettle(window.dashboardDataReady, Date.now(), token);
       };
 
       // Login comes first: the loading screen must NOT cover the sign-in
@@ -1895,6 +2031,10 @@ body.bg-coolDark{
       // Reusable full-screen loading controls for any manual data refresh
       // (e.g. the "Update data" button), so it shows the same immersive
       // loading screen instead of a small toast while new data loads.
+      // Every call returns/accepts a generation token so a caller only ever
+      // affects the loading screen if its own operation is still the most
+      // recent one — a slow, superseded call becomes a harmless no-op
+      // instead of flashing stale text or closing the wrong screen.
       window.__loadingUI = {
         open: openLoadingScreen,
         reveal: revealDashboard,
@@ -1907,8 +2047,8 @@ body.bg-coolDark{
       };
 
       loadingRetryBtn.addEventListener('click', function() {
-        openLoadingScreen();
-        waitThenSettle(window.retryDashboardLoad(), Date.now());
+        const token = openLoadingScreen();
+        waitThenSettle(window.retryDashboardLoad(), Date.now(), token);
       });
     })();
   </script>
@@ -2039,14 +2179,14 @@ body.bg-coolDark{
       </div>
 
       <div class="flex items-center gap-2 w-full lg:w-auto justify-end">
-        <button onclick="fetchSheet()" class="flex items-center gap-2 px-3 py-2 bg-white hover:bg-gray-50 active:scale-95 border border-transparent rounded-xl cursor-pointer text-sm font-semibold transition-all duration-200 shadow-sm text-royalBlue whitespace-nowrap">
+        <button id="updateDataBtn" onclick="fetchSheet()" class="flex items-center gap-2 px-3 py-2 bg-white hover:bg-gray-50 active:scale-95 border border-transparent rounded-xl cursor-pointer text-sm font-semibold transition-all duration-200 shadow-sm text-royalBlue whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-cloud-download text-royalBlue"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="m8 17 4 4 4-4"></path></svg>
           <span class="hidden sm:inline">Update data</span>
         </button>
         
-        <label class="flex items-center gap-2 px-3 py-2 bg-white hover:bg-gray-50 active:scale-95 border border-transparent rounded-xl cursor-pointer text-sm font-semibold transition-all duration-200 shadow-sm text-royalBlue whitespace-nowrap">
+        <label id="uploadFileLabel" class="flex items-center gap-2 px-3 py-2 bg-white hover:bg-gray-50 active:scale-95 border border-transparent rounded-xl cursor-pointer text-sm font-semibold transition-all duration-200 shadow-sm text-royalBlue whitespace-nowrap aria-disabled:opacity-50 aria-disabled:cursor-not-allowed">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-spreadsheet text-royalBlue"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M8 13h2"></path><path d="M14 13h2"></path><path d="M8 17h2"></path><path d="M14 17h2"></path></svg>
-          <span class="hidden sm:inline">Upload File</span>
+          <span id="uploadFileLabelText" class="hidden sm:inline">Upload File</span>
           <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" class="hidden">
         </label>
 
@@ -2137,9 +2277,26 @@ body.bg-coolDark{
         </span>
         <h2 class="text-lg sm:text-xl font-bold text-slate-900 tracking-tight mt-0.5">Branch Performance</h2>
       </div>
-      <div id="liveDateTime" class="flex flex-col items-end justify-center leading-tight px-4 py-2.5 rounded-2xl bg-coolCard border border-coolBorder shadow-md whitespace-nowrap self-center">
+      <div id="liveDateTime" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-label="Show calendar" class="relative flex flex-col items-end justify-center leading-tight px-4 py-2.5 rounded-2xl bg-coolCard border border-coolBorder shadow-md whitespace-nowrap self-center cursor-pointer select-none">
         <span id="liveTimeText" class="text-xl sm:text-2xl font-extrabold text-slate-900 tabular-nums tracking-tight">--:--:--</span>
         <span id="liveDateText" class="text-xs sm:text-sm text-slate-500 font-semibold mt-0.5">--</span>
+
+        <div id="miniCalendarPopup" class="hidden absolute right-0 top-full mt-2 w-64 bg-coolCard border border-coolBorder rounded-2xl shadow-2xl p-3 z-50 text-left cursor-default" onclick="event.stopPropagation()">
+          <div class="flex items-center justify-between mb-2 px-1">
+            <button type="button" id="miniCalPrev" aria-label="Previous month" class="p-1.5 rounded-lg text-slate-500 hover:bg-accentBlue/10 hover:text-accentBlue active:scale-95 transition-all">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"></path></svg>
+            </button>
+            <span id="miniCalLabel" class="text-sm font-bold text-slate-900"></span>
+            <button type="button" id="miniCalNext" aria-label="Next month" class="p-1.5 rounded-lg text-slate-500 hover:bg-accentBlue/10 hover:text-accentBlue active:scale-95 transition-all">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+            </button>
+          </div>
+          <div class="grid grid-cols-7 gap-y-1 text-center text-[10px] font-bold text-slate-400 mb-1">
+            <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+          </div>
+          <div id="miniCalGrid" class="grid grid-cols-7 gap-y-1 text-center text-xs"></div>
+          <button type="button" id="miniCalToday" class="mt-2 w-full py-1.5 text-xs font-semibold text-accentBlue hover:bg-accentBlue/10 rounded-lg transition-all">Today</button>
+        </div>
       </div>
     </div>
 
@@ -5271,11 +5428,46 @@ body.bg-coolDark{
         }
     }
 
+    // Guards against picking a second file while the first is still being
+    // read/parsed, and gives Upload its own wording/busy state so it's never
+    // confused with the separate "Update data" server refresh above.
+    let isProcessingUpload = false;
+
     function handleExcel(file) {
+      if (isProcessingUpload) {
+        showToast("Still processing the previous file\u2026 hang tight.");
+        return;
+      }
+      isProcessingUpload = true;
+      const uploadLabel = document.getElementById('uploadFileLabel');
+      const uploadLabelText = document.getElementById('uploadFileLabelText');
+      const originalLabelText = uploadLabelText ? uploadLabelText.textContent : '';
+      if (uploadLabel) uploadLabel.setAttribute('aria-disabled', 'true');
+      if (uploadLabelText) uploadLabelText.textContent = 'Reading file\u2026';
+      showToast("Reading " + file.name + "\u2026");
+
+      function finish() {
+        isProcessingUpload = false;
+        if (uploadLabel) uploadLabel.removeAttribute('aria-disabled');
+        if (uploadLabelText) uploadLabelText.textContent = originalLabelText;
+      }
+
       const reader = new FileReader();
       reader.onload = function(e) {
+        try {
           processExcelData(e.target.result);
-          showToast("Local spreadsheet processed successfully!");
+          showToast("\u201c" + file.name + "\u201d loaded successfully!");
+        } catch (err) {
+          console.error('Local file processing failed:', err);
+          showToast("Couldn't read that file \u2014 check it's a valid Excel/CSV export.");
+        } finally {
+          finish();
+        }
+      };
+      reader.onerror = function() {
+        console.error('FileReader failed:', reader.error);
+        showToast("Couldn't read \u201c" + file.name + "\u201d from disk. Try again.");
+        finish();
       };
       reader.readAsArrayBuffer(file);
     }
@@ -5421,7 +5613,22 @@ body.bg-coolDark{
       });
     }
 
+    // Guards against a second "Update data" click firing while one is
+    // already in flight (e.g. a fast double-click, or the auto-load-on-
+    // sign-in still running when someone manually clicks refresh) so two
+    // overlapping requests can't step on each other's loading screen or
+    // toast messages.
+    let isFetchingSheet = false;
+
     async function fetchSheet(isAutoLoad = false) {
+      if (isFetchingSheet) {
+        if (!isAutoLoad) showToast("Already updating\u2026 hang tight.");
+        return;
+      }
+      isFetchingSheet = true;
+      const updateBtn = document.getElementById('updateDataBtn');
+      if (updateBtn && !isAutoLoad) updateBtn.disabled = true;
+
       const baseUrl = defaultAppsScriptUrl;
       // On a manual click ("Update data" button), show the full immersive
       // loading screen — same one used on initial load — instead of a small
@@ -5430,19 +5637,20 @@ body.bg-coolDark{
       const startedAt = Date.now();
       const MIN_LOADER_MS = 350; // avoid a jarring instant flash on fast responses
       const MAX_ATTEMPTS = 2;
+      let loaderToken; // this operation's own generation token, see __loadingUI above
 
       function finishLoader(success) {
         if (!useFullLoader) return;
         const elapsed = Date.now() - startedAt;
         const remaining = Math.max(0, MIN_LOADER_MS - elapsed);
         setTimeout(function() {
-          if (success) window.__loadingUI.reveal('Dashboard updated!');
-          else window.__loadingUI.close();
+          if (success) window.__loadingUI.reveal('Dashboard updated!', loaderToken);
+          else window.__loadingUI.close(loaderToken);
         }, remaining);
       }
 
       if (useFullLoader) {
-        window.__loadingUI.open({
+        loaderToken = window.__loadingUI.open({
           title: 'Updating your dashboard',
           messages: [
             'Connecting to your data source\u2026',
@@ -5455,61 +5663,66 @@ body.bg-coolDark{
         showToast("Fetching the latest data\u2026");
       }
 
-      let lastError = null;
-      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-        try {
-          // Every request must carry the current user's Firebase ID token so
-          // the Apps Script backend can verify it's really a signed-in user
-          // asking, not just someone who copied the shared secret out of
-          // view-source. window.getCurrentIdToken is exposed by the auth
-          // logic further down the page.
-          const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
-          if (!idToken) {
-            throw new Error('Not signed in — no ID token available for this request.');
-          }
-
-          const fetchUrl = baseUrl + '?secret=' + encodeURIComponent(appsScriptSecret) +
-            '&idToken=' + encodeURIComponent(idToken) +
-            '&nocache=' + Date.now() + '_' + attempt;
-          const json = await fetchSheetOnce(fetchUrl);
-          if (json && json.error) {
-            // The backend rejected the request (bad/expired token, missing
-            // secret, etc.) — treat this as a failure so it's retried and
-            // surfaced, instead of silently building an empty dashboard.
-            throw new Error(json.error);
-          }
-          const workbook = buildWorkbookFromAppsScript(json);
-          processExcelData(workbook);
-
-          finishLoader(true);
-          if (!useFullLoader && !isAutoLoad) showToast("Dashboard successfully updated!");
-          return;
-        } catch (error) {
-          lastError = error;
-          console.warn('Fetch attempt ' + attempt + ' of ' + MAX_ATTEMPTS + ' failed:', error);
-          const isLastAttempt = attempt === MAX_ATTEMPTS;
-          if (!isLastAttempt) {
-            // Connection hiccups happen — keep the loading screen up and
-            // quietly retry instead of surfacing a failure right away.
-            if (useFullLoader) {
-              window.__loadingUI.setMessages([
-                'Connection hiccup, retrying\u2026',
-                'Trying again (' + (attempt + 1) + ' of ' + MAX_ATTEMPTS + ')\u2026',
-                'Hang tight, almost there\u2026'
-              ]);
-            } else if (!isAutoLoad) {
-              showToast("Connection hiccup, retrying\u2026");
+      try {
+        let lastError = null;
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+          try {
+            // Every request must carry the current user's Firebase ID token so
+            // the Apps Script backend can verify it's really a signed-in user
+            // asking, not just someone who copied the shared secret out of
+            // view-source. window.getCurrentIdToken is exposed by the auth
+            // logic further down the page.
+            const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+            if (!idToken) {
+              throw new Error('Not signed in — no ID token available for this request.');
             }
-            // Brief backoff so a flaky connection gets a moment to recover.
-            await new Promise(function(resolve) { setTimeout(resolve, 500); });
+
+            const fetchUrl = baseUrl + '?secret=' + encodeURIComponent(appsScriptSecret) +
+              '&idToken=' + encodeURIComponent(idToken) +
+              '&nocache=' + Date.now() + '_' + attempt;
+            const json = await fetchSheetOnce(fetchUrl);
+            if (json && json.error) {
+              // The backend rejected the request (bad/expired token, missing
+              // secret, etc.) — treat this as a failure so it's retried and
+              // surfaced, instead of silently building an empty dashboard.
+              throw new Error(json.error);
+            }
+            const workbook = buildWorkbookFromAppsScript(json);
+            processExcelData(workbook);
+
+            finishLoader(true);
+            if (!useFullLoader && !isAutoLoad) showToast("Dashboard successfully updated!");
+            return;
+          } catch (error) {
+            lastError = error;
+            console.warn('Fetch attempt ' + attempt + ' of ' + MAX_ATTEMPTS + ' failed:', error);
+            const isLastAttempt = attempt === MAX_ATTEMPTS;
+            if (!isLastAttempt) {
+              // Connection hiccups happen — keep the loading screen up and
+              // quietly retry instead of surfacing a failure right away.
+              if (useFullLoader) {
+                window.__loadingUI.setMessages([
+                  'Connection hiccup, retrying\u2026',
+                  'Trying again (' + (attempt + 1) + ' of ' + MAX_ATTEMPTS + ')\u2026',
+                  'Hang tight, almost there\u2026'
+                ]);
+              } else if (!isAutoLoad) {
+                showToast("Connection hiccup, retrying\u2026");
+              }
+              // Brief backoff so a flaky connection gets a moment to recover.
+              await new Promise(function(resolve) { setTimeout(resolve, 500); });
+            }
           }
         }
-      }
 
-      // Every attempt failed.
-      console.error(lastError);
-      finishLoader(false);
-      if (!isAutoLoad) showToast("Couldn't reach the data source after a few tries. Check your connection.");
+        // Every attempt failed.
+        console.error(lastError);
+        finishLoader(false);
+        if (!isAutoLoad) showToast("Couldn't reach the data source after a few tries. Check your connection.");
+      } finally {
+        isFetchingSheet = false;
+        if (updateBtn && !isAutoLoad) updateBtn.disabled = false;
+      }
     }
 
     function saveDashboardDataToCache() {
