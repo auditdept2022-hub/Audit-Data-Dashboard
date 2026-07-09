@@ -3,6 +3,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
   <title>Audit Data Dashboard</title>
+  <!-- Performance: warm up connections to the CDNs/fonts this page depends on,
+       so the browser doesn't wait for DNS + TLS after discovering each tag. -->
+  <link rel="preconnect" href="https://cdn.tailwindcss.com">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="dns-prefetch" href="https://www.gstatic.com">
+  <link rel="dns-prefetch" href="https://identitytoolkit.googleapis.com">
   <link rel="icon" type="image/png" href="logo.png">
   <script id="saved-data-script">window.DEFAULT_DATA = {"summary":{},"branches":[],"lowestEfficiency":[],"highestRepo":[],"highestNoRepo":[],"topFindings26":[],"auditors":[],"dataAudit":{},"emergencyHistory":[],"auditFindingsDetail":{}};</script>
   <script src="https://cdn.tailwindcss.com"></script>
@@ -1444,6 +1454,51 @@ body.bg-coolDark{
   #toast {
     transition: transform .45s cubic-bezier(0.22, 1, 0.36, 1), opacity .35s ease !important;
   }
+
+  /* ---------- Performance: skip layout/paint work for offscreen sections ----------
+     content-visibility lets the browser skip rendering work for content that
+     isn't currently on screen (charts, the scorecard table), which speeds up
+     first paint and scrolling on longer dashboards. contain-intrinsic-size
+     reserves roughly the right amount of space so the page doesn't jump
+     around as each section comes into view. */
+  #section-charts, #section-rankings, #section-findings, #section-scorecard {
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 900px;
+  }
+
+  /* ---------- Live date/time card ---------- */
+  #liveDateTime {
+    transition: box-shadow .25s ease, transform .25s ease, border-color .25s ease;
+  }
+  #liveDateTime:hover {
+    box-shadow: 0 4px 10px rgba(15,23,42,.06), 0 24px 40px -18px rgba(15,23,42,.20);
+    transform: translateY(-1px);
+  }
+  #liveTimeText, #liveDateText {
+    transition: color .3s ease;
+  }
+  /* Once-a-minute settle so the date/minute change doesn't feel like a jump cut */
+  @keyframes liveClockSettle {
+    0%   { opacity: .45; transform: translateY(2px); }
+    100% { opacity: 1;   transform: translateY(0); }
+  }
+  .live-clock-tick { animation: liveClockSettle .4s cubic-bezier(0.22, 1, 0.36, 1); }
+
+  /* ---------- Global smoothness ---------- */
+  html { scroll-behavior: smooth; }
+  button, a, .side-menu-link, input, select {
+    transition: background-color .18s ease, color .18s ease, border-color .18s ease,
+                box-shadow .18s ease, transform .12s ease;
+  }
+  /* Respect people who've asked their OS/browser to minimize motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 </style>
 </head>
 <body class="bg-coolDark text-slate-800 min-h-screen selection:bg-accentCyan/30 selection:text-slate-900 pb-16 relative">
@@ -1678,8 +1733,19 @@ body.bg-coolDark{
         if (!timeEl || !dateEl) return;
         function tick() {
           var now = new Date();
-          timeEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-          dateEl.textContent = now.toLocaleDateString([], { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+          var newTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          var newDate = now.toLocaleDateString([], { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+          if (timeEl.textContent !== newTime) {
+            timeEl.textContent = newTime;
+          }
+          if (dateEl.textContent !== newDate) {
+            dateEl.textContent = newDate;
+            // Only the date (not every second) gets the little settle
+            // animation, so it reads as a deliberate update, not a flicker.
+            dateEl.classList.remove('live-clock-tick');
+            void dateEl.offsetWidth;
+            dateEl.classList.add('live-clock-tick');
+          }
         }
         tick();
         setInterval(tick, 1000);
@@ -5576,7 +5642,16 @@ body.bg-coolDark{
       // keeps real audit data out of memory/DOM until someone is actually
       // logged in.
 
-      document.getElementById('tableSearch').addEventListener('input', renderScorecardTable);
+      // Performance: debounce search-as-you-type so a fast typist doesn't
+      // trigger a full table re-render on every single keystroke.
+      function debounce(fn, wait) {
+        let t;
+        return function(...args) {
+          clearTimeout(t);
+          t = setTimeout(() => fn.apply(this, args), wait);
+        };
+      }
+      document.getElementById('tableSearch').addEventListener('input', debounce(renderScorecardTable, 180));
       document.getElementById('filterCollection').addEventListener('change', renderScorecardTable);
       document.getElementById('filterSales').addEventListener('change', renderScorecardTable);
       document.getElementById('filterService').addEventListener('change', renderScorecardTable);
@@ -5752,6 +5827,39 @@ body.bg-coolDark{
       signOut(auth);
     });
 
+    // Auto sign-out after 10 minutes of no interaction, so a session left
+    // open on a shared/public computer doesn't stay unlocked forever.
+    // Only runs while someone is actually signed in (started/stopped from
+    // the onAuthStateChanged handler below) and resets on any real activity.
+    const IDLE_TIMEOUT_MS = 10 * 60 * 1000;
+    let idleTimer = null;
+    function handleIdleTimeout() {
+      signOut(auth).catch(function(err) {
+        console.warn('Idle auto sign-out failed:', err);
+      });
+    }
+    function resetIdleTimer() {
+      if (!idleTimer) return; // idle tracking isn't active (signed out)
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(handleIdleTimeout, IDLE_TIMEOUT_MS);
+    }
+    const IDLE_ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'wheel'];
+    function startIdleTracking() {
+      if (idleTimer) return; // already tracking
+      idleTimer = setTimeout(handleIdleTimeout, IDLE_TIMEOUT_MS);
+      IDLE_ACTIVITY_EVENTS.forEach(function(evt) {
+        document.addEventListener(evt, resetIdleTimer, { passive: true });
+      });
+    }
+    function stopIdleTracking() {
+      if (!idleTimer) return;
+      clearTimeout(idleTimer);
+      idleTimer = null;
+      IDLE_ACTIVITY_EVENTS.forEach(function(evt) {
+        document.removeEventListener(evt, resetIdleTimer);
+      });
+    }
+
     // Ensures the dashboard loading sequence only ever runs once per
     // sign-in, right after the login screen has been dismissed — never
     // before, so it can't interrupt/cover the login screen.
@@ -5781,6 +5889,7 @@ body.bg-coolDark{
         authLogoutBtn.classList.add('flex');
         authLogoutEmail.textContent = user.email || '';
         authPassword.value = '';
+        startIdleTracking();
 
         // Login phase is done — now it's safe to load real data and show
         // the loading screen. Data loading is gated on this sign-in check
@@ -5811,6 +5920,7 @@ body.bg-coolDark{
         }
       } else {
         dashboardLoadingStarted = false;
+        stopIdleTracking();
         authGate.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
         authLogoutBtn.classList.add('hidden');
