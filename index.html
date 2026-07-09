@@ -18,69 +18,32 @@
       theme: {
         extend: {
           colors: {
-            coolDark: '#EEF1F5',
+            coolDark: '#f3f4f6',
             coolCard: '#ffffff',
-            coolBorder: '#DEE2E8',
-            accentCyan: '#0E7490',
-            accentBlue: '#1D4ED8',
-            accentEmerald: '#0F7A4A',
-            accentRose: '#B3261E',
-            accentIndigo: '#3F3D8A',
-            accentAmber: '#B45309',
-            royalBlue: '#0B1F3A',
-            accentBrass: '#A9792C',
+            coolBorder: '#e5e7eb',
+            accentCyan: '#0891b2',
+            accentBlue: '#2563eb',
+            accentEmerald: '#059669',
+            accentRose: '#e11d48',
+            accentIndigo: '#4f46e5',
+            accentAmber: '#d97706',
+            royalBlue: '#4169E1',
           }
         }
       }
     }
   </script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap');
     body { font-family: 'Plus Jakarta Sans', sans-serif; }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #EEF1F5; }
-    ::-webkit-scrollbar-thumb { background: #B7BEC9; border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: #8D96A4; }
+    ::-webkit-scrollbar-track { background: #f3f4f6; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     
     .custom-scrollbar::-webkit-scrollbar { width: 4px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #B7BEC9; border-radius: 4px; }
-
-    /* ================= PROFESSIONAL REDESIGN LAYER =================
-       Visual-only additions. No existing IDs/classes were removed or
-       renamed, so all JS/data logic is untouched. This block restyles
-       typography and card presentation to a ledger/audit-firm identity:
-       a serif display face for headings and figures, tabular numerals
-       for anything financial, and a refined card elevation with a thin
-       brass edge that echoes a stamped ledger page. */
-    h1, h2, h3, h4, h5, h6 {
-      font-family: 'Fraunces', ui-serif, Georgia, serif;
-      letter-spacing: -0.01em;
-    }
-    .font-extrabold {
-      font-family: 'Fraunces', ui-serif, Georgia, serif;
-      font-variant-numeric: tabular-nums;
-      letter-spacing: -0.015em;
-    }
-    /* Every stat/data card in the dashboard shares this exact class
-       trio, so refining it here reaches the whole dashboard at once. */
-    .bg-coolCard.border.border-coolBorder.rounded-2xl {
-      position: relative;
-      box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 20px -12px rgba(11,31,58,0.18);
-    }
-    .bg-coolCard.border.border-coolBorder.rounded-2xl::before {
-      content: "";
-      position: absolute;
-      top: 0; left: 1rem; right: 1rem;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, rgba(169,121,44,0.55), transparent);
-      opacity: 0.9;
-      pointer-events: none;
-    }
-    .bg-coolCard.border.border-coolBorder.rounded-2xl:hover {
-      box-shadow: 0 2px 4px rgba(15,23,42,0.05), 0 14px 28px -14px rgba(11,31,58,0.24);
-    }
-
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 
     #scorecardScrollWrap { -webkit-overflow-scrolling: touch; }
     @media (max-width: 767px) {
@@ -102,6 +65,63 @@
     }
     @media (min-width: 1600px) {
       .dash-container { max-width: min(2200px, 94vw); }
+    }
+
+    /* ============================================================
+       VISUAL REFRESH — professional polish layer
+       Hooks into the existing Tailwind utility classes so every card,
+       list item and table (static markup AND everything the JS renders
+       dynamically) automatically picks up the new look. No colors,
+       IDs, or class names used by the app's logic are changed here —
+       this only refines depth, spacing rhythm and type.
+       ============================================================ */
+
+    /* Cards: crisper hairline border, softer/deeper elevation, slightly
+       larger radius so the whole dashboard reads as one system. */
+    .dash-container .border-coolBorder { border-color: rgba(15, 23, 42, 0.08) !important; }
+    .dash-container .rounded-2xl { border-radius: 1.1rem !important; }
+    .dash-container .shadow-md {
+      box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 16px 32px -20px rgba(15,23,42,.16) !important;
+    }
+    .dash-container .hover\:shadow-lg:hover {
+      box-shadow: 0 4px 10px rgba(15,23,42,.06), 0 24px 40px -18px rgba(15,23,42,.20) !important;
+    }
+    .dash-container .bg-coolCard {
+      background-image: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+    }
+
+    /* Numeric headline figures get a touch of editorial character. */
+    .dash-container .font-extrabold { font-family: 'Fraunces', 'Plus Jakarta Sans', serif; letter-spacing: -0.01em; }
+
+    /* Section headers (the h3 titles that open each card block) get a
+       small colored rule in front for a cleaner, more "reporty" feel. */
+    .dash-container section, .dash-container > div > h3 { scroll-margin-top: 90px; }
+    #section-overview, #section-charts, #section-rankings, #section-findings, #section-scorecard {
+      scroll-margin-top: 90px;
+    }
+
+    /* Ranking / findings list rows: tighter hierarchy + left accent bar
+       on hover instead of a flat highlight. */
+    .dash-container li.flex.items-center.justify-between {
+      position: relative;
+    }
+
+    /* Table polish for the branch scorecard. */
+    .dash-container table thead th {
+      letter-spacing: .04em;
+    }
+    .dash-container table tbody tr:hover {
+      background-color: rgba(37, 99, 235, 0.035);
+    }
+
+    /* Subtle top accent strip on the primary content cards for a more
+       "designed" masthead feel — purely decorative, sits above content. */
+    .dash-card-accent { position: relative; overflow: hidden; }
+    .dash-card-accent::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, #4f46e5, #0891b2 55%, #059669);
+      opacity: .85;
     }
   </style>
 
@@ -1428,18 +1448,25 @@ body.bg-coolDark{
 </head>
 <body class="bg-coolDark text-slate-800 min-h-screen selection:bg-accentCyan/30 selection:text-slate-900 pb-16 relative">
 
+  <div id="authCheckSplash" class="fixed inset-0 z-[10000] flex items-center justify-center" style="background: radial-gradient(1100px 650px at 12% -10%, rgba(255,255,255,0.16), transparent 55%), radial-gradient(900px 650px at 100% 105%, rgba(255,255,255,0.10), transparent 55%), linear-gradient(125deg, #1e2f8f 0%, #3355d8 38%, #4169E1 68%, #3a5fe0 100%); transition: opacity .25s ease;">
+    <div class="flex flex-col items-center gap-4">
+      <div class="w-10 h-10 border-[3px] border-white/25 border-t-white rounded-full animate-spin"></div>
+      <p class="text-white/80 text-sm font-semibold tracking-wide">Checking session&hellip;</p>
+    </div>
+  </div>
+
   <!-- ================= FIREBASE AUTH GATE =================
        Covers the whole dashboard until the user signs in.
        Pure add-on: no existing IDs/classes touched, so nothing
        below this block needs to change. Reuses the dashboard's own
        brand system: header gradient, coolCard surface, accent colors. -->
   <style id="authGateTheme">
-    #authGate{
+    #authGate, #loadingScreen{
       font-family:'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
       background:
-        radial-gradient(1100px 650px at 12% -10%, rgba(169,121,44,0.16), transparent 55%),
-        radial-gradient(900px 600px at 100% 105%, rgba(14,116,144,0.14), transparent 55%),
-        linear-gradient(120deg, #0B1F3A 0%, #14294D 45%, #0E7490 100%);
+        radial-gradient(1100px 650px at 12% -10%, rgba(255,255,255,0.16), transparent 55%),
+        radial-gradient(900px 650px at 100% 105%, rgba(255,255,255,0.10), transparent 55%),
+        linear-gradient(125deg, #1e2f8f 0%, #3355d8 38%, #4169E1 68%, #3a5fe0 100%);
       overflow:hidden;
     }
     .auth-crest-frame{ position:relative; display:inline-flex; }
@@ -1464,27 +1491,28 @@ body.bg-coolDark{
     }
     .auth-plaque{
       position:relative; overflow:hidden;
-      background:linear-gradient(180deg, rgba(255,255,255,1), rgba(250,250,255,1));
-      border:1px solid rgba(99,102,241,0.16);
-      box-shadow:0 30px 70px -20px rgba(20,20,60,0.45);
+      background:linear-gradient(180deg, rgba(255,255,255,1), rgba(247,249,255,1));
+      border:1px solid rgba(65,105,225,0.14);
+      border-radius:1.1rem;
+      box-shadow:0 30px 70px -20px rgba(15,23,60,0.45);
     }
     .auth-plaque::before{
       content:""; position:absolute; top:0; left:0; right:0; height:4px;
-      background:linear-gradient(90deg,#0B1F3A,#A9792C);
+      background:linear-gradient(90deg,#3355d8,#4169E1 55%,#3a5fe0);
     }
     .auth-label{ color:#64748b; font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
     .auth-input{
-      width:100%; background:#ffffff; border:1px solid rgba(11,31,58,0.14);
+      width:100%; background:#ffffff; border:1px solid rgba(65,105,225,0.18);
       color:#1e293b; border-radius:.75rem; padding:.7rem .9rem; font-size:.875rem;
       transition:all .2s ease;
     }
     .auth-input::placeholder{ color:#94a3b8; }
     .auth-input:focus{
-      outline:none; border-color:#A9792C;
-      box-shadow:0 0 0 3px rgba(169,121,44,0.15);
+      outline:none; border-color:#4169E1;
+      box-shadow:0 0 0 3px rgba(65,105,225,0.16);
     }
-    .auth-submit{ background:linear-gradient(90deg,#0B1F3A,#0E7490); color:#ffffff; }
-    .auth-submit:hover{ filter:brightness(1.05); }
+    .auth-submit{ background:linear-gradient(90deg,#3355d8,#4169E1); color:#ffffff; }
+    .auth-submit:hover{ filter:brightness(1.06); }
     .auth-submit:disabled{ filter:grayscale(.15); }
     .auth-toggle-pass{
       position:absolute; right:.55rem; top:50%; transform:translateY(-50%);
@@ -1493,18 +1521,18 @@ body.bg-coolDark{
       color:#94a3b8; background:transparent; border:none; cursor:pointer;
       transition:color .15s ease, background .15s ease;
     }
-    .auth-toggle-pass:hover{ color:#0B1F3A; background:rgba(11,31,58,0.08); }
+    .auth-toggle-pass:hover{ color:#4169E1; background:rgba(65,105,225,0.08); }
     .auth-remember{
       display:flex; align-items:center; gap:.5rem; cursor:pointer; user-select:none;
     }
     .auth-remember input{
       appearance:none; -webkit-appearance:none; width:1.05rem; height:1.05rem;
-      border:1.5px solid rgba(11,31,58,0.3); border-radius:.35rem;
+      border:1.5px solid rgba(65,105,225,0.35); border-radius:.35rem;
       display:inline-flex; align-items:center; justify-content:center;
       cursor:pointer; flex-shrink:0; transition:all .15s ease; background:#fff;
     }
     .auth-remember input:checked{
-      background:linear-gradient(90deg,#0B1F3A,#0E7490); border-color:transparent;
+      background:linear-gradient(90deg,#3355d8,#4169E1); border-color:transparent;
       background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
       background-repeat:no-repeat; background-position:center; background-size:70%;
     }
@@ -1521,7 +1549,6 @@ body.bg-coolDark{
           </div>
         </div>
         <h1 class="text-white text-xl sm:text-2xl font-bold tracking-tight text-center">Audit Data Dashboard</h1>
-        <p class="text-white/75 text-xs font-medium mt-1.5 text-center">Sign in to continue</p>
       </div>
 
       <div class="auth-plaque rounded-2xl p-6 sm:p-8">
@@ -1590,13 +1617,6 @@ body.bg-coolDark{
     #loadingStatusText {
       animation: loadFadeUp .35s ease-out;
     }
-    #loadingScreen{
-      font-family:'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
-      background:
-        radial-gradient(1100px 650px at 12% -10%, rgba(169,121,44,0.16), transparent 55%),
-        radial-gradient(900px 600px at 100% 105%, rgba(14,116,144,0.14), transparent 55%),
-        linear-gradient(120deg, #0B1F3A 0%, #14294D 45%, #0E7490 100%);
-    }
   </style>
 
   <div id="loadingScreen" class="fixed inset-0 z-[9999] hidden items-center justify-center" style="display:none; opacity:1; transition: opacity .35s ease;">
@@ -1612,8 +1632,8 @@ body.bg-coolDark{
             <circle id="loadingRingProgress" cx="60" cy="60" r="54" fill="none" stroke="url(#loadingGradient)" stroke-width="8" stroke-linecap="round" stroke-dasharray="339.292" stroke-dashoffset="339.292" style="transition: stroke-dashoffset .25s linear;"></circle>
             <defs>
               <linearGradient id="loadingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#0B1F3A"></stop>
-                <stop offset="100%" stop-color="#0E7490"></stop>
+                <stop offset="0%" stop-color="#3355d8"></stop>
+                <stop offset="100%" stop-color="#4169E1"></stop>
               </linearGradient>
             </defs>
           </svg>
@@ -1643,6 +1663,33 @@ body.bg-coolDark{
 
   <script>
     document.body.style.overflow = 'hidden';
+  </script>
+
+  <script>
+    // Live clock shown next to "Branch Performance", below the header —
+    // purely a display, no effect on data loading/sync logic elsewhere on
+    // the page. Initialized on DOMContentLoaded because this script tag
+    // runs before the liveTimeText/liveDateText elements further down the
+    // page have been parsed — grabbing them immediately would find nothing.
+    (function () {
+      function start() {
+        var timeEl = document.getElementById('liveTimeText');
+        var dateEl = document.getElementById('liveDateText');
+        if (!timeEl || !dateEl) return;
+        function tick() {
+          var now = new Date();
+          timeEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          dateEl.textContent = now.toLocaleDateString([], { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+        }
+        tick();
+        setInterval(tick, 1000);
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', start);
+      } else {
+        start();
+      }
+    })();
   </script>
 
   <script>
@@ -1907,7 +1954,7 @@ body.bg-coolDark{
     <span id="toast-message" class="text-sm font-semibold">Dashboard successfully updated from Web Link!</span>
   </div>
 
-  <header class="border-b border-white/10 bg-royalBlue sticky top-0 z-40 shadow-md">
+  <header class="border-b border-blue-800 sticky top-0 z-40 shadow-md" style="background: linear-gradient(115deg, #3355d8 0%, #4169E1 45%, #3a5fe0 100%);">
     <div class="dash-container py-3 min-h-[5rem] flex flex-col lg:flex-row items-center justify-between gap-4">
       
       <div class="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-start">
@@ -1915,7 +1962,12 @@ body.bg-coolDark{
           <button id="hamburgerBtn" type="button" aria-label="Open menu" class="flex items-center justify-center w-10 h-10 shrink-0 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 border border-white/10 transition-all duration-200 text-white">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-menu"><line x1="4" x2="20" y1="6" y2="6"></line><line x1="4" x2="20" y1="12" y2="12"></line><line x1="4" x2="20" y1="18" y2="18"></line></svg>
           </button>
-          <h1 class="text-xl font-bold tracking-tight text-white whitespace-nowrap">Audit Data Dashboard</h1>
+          <div class="flex items-center gap-2.5">
+            <div class="leading-tight">
+              <h1 class="text-xl font-bold tracking-tight text-white whitespace-nowrap">Audit Data Dashboard</h1>
+              <p class="hidden sm:block text-[11px] text-white/60 font-medium tracking-wide whitespace-nowrap">Branch performance &amp; compliance monitoring</p>
+            </div>
+          </div>
         </div>
         <span id="lastSyncedLabel" class="hidden sm:inline text-xs text-white/70 font-medium whitespace-nowrap"></span>
       </div>
@@ -1946,7 +1998,7 @@ body.bg-coolDark{
   <div id="menuOverlay" class="fixed inset-0 bg-black/50 z-[60] hidden opacity-0 transition-opacity duration-300"></div>
 
   <aside id="sideMenu" class="fixed top-0 left-0 h-full w-72 max-w-[85vw] bg-white z-[70] shadow-2xl transform -translate-x-full transition-transform duration-300 ease-out flex flex-col">
-    <div class="flex items-center justify-between px-5 py-4 border-b border-white/10 bg-royalBlue shrink-0">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-blue-800 bg-royalBlue shrink-0">
       <h2 class="text-white font-bold text-base tracking-tight">Shortcuts</h2>
       <button id="closeMenuBtn" type="button" aria-label="Close menu" class="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-white/10 active:scale-95 transition-all duration-200 text-white">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
@@ -2010,6 +2062,20 @@ body.bg-coolDark{
   </aside>
 
   <main class="dash-container mt-8 space-y-8">
+
+    <div class="flex items-center justify-between flex-wrap gap-3 -mb-2">
+      <div>
+        <span class="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-[0.12em] text-accentBlue uppercase">
+          <span class="w-1.5 h-1.5 rounded-full bg-accentBlue"></span>
+          Overview
+        </span>
+        <h2 class="text-lg sm:text-xl font-bold text-slate-900 tracking-tight mt-0.5">Branch Performance</h2>
+      </div>
+      <div id="liveDateTime" class="flex flex-col items-end justify-center leading-tight px-4 py-2.5 rounded-2xl bg-coolCard border border-coolBorder shadow-md whitespace-nowrap self-center">
+        <span id="liveTimeText" class="text-xl sm:text-2xl font-extrabold text-slate-900 tabular-nums tracking-tight">--:--:--</span>
+        <span id="liveDateText" class="text-xs sm:text-sm text-slate-500 font-semibold mt-0.5">--</span>
+      </div>
+    </div>
 
     <div id="section-overview" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
       <div onclick="openModal('All Branches Overview', 'all', null)" class="bg-coolCard border border-coolBorder rounded-2xl p-4 sm:p-5 hover:border-accentBlue/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
@@ -2105,7 +2171,7 @@ body.bg-coolDark{
 
     <div id="section-charts" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
       
-      <div class="bg-coolCard border border-coolBorder rounded-2xl p-6 shadow-md lg:col-span-2 flex flex-col justify-between hover:shadow-lg transition-all">
+      <div class="dash-card-accent bg-coolCard border border-coolBorder rounded-2xl p-6 shadow-md lg:col-span-2 flex flex-col justify-between hover:shadow-lg transition-all">
         <h3 class="text-lg font-bold tracking-tight text-slate-900 mb-6 flex items-center gap-2">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pie-chart w-5 h-5 text-accentCyan"><path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z"></path><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path></svg>
           COLLECTION, SALES, SERVICE &amp; AUDIT OVERVIEW
@@ -2201,7 +2267,7 @@ body.bg-coolDark{
       </div>
     </div>
 
-    <div id="section-rankings" class="bg-coolCard border border-coolBorder rounded-2xl p-6 shadow-md mb-8">
+    <div id="section-rankings" class="dash-card-accent bg-coolCard border border-coolBorder rounded-2xl p-6 shadow-md mb-8">
       <h3 class="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2 mb-6">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bar-chart-2 w-5 h-5 text-accentIndigo"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
         Top 10 Rankings (<span id="span-rankings-month">MAY</span>)
@@ -2231,7 +2297,7 @@ body.bg-coolDark{
       </div>
     </div>
 
-    <div id="section-findings" class="bg-coolCard border border-coolBorder rounded-2xl p-6 shadow-md">
+    <div id="section-findings" class="dash-card-accent bg-coolCard border border-coolBorder rounded-2xl p-6 shadow-md">
       <h3 class="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2 mb-1">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-layout-list w-5 h-5 text-accentIndigo"><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect><path d="M14 4h7"></path><path d="M14 9h7"></path><path d="M14 15h7"></path><path d="M14 20h7"></path></svg>
         Findings, Recovery &amp; Declining Branches
@@ -2245,64 +2311,64 @@ body.bg-coolDark{
           </h4>
           <ul class="space-y-3" id="top-findings-list"><li class="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-coolBorder hover:border-accentRose/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer">
           <div class="flex items-center gap-2">
-            <span class="w-5 h-5 rounded-md bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold">1</span>
+            <span class="w-6 h-6 rounded-full bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold ring-1 ring-accentRose/20">1</span>
             <span class="text-xs font-semibold text-slate-700">BATAAN</span>
           </div>
-          <span class="text-xs font-bold px-2 py-0.5 bg-accentRose/10 text-accentRose rounded-md">10</span>
+          <span class="text-xs font-bold px-2.5 py-1 bg-accentRose/10 text-accentRose rounded-full">10</span>
         </li><li class="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-coolBorder hover:border-accentRose/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer">
           <div class="flex items-center gap-2">
-            <span class="w-5 h-5 rounded-md bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold">2</span>
+            <span class="w-6 h-6 rounded-full bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold ring-1 ring-accentRose/20">2</span>
             <span class="text-xs font-semibold text-slate-700">BINANGONAN</span>
           </div>
-          <span class="text-xs font-bold px-2 py-0.5 bg-accentRose/10 text-accentRose rounded-md">10</span>
+          <span class="text-xs font-bold px-2.5 py-1 bg-accentRose/10 text-accentRose rounded-full">10</span>
         </li><li class="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-coolBorder hover:border-accentRose/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer">
           <div class="flex items-center gap-2">
-            <span class="w-5 h-5 rounded-md bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold">3</span>
+            <span class="w-6 h-6 rounded-full bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold ring-1 ring-accentRose/20">3</span>
             <span class="text-xs font-semibold text-slate-700">STA CRUZ</span>
           </div>
-          <span class="text-xs font-bold px-2 py-0.5 bg-accentRose/10 text-accentRose rounded-md">10</span>
+          <span class="text-xs font-bold px-2.5 py-1 bg-accentRose/10 text-accentRose rounded-full">10</span>
         </li><li class="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-coolBorder hover:border-accentRose/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer">
           <div class="flex items-center gap-2">
-            <span class="w-5 h-5 rounded-md bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold">4</span>
+            <span class="w-6 h-6 rounded-full bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold ring-1 ring-accentRose/20">4</span>
             <span class="text-xs font-semibold text-slate-700">GENERAL TRIAS</span>
           </div>
-          <span class="text-xs font-bold px-2 py-0.5 bg-accentRose/10 text-accentRose rounded-md">5</span>
+          <span class="text-xs font-bold px-2.5 py-1 bg-accentRose/10 text-accentRose rounded-full">5</span>
         </li><li class="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-coolBorder hover:border-accentRose/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer">
           <div class="flex items-center gap-2">
-            <span class="w-5 h-5 rounded-md bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold">5</span>
+            <span class="w-6 h-6 rounded-full bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold ring-1 ring-accentRose/20">5</span>
             <span class="text-xs font-semibold text-slate-700">PUERTO GALERA</span>
           </div>
-          <span class="text-xs font-bold px-2 py-0.5 bg-accentRose/10 text-accentRose rounded-md">5</span>
+          <span class="text-xs font-bold px-2.5 py-1 bg-accentRose/10 text-accentRose rounded-full">5</span>
         </li><li class="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-coolBorder hover:border-accentRose/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer">
           <div class="flex items-center gap-2">
-            <span class="w-5 h-5 rounded-md bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold">6</span>
+            <span class="w-6 h-6 rounded-full bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold ring-1 ring-accentRose/20">6</span>
             <span class="text-xs font-semibold text-slate-700">CALAPAN</span>
           </div>
-          <span class="text-xs font-bold px-2 py-0.5 bg-accentRose/10 text-accentRose rounded-md">4</span>
+          <span class="text-xs font-bold px-2.5 py-1 bg-accentRose/10 text-accentRose rounded-full">4</span>
         </li><li class="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-coolBorder hover:border-accentRose/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer">
           <div class="flex items-center gap-2">
-            <span class="w-5 h-5 rounded-md bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold">7</span>
+            <span class="w-6 h-6 rounded-full bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold ring-1 ring-accentRose/20">7</span>
             <span class="text-xs font-semibold text-slate-700">BAY</span>
           </div>
-          <span class="text-xs font-bold px-2 py-0.5 bg-accentRose/10 text-accentRose rounded-md">3</span>
+          <span class="text-xs font-bold px-2.5 py-1 bg-accentRose/10 text-accentRose rounded-full">3</span>
         </li><li class="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-coolBorder hover:border-accentRose/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer">
           <div class="flex items-center gap-2">
-            <span class="w-5 h-5 rounded-md bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold">8</span>
+            <span class="w-6 h-6 rounded-full bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold ring-1 ring-accentRose/20">8</span>
             <span class="text-xs font-semibold text-slate-700">CALIT-CALIT SAN JUAN</span>
           </div>
-          <span class="text-xs font-bold px-2 py-0.5 bg-accentRose/10 text-accentRose rounded-md">3</span>
+          <span class="text-xs font-bold px-2.5 py-1 bg-accentRose/10 text-accentRose rounded-full">3</span>
         </li><li class="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-coolBorder hover:border-accentRose/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer">
           <div class="flex items-center gap-2">
-            <span class="w-5 h-5 rounded-md bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold">9</span>
+            <span class="w-6 h-6 rounded-full bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold ring-1 ring-accentRose/20">9</span>
             <span class="text-xs font-semibold text-slate-700">ORANI</span>
           </div>
-          <span class="text-xs font-bold px-2 py-0.5 bg-accentRose/10 text-accentRose rounded-md">3</span>
+          <span class="text-xs font-bold px-2.5 py-1 bg-accentRose/10 text-accentRose rounded-full">3</span>
         </li><li class="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-coolBorder hover:border-accentRose/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer">
           <div class="flex items-center gap-2">
-            <span class="w-5 h-5 rounded-md bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold">10</span>
+            <span class="w-6 h-6 rounded-full bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold ring-1 ring-accentRose/20">10</span>
             <span class="text-xs font-semibold text-slate-700">PINAMALAYAN</span>
           </div>
-          <span class="text-xs font-bold px-2 py-0.5 bg-accentRose/10 text-accentRose rounded-md">3</span>
+          <span class="text-xs font-bold px-2.5 py-1 bg-accentRose/10 text-accentRose rounded-full">3</span>
         </li></ul>
         </div>
 
@@ -2314,46 +2380,46 @@ body.bg-coolDark{
           <p class="text-xs text-slate-500 mb-4">Currently tracking active recovery engagements based on collection status.</p>
           <ul class="space-y-3" id="top-recovery-list"><li class="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-coolBorder hover:border-accentAmber/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer">
             <div class="flex items-center gap-2">
-              <span class="w-5 h-5 rounded-md bg-accentAmber/10 text-accentAmber text-xs flex items-center justify-center font-bold">1</span>
+              <span class="w-6 h-6 rounded-full bg-accentAmber/10 text-accentAmber text-xs flex items-center justify-center font-bold ring-1 ring-accentAmber/20">1</span>
               <span class="text-xs font-semibold text-slate-700">BINALONAN</span>
             </div>
-            <span class="text-xs font-bold px-2 py-0.5 bg-accentAmber/10 text-accentAmber rounded-md uppercase">Recovering</span>
+            <span class="text-xs font-bold px-2.5 py-1 bg-accentAmber/10 text-accentAmber rounded-full uppercase">Recovering</span>
           </li><li class="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-coolBorder hover:border-accentAmber/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer">
             <div class="flex items-center gap-2">
-              <span class="w-5 h-5 rounded-md bg-accentAmber/10 text-accentAmber text-xs flex items-center justify-center font-bold">2</span>
+              <span class="w-6 h-6 rounded-full bg-accentAmber/10 text-accentAmber text-xs flex items-center justify-center font-bold ring-1 ring-accentAmber/20">2</span>
               <span class="text-xs font-semibold text-slate-700">INFANTA</span>
             </div>
-            <span class="text-xs font-bold px-2 py-0.5 bg-accentAmber/10 text-accentAmber rounded-md uppercase">Recovering</span>
+            <span class="text-xs font-bold px-2.5 py-1 bg-accentAmber/10 text-accentAmber rounded-full uppercase">Recovering</span>
           </li><li class="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-coolBorder hover:border-accentAmber/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer">
             <div class="flex items-center gap-2">
-              <span class="w-5 h-5 rounded-md bg-accentAmber/10 text-accentAmber text-xs flex items-center justify-center font-bold">3</span>
+              <span class="w-6 h-6 rounded-full bg-accentAmber/10 text-accentAmber text-xs flex items-center justify-center font-bold ring-1 ring-accentAmber/20">3</span>
               <span class="text-xs font-semibold text-slate-700">SILANG CAVITE</span>
             </div>
-            <span class="text-xs font-bold px-2 py-0.5 bg-accentAmber/10 text-accentAmber rounded-md uppercase">Recovering</span>
+            <span class="text-xs font-bold px-2.5 py-1 bg-accentAmber/10 text-accentAmber rounded-full uppercase">Recovering</span>
           </li><li class="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-coolBorder hover:border-accentAmber/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer">
             <div class="flex items-center gap-2">
-              <span class="w-5 h-5 rounded-md bg-accentAmber/10 text-accentAmber text-xs flex items-center justify-center font-bold">4</span>
+              <span class="w-6 h-6 rounded-full bg-accentAmber/10 text-accentAmber text-xs flex items-center justify-center font-bold ring-1 ring-accentAmber/20">4</span>
               <span class="text-xs font-semibold text-slate-700">SINILOAN</span>
             </div>
-            <span class="text-xs font-bold px-2 py-0.5 bg-accentAmber/10 text-accentAmber rounded-md uppercase">Recovering</span>
+            <span class="text-xs font-bold px-2.5 py-1 bg-accentAmber/10 text-accentAmber rounded-full uppercase">Recovering</span>
           </li><li class="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-coolBorder hover:border-accentAmber/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer">
             <div class="flex items-center gap-2">
-              <span class="w-5 h-5 rounded-md bg-accentAmber/10 text-accentAmber text-xs flex items-center justify-center font-bold">5</span>
+              <span class="w-6 h-6 rounded-full bg-accentAmber/10 text-accentAmber text-xs flex items-center justify-center font-bold ring-1 ring-accentAmber/20">5</span>
               <span class="text-xs font-semibold text-slate-700">STO TOMAS</span>
             </div>
-            <span class="text-xs font-bold px-2 py-0.5 bg-accentAmber/10 text-accentAmber rounded-md uppercase">Recovering</span>
+            <span class="text-xs font-bold px-2.5 py-1 bg-accentAmber/10 text-accentAmber rounded-full uppercase">Recovering</span>
           </li><li class="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-coolBorder hover:border-accentAmber/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer">
             <div class="flex items-center gap-2">
-              <span class="w-5 h-5 rounded-md bg-accentAmber/10 text-accentAmber text-xs flex items-center justify-center font-bold">6</span>
+              <span class="w-6 h-6 rounded-full bg-accentAmber/10 text-accentAmber text-xs flex items-center justify-center font-bold ring-1 ring-accentAmber/20">6</span>
               <span class="text-xs font-semibold text-slate-700">INFANTA (HONDA EXCLUSIVE)</span>
             </div>
-            <span class="text-xs font-bold px-2 py-0.5 bg-accentAmber/10 text-accentAmber rounded-md uppercase">Recovering</span>
+            <span class="text-xs font-bold px-2.5 py-1 bg-accentAmber/10 text-accentAmber rounded-full uppercase">Recovering</span>
           </li><li class="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-coolBorder hover:border-accentAmber/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer">
             <div class="flex items-center gap-2">
-              <span class="w-5 h-5 rounded-md bg-accentAmber/10 text-accentAmber text-xs flex items-center justify-center font-bold">7</span>
+              <span class="w-6 h-6 rounded-full bg-accentAmber/10 text-accentAmber text-xs flex items-center justify-center font-bold ring-1 ring-accentAmber/20">7</span>
               <span class="text-xs font-semibold text-slate-700">LUCENA (YAMAHA EXCLUSIVE)</span>
             </div>
-            <span class="text-xs font-bold px-2 py-0.5 bg-accentAmber/10 text-accentAmber rounded-md uppercase">Recovering</span>
+            <span class="text-xs font-bold px-2.5 py-1 bg-accentAmber/10 text-accentAmber rounded-full uppercase">Recovering</span>
           </li></ul>
         </div>
 
@@ -2374,7 +2440,7 @@ body.bg-coolDark{
       </div>
     </div>
 
-    <div id="section-scorecard" class="bg-coolCard border border-coolBorder rounded-2xl p-6 shadow-md">
+    <div id="section-scorecard" class="dash-card-accent bg-coolCard border border-coolBorder rounded-2xl p-6 shadow-md">
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
         <div>
           <h3 class="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2">
@@ -4300,12 +4366,27 @@ body.bg-coolDark{
       if(document.getElementById('th-eff-month')) document.getElementById('th-eff-month').innerText = labels[2];
     }
 
+    // Shared visual defaults so every chart on the dashboard reads as one
+    // coherent, professional system rather than seven separately-styled
+    // widgets. Colors are intentionally untouched from the original palette.
+    const CHART_FONT = 'Plus Jakarta Sans, sans-serif';
+    function donutCenterTotal(label) {
+      return {
+        show: true, showAlways: true,
+        name: { show: true, fontSize: '10px', fontWeight: 700, color: '#94a3b8', offsetY: -6, formatter: () => label },
+        value: { show: true, fontSize: '22px', fontWeight: 800, color: '#0f172a', offsetY: 4, formatter: (val) => val }
+      };
+    }
+
     function renderDonutChart() {
       const sum = activeData.summary;
-      
+      const seriesVals = [sum.improvingCollection || 0, sum.decliningCollection || 0, sum.stableCollection || 0, sum.recoveringCollection || 0];
+      const total = seriesVals.reduce((a,b) => a+b, 0);
       const options = {
         chart: { 
-          type: 'donut', height: 200, background: 'transparent',
+          type: 'donut', height: 220, background: 'transparent', fontFamily: CHART_FONT,
+          animations: { enabled: true, easing: 'easeinout', speed: 500 },
+          dropShadow: { enabled: true, top: 2, left: 0, blur: 6, opacity: 0.10 },
           events: {
             dataPointSelection: function(event, chartContext, config) {
               const labels = ['Improving', 'Declining', 'Stable', 'Recovering'];
@@ -4313,13 +4394,16 @@ body.bg-coolDark{
             }
           }
         },
-        series: [sum.improvingCollection || 0, sum.decliningCollection || 0, sum.stableCollection || 0, sum.recoveringCollection || 0],
+        series: seriesVals,
         labels: ['Improving', 'Declining', 'Stable', 'Recovering'],
         colors: ['#10b981', '#f43f5e', '#64748b', '#d97706'],
-        stroke: { show: false },
-        legend: { position: 'bottom', labels: { colors: '#64748b' } },
+        stroke: { show: true, width: 3, colors: ['#ffffff'] },
+        fill: { type: 'gradient', gradient: { shade: 'light', type: 'diagonal1', shadeIntensity: 0.35, inverseColors: false, opacityFrom: 1, opacityTo: 0.82, stops: [0, 100] } },
+        states: { hover: { filter: { type: 'darken', value: 0.9 } } },
+        plotOptions: { pie: { donut: { size: '72%', labels: donutCenterTotal('TOTAL') } } },
+        legend: { position: 'bottom', fontSize: '11px', fontWeight: 600, labels: { colors: '#475569' }, markers: { size: 6, offsetX: -2 }, itemMargin: { horizontal: 8, vertical: 4 } },
         dataLabels: { enabled: false },
-        tooltip: { theme: 'light' }
+        tooltip: { theme: 'light', y: { formatter: (val) => `${val} branch${val === 1 ? '' : 'es'} (${total ? Math.round(val/total*100) : 0}%)` } }
       };
       const el = document.querySelector("#collectionDonutChart");
       if (charts.collectionDonut) charts.collectionDonut.destroy();
@@ -4330,9 +4414,13 @@ body.bg-coolDark{
 
     function renderSalesDonutChart() {
       const sum = activeData.summary;
+      const seriesVals = [sum.salesImproving || 0, sum.salesDeclining || 0, sum.salesStable || 0];
+      const total = seriesVals.reduce((a,b) => a+b, 0);
       const options = {
         chart: { 
-          type: 'donut', height: 200, background: 'transparent',
+          type: 'donut', height: 220, background: 'transparent', fontFamily: CHART_FONT,
+          animations: { enabled: true, easing: 'easeinout', speed: 500 },
+          dropShadow: { enabled: true, top: 2, left: 0, blur: 6, opacity: 0.10 },
           events: {
             dataPointSelection: function(event, chartContext, config) {
               const labels = ['Improving', 'Declining', 'Stable'];
@@ -4340,13 +4428,16 @@ body.bg-coolDark{
             }
           }
         },
-        series: [sum.salesImproving || 0, sum.salesDeclining || 0, sum.salesStable || 0],
+        series: seriesVals,
         labels: ['Improving', 'Declining', 'Stable'],
         colors: ['#4f46e5', '#f43f5e', '#64748b'], 
-        stroke: { show: false },
-        legend: { position: 'bottom', labels: { colors: '#64748b' } },
+        stroke: { show: true, width: 3, colors: ['#ffffff'] },
+        fill: { type: 'gradient', gradient: { shade: 'light', type: 'diagonal1', shadeIntensity: 0.35, opacityFrom: 1, opacityTo: 0.82, stops: [0, 100] } },
+        states: { hover: { filter: { type: 'darken', value: 0.9 } } },
+        plotOptions: { pie: { donut: { size: '72%', labels: donutCenterTotal('TOTAL') } } },
+        legend: { position: 'bottom', fontSize: '11px', fontWeight: 600, labels: { colors: '#475569' }, markers: { size: 6, offsetX: -2 }, itemMargin: { horizontal: 8, vertical: 4 } },
         dataLabels: { enabled: false },
-        tooltip: { theme: 'light' }
+        tooltip: { theme: 'light', y: { formatter: (val) => `${val} branch${val === 1 ? '' : 'es'} (${total ? Math.round(val/total*100) : 0}%)` } }
       };
       const el = document.querySelector("#salesDonutChart");
       if (charts.salesDonut) charts.salesDonut.destroy();
@@ -4357,9 +4448,13 @@ body.bg-coolDark{
 
     function renderServiceDonutChart() {
       const sum = activeData.summary;
+      const seriesVals = [sum.serviceTarget || 0, sum.serviceDeclining || 0];
+      const total = seriesVals.reduce((a,b) => a+b, 0);
       const options = {
         chart: { 
-          type: 'donut', height: 200, background: 'transparent',
+          type: 'donut', height: 220, background: 'transparent', fontFamily: CHART_FONT,
+          animations: { enabled: true, easing: 'easeinout', speed: 500 },
+          dropShadow: { enabled: true, top: 2, left: 0, blur: 6, opacity: 0.10 },
           events: {
             dataPointSelection: function(event, chartContext, config) {
               const labels = ['Target', 'Declining'];
@@ -4367,13 +4462,16 @@ body.bg-coolDark{
             }
           }
         },
-        series: [sum.serviceTarget || 0, sum.serviceDeclining || 0],
+        series: seriesVals,
         labels: ['Target', 'Declining'],
         colors: ['#0891b2', '#f43f5e'], 
-        stroke: { show: false },
-        legend: { position: 'bottom', labels: { colors: '#64748b' } },
+        stroke: { show: true, width: 3, colors: ['#ffffff'] },
+        fill: { type: 'gradient', gradient: { shade: 'light', type: 'diagonal1', shadeIntensity: 0.35, opacityFrom: 1, opacityTo: 0.82, stops: [0, 100] } },
+        states: { hover: { filter: { type: 'darken', value: 0.9 } } },
+        plotOptions: { pie: { donut: { size: '72%', labels: donutCenterTotal('TOTAL') } } },
+        legend: { position: 'bottom', fontSize: '11px', fontWeight: 600, labels: { colors: '#475569' }, markers: { size: 6, offsetX: -2 }, itemMargin: { horizontal: 8, vertical: 4 } },
         dataLabels: { enabled: false },
-        tooltip: { theme: 'light' }
+        tooltip: { theme: 'light', y: { formatter: (val) => `${val} branch${val === 1 ? '' : 'es'} (${total ? Math.round(val/total*100) : 0}%)` } }
       };
       const el = document.querySelector("#serviceDonutChart");
       if (charts.serviceDonut) charts.serviceDonut.destroy();
@@ -4386,7 +4484,9 @@ body.bg-coolDark{
       const sum = activeData.summary;
       const options = {
         chart: { 
-          type: 'bar', height: 200, background: 'transparent', toolbar: { show: false },
+          type: 'bar', height: 220, background: 'transparent', toolbar: { show: false }, fontFamily: CHART_FONT,
+          animations: { enabled: true, easing: 'easeinout', speed: 500 },
+          dropShadow: { enabled: true, top: 3, left: 0, blur: 4, opacity: 0.15 },
           events: {
             dataPointSelection: function(event, chartContext, config) {
               const yearMap = ['findings2024', 'findings2025', 'findings2026'];
@@ -4396,12 +4496,14 @@ body.bg-coolDark{
           }
         },
         series: [{ name: 'Findings', data: [sum.findings2024 || 0, sum.findings2025 || 0, sum.findings2026 || 0] }],
-        xaxis: { categories: ['2024', '2025', '2026'], labels: { style: { colors: '#64748b', fontSize: '10px', fontWeight: 600 }, trim: false }, tooltip: { enabled: false } },
-        yaxis: { labels: { style: { colors: '#64748b', fontSize: '10px' } } },
+        xaxis: { categories: ['FY2024', 'FY2025', 'FY2026'], labels: { style: { colors: '#64748b', fontSize: '10px', fontWeight: 700 }, trim: false }, axisBorder: { show: false }, axisTicks: { show: false }, tooltip: { enabled: false } },
+        yaxis: { labels: { style: { colors: '#94a3b8', fontSize: '10px' } } },
         colors: ['#0891b2'],
-        plotOptions: { bar: { borderRadius: 4, columnWidth: '55%', distributed: true, cursor: 'pointer' } },
+        fill: { type: 'gradient', gradient: { shade: 'light', type: 'vertical', shadeIntensity: 0.4, opacityFrom: 1, opacityTo: 0.75, stops: [0, 100] } },
+        plotOptions: { bar: { borderRadius: 6, borderRadiusApplication: 'end', columnWidth: '48%', distributed: true, cursor: 'pointer' } },
         legend: { show: false },
-        grid: { borderColor: '#e2e8f0' },
+        grid: { borderColor: '#eef1f5', strokeDashArray: 3, yaxis: { lines: { show: true } }, xaxis: { lines: { show: false } } },
+        dataLabels: { enabled: true, offsetY: -18, style: { fontSize: '11px', fontWeight: 800, colors: ['#0f172a'] }, background: { enabled: false } },
         tooltip: { theme: 'light' }
       };
       const el = document.querySelector("#findingsBarChart");
@@ -4411,12 +4513,28 @@ body.bg-coolDark{
       charts.findingsBar.render();
     }
 
+    // Common polish for the three horizontal "Top 10" ranking bars: soft
+    // gradient fill in the series color, rounded bar caps, subtle shadow,
+    // and dashed gridlines so long branch-name lists stay easy to scan.
+    function rankingBarBase(color) {
+      return {
+        fill: { type: 'gradient', gradient: { shade: 'light', type: 'horizontal', shadeIntensity: 0.3, opacityFrom: 0.92, opacityTo: 1, stops: [0, 100] } },
+        plotOptions: { bar: { horizontal: true, borderRadius: 6, borderRadiusApplication: 'end', barHeight: '58%', cursor: 'pointer' } },
+        colors: [color],
+        grid: { borderColor: '#eef1f5', strokeDashArray: 3, xaxis: { lines: { show: true } }, yaxis: { lines: { show: false } }, padding: { left: 8, right: 20 } },
+        tooltip: { theme: 'light' },
+        states: { hover: { filter: { type: 'darken', value: 0.92 } } }
+      };
+    }
+
     function renderLowestEfficiencyChart() {
       const items = activeData.lowestEfficiency;
       if (!items || items.length === 0) return;
       const options = {
         chart: { 
-          type: 'bar', height: 350, background: 'transparent', toolbar: { show: false },
+          type: 'bar', height: 365, background: 'transparent', toolbar: { show: false }, fontFamily: CHART_FONT,
+          animations: { enabled: true, easing: 'easeinout', speed: 450 },
+          dropShadow: { enabled: true, top: 2, left: 2, blur: 3, opacity: 0.12 },
           events: {
             dataPointSelection: function(event, chartContext, config) {
               const branchName = items[config.dataPointIndex].branch;
@@ -4425,13 +4543,10 @@ body.bg-coolDark{
           }
         },
         series: [{ name: `Efficiency LATEST (%)`, data: items.map(x => x.rate) }],
-        xaxis: { categories: items.map(x => x.branch), labels: { style: { colors: '#64748b' } }, max: 100 },
-        yaxis: { labels: { style: { colors: '#64748b' } } },
-        plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '65%', cursor: 'pointer' } },
-        colors: ['#e11d48'],
-        grid: { borderColor: '#e2e8f0' },
-        tooltip: { theme: 'light' },
-        dataLabels: { enabled: true, formatter: val => val + "%", style: { colors: ['#ffffff'] } }
+        xaxis: { categories: items.map(x => x.branch), labels: { style: { colors: '#94a3b8', fontSize: '10px' } }, axisBorder: { show: false }, axisTicks: { show: false }, max: 100 },
+        yaxis: { labels: { style: { colors: '#475569', fontSize: '11px', fontWeight: 600 } } },
+        dataLabels: { enabled: true, formatter: val => val + "%", style: { colors: ['#ffffff'], fontSize: '10px', fontWeight: 700 }, dropShadow: { enabled: false } },
+        ...rankingBarBase('#e11d48')
       };
       const el = document.querySelector("#lowestEfficiencyChart");
       if (charts.lowestEff) charts.lowestEff.destroy();
@@ -4446,7 +4561,9 @@ body.bg-coolDark{
       const maxRepoRate = Math.max(...items.map(x => x.rate));
       const options = {
         chart: { 
-          type: 'bar', height: 350, background: 'transparent', toolbar: { show: false },
+          type: 'bar', height: 365, background: 'transparent', toolbar: { show: false }, fontFamily: CHART_FONT,
+          animations: { enabled: true, easing: 'easeinout', speed: 450 },
+          dropShadow: { enabled: true, top: 2, left: 2, blur: 3, opacity: 0.12 },
           events: {
             dataPointSelection: function(event, chartContext, config) {
               const branchName = items[config.dataPointIndex].branch;
@@ -4455,13 +4572,10 @@ body.bg-coolDark{
           }
         },
         series: [{ name: 'Repo Rate (%)', data: items.map(x => x.rate) }],
-        xaxis: { categories: items.map(x => x.branch), labels: { style: { colors: '#64748b' } }, min: 0, max: Math.ceil(maxRepoRate * 1.3) },
-        yaxis: { labels: { style: { colors: '#64748b' } } },
-        plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '65%', cursor: 'pointer' } },
-        colors: ['#f59e0b'],
-        grid: { borderColor: '#e2e8f0' },
-        tooltip: { theme: 'light' },
-        dataLabels: { enabled: true, formatter: val => val + "%", style: { colors: ['#ffffff'] } }
+        xaxis: { categories: items.map(x => x.branch), labels: { style: { colors: '#94a3b8', fontSize: '10px' } }, axisBorder: { show: false }, axisTicks: { show: false }, min: 0, max: Math.ceil(maxRepoRate * 1.3) },
+        yaxis: { labels: { style: { colors: '#475569', fontSize: '11px', fontWeight: 600 } } },
+        dataLabels: { enabled: true, formatter: val => val + "%", style: { colors: ['#ffffff'], fontSize: '10px', fontWeight: 700 }, dropShadow: { enabled: false } },
+        ...rankingBarBase('#f59e0b')
       };
       const el = document.querySelector("#highestRepoChart");
       if (charts.highestRepo) charts.highestRepo.destroy();
@@ -4475,7 +4589,9 @@ body.bg-coolDark{
       if (!items || items.length === 0) return;
       const options = {
         chart: { 
-          type: 'bar', height: 350, background: 'transparent', toolbar: { show: false },
+          type: 'bar', height: 365, background: 'transparent', toolbar: { show: false }, fontFamily: CHART_FONT,
+          animations: { enabled: true, easing: 'easeinout', speed: 450 },
+          dropShadow: { enabled: true, top: 2, left: 2, blur: 3, opacity: 0.12 },
           events: {
             dataPointSelection: function(event, chartContext, config) {
               const branchName = items[config.dataPointIndex].branch;
@@ -4484,13 +4600,10 @@ body.bg-coolDark{
           }
         },
         series: [{ name: 'No of Repo', data: items.map(x => x.count) }],
-        xaxis: { categories: items.map(x => x.branch), labels: { style: { colors: '#64748b' } } },
-        yaxis: { labels: { style: { colors: '#64748b' } } },
-        plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '65%', cursor: 'pointer' } },
-        colors: ['#4f46e5'],
-        grid: { borderColor: '#e2e8f0' },
-        tooltip: { theme: 'light' },
-        dataLabels: { enabled: true, style: { colors: ['#ffffff'] } }
+        xaxis: { categories: items.map(x => x.branch), labels: { style: { colors: '#94a3b8', fontSize: '10px' } }, axisBorder: { show: false }, axisTicks: { show: false } },
+        yaxis: { labels: { style: { colors: '#475569', fontSize: '11px', fontWeight: 600 } } },
+        dataLabels: { enabled: true, style: { colors: ['#ffffff'], fontSize: '10px', fontWeight: 700 }, dropShadow: { enabled: false } },
+        ...rankingBarBase('#4f46e5')
       };
       const el = document.querySelector("#highestNoRepoChart");
       if (charts.highestNoRepo) charts.highestNoRepo.destroy();
@@ -4511,10 +4624,10 @@ body.bg-coolDark{
         li.onclick = () => openModalDetail(item.name);
         li.innerHTML = `
           <div class="flex items-center gap-2">
-            <span class="w-5 h-5 rounded-md bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold">${index + 1}</span>
+            <span class="w-6 h-6 rounded-full bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold ring-1 ring-accentRose/20">${index + 1}</span>
             <span class="text-xs font-semibold text-slate-700">${item.name}</span>
           </div>
-          <span class="text-xs font-bold px-2 py-0.5 bg-accentRose/10 text-accentRose rounded-md">${item.count}</span>
+          <span class="text-xs font-bold px-2.5 py-1 bg-accentRose/10 text-accentRose rounded-full">${item.count}</span>
         `;
         listContainer.appendChild(li);
       });
@@ -4532,10 +4645,10 @@ body.bg-coolDark{
           li.onclick = () => openModalDetail(item.name);
           li.innerHTML = `
             <div class="flex items-center gap-2">
-              <span class="w-5 h-5 rounded-md bg-accentAmber/10 text-accentAmber text-xs flex items-center justify-center font-bold">${index + 1}</span>
+              <span class="w-6 h-6 rounded-full bg-accentAmber/10 text-accentAmber text-xs flex items-center justify-center font-bold ring-1 ring-accentAmber/20">${index + 1}</span>
               <span class="text-xs font-semibold text-slate-700">${item.name}</span>
             </div>
-            <span class="text-xs font-bold px-2 py-0.5 bg-accentAmber/10 text-accentAmber rounded-md uppercase">Recovering</span>
+            <span class="text-xs font-bold px-2.5 py-1 bg-accentAmber/10 text-accentAmber rounded-full uppercase">Recovering</span>
           `;
           recoveryListContainer.appendChild(li);
         });
@@ -4588,10 +4701,10 @@ body.bg-coolDark{
         li.onclick = () => openModalDetail(item.name);
         li.innerHTML = `
           <div class="flex items-center gap-2">
-            <span class="w-5 h-5 rounded-md bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold">${index + 1}</span>
+            <span class="w-6 h-6 rounded-full bg-accentRose/10 text-accentRose text-xs flex items-center justify-center font-bold ring-1 ring-accentRose/20">${index + 1}</span>
             <span class="text-xs font-semibold text-slate-700">${item.name}</span>
           </div>
-          <span class="text-xs font-bold px-2 py-0.5 bg-accentRose/10 text-accentRose rounded-md">${item.label}</span>
+          <span class="text-xs font-bold px-2.5 py-1 bg-accentRose/10 text-accentRose rounded-full">${item.label}</span>
         `;
         container.appendChild(li);
       });
@@ -5644,7 +5757,24 @@ body.bg-coolDark{
     // before, so it can't interrupt/cover the login screen.
     let dashboardLoadingStarted = false;
 
+    // Covers the login form / dashboard while Firebase figures out whether
+    // there's already a signed-in session (relevant on reload, since
+    // persistence is local). Removed the first time onAuthStateChanged
+    // fires, so the person never sees a flash of the login screen before
+    // being routed straight to the loading screen.
+    let authCheckSplashRemoved = false;
+    function removeAuthCheckSplash() {
+      if (authCheckSplashRemoved) return;
+      authCheckSplashRemoved = true;
+      const splash = document.getElementById('authCheckSplash');
+      if (splash) {
+        splash.style.opacity = '0';
+        setTimeout(() => splash.remove(), 250);
+      }
+    }
+
     onAuthStateChanged(auth, (user) => {
+      removeAuthCheckSplash();
       if (user) {
         authGate.classList.add('hidden');
         authLogoutBtn.classList.remove('hidden');
