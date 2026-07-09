@@ -18,32 +18,69 @@
       theme: {
         extend: {
           colors: {
-            coolDark: '#f3f4f6',
+            coolDark: '#EEF1F5',
             coolCard: '#ffffff',
-            coolBorder: '#e5e7eb',
-            accentCyan: '#0891b2',
-            accentBlue: '#2563eb',
-            accentEmerald: '#059669',
-            accentRose: '#e11d48',
-            accentIndigo: '#4f46e5',
-            accentAmber: '#d97706',
-            royalBlue: '#4169E1',
+            coolBorder: '#DEE2E8',
+            accentCyan: '#0E7490',
+            accentBlue: '#1D4ED8',
+            accentEmerald: '#0F7A4A',
+            accentRose: '#B3261E',
+            accentIndigo: '#3F3D8A',
+            accentAmber: '#B45309',
+            royalBlue: '#0B1F3A',
+            accentBrass: '#A9792C',
           }
         }
       }
     }
   </script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@500;600&display=swap');
     body { font-family: 'Plus Jakarta Sans', sans-serif; }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #f3f4f6; }
-    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    ::-webkit-scrollbar-track { background: #EEF1F5; }
+    ::-webkit-scrollbar-thumb { background: #B7BEC9; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #8D96A4; }
     
     .custom-scrollbar::-webkit-scrollbar { width: 4px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #B7BEC9; border-radius: 4px; }
+
+    /* ================= PROFESSIONAL REDESIGN LAYER =================
+       Visual-only additions. No existing IDs/classes were removed or
+       renamed, so all JS/data logic is untouched. This block restyles
+       typography and card presentation to a ledger/audit-firm identity:
+       a serif display face for headings and figures, tabular numerals
+       for anything financial, and a refined card elevation with a thin
+       brass edge that echoes a stamped ledger page. */
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Fraunces', ui-serif, Georgia, serif;
+      letter-spacing: -0.01em;
+    }
+    .font-extrabold {
+      font-family: 'Fraunces', ui-serif, Georgia, serif;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.015em;
+    }
+    /* Every stat/data card in the dashboard shares this exact class
+       trio, so refining it here reaches the whole dashboard at once. */
+    .bg-coolCard.border.border-coolBorder.rounded-2xl {
+      position: relative;
+      box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 20px -12px rgba(11,31,58,0.18);
+    }
+    .bg-coolCard.border.border-coolBorder.rounded-2xl::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 1rem; right: 1rem;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(169,121,44,0.55), transparent);
+      opacity: 0.9;
+      pointer-events: none;
+    }
+    .bg-coolCard.border.border-coolBorder.rounded-2xl:hover {
+      box-shadow: 0 2px 4px rgba(15,23,42,0.05), 0 14px 28px -14px rgba(11,31,58,0.24);
+    }
+
 
     #scorecardScrollWrap { -webkit-overflow-scrolling: touch; }
     @media (max-width: 767px) {
@@ -1400,9 +1437,9 @@ body.bg-coolDark{
     #authGate{
       font-family:'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
       background:
-        radial-gradient(1100px 650px at 12% -10%, rgba(103,232,249,0.16), transparent 55%),
-        radial-gradient(900px 600px at 100% 105%, rgba(165,180,252,0.14), transparent 55%),
-        linear-gradient(120deg, #3730a3 0%, #4f46e5 45%, #0891b2 100%);
+        radial-gradient(1100px 650px at 12% -10%, rgba(169,121,44,0.16), transparent 55%),
+        radial-gradient(900px 600px at 100% 105%, rgba(14,116,144,0.14), transparent 55%),
+        linear-gradient(120deg, #0B1F3A 0%, #14294D 45%, #0E7490 100%);
       overflow:hidden;
     }
     .auth-crest-frame{ position:relative; display:inline-flex; }
@@ -1433,20 +1470,20 @@ body.bg-coolDark{
     }
     .auth-plaque::before{
       content:""; position:absolute; top:0; left:0; right:0; height:4px;
-      background:linear-gradient(90deg,#4f46e5,#0891b2);
+      background:linear-gradient(90deg,#0B1F3A,#A9792C);
     }
     .auth-label{ color:#64748b; font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
     .auth-input{
-      width:100%; background:#ffffff; border:1px solid rgba(99,102,241,0.16);
+      width:100%; background:#ffffff; border:1px solid rgba(11,31,58,0.14);
       color:#1e293b; border-radius:.75rem; padding:.7rem .9rem; font-size:.875rem;
       transition:all .2s ease;
     }
     .auth-input::placeholder{ color:#94a3b8; }
     .auth-input:focus{
-      outline:none; border-color:#5b3df0;
-      box-shadow:0 0 0 3px rgba(91,61,240,0.15);
+      outline:none; border-color:#A9792C;
+      box-shadow:0 0 0 3px rgba(169,121,44,0.15);
     }
-    .auth-submit{ background:linear-gradient(90deg,#4f46e5,#0891b2); color:#ffffff; }
+    .auth-submit{ background:linear-gradient(90deg,#0B1F3A,#0E7490); color:#ffffff; }
     .auth-submit:hover{ filter:brightness(1.05); }
     .auth-submit:disabled{ filter:grayscale(.15); }
     .auth-toggle-pass{
@@ -1456,18 +1493,18 @@ body.bg-coolDark{
       color:#94a3b8; background:transparent; border:none; cursor:pointer;
       transition:color .15s ease, background .15s ease;
     }
-    .auth-toggle-pass:hover{ color:#4f46e5; background:rgba(79,70,229,0.08); }
+    .auth-toggle-pass:hover{ color:#0B1F3A; background:rgba(11,31,58,0.08); }
     .auth-remember{
       display:flex; align-items:center; gap:.5rem; cursor:pointer; user-select:none;
     }
     .auth-remember input{
       appearance:none; -webkit-appearance:none; width:1.05rem; height:1.05rem;
-      border:1.5px solid rgba(99,102,241,0.35); border-radius:.35rem;
+      border:1.5px solid rgba(11,31,58,0.3); border-radius:.35rem;
       display:inline-flex; align-items:center; justify-content:center;
       cursor:pointer; flex-shrink:0; transition:all .15s ease; background:#fff;
     }
     .auth-remember input:checked{
-      background:linear-gradient(90deg,#4f46e5,#0891b2); border-color:transparent;
+      background:linear-gradient(90deg,#0B1F3A,#0E7490); border-color:transparent;
       background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
       background-repeat:no-repeat; background-position:center; background-size:70%;
     }
@@ -1553,9 +1590,16 @@ body.bg-coolDark{
     #loadingStatusText {
       animation: loadFadeUp .35s ease-out;
     }
+    #loadingScreen{
+      font-family:'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+      background:
+        radial-gradient(1100px 650px at 12% -10%, rgba(169,121,44,0.16), transparent 55%),
+        radial-gradient(900px 600px at 100% 105%, rgba(14,116,144,0.14), transparent 55%),
+        linear-gradient(120deg, #0B1F3A 0%, #14294D 45%, #0E7490 100%);
+    }
   </style>
 
-  <div id="loadingScreen" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-coolDark" style="display:none; opacity:1; transition: opacity .35s ease;">
+  <div id="loadingScreen" class="fixed inset-0 z-[9999] hidden items-center justify-center" style="display:none; opacity:1; transition: opacity .35s ease;">
     <div class="bg-coolCard border border-coolBorder rounded-2xl shadow-2xl p-8 w-full max-w-sm mx-4 text-center">
 
       <div id="loadingCore">
@@ -1568,8 +1612,8 @@ body.bg-coolDark{
             <circle id="loadingRingProgress" cx="60" cy="60" r="54" fill="none" stroke="url(#loadingGradient)" stroke-width="8" stroke-linecap="round" stroke-dasharray="339.292" stroke-dashoffset="339.292" style="transition: stroke-dashoffset .25s linear;"></circle>
             <defs>
               <linearGradient id="loadingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#4f46e5"></stop>
-                <stop offset="100%" stop-color="#0891b2"></stop>
+                <stop offset="0%" stop-color="#0B1F3A"></stop>
+                <stop offset="100%" stop-color="#0E7490"></stop>
               </linearGradient>
             </defs>
           </svg>
@@ -1863,7 +1907,7 @@ body.bg-coolDark{
     <span id="toast-message" class="text-sm font-semibold">Dashboard successfully updated from Web Link!</span>
   </div>
 
-  <header class="border-b border-blue-800 bg-royalBlue sticky top-0 z-40 shadow-md">
+  <header class="border-b border-white/10 bg-royalBlue sticky top-0 z-40 shadow-md">
     <div class="dash-container py-3 min-h-[5rem] flex flex-col lg:flex-row items-center justify-between gap-4">
       
       <div class="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-start">
@@ -1902,7 +1946,7 @@ body.bg-coolDark{
   <div id="menuOverlay" class="fixed inset-0 bg-black/50 z-[60] hidden opacity-0 transition-opacity duration-300"></div>
 
   <aside id="sideMenu" class="fixed top-0 left-0 h-full w-72 max-w-[85vw] bg-white z-[70] shadow-2xl transform -translate-x-full transition-transform duration-300 ease-out flex flex-col">
-    <div class="flex items-center justify-between px-5 py-4 border-b border-blue-800 bg-royalBlue shrink-0">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-white/10 bg-royalBlue shrink-0">
       <h2 class="text-white font-bold text-base tracking-tight">Shortcuts</h2>
       <button id="closeMenuBtn" type="button" aria-label="Close menu" class="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-white/10 active:scale-95 transition-all duration-200 text-white">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
