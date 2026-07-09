@@ -1485,8 +1485,12 @@ body.bg-coolDark{
        popup's z-index:50 inside a local context whose paint order versus
        unrelated siblings (like the KPI cards) is no longer guaranteed by
        that number alone. Giving the trigger itself a real z-index makes
-       the popup's stacking deterministic in every mouse state. */
-    z-index: 55;
+       the popup's stacking deterministic in every mouse state.
+       Kept below the sticky header's z-40 (35, not 55) so that once this
+       card scrolls up underneath the header it disappears behind it like
+       everything else, instead of visually floating on top of the header
+       bar for the moment their positions overlap. */
+    z-index: 35;
   }
   #liveDateTime:hover {
     box-shadow: 0 4px 10px rgba(15,23,42,.06), 0 24px 40px -18px rgba(15,23,42,.20);
@@ -1856,6 +1860,29 @@ body.bg-coolDark{
           grid.innerHTML = html;
         }
 
+        // The popup is `position: absolute` inside #liveDateTime and defaults
+        // to right-0 (flush with the trigger's right edge), which assumes
+        // the trigger is sitting near the right edge of the screen. On
+        // mobile the header row wraps and the trigger can end up left-
+        // aligned instead, which pushes a right-anchored 16rem-wide popup
+        // off the left edge of the viewport entirely. Recompute the offset
+        // every time it opens (and on resize while open) so it always stays
+        // inside the viewport, however the trigger happens to be positioned.
+        function repositionPopup() {
+          const margin = 8; // px breathing room from the screen edge
+          const triggerRect = trigger.getBoundingClientRect();
+          const popupWidth = popup.offsetWidth || 256;
+          // Default: right edge of popup flush with right edge of trigger.
+          let desiredViewportLeft = triggerRect.right - popupWidth;
+          const minViewportLeft = margin;
+          const maxViewportLeft = window.innerWidth - popupWidth - margin;
+          const clampedViewportLeft = Math.max(minViewportLeft, Math.min(desiredViewportLeft, maxViewportLeft));
+          // Convert back to a position relative to the trigger, since the
+          // popup is absolutely positioned against it, not the viewport.
+          const leftRelativeToTrigger = clampedViewportLeft - triggerRect.left;
+          popup.style.left = leftRelativeToTrigger + 'px';
+          popup.style.right = 'auto';
+        }
         function openPopup() {
           const now = new Date();
           viewYear = now.getFullYear();
@@ -1865,6 +1892,7 @@ body.bg-coolDark{
           popup.classList.remove('mini-cal-open');
           void popup.offsetWidth;
           popup.classList.add('mini-cal-open');
+          repositionPopup();
           trigger.setAttribute('aria-expanded', 'true');
           isOpen = true;
         }
@@ -1873,6 +1901,9 @@ body.bg-coolDark{
           trigger.setAttribute('aria-expanded', 'false');
           isOpen = false;
         }
+        window.addEventListener('resize', function() {
+          if (isOpen) repositionPopup();
+        });
         function togglePopup() {
           if (isOpen) closePopup(); else openPopup();
         }
