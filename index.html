@@ -1398,9 +1398,17 @@ body.bg-coolDark{
   .duration-300 { transition-duration: 320ms !important; }
   .duration-1000 { transition-duration: 700ms !important; }
 
-  /* Card lift feels a touch softer with a matching shadow fade */
-  [class*="hover:-translate-y-1"],
-  [class*="hover:-translate-y-0.5"] {
+  /* Card lift feels a touch softer with a matching shadow fade.
+     will-change is scoped to :hover (rather than applied unconditionally)
+     so the browser only promotes a card to its own compositor layer while
+     it's actually being interacted with. Applying it permanently — as the
+     previous unconditional selector did — forces every single card on the
+     dashboard (dozens of them, all the time) onto its own GPU layer and
+     stacking context, which wastes memory/compositing time and can cause
+     absolutely-positioned overlays elsewhere on the page to stack in
+     unexpected order relative to those cards. */
+  [class*="hover:-translate-y-1"]:hover,
+  [class*="hover:-translate-y-0.5"]:hover {
     will-change: transform;
   }
   .active\:scale-95:active,
@@ -1469,6 +1477,16 @@ body.bg-coolDark{
   /* ---------- Live date/time card ---------- */
   #liveDateTime {
     transition: box-shadow .25s ease, transform .25s ease, border-color .25s ease;
+    /* Pin this to an explicit stacking context at all times (not just on
+       hover). Without this, the moment the card is hovered — which is
+       exactly when someone has just clicked it to open the calendar and
+       is still holding their cursor over it — its :hover transform below
+       silently creates an *implicit* stacking context. That traps the
+       popup's z-index:50 inside a local context whose paint order versus
+       unrelated siblings (like the KPI cards) is no longer guaranteed by
+       that number alone. Giving the trigger itself a real z-index makes
+       the popup's stacking deterministic in every mouse state. */
+    z-index: 55;
   }
   #liveDateTime:hover {
     box-shadow: 0 4px 10px rgba(15,23,42,.06), 0 24px 40px -18px rgba(15,23,42,.20);
@@ -1480,6 +1498,23 @@ body.bg-coolDark{
   }
   #miniCalendarPopup.mini-cal-open {
     animation: miniCalPopIn .18s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  /* Hard fallback for the popup's core layout (position/size/grid columns).
+     These duplicate what the Tailwind utility classes on the element
+     already express (top-full, w-64, grid-cols-7, gap-y-1), but they're
+     defined explicitly here so the popup still opens in the right place
+     even if those exact utility classes ever fail to compile/load (e.g.
+     the Tailwind CDN script is blocked by a network/firewall, or is slow
+     and the popup is opened before it finishes) — that was the cause of
+     the popup rendering with no width and no top offset, so it collapsed
+     to a huge sliver that overlapped the cards below unreadably. */
+  #miniCalendarPopup {
+    top: 100%;
+    width: 16rem;
+  }
+  #miniCalendarPopup .grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    row-gap: 0.25rem;
   }
   #miniCalGrid .mini-cal-day {
     display: flex; align-items: center; justify-content: center;
