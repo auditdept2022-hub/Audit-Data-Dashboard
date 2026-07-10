@@ -157,31 +157,20 @@
     const DASH_CACHE_KEY = 'auditDashboard_v1_cachedData';
     const DASH_CACHE_TS_KEY = 'auditDashboard_v1_lastSyncedAt';
 
-    const STRICT_BRANCH_LIST = [
-        "ALFONSO", "ANGELES", "ATIMONAN", "BACOOR 2", "BACOOR CAVITE", 
-        "BATAAN", "BATANGAS", "BAY", "BAYAMBANG", "BINALONAN", 
-        "BINANGONAN", "CALAMBA", "CALAPAN", "CALAUAG", "CALIT-CALIT SAN JUAN", 
-        "CARMEN", "CATANAUAN", "DAET", "DAGUPAN", "GENERAL TRIAS", 
-        "GUMACA", "INFANTA", "LAIYA SAN JUAN", "LIMAY BATAAN", "LIPA", 
-        "LOPEZ", "LOS BAÑOS", "LUCENA", "MALOLOS", "MARILAO", 
-        "NAGCARLAN", "NAIC", "ORANI", "PAGBILAO", "PANIQUI", 
-        "PILILLA", "PINAMALAYAN", "PLARIDEL", "PUERTO GALERA", "SAN FRANCISCO", 
-        "SAN PABLO", "SILANG CAVITE", "SINILOAN", "STA CRUZ", "STA. ROSA", 
-        "STO TOMAS", "TANAUAN", "TANAY", "TANZA", "TARLAC",
-        "CALAMBA (YAMAHA EXCLUSIVE)", "GUMACA (HONDA EXCLUSIVE)", 
-        "INFANTA (HONDA EXCLUSIVE)", "LUCENA (YAMAHA EXCLUSIVE)", 
-        "SAN PABLO (YAMAHA EXCLUSIVE)", "STA ROSA (YAMAHA EXCLUSIVE)"
-    ];
-
+    // Branches are no longer a fixed, hardcoded list. Whatever branch names
+    // show up in the DASHBOARDDATA sheet ARE the branches — in whatever
+    // spelling/casing they appear there, in the order they first appear.
+    // normalizeName() below is only a matching KEY (case/accents/whitespace
+    // folded down) so the same branch can still be linked up correctly
+    // across the different sheets (rotation, audit report, findings) even
+    // if one sheet writes it as "Sta. Rosa" and another as "STA ROSA" —
+    // it does not correct typos or restrict which names are allowed.
     const normalizeName = (name) => {
-        let n = String(name).toUpperCase()
+        return String(name).toUpperCase()
             .normalize("NFD").replace(/[\u0300-\u036f]/g, "") 
             .replace(/[^A-Z0-9\(\)]/g, '')
             .trim();
-        if (n === "PILILIA") n = "PILILLA"; 
-        return n;
     };
-    const STRICT_NORMALIZED = STRICT_BRANCH_LIST.map(normalizeName);
 
     function updateCalculations() {
         const tb = activeData.branches;
@@ -5166,20 +5155,13 @@ body.bg-coolDark{
           const mainSheet = workbook.Sheets[targetSheet];
           const rawRows = XLSX.utils.sheet_to_json(mainSheet, { header: 1 });
           
-          const tempBranchesMap = {};
-          STRICT_BRANCH_LIST.forEach(branch => {
-              tempBranchesMap[branch] = {
-                name: branch, accountsMar: 0, accountsApr: 0, accountsMay: 0,
-                effMar: 0, effApr: 0, effLatest: 0, collection: "Stable", sales: "Stable", service: "Target",
-                repoRate: 0, repoRateMar: 0, repoRateApr: 0, repoRateLatest: 0,
-                noOfRepo: 0, noOfRepoMar: 0, noOfRepoApr: 0, noOfRepoLatest: 0,
-                findings2024: 0, findings2025: 0, findings2026: 0, auditStatus: "PENDING", auditor: "UNASSIGNED",
-                salesMar: { ins: 0, cod: 0, ca: 0 }, salesApr: { ins: 0, cod: 0, ca: 0 }, salesMay: { ins: 0, cod: 0, ca: 0 },
-                expectedIns: 0, expectedCod: 0,
-                serviceTarget: 0, serviceMar: 0, serviceApr: 0, serviceMay: 0
-              };
-          });
-          
+          // Built dynamically from whatever's actually in the DASHBOARDDATA
+          // sheet — no hardcoded branch list, no pre-seeded placeholders for
+          // branches that "should" exist but aren't in this data pull.
+          const tempBranchesMap = {};   // normalized key -> branch record
+          const branchOrder = [];       // normalized keys, in first-seen order (this becomes the display order)
+          const branchKeyToName = {};   // normalized key -> display name, exactly as it appears in the sheet
+
           let matchedAny = false;
           let auditorMap = { "KARL": [], "GENESIS": [], "EDISON": [], "LAURENCE": [] };
           const seenBranches = new Set();
@@ -5215,15 +5197,18 @@ body.bg-coolDark{
             const rawName = String(row[1] || row[0] || "").trim();
             if (!rawName) continue;
             
-            const normalizedInput = normalizeName(rawName);
-            const matchedIndex = STRICT_NORMALIZED.indexOf(normalizedInput);
-            
-            if (matchedIndex === -1) continue; 
-            const branchName = STRICT_BRANCH_LIST[matchedIndex];
-            
-            if (seenBranches.has(branchName)) continue;
-            seenBranches.add(branchName);
+            const branchKey = normalizeName(rawName);
+            if (!branchKey) continue;
+
+            if (seenBranches.has(branchKey)) continue;
+            seenBranches.add(branchKey);
             matchedAny = true;
+
+            // The display name is whatever's actually written in the file —
+            // no correcting against a fixed list. First occurrence wins.
+            const branchName = rawName;
+            branchKeyToName[branchKey] = branchName;
+            branchOrder.push(branchKey);
             
             let colStat = String(row[14] || "").trim().toLowerCase();
             let finalColStat = "Stable";
@@ -5262,7 +5247,7 @@ body.bg-coolDark{
             let noOfRepoAprParsed = parseInt(row[6]) || 0;   // Column G
             let noOfRepoLatestParsed = parseInt(row[7]) || 0; // Column H
 
-            tempBranchesMap[branchName] = {
+            tempBranchesMap[branchKey] = {
               name: branchName,
               accountsMar: parseInt(row[2]) || 0,
               accountsApr: parseInt(row[3]) || 0,
@@ -5330,10 +5315,9 @@ body.bg-coolDark{
                       if (cellValue) {
                           let rawVal = String(cellValue).trim();
                           if (rawVal && isNaN(rawVal) && rawVal.length > 2) { 
-                              let normalizedInput = normalizeName(rawVal);
-                              let matchIdx = STRICT_NORMALIZED.indexOf(normalizedInput);
-                              if (matchIdx !== -1) {
-                                  auditorMap[auditorName].push(STRICT_BRANCH_LIST[matchIdx]);
+                              let key = normalizeName(rawVal);
+                              if (branchKeyToName[key]) {
+                                  auditorMap[auditorName].push(branchKeyToName[key]);
                               }
                           }
                       }
@@ -5347,10 +5331,8 @@ body.bg-coolDark{
                   // --- Last Assigned Auditor: branch in column B, auditor/date pairs in C-D, E-F, G-H, I-J ---
                   const rawBranch = String(r[1] || "").trim();
                   if (!rawBranch) continue;
-                  const normalizedBranch = normalizeName(rawBranch);
-                  const branchIdx = STRICT_NORMALIZED.indexOf(normalizedBranch);
-                  if (branchIdx === -1) continue;
-                  const branchName = STRICT_BRANCH_LIST[branchIdx];
+                  const branchKey = normalizeName(rawBranch);
+                  if (!branchKeyToName[branchKey]) continue;
 
                   const candidatePairs = [
                       { auditor: r[2], date: r[3] },   // C, D
@@ -5392,13 +5374,12 @@ body.bg-coolDark{
                   const r = daRows[i];
                   if (!r || !r[0]) continue;
                   
-                  const branchName = normalizeName(String(r[0]).trim());
+                  const branchKey = normalizeName(String(r[0]).trim());
                   const auditor = String(r[1] || "").trim();
                   const remark = String(r[2] || "").trim();
                   
-                  const matchIdx = STRICT_NORMALIZED.indexOf(branchName);
-                  if (matchIdx !== -1) {
-                      const bName = STRICT_BRANCH_LIST[matchIdx];
+                  if (branchKeyToName[branchKey]) {
+                      const bName = branchKeyToName[branchKey];
                       if (!activeData.dataAudit[bName]) activeData.dataAudit[bName] = [];
                       activeData.dataAudit[bName].push({ auditor, remark });
                   }
@@ -5428,9 +5409,9 @@ body.bg-coolDark{
                   if (!r || !r[1]) continue;
 
                   const branchRaw = String(r[1]).trim();
-                  const matchIdx = STRICT_NORMALIZED.indexOf(normalizeName(branchRaw));
-                  if (matchIdx === -1) continue;
-                  const bName = STRICT_BRANCH_LIST[matchIdx];
+                  const branchKey = normalizeName(branchRaw);
+                  if (!branchKeyToName[branchKey]) continue;
+                  const bName = branchKeyToName[branchKey];
 
                   const dateVal = excelSerialToISO(r[0]);
                   const category = String(r[2] || "").trim();
@@ -5451,7 +5432,7 @@ body.bg-coolDark{
           }
 
           if (matchedAny) {
-            activeData.branches = STRICT_BRANCH_LIST.map(b => tempBranchesMap[b]);
+            activeData.branches = branchOrder.map(key => tempBranchesMap[key]);
             
             activeData.auditors = Object.keys(auditorMap)
                 .map(aud => ({ name: aud, count: auditorMap[aud].length, branches: auditorMap[aud] }))
