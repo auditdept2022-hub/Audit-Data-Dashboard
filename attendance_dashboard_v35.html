@@ -13,21 +13,21 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
   :root{
-    --bg:#F4F6FA; --surface:#FFFFFF; --surface-2:#EEF4FB; --surface-3:#E4EDF9;
-    --ink:#0F172A; --ink-soft:#3A5578;
-    --text-secondary:#5B6E85; --text-muted:#93A3B8; --line:#E5EBF3; --border:#E5EBF3;
+    --bg:#EEF2F9; --surface:#FFFFFF; --surface-2:#EEF4FB; --surface-3:#E4EDF9;
+    --ink:#0B1220; --ink-soft:#2B3B54;
+    --text-secondary:#4C5F78; --text-muted:#7C8CA3; --line:#D9E2F0; --border:#CFDAEB;
     --blue:#2563EB; --blue-dark:#1D4ED8; --blue-light:#EAF1FE;
-    --present:#1E8A6E; --present-bg:#E4F5EF;
-    --absent:#D14343; --absent-bg:#FBE8E8;
-    --holiday:#B8842A; --holiday-bg:#FBF1DF;
-    --field:#2563EB; --field-bg:#EAF1FE;
-    --sunday:#8FA1B3; --sunday-bg:#EEF2F6;
-    --holidayAbsent:#1E8A6E; --holidayAbsent-bg:#E4F5EF;
-    --halfday:#9333EA; --halfday-bg:#F3E8FD;
-    --radius:16px; --radius-sm:12px; --radius-lg:20px;
-    --shadow: 0 1px 3px rgba(15,42,71,.06), 0 1px 2px rgba(15,42,71,.04);
-    --shadow-md: 0 4px 14px rgba(15,42,71,.08), 0 1px 3px rgba(15,42,71,.06);
-    --shadow-hover: 0 8px 22px rgba(15,42,71,.12), 0 2px 6px rgba(15,42,71,.06);
+    --present:#0F7A5C; --present-bg:#DFF3EA;
+    --absent:#C22A2A; --absent-bg:#FBE1E1;
+    --holiday:#A16A17; --holiday-bg:#FAECD3;
+    --field:#2563EB; --field-bg:#E3ECFE;
+    --sunday:#71839A; --sunday-bg:#E7EDF4;
+    --holidayAbsent:#0F7A5C; --holidayAbsent-bg:#DFF3EA;
+    --halfday:#7E22CE; --halfday-bg:#EEE0FC;
+    --radius:14px; --radius-sm:10px; --radius-lg:16px;
+    --shadow: 0 1px 2px rgba(15,42,71,.06);
+    --shadow-md: 0 3px 10px rgba(15,42,71,.08);
+    --shadow-hover: 0 6px 16px rgba(15,42,71,.12);
   }
   @media (prefers-color-scheme: dark){
     :root{
@@ -58,7 +58,7 @@
     font-family:'Inter',sans-serif; font-size:14px; line-height:1.5;
     padding:0;
   }
-  .wrap{max-width:1120px; margin:0 auto; padding:24px 20px 0;}
+  .wrap{max-width:1120px; margin:0 auto; padding:16px 16px 0;}
   .mono{font-family:'IBM Plex Mono',monospace;}
 
   /* ---- Desktop sizing: dashboard is designed primarily for desktop use,
@@ -66,27 +66,27 @@
      notch for better readability on large monitors. Mobile/tablet below
      1024px keeps the original compact sizing untouched. ---- */
   @media (min-width:1024px){
-    body{font-size:15.5px;}
-    .wrap{max-width:1360px; padding:30px 32px 0;}
+    body{font-size:15px;}
+    .wrap{max-width:1360px; padding:20px 24px 0;}
     .topbar-inner{max-width:1400px;}
-    .topbar{padding:20px 30px;}
+    .topbar{padding:16px 26px;}
     .topbar .brand h1{font-size:19px;}
     .topbar .brand .sub{font-size:13px;}
-    .panel{padding:26px 28px; margin-bottom:22px;}
-    .panel-title{font-size:13.5px; margin:0 0 16px; padding-bottom:12px;}
-    .kpi-row{gap:14px; margin-bottom:24px;}
-    .kpi-card{padding:18px 20px;}
-    .kpi-card .kpi-icon{width:38px; height:38px; border-radius:11px;}
+    .panel{padding:18px 20px; margin-bottom:16px;}
+    .panel-title{font-size:13.5px; margin:0 0 12px; padding-bottom:10px;}
+    .kpi-row{gap:12px; margin-bottom:16px;}
+    .kpi-card{padding:14px 16px;}
+    .kpi-card .kpi-icon{width:36px; height:36px; border-radius:10px;}
     .kpi-card .label{font-size:11.5px;}
-    .kpi-card .value{font-size:28px;}
+    .kpi-card .value{font-size:27px;}
     .kpi-card .hint{font-size:12px;}
     .legend-item{font-size:12.5px;}
-    .cal-cell{min-height:74px; padding:9px 10px;}
+    .cal-cell{min-height:62px; padding:7px 8px;}
     .cal-cell .daynum{font-size:13px;}
     .cal-cell .stamp{font-size:10.5px;}
     .cal-cell .times{font-size:11px;}
-    .team-grid{gap:16px;}
-    .team-card{padding:18px;}
+    .team-grid{gap:12px;}
+    .team-card{padding:14px;}
     .team-card .name{font-size:15px;}
     .team-card .rate{font-size:12.5px;}
     .team-card .stat .stat-value{font-size:16.5px;}
@@ -98,8 +98,9 @@
 
   .topbar{
     position:sticky; top:0; z-index:50;
-    background:linear-gradient(90deg, #6D28D9 0%, #2F5FE0 52%, #0D9488 100%);
-    padding:18px 24px; margin-bottom:26px;
+    background:linear-gradient(90deg, #1E3A8A 0%, #2547D0 55%, #2563EB 100%);
+    padding:14px 22px; margin-bottom:18px;
+    box-shadow:0 2px 10px rgba(15,42,71,.18);
   }
   .topbar-inner{
     max-width:1180px; margin:0 auto; display:flex; align-items:center; justify-content:space-between;
@@ -186,7 +187,7 @@
   .employee-sidebar.is-open{transform:translateX(0);}
   .sidebar-head{
     display:flex; align-items:center; justify-content:space-between; gap:10px; padding:18px 18px 16px;
-    background:linear-gradient(90deg, #6D28D9 0%, #2F5FE0 52%, #0D9488 100%); color:#fff; flex:none;
+    background:linear-gradient(90deg, #1E3A8A 0%, #2547D0 55%, #2563EB 100%); color:#fff; flex:none;
   }
   .sidebar-head h2{font-size:14px; font-weight:700; margin:0; letter-spacing:.01em;}
   .sidebar-close{
@@ -196,8 +197,8 @@
   .sidebar-close:hover{background:rgba(255,255,255,.28);}
   .sidebar-body{padding:14px 12px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:4px;}
   .sidebar-tab{
-    display:flex; align-items:center; gap:10px; text-align:left; font-family:'Inter'; font-size:13px; font-weight:600;
-    padding:10px 12px; border-radius:12px; border:none; background:transparent; color:var(--text-secondary); cursor:pointer;
+    display:flex; align-items:center; gap:10px; text-align:left; font-family:'Inter'; font-size:13px; font-weight:700;
+    padding:9px 12px; border-radius:10px; border:none; background:transparent; color:var(--ink-soft); cursor:pointer;
     transition:background .15s, color .15s;
   }
   .sidebar-tab:hover:not(:disabled){background:var(--surface-2);}
@@ -217,24 +218,29 @@
   }
   select:focus, input:focus{outline:2px solid var(--blue); outline-offset:1px;}
 
-  .kpi-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:20px;}
+  .kpi-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-bottom:16px;}
   .kpi-row.kpi-row-3{grid-template-columns:repeat(3,1fr);}
   @media (max-width:640px){ .kpi-row.kpi-row-3{grid-template-columns:1fr 1fr;} }
   .kpi-card.clickable{cursor:pointer; text-align:left; width:100%; font:inherit; color:inherit; border:none;}
   .kpi-card.clickable:focus-visible{outline:2px solid var(--blue); outline-offset:2px;}
   .kpi-card{
-    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px 17px;
-    box-shadow:var(--shadow); transition:box-shadow .2s, transform .2s;
+    background:var(--surface); border:1px solid var(--border); border-left:4px solid var(--blue); border-radius:var(--radius-sm); padding:12px 14px;
+    box-shadow:var(--shadow); transition:box-shadow .15s, transform .15s, border-color .15s;
   }
   .kpi-card:hover{box-shadow:var(--shadow-hover); transform:translateY(-2px);}
-  .kpi-card .label{font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin:0 0 6px; font-weight:600;}
-  .kpi-card .value{font-family:'IBM Plex Mono'; font-size:24px; font-weight:600; margin:0; color:var(--blue);}
+  .kpi-card .label{font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-secondary); margin:0 0 4px; font-weight:700;}
+  .kpi-card .value{font-family:'IBM Plex Mono'; font-size:23px; font-weight:800; margin:0; color:var(--blue); line-height:1.1;}
   .kpi-card .value.present{color:var(--present);}
   .kpi-card .value.absent{color:var(--absent);}
   .kpi-card .value.holiday{color:var(--holiday);}
   .kpi-card .value.halfday{color:var(--halfday);}
   .kpi-card .value.field{color:var(--field);}
-  .kpi-card .hint{font-size:11px; color:var(--text-secondary); margin-top:3px;}
+  .kpi-card:has(.value.present){border-left-color:var(--present);}
+  .kpi-card:has(.value.absent){border-left-color:var(--absent);}
+  .kpi-card:has(.value.holiday){border-left-color:var(--holiday);}
+  .kpi-card:has(.value.halfday){border-left-color:var(--halfday);}
+  .kpi-card:has(.value.field){border-left-color:var(--field);}
+  .kpi-card .hint{font-size:11px; color:var(--text-secondary); margin-top:2px; font-weight:500;}
   .kpi-card .kpi-icon{
     display:flex; align-items:center; justify-content:center; width:34px; height:34px; flex:none;
     border-radius:10px; margin-bottom:10px;
@@ -245,43 +251,43 @@
   .kpi-row-3 .kpi-icon.icon-field{background:var(--field-bg); color:var(--field);}
 
   .panel{
-    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px 22px; margin-bottom:18px;
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:16px 18px; margin-bottom:14px;
     box-shadow:var(--shadow); transition:box-shadow .2s, transform .2s;
   }
   .panel:hover{box-shadow:var(--shadow-md);}
   .panel-title{
-    font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
-    color:var(--ink-soft); margin:0 0 14px; padding-bottom:10px; border-bottom:1px solid var(--line);
+    font-size:12.5px; font-weight:800; text-transform:uppercase; letter-spacing:.05em;
+    color:var(--ink); margin:0 0 12px; padding-bottom:9px; border-bottom:2px solid var(--blue-light);
     display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;
   }
   .panel.highlight{box-shadow:0 0 0 3px var(--blue-light), var(--shadow); transition:box-shadow .3s;}
 
-  .legend-row{display:flex; gap:14px; flex-wrap:wrap; margin-bottom:14px;}
-  .legend-item{display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--text-secondary);}
+  .legend-row{display:flex; gap:12px; flex-wrap:wrap; margin-bottom:10px;}
+  .legend-item{display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--ink-soft); font-weight:600;}
   .legend-swatch{width:9px; height:9px; border-radius:3px; flex:none;}
 
-  .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:6px;}
-  .cal-dow{font-size:10.5px; text-align:center; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; padding-bottom:4px; font-weight:600;}
+  .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:5px;}
+  .cal-dow{font-size:10.5px; text-align:center; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.05em; padding-bottom:4px; font-weight:700;}
   .cal-cell{
-    min-height:64px; border-radius:9px; border:1px solid var(--border); padding:7px 8px; position:relative;
+    min-height:56px; border-radius:8px; border:1px solid var(--border); padding:6px 7px; position:relative;
     background:var(--surface-2); cursor:pointer; transition:transform .12s, box-shadow .12s;
   }
   .cal-cell:hover{transform:translateY(-1px); box-shadow:0 3px 10px rgba(15,42,71,.12); border-color:var(--blue);}
   .cal-cell.blank{background:transparent; border:none; cursor:default;}
   .cal-cell.blank:hover{transform:none; box-shadow:none; border-color:transparent;}
-  .cal-cell .daynum{font-family:'IBM Plex Mono'; font-size:12px; font-weight:600; color:var(--ink-soft);}
+  .cal-cell .daynum{font-family:'IBM Plex Mono'; font-size:12px; font-weight:700; color:var(--ink);}
   .cal-cell .stamp{
     font-size:9.5px; text-transform:uppercase; letter-spacing:.03em;
-    font-weight:700; margin-top:5px; display:inline-block; padding:2px 6px; border-radius:5px;
+    font-weight:800; margin-top:4px; display:inline-block; padding:2px 6px; border-radius:5px;
   }
-  .cal-cell .times{font-family:'IBM Plex Mono'; font-size:10px; color:var(--text-secondary); margin-top:4px; line-height:1.4;}
-  .cal-cell.st-present{background:var(--present-bg);}
-  .cal-cell.st-halfday{background:var(--halfday-bg);}
-  .cal-cell.st-absent{background:var(--absent-bg);}
-  .cal-cell.st-holiday, .cal-cell.st-closed{background:var(--holiday-bg);}
-  .cal-cell.st-field{background:var(--field-bg);}
-  .cal-cell.st-holidayAbsent{background:var(--holidayAbsent-bg);}
-  .cal-cell.st-sunday{background:var(--sunday-bg); opacity:.75;}
+  .cal-cell .times{font-family:'IBM Plex Mono'; font-size:10px; color:var(--text-secondary); margin-top:3px; line-height:1.35; font-weight:600;}
+  .cal-cell.st-present{background:var(--present-bg); border-left:3px solid var(--present);}
+  .cal-cell.st-halfday{background:var(--halfday-bg); border-left:3px solid var(--halfday);}
+  .cal-cell.st-absent{background:var(--absent-bg); border-left:3px solid var(--absent);}
+  .cal-cell.st-holiday, .cal-cell.st-closed{background:var(--holiday-bg); border-left:3px solid var(--holiday);}
+  .cal-cell.st-field{background:var(--field-bg); border-left:3px solid var(--field);}
+  .cal-cell.st-holidayAbsent{background:var(--holidayAbsent-bg); border-left:3px solid var(--holidayAbsent);}
+  .cal-cell.st-sunday{background:var(--sunday-bg); opacity:.8;}
   .stamp.st-present{background:var(--present); color:#fff;}
   .stamp.st-halfday{background:var(--halfday); color:#fff;}
   .stamp.st-absent{background:var(--absent); color:#fff;}
@@ -289,23 +295,23 @@
   .stamp.st-holidayAbsent{background:var(--holidayAbsent); color:#fff;}
   .stamp.st-field{background:var(--field); color:#fff;}
 
-  .team-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin-bottom:18px;}
+  .team-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:10px; margin-bottom:14px;}
   .team-card{
-    border:1px solid var(--border); border-radius:var(--radius); padding:16px; background:var(--surface);
+    border:1px solid var(--border); border-radius:var(--radius); padding:13px; background:var(--surface);
     box-shadow:var(--shadow); transition:box-shadow .2s, transform .2s;
   }
   .team-card:hover{box-shadow:var(--shadow-hover); transform:translateY(-2px);}
-  .team-card .card-head{display:flex; align-items:center; gap:10px; margin-bottom:12px;}
+  .team-card .card-head{display:flex; align-items:center; gap:9px; margin-bottom:10px;}
   .team-card .avatar{
-    width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-    color:#fff; font-weight:700; font-size:13.5px; flex:none;
+    width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    color:#fff; font-weight:800; font-size:13.5px; flex:none;
   }
-  .team-card .name{font-weight:600; font-size:14px; margin:0; color:var(--ink);}
-  .team-card .rate{font-family:'IBM Plex Mono'; font-size:11.5px; color:var(--text-secondary); margin:1px 0 0;}
-  .team-card .stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
-  .team-card .stat{background:var(--surface-2); border-radius:9px; padding:8px 10px;}
-  .team-card .stat .stat-label{font-size:9.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); font-weight:600;}
-  .team-card .stat .stat-value{font-family:'IBM Plex Mono'; font-size:15px; font-weight:600; margin-top:2px; color:var(--ink);}
+  .team-card .name{font-weight:700; font-size:14px; margin:0; color:var(--ink);}
+  .team-card .rate{font-family:'IBM Plex Mono'; font-size:11.5px; color:var(--text-secondary); margin:1px 0 0; font-weight:600;}
+  .team-card .stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:6px;}
+  .team-card .stat{background:var(--surface-2); border-radius:8px; padding:7px 9px;}
+  .team-card .stat .stat-label{font-size:9.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-secondary); font-weight:700;}
+  .team-card .stat .stat-value{font-family:'IBM Plex Mono'; font-size:15px; font-weight:800; margin-top:2px; color:var(--ink);}
 
   .print-log-btn{
     display:inline-flex; align-items:center; gap:6px; font-family:'Inter'; font-size:11.5px; font-weight:600;
@@ -417,10 +423,11 @@
 
   table{width:100%; border-collapse:collapse; font-size:12.5px;}
   thead th{
-    text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);
-    padding:6px 8px; border-bottom:1px solid var(--line); font-weight:600;
+    text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft);
+    padding:7px 8px; border-bottom:2px solid var(--blue-light); font-weight:800;
   }
-  tbody td{padding:5px 8px; border-bottom:1px solid var(--border); font-family:'IBM Plex Mono'; font-size:12px;}
+  tbody td{padding:6px 8px; border-bottom:1px solid var(--border); font-family:'IBM Plex Mono'; font-size:12px; font-weight:500;}
+  tbody tr:nth-child(even){background:var(--surface-2);}
   tbody tr{cursor:pointer;}
 
   .cell-wrap{position:relative; display:inline-flex; align-items:center; gap:5px;}
@@ -435,7 +442,7 @@
   .cell-delete-btn:hover{background:var(--absent); filter:brightness(.88);}
   tbody tr:hover{background:var(--blue-light);}
   .status-chip{
-    display:inline-block; padding:3px 8px; border-radius:999px; font-size:10.5px; font-weight:600;
+    display:inline-block; padding:3px 9px; border-radius:999px; font-size:10.5px; font-weight:800;
     font-family:'Inter'; text-transform:uppercase; letter-spacing:.02em; cursor:pointer; white-space:nowrap;
   }
   .status-chip:hover{filter:brightness(0.94);}
@@ -459,16 +466,16 @@
   .time-filter input{padding:4px 6px; font-size:11.5px;}
   .clear-link{font-size:11px; color:var(--blue); background:none; border:none; cursor:pointer; font-weight:500;}
 
-  .holiday-board{display:flex; flex-direction:column; gap:10px;}
+  .holiday-board{display:flex; flex-direction:column; gap:8px;}
   .holiday-pin{
-    display:flex; align-items:center; gap:16px; border-radius:12px; padding:14px 18px;
-    border-left:6px solid var(--holiday); background:var(--holiday-bg);
+    display:flex; align-items:center; gap:16px; border-radius:10px; padding:11px 16px;
+    border-left:5px solid var(--holiday); background:var(--holiday-bg);
   }
   .holiday-pin .date{
-    font-family:'IBM Plex Mono'; font-size:13.5px; color:var(--holiday); font-weight:700;
+    font-family:'IBM Plex Mono'; font-size:13px; color:var(--holiday); font-weight:800;
     min-width:150px; flex:none;
   }
-  .holiday-pin .name{font-size:15.5px; font-weight:700; color:var(--ink); flex:1; min-width:0;}
+  .holiday-pin .name{font-size:15px; font-weight:800; color:var(--ink); flex:1; min-width:0;}
   .holiday-pin .type{
     font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--holiday);
     background:var(--surface); padding:5px 12px; border-radius:999px; flex:none; white-space:nowrap;
@@ -486,7 +493,7 @@
 
   .brand-footer{
     position:relative; overflow:hidden; width:100%; margin-top:36px; min-height:34px;
-    background:linear-gradient(90deg, #6D28D9 0%, #2F5FE0 52%, #0D9488 100%);
+    background:linear-gradient(90deg, #1E3A8A 0%, #2547D0 55%, #2563EB 100%);
     -webkit-print-color-adjust:exact; print-color-adjust:exact;
   }
 
@@ -633,9 +640,10 @@
     color:var(--blue); margin:0; line-height:1.3; width:100%;
   }
   .signatory-role{font-size:10.5px; color:var(--text-muted); margin:2px 0 0; font-weight:500;}
-  .yearly-controls{display:flex; align-items:center; gap:10px; margin-bottom:16px;}
-  .yearly-controls label{font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:600;}
-  .yearly-controls select{min-width:160px; font-size:13px; padding:8px 11px;}
+  .yearly-controls{display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;}
+  .yearly-controls .field-group{display:flex; align-items:center; gap:8px;}
+  .yearly-controls label{font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-secondary); font-weight:700;}
+  .yearly-controls select{min-width:140px; font-size:13px; padding:8px 11px; font-weight:600;}
   .yearly-summary-row td.total-col{font-family:'Inter'; font-weight:700;}
   .simple-num{font-family:'IBM Plex Mono'; font-weight:600;}
   .simple-num.present{color:var(--present);}
@@ -658,12 +666,12 @@
   .yearly-pane-month{padding-left:2px;}
 
   .yearly-card-grid{
-    display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); gap:14px;
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:10px;
   }
   .yearly-month-card{
-    background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:13px;
     cursor:pointer; text-align:left; transition:transform .15s, box-shadow .15s, border-color .15s;
-    display:flex; flex-direction:column; gap:12px;
+    display:flex; flex-direction:column; gap:10px;
   }
   .yearly-month-card:hover{transform:translateY(-3px); box-shadow:0 10px 26px rgba(20,30,50,.12); border-color:var(--blue);}
   .yearly-month-card.is-empty{cursor:default; opacity:.6;}
@@ -696,7 +704,7 @@
     .yearly-card-grid{grid-template-columns:repeat(auto-fill, minmax(150px, 1fr));}
   }
   .modal-head{
-    padding:22px 26px; background:linear-gradient(90deg, #6D28D9 0%, #2F5FE0 52%, #0D9488 100%); color:#fff;
+    padding:18px 22px; background:linear-gradient(90deg, #1E3A8A 0%, #2547D0 55%, #2563EB 100%); color:#fff;
     display:flex; align-items:flex-start; justify-content:space-between; gap:14px;
   }
   .modal-head h2{margin:0 0 4px; font-size:19px; font-weight:700;}
@@ -706,7 +714,7 @@
     background:rgba(255,255,255,.16); color:#fff; cursor:pointer; flex:none; transition:background .15s;
   }
   .modal-close:hover{background:rgba(255,255,255,.28);}
-  .modal-body{padding:22px 26px 26px;}
+  .modal-body{padding:18px 20px 22px;}
   .modal-body .holiday-board{gap:10px;}
   .modal-foot-note{font-size:11px; color:var(--text-muted); margin-top:16px; line-height:1.6;}
 
@@ -915,8 +923,14 @@
     </div>
     <div class="modal-body">
       <div class="yearly-controls">
-        <label for="yearlyEmpSelect">Employee</label>
-        <select id="yearlyEmpSelect"></select>
+        <div class="field-group">
+          <label for="yearlyEmpSelect">Employee</label>
+          <select id="yearlyEmpSelect"></select>
+        </div>
+        <div class="field-group">
+          <label for="yearlyYearSelect">Year</label>
+          <select id="yearlyYearSelect"></select>
+        </div>
       </div>
       <div class="yearly-slide-viewport">
         <div class="yearly-slide-track" id="yearlySlideTrack">
@@ -2804,7 +2818,10 @@ function setupPayrollModal(){
 // time, reusing computeStats() per month. Renders a grid of month cards
 // (each with a circular rate ring); clicking a card slides a calendar
 // drill-down into view for that specific month, reusing buildCalendar().
-const yearlyState = { employee: null, rows: [], monthOpen: false };
+const yearlyState = { employee: null, year: null, rows: [], monthOpen: false };
+// Distinct years available in MONTHS, most recent first, so the Yearly
+// History report can be filtered to a single year at a time.
+const YEARLY_YEARS = [...new Set(MONTHS.map(m => m.year))].sort((a,b) => b-a);
 function rateChipClass(rate){
   if(rate == null) return '';
   if(rate >= 95) return '';
@@ -2838,18 +2855,29 @@ function renderYearlyEmpSwitch(){
     closeYearlyMonthDetail();
     await renderYearlyTable();
   };
+  const yearSel = document.getElementById('yearlyYearSelect');
+  if(yearSel){
+    yearSel.innerHTML = YEARLY_YEARS.map(y => `<option value="${y}" ${y===yearlyState.year?'selected':''}>${y}</option>`).join('');
+    yearSel.onchange = async () => {
+      yearlyState.year = parseInt(yearSel.value, 10);
+      closeYearlyMonthDetail();
+      await renderYearlyTable();
+    };
+  }
 }
 async function renderYearlyTable(){
   const holder = document.getElementById('yearlyModalTable');
   if(!holder) return;
   const emp = yearlyState.employee;
+  const year = yearlyState.year;
+  const yearMonths = MONTHS.filter(m => m.year === year);
   holder.innerHTML = '<div class="loading-panel"><div class="loading-spinner"></div><p>Loading ' + emp + '\u2019s attendance records\u2026</p></div>';
   const subtitle = document.getElementById('yearlyModalSubtitle');
-  if(subtitle) subtitle.textContent = `${emp} \u00b7 present & absent history across ${MONTHS.length} recorded months \u00b7 click a month to see the day-by-day calendar`;
+  if(subtitle) subtitle.textContent = `${emp} \u00b7 present & absent history for ${year} (${yearMonths.length} recorded months) \u00b7 click a month to see the day-by-day calendar`;
 
   const rows = [];
   const totals = {present:0, absent:0, field:0, halfDay:0, holidayAbsent:0};
-  for(const m of MONTHS){
+  for(const m of yearMonths){
     let sheetData = null;
     try{ sheetData = await getSheetData(m.key); } catch(err){ sheetData = null; }
     if(!sheetData || !sheetData.employees.includes(emp)){
@@ -2861,8 +2889,8 @@ async function renderYearlyTable(){
     totals.halfDay += s.halfDay; totals.holidayAbsent += s.holidayAbsent;
     rows.push({m, s});
   }
-  // Bail out quietly if the employee switch was clicked again mid-fetch.
-  if(yearlyState.employee !== emp) return;
+  // Bail out quietly if the employee or year switch was clicked again mid-fetch.
+  if(yearlyState.employee !== emp || yearlyState.year !== year) return;
   yearlyState.rows = rows;
 
   const totalDenom = totals.present+totals.field+totals.absent;
@@ -2939,7 +2967,10 @@ function closeYearlyMonthDetail(){
   const subtitle = document.getElementById('yearlyModalSubtitle');
   if(track) track.classList.remove('show-month');
   yearlyState.monthOpen = false;
-  if(subtitle && yearlyState.employee) subtitle.textContent = `${yearlyState.employee} \u00b7 present & absent history across ${MONTHS.length} recorded months \u00b7 click a month to see the day-by-day calendar`;
+  if(subtitle && yearlyState.employee){
+    const yearMonths = MONTHS.filter(m => m.year === yearlyState.year);
+    subtitle.textContent = `${yearlyState.employee} \u00b7 present & absent history for ${yearlyState.year} (${yearMonths.length} recorded months) \u00b7 click a month to see the day-by-day calendar`;
+  }
 }
 async function openYearlyModal(){
   const overlay = document.getElementById('yearlyModalOverlay');
@@ -2949,6 +2980,13 @@ async function openYearlyModal(){
   closeYearlyMonthDetail();
   if(!yearlyState.employee){
     yearlyState.employee = (state.employee && state.employee !== 'All') ? state.employee : ALL_EMPLOYEES[0];
+  }
+  if(!yearlyState.year){
+    // Default to the most recent year that actually has more than one
+    // month of data, so opening the report lands on real history rather
+    // than a stub year with a single upcoming month.
+    const withData = YEARLY_YEARS.filter(y => MONTHS.filter(m => m.year === y).length > 1);
+    yearlyState.year = (withData[0] !== undefined) ? withData[0] : YEARLY_YEARS[0];
   }
   renderYearlyEmpSwitch();
   await renderYearlyTable();
