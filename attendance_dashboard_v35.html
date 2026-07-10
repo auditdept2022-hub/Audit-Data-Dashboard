@@ -309,9 +309,19 @@
   .team-card .name{font-weight:700; font-size:14px; margin:0; color:var(--ink);}
   .team-card .rate{font-family:'IBM Plex Mono'; font-size:11.5px; color:var(--text-secondary); margin:1px 0 0; font-weight:600;}
   .team-card .stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:6px;}
-  .team-card .stat{background:var(--surface-2); border-radius:8px; padding:7px 9px;}
+  .team-card .stat{background:var(--surface-2); border-radius:8px; padding:7px 9px; border-left:3px solid var(--border);}
   .team-card .stat .stat-label{font-size:9.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-secondary); font-weight:700;}
   .team-card .stat .stat-value{font-family:'IBM Plex Mono'; font-size:15px; font-weight:800; margin-top:2px; color:var(--ink);}
+  .team-card .stat.stat-present{border-left-color:var(--present);}
+  .team-card .stat.stat-present .stat-value{color:var(--present);}
+  .team-card .stat.stat-field{border-left-color:var(--field);}
+  .team-card .stat.stat-field .stat-value{color:var(--field);}
+  .team-card .stat.stat-holidayAbsent{border-left-color:var(--holiday);}
+  .team-card .stat.stat-holidayAbsent .stat-value{color:var(--holiday);}
+  .team-card .stat.stat-halfday{border-left-color:var(--halfday);}
+  .team-card .stat.stat-halfday .stat-value{color:var(--halfday);}
+  .team-card .stat.stat-absent{border-left-color:var(--absent);}
+  .team-card .stat.stat-absent .stat-value{color:var(--absent);}
 
   .print-log-btn{
     display:inline-flex; align-items:center; gap:6px; font-family:'Inter'; font-size:11.5px; font-weight:600;
@@ -502,6 +512,12 @@
   .entry-form .full{flex:1 1 100%; min-width:100%;}
   .entry-form label{font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); display:block; margin-bottom:4px; font-weight:600;}
   .entry-form select, .entry-form input{width:100%;}
+  .time-scroll-group{display:flex; gap:4px;}
+  .time-scroll-group select{
+    flex:1; min-width:0; padding:8px 4px; text-align:center; cursor:pointer;
+    max-height:160px; overflow-y:auto;
+  }
+  .time-scroll-group select.ts-ampm{flex:0 0 58px;}
   @media (max-width: 560px){
     .entry-form > div{flex:1 1 100%; min-width:100%;}
   }
@@ -644,6 +660,12 @@
   .yearly-controls .field-group{display:flex; align-items:center; gap:8px;}
   .yearly-controls label{font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-secondary); font-weight:700;}
   .yearly-controls select{min-width:140px; font-size:13px; padding:8px 11px; font-weight:600;}
+  .yearly-enter-btn{
+    font-family:'Inter'; font-size:12.5px; font-weight:800; background:var(--blue); border:none; color:#fff;
+    padding:9px 18px; border-radius:999px; cursor:pointer; transition:background .15s, transform .1s;
+  }
+  .yearly-enter-btn:hover{background:var(--blue-dark); transform:translateY(-1px);}
+  .yearly-enter-btn:disabled{opacity:.6; cursor:wait; transform:none;}
   .yearly-summary-row td.total-col{font-family:'Inter'; font-weight:700;}
   .simple-num{font-family:'IBM Plex Mono'; font-weight:600;}
   .simple-num.present{color:var(--present);}
@@ -924,13 +946,14 @@
     <div class="modal-body">
       <div class="yearly-controls">
         <div class="field-group">
-          <label for="yearlyEmpSelect">Employee</label>
+          <label for="yearlyEmpSelect">Name</label>
           <select id="yearlyEmpSelect"></select>
         </div>
         <div class="field-group">
           <label for="yearlyYearSelect">Year</label>
           <select id="yearlyYearSelect"></select>
         </div>
+        <button class="yearly-enter-btn" id="yearlyEnterBtn" type="button">Enter</button>
       </div>
       <div class="yearly-slide-viewport">
         <div class="yearly-slide-track" id="yearlySlideTrack">
@@ -1081,12 +1104,22 @@
         </select>
       </div>
       <div id="entryTimeInWrap">
-        <label for="entryTimeIn">Time in</label>
-        <input type="time" id="entryTimeIn">
+        <label for="entryTimeInHour">Time in</label>
+        <div class="time-scroll-group">
+          <select id="entryTimeInHour" aria-label="Time in hour"></select>
+          <select id="entryTimeInMin" aria-label="Time in minute"></select>
+          <select id="entryTimeInAmPm" class="ts-ampm" aria-label="Time in AM/PM"><option value="AM">AM</option><option value="PM">PM</option></select>
+        </div>
+        <input type="hidden" id="entryTimeIn">
       </div>
       <div id="entryTimeOutWrap" style="display:none;">
-        <label for="entryTimeOut">Time out</label>
-        <input type="time" id="entryTimeOut" value="17:00">
+        <label for="entryTimeOutHour">Time out</label>
+        <div class="time-scroll-group">
+          <select id="entryTimeOutHour" aria-label="Time out hour"></select>
+          <select id="entryTimeOutMin" aria-label="Time out minute"></select>
+          <select id="entryTimeOutAmPm" class="ts-ampm" aria-label="Time out AM/PM"><option value="AM">AM</option><option value="PM" selected>PM</option></select>
+        </div>
+        <input type="hidden" id="entryTimeOut" value="17:00">
       </div>
       <div id="entryNoteWrap" style="display:none;">
         <label for="entryNote" id="entryNoteLabel">Branch</label>
@@ -1127,7 +1160,7 @@ const MONTHS = [
   {key:'DECEMBER 2026', month:11, year:2026, label:'December'},
   {key:'JANUARY 2027', month:0, year:2027, label:'January'}
 ];
-const ALL_EMPLOYEES = ['Karl','Genesis','Edison','Laurence'];
+const ALL_EMPLOYEES = ['Karl','Edison','Genesis','Laurence'];
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const WEEKDAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
@@ -1339,9 +1372,22 @@ async function fetchSheetLive(name){
   return parsed;
 }
 
+// Recomputes every day's weekday label from the actual calendar date
+// (rather than trusting whatever text is in the sheet's Weekday column),
+// so Sunday - and every other weekday - is always correct automatically,
+// even if a cell is mistyped or left blank in the source spreadsheet.
+function normalizeWeekdays(data, year, monthIdx){
+  if(!data || !Array.isArray(data.days) || year == null || monthIdx == null || isNaN(year) || monthIdx < 0) return data;
+  data.days.forEach(d => {
+    d.weekday = WEEKDAY_NAMES[new Date(year, monthIdx, d.day).getDay()];
+  });
+  return data;
+}
+
 async function getSheetData(name, force){
   if(!force && state.cache[name]) return state.cache[name];
   setSyncBadge('connecting');
+  const mMeta = MONTHS.find(x => x.key === name) || parseMonthKey(name);
   let live = null, lastErr = null;
   if(state.webAppUrl){
     try{ live = await fetchSheetViaWebApp(name); }
@@ -1352,6 +1398,7 @@ async function getSheetData(name, force){
     catch(err){ if(!lastErr) lastErr = err; }
   }
   if(live){
+    if(mMeta) normalizeWeekdays(live, mMeta.year, mMeta.month);
     const data = Object.assign({}, live, {source:'live'});
     state.cache[name] = data; state.anyLive = true; state.lastSynced = new Date();
     state.lastError = null;
@@ -1361,7 +1408,7 @@ async function getSheetData(name, force){
   state.lastError = (lastErr && lastErr.message) ? lastErr.message : String(lastErr);
   console.warn('Live sheet fetch failed for "' + name + '":', state.lastError);
   const snap = SNAPSHOT.months[name];
-  const mMeta = MONTHS.find(x => x.key === name) || parseMonthKey(name);
+  if(snap && mMeta) normalizeWeekdays(snap, mMeta.year, mMeta.month);
   const data = snap
     ? Object.assign({}, snap, {source:'snapshot'})
     : (mMeta && mMeta.month != null && !isNaN(mMeta.year)
@@ -1391,6 +1438,72 @@ function minutesToTimeInput(mins){
   if(mins==null) return '';
   const h = Math.floor(mins/60), m = mins%60;
   return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+
+// ---- Scrollable Hour / Minute / AM-PM time picker ----
+// Replaces the native <input type="time"> with three plain <select>
+// elements (a real dropdown list scrolls naturally, which is far easier
+// to use on touch devices than the native time-wheel). A hidden input
+// keeps the same id the rest of the app already reads/writes ("HH:MM",
+// 24-hour), so it's populated here and kept in sync on every change.
+function populateTimeScrollSelect(sel, kind){
+  if(!sel) return;
+  let opts = '';
+  if(kind === 'hour'){
+    for(let h=1; h<=12; h++){ const v = String(h).padStart(2,'0'); opts += `<option value="${v}">${v}</option>`; }
+  } else {
+    for(let m=0; m<60; m++){ const v = String(m).padStart(2,'0'); opts += `<option value="${v}">${v}</option>`; }
+  }
+  sel.innerHTML = opts;
+}
+function initTimeScrollInputs(){
+  ['entryTimeIn','entryTimeOut'].forEach(prefix => {
+    populateTimeScrollSelect(document.getElementById(prefix+'Hour'), 'hour');
+    populateTimeScrollSelect(document.getElementById(prefix+'Min'), 'minute');
+    ['Hour','Min','AmPm'].forEach(part => {
+      const el = document.getElementById(prefix+part);
+      if(el) el.addEventListener('change', () => syncHiddenFromScrollSelects(prefix));
+    });
+  });
+  setScrollTimeValue('entryTimeIn', '');
+  setScrollTimeValue('entryTimeOut', '17:00');
+}
+function syncHiddenFromScrollSelects(prefix){
+  const hidden = document.getElementById(prefix);
+  if(hidden) hidden.value = getScrollTimeValue(prefix);
+}
+function getScrollTimeValue(prefix){
+  const hourSel = document.getElementById(prefix+'Hour');
+  const minSel = document.getElementById(prefix+'Min');
+  const apSel = document.getElementById(prefix+'AmPm');
+  if(!hourSel || !hourSel.value) return '';
+  let hh = parseInt(hourSel.value, 10);
+  const isPM = apSel && apSel.value === 'PM';
+  if(isPM && hh < 12) hh += 12;
+  if(!isPM && hh === 12) hh = 0;
+  return `${String(hh).padStart(2,'0')}:${minSel.value || '00'}`;
+}
+function setScrollTimeValue(prefix, val24){
+  const hourSel = document.getElementById(prefix+'Hour');
+  const minSel = document.getElementById(prefix+'Min');
+  const apSel = document.getElementById(prefix+'AmPm');
+  const hidden = document.getElementById(prefix);
+  if(!hourSel || !minSel || !apSel) return;
+  if(!val24){
+    hourSel.value = '';
+    minSel.value = '00';
+    apSel.value = 'AM';
+    if(hidden) hidden.value = '';
+    return;
+  }
+  const [hStr, mStr] = val24.split(':');
+  let hh = parseInt(hStr, 10);
+  const ap = hh >= 12 ? 'PM' : 'AM';
+  let h12 = hh % 12; if(h12 === 0) h12 = 12;
+  hourSel.value = String(h12).padStart(2,'0');
+  minSel.value = mStr;
+  apSel.value = ap;
+  if(hidden) hidden.value = val24;
 }
 
 // A half day is a single shift that only covers the morning (~7am-12pm) or
@@ -1654,8 +1767,8 @@ function openEntryFor(employee, day, cls){
   const typeSel = document.getElementById('entryType');
   if(cls.status==='present'){
     typeSel.value = 'present';
-    document.getElementById('entryTimeIn').value = minutesToTimeInput(cls.inMin);
-    document.getElementById('entryTimeOut').value = minutesToTimeInput(cls.outMin) || '17:00';
+    setScrollTimeValue('entryTimeIn', minutesToTimeInput(cls.inMin));
+    setScrollTimeValue('entryTimeOut', minutesToTimeInput(cls.outMin) || '17:00');
   } else if(cls.status==='absent'){
     typeSel.value = 'absent';
   } else if(cls.status==='holidayAbsent'){
@@ -1667,15 +1780,15 @@ function openEntryFor(employee, day, cls){
     document.getElementById('entryNote').value = cls.label || '';
   } else {
     typeSel.value = 'present';
-    document.getElementById('entryTimeIn').value = '';
-    document.getElementById('entryTimeOut').value = '17:00';
+    setScrollTimeValue('entryTimeIn', '');
+    setScrollTimeValue('entryTimeOut', '17:00');
   }
   updateEntryFormVisibility();
   const panel = document.getElementById('entryPanel');
   panel.scrollIntoView({behavior:'smooth', block:'center'});
   panel.classList.add('highlight');
   setTimeout(() => panel.classList.remove('highlight'), 1200);
-  const focusTarget = typeSel.value==='present' ? document.getElementById('entryTimeIn') : ((typeSel.value==='field' || typeSel.value==='others') ? document.getElementById('entryNote') : document.getElementById('saveEntryBtn'));
+  const focusTarget = typeSel.value==='present' ? document.getElementById('entryTimeInHour') : ((typeSel.value==='field' || typeSel.value==='others') ? document.getElementById('entryNote') : document.getElementById('saveEntryBtn'));
   focusTarget.focus();
 }
 
@@ -1744,8 +1857,8 @@ async function saveEntry(){
 
   let payload = { sheet: state.month, employee, day, type };
   if(type==='present'){
-    const tin = document.getElementById('entryTimeIn').value;
-    const tout = document.getElementById('entryTimeOut').value;
+    const tin = getScrollTimeValue('entryTimeIn');
+    const tout = getScrollTimeValue('entryTimeOut');
     if(!tin){ statusEl.className='entry-status err'; statusEl.textContent='Enter a time in.'; return; }
     payload.timeIn = tin; payload.timeOut = tout;
   } else if(type==='absent'){
@@ -1778,7 +1891,9 @@ function applyOptimisticUpdate(payload, type){
   if(!sheetData) return;
   let dayEntry = sheetData.days.find(d => d.day === payload.day);
   if(!dayEntry){
-    dayEntry = { day: payload.day, weekday: null, e: {} };
+    const mm = meta();
+    const weekday = (mm && mm.month != null) ? WEEKDAY_NAMES[new Date(mm.year, mm.month, payload.day).getDay()] : null;
+    dayEntry = { day: payload.day, weekday, e: {} };
     sheetData.days.push(dayEntry);
     sheetData.days.sort((a,b) => a.day - b.day);
   }
@@ -1832,7 +1947,9 @@ function startInlineTimeEdit(span, sheetData){
 async function commitInlineTimeEdit(sheetData, day, employee, part, newVal){
   let dayEntry = sheetData.days.find(d => d.day === day);
   if(!dayEntry){
-    dayEntry = { day, weekday: null, e: {} };
+    const mm = meta();
+    const weekday = (mm && mm.month != null) ? WEEKDAY_NAMES[new Date(mm.year, mm.month, day).getDay()] : null;
+    dayEntry = { day, weekday, e: {} };
     sheetData.days.push(dayEntry);
     sheetData.days.sort((a,b) => a.day - b.day);
   }
@@ -2435,11 +2552,11 @@ async function render(){
           </div>
         </div>
         <div class="stat-grid">
-          <div class="stat"><div class="stat-label">Days present</div><div class="stat-value">${s.present}</div></div>
-          <div class="stat"><div class="stat-label">Field duty</div><div class="stat-value">${s.field}</div></div>
-          <div class="stat"><div class="stat-label">Leave</div><div class="stat-value">${s.holidayAbsent}</div></div>
-          <div class="stat"><div class="stat-label">Half days</div><div class="stat-value">${s.halfDay}</div></div>
-          <div class="stat"><div class="stat-label">Absent</div><div class="stat-value">${s.absent}</div></div>
+          <div class="stat stat-present"><div class="stat-label">Days present</div><div class="stat-value">${s.present}</div></div>
+          <div class="stat stat-field"><div class="stat-label">Field duty</div><div class="stat-value">${s.field}</div></div>
+          <div class="stat stat-holidayAbsent"><div class="stat-label">Leave</div><div class="stat-value">${s.holidayAbsent}</div></div>
+          <div class="stat stat-halfday"><div class="stat-label">Half days</div><div class="stat-value">${s.halfDay}</div></div>
+          <div class="stat stat-absent"><div class="stat-label">Absent</div><div class="stat-value">${s.absent}</div></div>
         </div>
       </button>`;
     });
@@ -2850,18 +2967,20 @@ function renderYearlyEmpSwitch(){
   const sel = document.getElementById('yearlyEmpSelect');
   if(!sel) return;
   sel.innerHTML = ALL_EMPLOYEES.map(n => `<option value="${n}" ${n===yearlyState.employee?'selected':''}>${n}</option>`).join('');
-  sel.onchange = async () => {
-    yearlyState.employee = sel.value;
-    closeYearlyMonthDetail();
-    await renderYearlyTable();
-  };
+  sel.onchange = () => { yearlyState.employee = sel.value; };
   const yearSel = document.getElementById('yearlyYearSelect');
   if(yearSel){
     yearSel.innerHTML = YEARLY_YEARS.map(y => `<option value="${y}" ${y===yearlyState.year?'selected':''}>${y}</option>`).join('');
-    yearSel.onchange = async () => {
-      yearlyState.year = parseInt(yearSel.value, 10);
+    yearSel.onchange = () => { yearlyState.year = parseInt(yearSel.value, 10); };
+  }
+  const enterBtn = document.getElementById('yearlyEnterBtn');
+  if(enterBtn){
+    enterBtn.onclick = async () => {
+      yearlyState.employee = sel.value;
+      if(yearSel) yearlyState.year = parseInt(yearSel.value, 10);
       closeYearlyMonthDetail();
-      await renderYearlyTable();
+      enterBtn.disabled = true;
+      try{ await renderYearlyTable(); } finally { enterBtn.disabled = false; }
     };
   }
 }
@@ -2870,27 +2989,30 @@ async function renderYearlyTable(){
   if(!holder) return;
   const emp = yearlyState.employee;
   const year = yearlyState.year;
+  // Only the four tracked employees ever exist in this workbook, so a
+  // single month fetch already covers everyone \u2014 no per-employee
+  // requests needed. The real speed win is fetching every month for the
+  // selected year in parallel instead of one-at-a-time.
   const yearMonths = MONTHS.filter(m => m.year === year);
   holder.innerHTML = '<div class="loading-panel"><div class="loading-spinner"></div><p>Loading ' + emp + '\u2019s attendance records\u2026</p></div>';
   const subtitle = document.getElementById('yearlyModalSubtitle');
   if(subtitle) subtitle.textContent = `${emp} \u00b7 present & absent history for ${year} (${yearMonths.length} recorded months) \u00b7 click a month to see the day-by-day calendar`;
 
-  const rows = [];
   const totals = {present:0, absent:0, field:0, halfDay:0, holidayAbsent:0};
-  for(const m of yearMonths){
-    let sheetData = null;
-    try{ sheetData = await getSheetData(m.key); } catch(err){ sheetData = null; }
-    if(!sheetData || !sheetData.employees.includes(emp)){
-      rows.push({m, empty:true});
-      continue;
-    }
+  const fetched = await Promise.all(yearMonths.map(async m => {
+    try{ return {m, sheetData: await getSheetData(m.key)}; }
+    catch(err){ return {m, sheetData: null}; }
+  }));
+  // Bail out quietly if the employee or year switch was clicked again mid-fetch.
+  if(yearlyState.employee !== emp || yearlyState.year !== year) return;
+
+  const rows = fetched.map(({m, sheetData}) => {
+    if(!sheetData || !sheetData.employees.includes(emp)) return {m, empty:true};
     const s = computeStats(sheetData.days, m, emp, state.lateThreshold);
     totals.present += s.present; totals.absent += s.absent; totals.field += s.field;
     totals.halfDay += s.halfDay; totals.holidayAbsent += s.holidayAbsent;
-    rows.push({m, s});
-  }
-  // Bail out quietly if the employee or year switch was clicked again mid-fetch.
-  if(yearlyState.employee !== emp || yearlyState.year !== year) return;
+    return {m, s};
+  });
   yearlyState.rows = rows;
 
   const totalDenom = totals.present+totals.field+totals.absent;
@@ -3061,6 +3183,7 @@ document.addEventListener('click', () => {
   populateControls();
   const branchList = document.getElementById('branchOptions');
   if(branchList) branchList.innerHTML = BRANCHES.map(b => `<option value="${b}">`).join('');
+  initTimeScrollInputs();
   renderHolidays();
   setupHolidaysModal();
   setupPayrollModal();
