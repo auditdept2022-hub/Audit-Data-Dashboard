@@ -1772,14 +1772,21 @@ body.bg-coolDark{
       display:flex; align-items:center; gap:.5rem; cursor:pointer; user-select:none;
     }
     .auth-remember input{
-      appearance:none; -webkit-appearance:none; width:1.05rem; height:1.05rem;
-      border:1.5px solid rgba(65,105,225,0.35); border-radius:.35rem;
+      appearance:none; -webkit-appearance:none; -moz-appearance:none;
+      -webkit-print-color-adjust:exact; print-color-adjust:exact;
+      width:1.05rem; height:1.05rem; min-width:1.05rem; min-height:1.05rem;
+      margin:0; padding:0; box-sizing:border-box;
+      border:1.75px solid #94a3b8; border-radius:.35rem;
       display:inline-flex; align-items:center; justify-content:center;
       cursor:pointer; flex-shrink:0; transition:all .15s ease; background:#fff;
+      outline:none;
     }
+    .auth-remember input:hover{ border-color:#4169E1; }
+    .auth-remember input:focus-visible{ box-shadow:0 0 0 3px rgba(65,105,225,0.25); }
     .auth-remember input:checked{
-      background:linear-gradient(90deg,#3355d8,#4169E1); border-color:transparent;
-      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
+      background-color:#4169E1;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E');
+      border-color:#4169E1;
       background-repeat:no-repeat; background-position:center; background-size:70%;
     }
     .auth-remember span{ font-size:.8rem; color:#475569; font-weight:600; }
@@ -2443,7 +2450,6 @@ body.bg-coolDark{
         </span>
         <div class="min-w-0 leading-tight">
           <h2 class="text-white font-bold text-base tracking-tight">Shortcuts</h2>
-          <p class="text-[11px] text-white/60 font-medium truncate">Navigate, act &amp; export</p>
         </div>
       </div>
       <button id="closeMenuBtn" type="button" aria-label="Close menu" class="flex items-center justify-center w-8 h-8 shrink-0 rounded-lg hover:bg-white/15 active:scale-95 transition-all duration-200 text-white">
@@ -2593,19 +2599,21 @@ body.bg-coolDark{
     </div>
   </aside>
 
-  <main class="dash-container mt-5 space-y-8">
+  <main class="dash-container mt-4 space-y-6">
 
-    <div id="overviewHeaderRow" class="flex items-center justify-between flex-wrap gap-3">
-      <div>
-        <span class="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-[0.12em] text-accentBlue uppercase">
-          <span class="w-1.5 h-1.5 rounded-full bg-accentBlue"></span>
+    <div id="overviewHeaderRow" class="flex items-center justify-between flex-wrap gap-2">
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center gap-1 text-[10px] font-bold tracking-[0.1em] text-accentBlue uppercase">
+          <span class="w-1 h-1 rounded-full bg-accentBlue"></span>
           Overview
         </span>
-        <h2 class="text-lg sm:text-xl font-bold text-slate-900 tracking-tight mt-0.5">Branch Performance</h2>
+        <span class="text-slate-300 text-xs">/</span>
+        <h2 class="text-sm sm:text-base font-bold text-slate-900 tracking-tight">Branch Performance</h2>
       </div>
-      <div id="liveDateTime" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-label="Show calendar" class="relative flex flex-col items-end justify-center leading-tight px-3.5 py-2 rounded-2xl bg-coolCard border border-coolBorder shadow-md whitespace-nowrap self-center cursor-pointer select-none">
-        <span id="liveTimeText" class="text-xl sm:text-2xl font-extrabold text-slate-900 tabular-nums tracking-tight">--:--:--</span>
-        <span id="liveDateText" class="text-xs sm:text-sm text-slate-500 font-semibold mt-0.5">--</span>
+      <div id="liveDateTime" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-label="Show calendar" class="relative flex items-center gap-1.5 leading-tight px-2.5 py-1 rounded-xl bg-coolCard border border-coolBorder shadow-sm whitespace-nowrap self-center cursor-pointer select-none">
+        <span id="liveTimeText" class="text-xs sm:text-sm font-extrabold text-slate-900 tabular-nums tracking-tight">--:--:--</span>
+        <span class="text-slate-300 text-[10px]">·</span>
+        <span id="liveDateText" class="text-[10px] sm:text-xs text-slate-500 font-semibold">--</span>
 
         <div id="miniCalendarPopup" class="hidden absolute right-0 top-full mt-2 w-64 bg-coolCard border border-coolBorder rounded-2xl shadow-2xl p-3 z-50 text-left cursor-default" onclick="event.stopPropagation()">
           <div class="flex items-center justify-between mb-2 px-1">
@@ -2626,7 +2634,7 @@ body.bg-coolDark{
       </div>
     </div>
 
-    <div id="section-overview" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5" style="margin-top:1.1rem">
+    <div id="section-overview" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5" style="margin-top:0.6rem">
       <div onclick="openModal('All Branches Overview', 'all', null)" class="bg-coolCard border border-coolBorder rounded-2xl p-4 sm:p-5 hover:border-accentBlue/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
         <div class="flex items-center justify-between">
           <span class="text-xs font-semibold tracking-wider text-slate-500">TOTAL BRANCHES</span>
