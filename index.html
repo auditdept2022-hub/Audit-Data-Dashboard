@@ -5653,23 +5653,61 @@ body.bg-coolDark{
       return wb;
     }
 
-    // Start with the fast direct fetch. Only bring in JSONP as backup if
-    // the direct request hasn't answered quickly (or fails) — firing both
-    // at the exact same instant would hit the Apps Script backend with two
-    // simultaneous requests, and many Apps Script doGet() handlers
-    // serialize concurrent calls (e.g. via LockService while reading the
-    // Sheet), which can make both requests slow enough to blow past their
-    // timeouts together. Staggering avoids that while still guaranteeing
-    // JSONP kicks in whenever the direct path is slow or unavailable.
+    // Which transport actually works is learned ONCE per browser tab
+    // session, then reused, instead of racing both on every single call.
+    //
+    // Why this matters: the old version raced fetchDirect() and (after a
+    // 1.5s hedge, or immediately on a direct failure) fetchJSONP() on
+    // EVERY call. Because fetchDirect() almost always fails once it's
+    // reached the backend anyway (typical Apps Script CORS behavior — the
+    // request still executes server-side even though the browser can't
+    // read the response), that meant most "Update data" clicks / reloads
+    // were sending TWO real requests to the Apps Script backend for one
+    // logical fetch. With several people/devices doing this at once, that
+    // doubling made everyone's requests slower by competing for Apps
+    // Script's limited simultaneous-execution slots. Learning the working
+    // transport once and reusing it cuts that back down to one request
+    // per fetch for the rest of the session, while still keeping the
+    // race (and the fallback to the other transport) available any time
+    // the learned transport hasn't been established yet, or unexpectedly
+    // fails.
+    let learnedTransport = null; // 'direct' | 'jsonp' | null (still unknown)
+
     async function fetchSheetOnce(url) {
+      // Fast path: we already know which transport gets through on this
+      // network/browser. Use only that one — no duplicate request sent.
+      if (learnedTransport === 'jsonp') {
+        try {
+          return await fetchJSONP(url, 7000);
+        } catch (err) {
+          // The learned transport failed this time (e.g. a network change) —
+          // fall back to the other one just for this call, and re-learn.
+          learnedTransport = null;
+          return await fetchDirect(url, 6000).then(function(d) { learnedTransport = 'direct'; return d; });
+        }
+      }
+      if (learnedTransport === 'direct') {
+        try {
+          return await fetchDirect(url, 6000);
+        } catch (err) {
+          learnedTransport = null;
+          return await fetchJSONP(url, 7000).then(function(d) { learnedTransport = 'jsonp'; return d; });
+        }
+      }
+
+      // Still unknown (first call this session): race both, but stagger
+      // JSONP behind a short hedge so a fast direct success avoids sending
+      // a second request to the backend at all. Whichever one answers
+      // first is remembered for every subsequent call this session.
       return new Promise(function(resolve, reject) {
         let settled = false;
         let jsonpStarted = false;
         const errors = [];
 
-        function succeed(data) {
+        function succeed(data, via) {
           if (settled) return;
           settled = true;
+          learnedTransport = via;
           clearTimeout(hedgeTimer);
           resolve(data);
         }
@@ -5678,7 +5716,7 @@ body.bg-coolDark{
           if (jsonpStarted) return;
           jsonpStarted = true;
           clearTimeout(hedgeTimer);
-          fetchJSONP(url, 7000).then(succeed).catch(function(err) { fail(err, 'jsonp'); });
+          fetchJSONP(url, 7000).then(function(d) { succeed(d, 'jsonp'); }).catch(function(err) { fail(err, 'jsonp'); });
         }
 
         function fail(err, label) {
@@ -5695,7 +5733,7 @@ body.bg-coolDark{
           }
         }
 
-        fetchDirect(url, 6000).then(succeed).catch(function(err) { fail(err, 'direct'); });
+        fetchDirect(url, 6000).then(function(d) { succeed(d, 'direct'); }).catch(function(err) { fail(err, 'direct'); });
 
         // Hedge: give the direct request a head start; if it hasn't
         // answered within this window, start JSONP alongside it rather
