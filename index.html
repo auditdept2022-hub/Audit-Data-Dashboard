@@ -1808,12 +1808,14 @@ body.bg-coolDark{
             <label for="authPassword" class="auth-label block mb-2">Password</label>
             <div class="relative">
               <input type="password" id="authPassword" autocomplete="current-password" required
-                class="auth-input pr-10">
-              <button type="button" id="authTogglePass" tabindex="-1" aria-label="Show password" class="auth-toggle-pass">
-                <svg id="authEyeIcon" xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-              </button>
+                class="auth-input">
             </div>
           </div>
+
+          <label class="auth-remember">
+            <input type="checkbox" id="authRememberMe" checked>
+            <span>Keep me signed in</span>
+          </label>
 
           <button type="submit" id="authSubmitBtn"
             class="auth-submit w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold tracking-tight shadow-lg active:scale-[0.98] transition-all duration-200">
@@ -6413,6 +6415,7 @@ body.bg-coolDark{
       onAuthStateChanged,
       setPersistence,
       browserLocalPersistence,
+      browserSessionPersistence,
       signOut,
       EmailAuthProvider,
       reauthenticateWithCredential
@@ -6492,18 +6495,7 @@ body.bg-coolDark{
     const sideMenuUserEmail = document.getElementById('sideMenuUserEmail');
     const sideMenuUserInitial = document.getElementById('sideMenuUserInitial');
     const sideMenuLogoutBtn = document.getElementById('sideMenuLogoutBtn');
-    const authTogglePass = document.getElementById('authTogglePass');
-    const authEyeIcon = document.getElementById('authEyeIcon');
-
-    const EYE_OPEN = '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle>';
-    const EYE_OFF = '<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c6.5 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3.5 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path><line x1="2" x2="22" y1="2" y2="22"></line>';
-
-    authTogglePass.addEventListener('click', () => {
-      const showing = authPassword.type === 'text';
-      authPassword.type = showing ? 'password' : 'text';
-      authEyeIcon.innerHTML = showing ? EYE_OPEN : EYE_OFF;
-      authTogglePass.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
-    });
+    const authRememberMe = document.getElementById('authRememberMe');
 
     function setSubmitting(isSubmitting) {
       authSubmitBtn.disabled = isSubmitting;
@@ -6522,6 +6514,13 @@ body.bg-coolDark{
       authError.classList.add('hidden');
       setSubmitting(true);
       try {
+        // "Keep me signed in" (checked by default) keeps the session in the
+        // browser's local storage so it survives closing the tab/browser —
+        // this is what lets people skip re-entering their password next
+        // time. Unchecking it signs them out as soon as the browser closes,
+        // which is safer on a shared/public computer.
+        const persistence = authRememberMe.checked ? browserLocalPersistence : browserSessionPersistence;
+        await setPersistence(auth, persistence);
         await signInWithEmailAndPassword(auth, authEmail.value.trim(), authPassword.value);
         // onAuthStateChanged below handles revealing the dashboard.
       } catch (err) {
@@ -6540,11 +6539,11 @@ body.bg-coolDark{
       signOut(auth);
     });
 
-    // Auto sign-out after 10 minutes of no interaction, so a session left
+    // Auto sign-out after 1 hour of no interaction, so a session left
     // open on a shared/public computer doesn't stay unlocked forever.
     // Only runs while someone is actually signed in (started/stopped from
     // the onAuthStateChanged handler below) and resets on any real activity.
-    const IDLE_TIMEOUT_MS = 10 * 60 * 1000;
+    const IDLE_TIMEOUT_MS = 60 * 60 * 1000;
     let idleTimer = null;
     function handleIdleTimeout() {
       signOut(auth).catch(function(err) {
@@ -6643,7 +6642,6 @@ body.bg-coolDark{
         authLogoutBtn.classList.remove('flex');
         sideMenuUserFooter.classList.add('hidden');
         authPassword.type = 'password';
-        authEyeIcon.innerHTML = EYE_OPEN;
 
         // SECURITY: wipe any cached/rendered audit data now that this
         // session is signed out, so it can't be read back from
