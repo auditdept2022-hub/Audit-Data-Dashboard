@@ -223,11 +223,43 @@
         // Top 5 most recently audited branches, for the Branch Audit Interval
         // stack card so it's clear at a glance which branches were audited
         // most recently, not just the single most recent one.
-        const recentlyAuditedBranches = auditedBranchesByRecency.slice(0, 5).map(b => ({
-            name: b.name,
-            auditor: b.auditor || 'Unassigned',
-            lastAuditDate: b.lastAuditDate || null
-        }));
+        //
+        // This is built straight from the AUDIT ROTATION (FINAL) sheet
+        // (activeData.branchAuditSchedule, parsed columns A-K) rather than
+        // from each branch's own lastAuditDateRaw — that field can be
+        // overridden by a branch's own AUDIT DATA (FINAL) rotation rounds
+        // (see the "Last Assigned Auditor" logic above), which caused this
+        // card to show stale/incorrect "most recent" branches whenever the
+        // two sheets disagreed. Using the rotation sheet's own latest dated
+        // round per branch keeps this card in sync with AUDIT ROTATION (FINAL).
+        const rotationSchedule = activeData.branchAuditSchedule || {};
+        const recentFromRotation = Object.keys(rotationSchedule).map(branchName => {
+            const entry = rotationSchedule[branchName];
+            const dated = (entry.rounds || []).filter(r => r.dateRaw);
+            if (dated.length === 0) return null;
+            dated.sort((a, b) => b.dateRaw - a.dateRaw);
+            const latest = dated[0];
+            return {
+                name: branchName,
+                auditor: latest.auditor || 'Unassigned',
+                lastAuditDate: latest.date || null,
+                dateRaw: latest.dateRaw
+            };
+        }).filter(Boolean);
+
+        const recentlyAuditedBranches = recentFromRotation.length
+            ? recentFromRotation.sort((a, b) => b.dateRaw - a.dateRaw).slice(0, 5).map(b => ({
+                name: b.name,
+                auditor: b.auditor,
+                lastAuditDate: b.lastAuditDate
+            }))
+            // Fallback for the (unexpected) case where AUDIT ROTATION (FINAL)
+            // didn't parse at all, so the card still shows something.
+            : auditedBranchesByRecency.slice(0, 5).map(b => ({
+                name: b.name,
+                auditor: b.auditor || 'Unassigned',
+                lastAuditDate: b.lastAuditDate || null
+            }));
 
         activeData.summary.forAuditBreakdown = forAuditBreakdown;
         activeData.summary.nextUpBranch = nextUpBranch ? {
@@ -3508,21 +3540,35 @@ body.bg-coolDark{
           .map(x => `<option value="${escapeHTML(x.name)}" ${x.name === resolvedName ? 'selected' : ''}>${escapeHTML(x.name)}</option>`)
           .join('');
 
+      // "current" auditor names aren't always one of the 4 standing
+      // AUDITOR_NAMES (e.g. a one-off / external auditor typed in before) —
+      // if a round's saved auditor isn't in the list, still show it as a
+      // selectable option so opening the form never silently blanks it out.
       const auditorOptionsFor = (roundNum) => {
           const current = (roundsByNumber[roundNum] && roundsByNumber[roundNum].auditor) ? roundsByNumber[roundNum].auditor : '';
           const currentUpper = current.toUpperCase();
           const blank = `<option value="" ${!current ? 'selected' : ''}>—</option>`;
+          const knownUpper = AUDITOR_NAMES.map(n => n.toUpperCase());
+          const extra = (current && !knownUpper.includes(currentUpper))
+              ? `<option value="${current}" selected>${current}</option>`
+              : '';
           const opts = AUDITOR_NAMES.map(name => `<option value="${name}" ${name.toUpperCase() === currentUpper ? 'selected' : ''}>${name}</option>`).join('');
-          return blank + opts;
+          const addNew = `<option value="__add_new__">+ Add New Auditor…</option>`;
+          return blank + extra + opts + addNew;
       };
 
+      // Picking "+ Add New Auditor…" reveals a small text field right below
+      // the dropdown so a name that isn't one of the 4 standing auditors
+      // can still be typed in and saved for that rotation round.
       const rotationRowHtml = (roundNum, label) => `
           <div class="grid grid-cols-2 gap-3 mb-4">
             <div>
               <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">${label} Auditor</label>
-              <select id="editAssign-auditor${roundNum}" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+              <select id="editAssign-auditor${roundNum}" onchange="handleAuditorSelectChange(${roundNum}, this)" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
                 ${auditorOptionsFor(roundNum)}
               </select>
+              <input id="editAssign-auditor${roundNum}-custom" type="text" placeholder="Type new auditor name"
+                     class="hidden mt-1.5 w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
             </div>
             <div>
               <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">${label} Date</label>
@@ -3562,6 +3608,21 @@ body.bg-coolDark{
       `;
     }
 
+    // Toggles the inline "type a name" field for a rotation round's auditor
+    // dropdown when "+ Add New Auditor…" is picked, and hides/clears it
+    // again if the person switches back to a normal name.
+    function handleAuditorSelectChange(roundNum, selectEl) {
+      const customInput = document.getElementById(`editAssign-auditor${roundNum}-custom`);
+      if (!customInput) return;
+      if (selectEl.value === '__add_new__') {
+          customInput.classList.remove('hidden');
+          customInput.focus();
+      } else {
+          customInput.classList.add('hidden');
+          customInput.value = '';
+      }
+    }
+
     // Step 1: person presses "Save Assignment" -> just collects the form
     // fields and opens the password gate. Nothing is written to the Sheet
     // yet — that only happens once the password is verified below, so any
@@ -3571,11 +3632,25 @@ body.bg-coolDark{
 
     function submitEditAssignment(branchName) {
       const val = id => (document.getElementById(id) || {}).value || '';
+      // If "+ Add New Auditor…" was picked for a round, use whatever name
+      // was typed into that round's inline text field instead of the
+      // sentinel select value. A brand-new name typed here is also added
+      // to AUDITOR_NAMES so it shows up as a normal option (no retyping
+      // needed) in every auditor dropdown for the rest of this session.
+      const auditorFor = (n) => {
+          const selectVal = val(`editAssign-auditor${n}`);
+          if (selectVal !== '__add_new__') return selectVal;
+          const typed = val(`editAssign-auditor${n}-custom`).trim();
+          if (typed && !AUDITOR_NAMES.some(name => name.toUpperCase() === typed.toUpperCase())) {
+              AUDITOR_NAMES.push(typed);
+          }
+          return typed;
+      };
       const fields = {
           expectedDate: val('editAssign-expectedDate'),
           rotations: [1, 2, 3, 4].map(n => ({
               round: n,
-              auditor: val(`editAssign-auditor${n}`),
+              auditor: auditorFor(n),
               date: val(`editAssign-date${n}`)
           }))
       };
