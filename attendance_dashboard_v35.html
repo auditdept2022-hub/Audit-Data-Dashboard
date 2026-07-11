@@ -13,36 +13,42 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
   :root{
-    --bg:#EEF2F9; --surface:#FFFFFF; --surface-2:#EEF4FB; --surface-3:#E4EDF9;
-    --ink:#0B1220; --ink-soft:#2B3B54;
-    --text-secondary:#4C5F78; --text-muted:#7C8CA3; --line:#D9E2F0; --border:#CFDAEB;
-    --blue:#2563EB; --blue-dark:#1D4ED8; --blue-light:#EAF1FE;
-    --present:#0F7A5C; --present-bg:#DFF3EA;
-    --absent:#C22A2A; --absent-bg:#FBE1E1;
-    --holiday:#A16A17; --holiday-bg:#FAECD3;
-    --field:#2563EB; --field-bg:#E3ECFE;
-    --sunday:#71839A; --sunday-bg:#E7EDF4;
-    --holidayAbsent:#0F7A5C; --holidayAbsent-bg:#DFF3EA;
-    --halfday:#7E22CE; --halfday-bg:#EEE0FC;
-    --radius:14px; --radius-sm:10px; --radius-lg:16px;
-    --shadow: 0 1px 2px rgba(15,42,71,.06);
-    --shadow-md: 0 3px 10px rgba(15,42,71,.08);
-    --shadow-hover: 0 6px 16px rgba(15,42,71,.12);
+    --bg:#EEF1F8; --surface:#FFFFFF; --surface-2:#F2F5FC; --surface-3:#E7ECF7;
+    --ink:#0B1730; --ink-soft:#1E2E52;
+    --text-secondary:#44536F; --text-muted:#647089; --line:#DBE1EF; --border:#CCD5E7;
+    --blue:#1D4ED8; --blue-dark:#132E8C; --blue-light:#E6EDFC;
+    --gold:#B4881A; --gold-dark:#8F6A10; --gold-light:#FBF3DF;
+    --navy:#0A1A3F; --navy-2:#122756; --navy-3:#1B3A80;
+    --present:#0F8A5F; --present-bg:#E1F5EC;
+    --absent:#C22B3D; --absent-bg:#FBE6E9;
+    --holiday:#B4881A; --holiday-bg:#FBF1DA;
+    --field:#2054D6; --field-bg:#E6EDFC;
+    --sunday:#8493AC; --sunday-bg:#ECF0F8;
+    --holidayAbsent:#0F8A5F; --holidayAbsent-bg:#E1F5EC;
+    --leave:#0D7D8C; --leave-bg:#DEF3F6;
+    --halfday:#7C3AED; --halfday-bg:#F1E9FD;
+    --radius:16px; --radius-sm:12px; --radius-lg:20px;
+    --shadow: 0 1px 3px rgba(10,26,63,.08), 0 1px 2px rgba(10,26,63,.05);
+    --shadow-md: 0 6px 18px rgba(10,26,63,.10), 0 1px 4px rgba(10,26,63,.06);
+    --shadow-hover: 0 12px 28px rgba(10,26,63,.16), 0 3px 8px rgba(10,26,63,.08);
   }
   @media (prefers-color-scheme: dark){
     :root{
-      --bg:#0B1622; --surface:#101E30; --surface-2:#152640; --surface-3:#1B2E4A;
-      --ink:#EAF1FB; --ink-soft:#C7D6EA;
-      --text-secondary:#9DB0C6; --text-muted:#6C7F95; --line:#22344D; --border:#22344D;
-      --blue:#5B8DEF; --blue-dark:#8FB4FF; --blue-light:#16294A;
+      --bg:#080F20; --surface:#0F1C36; --surface-2:#142443; --surface-3:#1A2C52;
+      --ink:#F6F8FF; --ink-soft:#D8E1F5;
+      --text-secondary:#AFC0DC; --text-muted:#8A9BBE; --line:#26365E; --border:#314675;
+      --blue:#6C93F5; --blue-dark:#9BB7FA; --blue-light:#182A52;
+      --gold:#E4C066; --gold-dark:#F2D488; --gold-light:#2E260F;
+      --navy:#060D1F; --navy-2:#0D1C3E; --navy-3:#173064;
       --present:#4FC79A; --present-bg:#123529;
-      --absent:#EF7676; --absent-bg:#3A1A1A;
-      --holiday:#E3B65C; --holiday-bg:#3A2E13;
-      --field:#5B8DEF; --field-bg:#16294A;
-      --sunday:#7C8CA0; --sunday-bg:#182636;
+      --absent:#F0808C; --absent-bg:#3A1A20;
+      --holiday:#E4C066; --holiday-bg:#3A2E13;
+      --field:#7FA0F7; --field-bg:#182A52;
+      --sunday:#8A9BBE; --sunday-bg:#182636;
       --holidayAbsent:#4FC79A; --holidayAbsent-bg:#123529;
-      --halfday:#C084FC; --halfday-bg:#2B1C42;
-      --shadow-md: 0 4px 14px rgba(0,0,0,.35); --shadow-hover: 0 8px 22px rgba(0,0,0,.4);
+      --leave:#4FD9E0; --leave-bg:#0F2C30;
+      --halfday:#C6A0FC; --halfday-bg:#2B1C42;
+      --shadow-md: 0 6px 18px rgba(0,0,0,.4); --shadow-hover: 0 12px 28px rgba(0,0,0,.45);
     }
   }
   *{box-sizing:border-box;}
@@ -50,15 +56,15 @@
   body{
     margin:0; color:var(--ink);
     background:
-      radial-gradient(900px 480px at 6% -8%, rgba(109,40,217,.07), transparent 60%),
-      radial-gradient(900px 480px at 96% 0%, rgba(13,148,136,.07), transparent 55%),
-      radial-gradient(700px 420px at 50% 110%, rgba(37,99,235,.05), transparent 60%),
+      radial-gradient(900px 480px at 6% -8%, rgba(27,58,128,.09), transparent 60%),
+      radial-gradient(900px 480px at 96% 0%, rgba(180,136,26,.08), transparent 55%),
+      radial-gradient(700px 420px at 50% 110%, rgba(29,78,216,.06), transparent 60%),
       var(--bg);
     background-attachment:fixed;
     font-family:'Inter',sans-serif; font-size:14px; line-height:1.5;
     padding:0;
   }
-  .wrap{max-width:1120px; margin:0 auto; padding:16px 16px 0;}
+  .wrap{max-width:1120px; margin:0 auto; padding:24px 20px 0;}
   .mono{font-family:'IBM Plex Mono',monospace;}
 
   /* ---- Desktop sizing: dashboard is designed primarily for desktop use,
@@ -66,27 +72,27 @@
      notch for better readability on large monitors. Mobile/tablet below
      1024px keeps the original compact sizing untouched. ---- */
   @media (min-width:1024px){
-    body{font-size:15px;}
-    .wrap{max-width:1360px; padding:20px 24px 0;}
+    body{font-size:15.5px;}
+    .wrap{max-width:1360px; padding:30px 32px 0;}
     .topbar-inner{max-width:1400px;}
-    .topbar{padding:16px 26px;}
+    .topbar{padding:20px 30px;}
     .topbar .brand h1{font-size:19px;}
     .topbar .brand .sub{font-size:13px;}
-    .panel{padding:18px 20px; margin-bottom:16px;}
-    .panel-title{font-size:13.5px; margin:0 0 12px; padding-bottom:10px;}
-    .kpi-row{gap:12px; margin-bottom:16px;}
-    .kpi-card{padding:14px 16px;}
-    .kpi-card .kpi-icon{width:36px; height:36px; border-radius:10px;}
+    .panel{padding:26px 28px; margin-bottom:22px;}
+    .panel-title{font-size:13.5px; margin:0 0 16px; padding-bottom:12px;}
+    .kpi-row{gap:14px; margin-bottom:24px;}
+    .kpi-card{padding:18px 20px;}
+    .kpi-card .kpi-icon{width:38px; height:38px; border-radius:11px;}
     .kpi-card .label{font-size:11.5px;}
-    .kpi-card .value{font-size:27px;}
+    .kpi-card .value{font-size:28px;}
     .kpi-card .hint{font-size:12px;}
     .legend-item{font-size:12.5px;}
-    .cal-cell{min-height:62px; padding:7px 8px;}
+    .cal-cell{min-height:74px; padding:9px 10px;}
     .cal-cell .daynum{font-size:13px;}
-    .cal-cell .stamp{font-size:10.5px;}
+    .cal-cell .stamp{font-size:11.5px;}
     .cal-cell .times{font-size:11px;}
-    .team-grid{gap:12px;}
-    .team-card{padding:14px;}
+    .team-grid{gap:16px;}
+    .team-card{padding:18px;}
     .team-card .name{font-size:15px;}
     .team-card .rate{font-size:12.5px;}
     .team-card .stat .stat-value{font-size:16.5px;}
@@ -98,9 +104,10 @@
 
   .topbar{
     position:sticky; top:0; z-index:50;
-    background:linear-gradient(90deg, #1E3A8A 0%, #2547D0 55%, #2563EB 100%);
-    padding:14px 22px; margin-bottom:18px;
-    box-shadow:0 2px 10px rgba(15,42,71,.18);
+    background:linear-gradient(100deg, #060D1F 0%, #0A1A3F 30%, #132E8C 68%, #1D4ED8 100%);
+    padding:18px 24px; margin-bottom:26px;
+    border-bottom:2px solid var(--gold);
+    box-shadow:0 4px 18px rgba(6,13,31,.25);
   }
   .topbar-inner{
     max-width:1180px; margin:0 auto; display:flex; align-items:center; justify-content:space-between;
@@ -114,7 +121,7 @@
     transition:background .15s;
   }
   .menu-btn:hover{background:rgba(255,255,255,.24);}
-  .accent-bar{width:3px; height:20px; border-radius:2px; background:#8FC7FF; flex:none;}
+  .accent-bar{width:3px; height:20px; border-radius:2px; background:var(--gold); flex:none;}
   .brand{display:flex; align-items:baseline; gap:10px; min-width:0; flex-wrap:wrap;}
   .topbar .brand h1{
     font-weight:700; font-size:17px; margin:0; letter-spacing:-.01em; color:#fff; white-space:nowrap;
@@ -154,7 +161,7 @@
 
   .pill-btn{
     display:inline-flex; align-items:center; gap:7px; font-family:'Inter'; font-size:12.5px; font-weight:600;
-    background:rgba(255,255,255,.96); border:none; color:#22326B; padding:8px 15px; border-radius:999px;
+    background:rgba(255,255,255,.96); border:none; color:var(--navy); padding:8px 15px; border-radius:999px;
     cursor:pointer; white-space:nowrap; transition:background .15s, transform .1s, box-shadow .15s;
     box-shadow:0 1px 2px rgba(0,0,0,.06);
   }
@@ -187,7 +194,8 @@
   .employee-sidebar.is-open{transform:translateX(0);}
   .sidebar-head{
     display:flex; align-items:center; justify-content:space-between; gap:10px; padding:18px 18px 16px;
-    background:linear-gradient(90deg, #1E3A8A 0%, #2547D0 55%, #2563EB 100%); color:#fff; flex:none;
+    background:linear-gradient(100deg, #060D1F 0%, #0A1A3F 30%, #132E8C 68%, #1D4ED8 100%); color:#fff; flex:none;
+    border-bottom:2px solid var(--gold);
   }
   .sidebar-head h2{font-size:14px; font-weight:700; margin:0; letter-spacing:.01em;}
   .sidebar-close{
@@ -197,50 +205,48 @@
   .sidebar-close:hover{background:rgba(255,255,255,.28);}
   .sidebar-body{padding:14px 12px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:4px;}
   .sidebar-tab{
-    display:flex; align-items:center; gap:10px; text-align:left; font-family:'Inter'; font-size:13px; font-weight:700;
-    padding:9px 12px; border-radius:10px; border:none; background:transparent; color:var(--ink-soft); cursor:pointer;
+    display:flex; align-items:center; gap:10px; text-align:left; font-family:'Inter'; font-size:13px; font-weight:600;
+    padding:10px 12px; border-radius:12px; border:none; background:transparent; color:var(--text-secondary); cursor:pointer;
     transition:background .15s, color .15s;
   }
   .sidebar-tab:hover:not(:disabled){background:var(--surface-2);}
-  .sidebar-tab.active{background:var(--blue); color:#fff; box-shadow:0 2px 6px rgba(37,99,235,.3);}
+  .sidebar-tab.active{background:var(--blue); color:#fff; box-shadow:0 2px 6px rgba(29,78,216,.3);}
   .sidebar-tab:disabled{opacity:.35; cursor:not-allowed;}
   .sidebar-tab .emp-dot{width:7px; height:7px; border-radius:50%; flex:none; background:currentColor; opacity:.5;}
   .sidebar-divider{height:1px; background:var(--line); margin:8px 6px;}
-  .sidebar-section-label{font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:700; padding:6px 12px 2px;}
+  .sidebar-section-label{font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:700; padding:6px 12px 2px;}
   .sidebar-tab.link-tab{color:var(--blue);}
   .sidebar-tab.link-tab svg{flex:none;}
   .right-controls{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
   .field-group{display:flex; flex-direction:column; gap:2px;}
-  .field-group label{font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:600;}
+  .field-group label{font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:600;}
   select, input[type=time], input[type=number], input[type=text], input[type=url]{
     font-family:'IBM Plex Mono'; font-size:12.5px; padding:8px 10px; border-radius:var(--radius-sm); border:1px solid var(--border);
     background:var(--surface); color:var(--ink); transition:border-color .15s;
   }
   select:focus, input:focus{outline:2px solid var(--blue); outline-offset:1px;}
 
-  .kpi-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-bottom:16px;}
+  .kpi-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:20px;}
   .kpi-row.kpi-row-3{grid-template-columns:repeat(3,1fr);}
   @media (max-width:640px){ .kpi-row.kpi-row-3{grid-template-columns:1fr 1fr;} }
   .kpi-card.clickable{cursor:pointer; text-align:left; width:100%; font:inherit; color:inherit; border:none;}
   .kpi-card.clickable:focus-visible{outline:2px solid var(--blue); outline-offset:2px;}
   .kpi-card{
-    background:var(--surface); border:1px solid var(--border); border-left:4px solid var(--blue); border-radius:var(--radius-sm); padding:12px 14px;
-    box-shadow:var(--shadow); transition:box-shadow .15s, transform .15s, border-color .15s;
+    background:var(--surface); border:1px solid var(--border); border-top:3px solid var(--border);
+    border-radius:var(--radius); padding:16px 17px;
+    box-shadow:var(--shadow); transition:box-shadow .2s, transform .2s, border-color .2s;
+    position:relative;
   }
   .kpi-card:hover{box-shadow:var(--shadow-hover); transform:translateY(-2px);}
-  .kpi-card .label{font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-secondary); margin:0 0 4px; font-weight:700;}
-  .kpi-card .value{font-family:'IBM Plex Mono'; font-size:23px; font-weight:800; margin:0; color:var(--blue); line-height:1.1;}
+  .kpi-card .label{font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--text-muted); margin:0 0 6px; font-weight:700;}
+  .kpi-card .value{font-family:'IBM Plex Mono'; font-size:24px; font-weight:700; margin:0; color:var(--blue);}
   .kpi-card .value.present{color:var(--present);}
   .kpi-card .value.absent{color:var(--absent);}
   .kpi-card .value.holiday{color:var(--holiday);}
   .kpi-card .value.halfday{color:var(--halfday);}
   .kpi-card .value.field{color:var(--field);}
-  .kpi-card:has(.value.present){border-left-color:var(--present);}
-  .kpi-card:has(.value.absent){border-left-color:var(--absent);}
-  .kpi-card:has(.value.holiday){border-left-color:var(--holiday);}
-  .kpi-card:has(.value.halfday){border-left-color:var(--halfday);}
-  .kpi-card:has(.value.field){border-left-color:var(--field);}
-  .kpi-card .hint{font-size:11px; color:var(--text-secondary); margin-top:2px; font-weight:500;}
+  .kpi-card .value.leave{color:var(--leave);}
+  .kpi-card .hint{font-size:11px; color:var(--text-secondary); margin-top:3px;}
   .kpi-card .kpi-icon{
     display:flex; align-items:center; justify-content:center; width:34px; height:34px; flex:none;
     border-radius:10px; margin-bottom:10px;
@@ -249,75 +255,89 @@
   .kpi-row-3 .kpi-icon.icon-working{background:var(--blue-light); color:var(--blue);}
   .kpi-row-3 .kpi-icon.icon-holiday{background:var(--holiday-bg); color:var(--holiday);}
   .kpi-row-3 .kpi-icon.icon-field{background:var(--field-bg); color:var(--field);}
+  .kpi-card:has(.value.present){border-top-color:var(--present);}
+  .kpi-card:has(.value.absent){border-top-color:var(--absent);}
+  .kpi-card:has(.value.holiday){border-top-color:var(--holiday);}
+  .kpi-card:has(.value.halfday){border-top-color:var(--halfday);}
+  .kpi-card:has(.value.field){border-top-color:var(--field);}
+  .kpi-card:has(.value.leave){border-top-color:var(--leave);}
 
   .panel{
-    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:16px 18px; margin-bottom:14px;
+    background:var(--surface); border:1px solid var(--border); border-top:3px solid var(--navy-3);
+    border-radius:var(--radius-lg); padding:20px 22px; margin-bottom:18px;
     box-shadow:var(--shadow); transition:box-shadow .2s, transform .2s;
   }
   .panel:hover{box-shadow:var(--shadow-md);}
   .panel-title{
-    font-size:12.5px; font-weight:800; text-transform:uppercase; letter-spacing:.05em;
-    color:var(--ink); margin:0 0 12px; padding-bottom:9px; border-bottom:2px solid var(--blue-light);
+    font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+    color:var(--navy-2); margin:0 0 14px; padding-bottom:10px; border-bottom:2px solid var(--gold-light);
     display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;
   }
   .panel.highlight{box-shadow:0 0 0 3px var(--blue-light), var(--shadow); transition:box-shadow .3s;}
 
-  .legend-row{display:flex; gap:12px; flex-wrap:wrap; margin-bottom:10px;}
-  .legend-item{display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--ink-soft); font-weight:600;}
+  .legend-row{display:flex; gap:14px; flex-wrap:wrap; margin-bottom:14px;}
+  .legend-item{display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--text-secondary);}
   .legend-swatch{width:9px; height:9px; border-radius:3px; flex:none;}
 
-  .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:5px;}
-  .cal-dow{font-size:10.5px; text-align:center; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.05em; padding-bottom:4px; font-weight:700;}
+  .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:6px;}
+  .cal-dow{font-size:11.5px; text-align:center; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; padding-bottom:4px; font-weight:600;}
   .cal-cell{
-    min-height:56px; border-radius:8px; border:1px solid var(--border); padding:6px 7px; position:relative;
+    min-height:64px; border-radius:9px; border:1px solid var(--border); padding:7px 8px; position:relative;
     background:var(--surface-2); cursor:pointer; transition:transform .12s, box-shadow .12s;
   }
   .cal-cell:hover{transform:translateY(-1px); box-shadow:0 3px 10px rgba(15,42,71,.12); border-color:var(--blue);}
   .cal-cell.blank{background:transparent; border:none; cursor:default;}
   .cal-cell.blank:hover{transform:none; box-shadow:none; border-color:transparent;}
-  .cal-cell .daynum{font-family:'IBM Plex Mono'; font-size:12px; font-weight:700; color:var(--ink);}
+  .cal-cell .daynum{font-family:'IBM Plex Mono'; font-size:12px; font-weight:600; color:var(--ink-soft);}
   .cal-cell .stamp{
-    font-size:9.5px; text-transform:uppercase; letter-spacing:.03em;
-    font-weight:800; margin-top:4px; display:inline-block; padding:2px 6px; border-radius:5px;
+    font-size:10.5px; text-transform:uppercase; letter-spacing:.03em;
+    font-weight:700; margin-top:5px; display:inline-block; padding:2px 6px; border-radius:5px;
   }
-  .cal-cell .times{font-family:'IBM Plex Mono'; font-size:10px; color:var(--text-secondary); margin-top:3px; line-height:1.35; font-weight:600;}
-  .cal-cell.st-present{background:var(--present-bg); border-left:3px solid var(--present);}
-  .cal-cell.st-halfday{background:var(--halfday-bg); border-left:3px solid var(--halfday);}
-  .cal-cell.st-absent{background:var(--absent-bg); border-left:3px solid var(--absent);}
-  .cal-cell.st-holiday, .cal-cell.st-closed{background:var(--holiday-bg); border-left:3px solid var(--holiday);}
-  .cal-cell.st-field{background:var(--field-bg); border-left:3px solid var(--field);}
-  .cal-cell.st-holidayAbsent{background:var(--holidayAbsent-bg); border-left:3px solid var(--holidayAbsent);}
-  .cal-cell.st-sunday{background:var(--sunday-bg); opacity:.8;}
+  .cal-cell .times{font-family:'IBM Plex Mono'; font-size:11px; color:var(--text-secondary); margin-top:4px; line-height:1.4;}
+  .cal-cell.st-present{background:var(--present-bg);}
+  .cal-cell.st-halfday{background:var(--halfday-bg);}
+  .cal-cell.st-absent{background:var(--absent-bg);}
+  .cal-cell.st-holiday, .cal-cell.st-closed{background:var(--holiday-bg);}
+  .cal-cell.st-field{background:var(--field-bg);}
+  .cal-cell.st-holidayAbsent{background:var(--holidayAbsent-bg);}
+  .cal-cell.st-leave{background:var(--leave-bg);}
+  .cal-cell.st-sunday{background:var(--sunday-bg); opacity:.75;}
   .stamp.st-present{background:var(--present); color:#fff;}
   .stamp.st-halfday{background:var(--halfday); color:#fff;}
   .stamp.st-absent{background:var(--absent); color:#fff;}
   .stamp.st-holiday, .stamp.st-closed{background:var(--holiday); color:#fff;}
   .stamp.st-holidayAbsent{background:var(--holidayAbsent); color:#fff;}
+  .stamp.st-leave{background:var(--leave); color:#fff;}
   .stamp.st-field{background:var(--field); color:#fff;}
 
-  .team-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:10px; margin-bottom:14px;}
+  .team-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin-bottom:18px;}
   .team-card{
-    border:1px solid var(--border); border-radius:var(--radius); padding:13px; background:var(--surface);
+    border:1px solid var(--border); border-radius:var(--radius); padding:16px; background:var(--surface);
     box-shadow:var(--shadow); transition:box-shadow .2s, transform .2s;
   }
   .team-card:hover{box-shadow:var(--shadow-hover); transform:translateY(-2px);}
-  .team-card .card-head{display:flex; align-items:center; gap:9px; margin-bottom:10px;}
+  .team-card .card-head{display:flex; align-items:center; gap:10px; margin-bottom:12px;}
   .team-card .avatar{
-    width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-    color:#fff; font-weight:800; font-size:13.5px; flex:none;
+    width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    color:#fff; font-weight:700; font-size:13.5px; flex:none;
   }
-  .team-card .name{font-weight:700; font-size:14px; margin:0; color:var(--ink);}
-  .team-card .rate{font-family:'IBM Plex Mono'; font-size:11.5px; color:var(--text-secondary); margin:1px 0 0; font-weight:600;}
-  .team-card .stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:6px;}
-  .team-card .stat{background:var(--surface-2); border-radius:8px; padding:7px 9px; border-left:3px solid var(--border);}
-  .team-card .stat .stat-label{font-size:9.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-secondary); font-weight:700;}
-  .team-card .stat .stat-value{font-family:'IBM Plex Mono'; font-size:15px; font-weight:800; margin-top:2px; color:var(--ink);}
+  .team-card .name{font-weight:600; font-size:14px; margin:0; color:var(--ink);}
+  .team-card .rate{font-family:'IBM Plex Mono'; font-size:11.5px; color:var(--text-secondary); margin:1px 0 0;}
+  .team-card .stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .team-card .stat{
+    background:var(--surface-2); border-radius:8px; padding:8px 10px 8px 12px;
+    border-left:3px solid var(--border);
+  }
+  .team-card .stat .stat-label{font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); font-weight:600;}
+  .team-card .stat .stat-value{font-family:'IBM Plex Mono'; font-size:15px; font-weight:700; margin-top:2px; color:var(--ink);}
   .team-card .stat.stat-present{border-left-color:var(--present);}
   .team-card .stat.stat-present .stat-value{color:var(--present);}
   .team-card .stat.stat-field{border-left-color:var(--field);}
   .team-card .stat.stat-field .stat-value{color:var(--field);}
-  .team-card .stat.stat-holidayAbsent{border-left-color:var(--holiday);}
-  .team-card .stat.stat-holidayAbsent .stat-value{color:var(--holiday);}
+  .team-card .stat.stat-holidayAbsent{border-left-color:var(--holidayAbsent);}
+  .team-card .stat.stat-holidayAbsent .stat-value{color:var(--holidayAbsent);}
+  .team-card .stat.stat-leave{border-left-color:var(--leave);}
+  .team-card .stat.stat-leave .stat-value{color:var(--leave);}
   .team-card .stat.stat-halfday{border-left-color:var(--halfday);}
   .team-card .stat.stat-halfday .stat-value{color:var(--halfday);}
   .team-card .stat.stat-absent{border-left-color:var(--absent);}
@@ -335,11 +355,10 @@
   .print-only{display:none;}
 
   .log-toolbar{
-    display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap;
-    background:var(--surface-2); border:1px solid var(--border); border-radius:999px;
-    padding:5px 6px 5px 12px;
+    display:inline-flex; align-items:center; gap:8px; flex-wrap:nowrap;
+    max-width:100%; overflow-x:auto; scrollbar-width:thin;
   }
-  .log-toolbar-divider{width:1px; height:18px; background:var(--border); flex:none;}
+  .log-toolbar-divider{display:none;}
   .month-year-shortcut{
     display:inline-flex; align-items:center; gap:6px; margin-right:4px;
   }
@@ -427,17 +446,18 @@
     body.print-cutoff-log #payrollModalOverlay div[style*="overflow-x:auto"]{ overflow:visible !important; }
     body.print-cutoff-log #payrollModalOverlay .signatory-block{ margin-top:10px; padding-top:8px; break-inside:avoid; page-break-inside:avoid; }
     body.print-cutoff-log #payrollModalOverlay .signatory-name{ color:#000; }
+    body.print-cutoff-log #payrollModalOverlay .signatory-line{ border-top-color:#000; }
     body.print-cutoff-log #payrollModalOverlay .signatory-overlay{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     body.print-cutoff-log{ background:#fff !important; background-image:none !important; }
   }
 
   table{width:100%; border-collapse:collapse; font-size:12.5px;}
   thead th{
-    text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft);
-    padding:7px 8px; border-bottom:2px solid var(--blue-light); font-weight:800;
+    text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--navy-2);
+    padding:8px 8px; border-bottom:2px solid var(--gold-light); font-weight:700;
+    background:var(--surface-2);
   }
-  tbody td{padding:6px 8px; border-bottom:1px solid var(--border); font-family:'IBM Plex Mono'; font-size:12px; font-weight:500;}
-  tbody tr:nth-child(even){background:var(--surface-2);}
+  tbody td{padding:5px 8px; border-bottom:1px solid var(--border); font-family:'IBM Plex Mono'; font-size:12px;}
   tbody tr{cursor:pointer;}
 
   .cell-wrap{position:relative; display:inline-flex; align-items:center; gap:5px;}
@@ -452,7 +472,7 @@
   .cell-delete-btn:hover{background:var(--absent); filter:brightness(.88);}
   tbody tr:hover{background:var(--blue-light);}
   .status-chip{
-    display:inline-block; padding:3px 9px; border-radius:999px; font-size:10.5px; font-weight:800;
+    display:inline-block; padding:3px 8px; border-radius:999px; font-size:11.5px; font-weight:600;
     font-family:'Inter'; text-transform:uppercase; letter-spacing:.02em; cursor:pointer; white-space:nowrap;
   }
   .status-chip:hover{filter:brightness(0.94);}
@@ -462,6 +482,7 @@
   .status-chip.st-holiday, .status-chip.st-closed{background:var(--holiday-bg); color:var(--holiday);}
   .status-chip.st-field{background:var(--field-bg); color:var(--field);}
   .status-chip.st-holidayAbsent{background:var(--holidayAbsent-bg); color:var(--holidayAbsent);}
+  .status-chip.st-leave{background:var(--leave-bg); color:var(--leave);}
   .status-chip.st-sunday{background:var(--sunday-bg); color:var(--sunday);}
   .status-chip.st-pending{background:transparent; color:var(--text-muted); border:1px dashed var(--border);}
   .status-chip.st-unmarked{background:transparent; color:var(--text-muted); border:1px solid var(--border);}
@@ -476,16 +497,16 @@
   .time-filter input{padding:4px 6px; font-size:11.5px;}
   .clear-link{font-size:11px; color:var(--blue); background:none; border:none; cursor:pointer; font-weight:500;}
 
-  .holiday-board{display:flex; flex-direction:column; gap:8px;}
+  .holiday-board{display:flex; flex-direction:column; gap:10px;}
   .holiday-pin{
-    display:flex; align-items:center; gap:16px; border-radius:10px; padding:11px 16px;
-    border-left:5px solid var(--holiday); background:var(--holiday-bg);
+    display:flex; align-items:center; gap:16px; border-radius:12px; padding:14px 18px;
+    border-left:6px solid var(--holiday); background:var(--holiday-bg);
   }
   .holiday-pin .date{
-    font-family:'IBM Plex Mono'; font-size:13px; color:var(--holiday); font-weight:800;
+    font-family:'IBM Plex Mono'; font-size:13.5px; color:var(--holiday); font-weight:700;
     min-width:150px; flex:none;
   }
-  .holiday-pin .name{font-size:15px; font-weight:800; color:var(--ink); flex:1; min-width:0;}
+  .holiday-pin .name{font-size:15.5px; font-weight:700; color:var(--ink); flex:1; min-width:0;}
   .holiday-pin .type{
     font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--holiday);
     background:var(--surface); padding:5px 12px; border-radius:999px; flex:none; white-space:nowrap;
@@ -503,30 +524,29 @@
 
   .brand-footer{
     position:relative; overflow:hidden; width:100%; margin-top:36px; min-height:34px;
-    background:linear-gradient(90deg, #1E3A8A 0%, #2547D0 55%, #2563EB 100%);
+    background:linear-gradient(100deg, #060D1F 0%, #0A1A3F 30%, #132E8C 68%, #1D4ED8 100%);
+    border-top:2px solid var(--gold);
     -webkit-print-color-adjust:exact; print-color-adjust:exact;
   }
 
   .entry-form{display:flex; flex-wrap:wrap; gap:10px; align-items:end;}
   .entry-form > div{flex:1; min-width:108px;}
   .entry-form .full{flex:1 1 100%; min-width:100%;}
-  .entry-form label{font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); display:block; margin-bottom:4px; font-weight:600;}
+  .entry-form label{font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); display:block; margin-bottom:4px; font-weight:600;}
   .entry-form select, .entry-form input{width:100%;}
-  .time-scroll-group{display:flex; gap:4px;}
-  .time-scroll-group select{
-    flex:1; min-width:0; padding:8px 4px; text-align:center; cursor:pointer;
-    max-height:160px; overflow-y:auto;
-  }
-  .time-scroll-group select.ts-ampm{flex:0 0 58px;}
+  .time-input-group{display:flex; gap:4px; align-items:center;}
+  .time-input-group .time-box{flex:1; min-width:0; font-family:'IBM Plex Mono'; letter-spacing:.02em; text-align:center; padding-left:4px; padding-right:4px;}
+  .time-input-group .time-colon{color:var(--text-muted); font-weight:700; font-family:'IBM Plex Mono';}
+  .time-input-group select{flex:none; width:68px;}
   @media (max-width: 560px){
     .entry-form > div{flex:1 1 100%; min-width:100%;}
   }
   .save-btn{
     font-family:'Inter'; font-weight:700; font-size:13.5px; padding:11px 22px; border-radius:14px; border:none;
-    background:var(--blue); color:#fff; cursor:pointer; box-shadow:0 3px 10px rgba(37,99,235,.3);
+    background:linear-gradient(135deg, var(--blue) 0%, var(--blue-dark) 100%); color:#fff; cursor:pointer; box-shadow:0 3px 10px rgba(29,78,216,.32);
     transition:background .15s, transform .1s, box-shadow .15s;
   }
-  .save-btn:hover{background:var(--blue-dark); transform:translateY(-1px); box-shadow:0 5px 14px rgba(37,99,235,.4);}
+  .save-btn:hover{background:linear-gradient(135deg, var(--blue-dark) 0%, var(--navy) 100%); transform:translateY(-1px); box-shadow:0 5px 14px rgba(29,78,216,.42);}
   .save-btn:disabled{opacity:.5; cursor:not-allowed; transform:none;}
   .entry-status{font-size:12px; margin-top:10px; min-height:16px;}
   .entry-status.ok{color:var(--present);}
@@ -549,7 +569,7 @@
   .adv-chevron{font-size:11px; color:var(--text-secondary); transition:transform .2s; flex:none;}
   .adv-settings[open] .adv-chevron{transform:rotate(180deg);}
   .adv-settings-body{padding:12px 4px 2px;}
-  .pill{font-size:10.5px; background:var(--blue-light); color:var(--blue); padding:3px 9px; border-radius:999px; font-weight:600;}
+  .pill{font-size:11.5px; background:var(--blue-light); color:var(--blue); padding:3px 9px; border-radius:999px; font-weight:600;}
 
   .time-chip{display:inline-flex; align-items:center; gap:4px; cursor:default;}
   .half-day-tag{
@@ -583,7 +603,7 @@
   }
   .date-nav-btn:hover{background:var(--blue-light); color:var(--blue);}
   .date-popover-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:3px;}
-  .date-popover-grid .dow{font-size:9.5px; text-transform:uppercase; color:var(--text-muted); text-align:center; font-weight:600; padding-bottom:4px;}
+  .date-popover-grid .dow{font-size:10.5px; text-transform:uppercase; color:var(--text-muted); text-align:center; font-weight:600; padding-bottom:4px;}
   .day-cell{
     font-family:'IBM Plex Mono'; font-size:11.5px; border:none; background:transparent; border-radius:8px; padding:6px 0;
     cursor:pointer; color:var(--ink);
@@ -644,28 +664,32 @@
   .signatory-item{display:flex; flex-direction:column; align-items:center; text-align:center; background:transparent;}
   .signatory-name-wrap{display:flex; flex-direction:column; align-items:center; width:100%;}
   .signatory-sig-slot{
-    height:52px; width:100%; display:flex; align-items:flex-end; justify-content:center;
-    pointer-events:none; margin-bottom:2px;
+    height:68px; width:100%; position:relative; display:flex; align-items:flex-end; justify-content:center;
+    pointer-events:none; margin-bottom:6px;
   }
   .signatory-overlay{
-    max-height:50px; max-width:96%; width:auto; object-fit:contain; background:transparent;
-    mix-blend-mode:multiply; opacity:.92; display:block;
+    position:relative; max-height:56px; max-width:132%; width:auto; object-fit:contain; background:transparent;
+    mix-blend-mode:multiply; opacity:.92; display:block; margin-bottom:-9px; z-index:2;
+  }
+  .signatory-line{
+    width:78%; max-width:150px; border-top:1px solid var(--border); margin:0 auto 4px;
   }
   .signatory-name{
     font-family:'Inter'; font-size:13px; font-weight:700; letter-spacing:.01em;
     color:var(--blue); margin:0; line-height:1.3; width:100%;
   }
-  .signatory-role{font-size:10.5px; color:var(--text-muted); margin:2px 0 0; font-weight:500;}
-  .yearly-controls{display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;}
-  .yearly-controls .field-group{display:flex; align-items:center; gap:8px;}
-  .yearly-controls label{font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-secondary); font-weight:700;}
-  .yearly-controls select{min-width:140px; font-size:13px; padding:8px 11px; font-weight:600;}
+  .signatory-role{font-size:11.5px; color:var(--text-muted); margin:2px 0 0; font-weight:500;}
+  .yearly-controls{display:flex; align-items:flex-end; gap:12px; margin-bottom:20px; flex-wrap:wrap;}
+  .yearly-field{display:flex; flex-direction:column; gap:6px;}
+  .yearly-field label{font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--text-muted); font-weight:700;}
+  .yearly-field select{min-width:170px; font-size:13.5px; padding:9px 12px; border-radius:11px; border:1px solid var(--border); background:var(--surface); color:var(--ink); font-weight:600; font-family:'Inter';}
   .yearly-enter-btn{
-    font-family:'Inter'; font-size:12.5px; font-weight:800; background:var(--blue); border:none; color:#fff;
-    padding:9px 18px; border-radius:999px; cursor:pointer; transition:background .15s, transform .1s;
+    display:inline-flex; align-items:center; gap:6px; font-family:'Inter'; font-weight:700; font-size:13.5px;
+    background:linear-gradient(135deg, var(--blue) 0%, var(--navy-3) 100%); color:#fff; border:none; border-radius:11px; padding:10px 20px; cursor:pointer;
+    box-shadow:0 4px 12px rgba(29,78,216,.3); transition:background .15s, transform .15s, box-shadow .15s;
   }
-  .yearly-enter-btn:hover{background:var(--blue-dark); transform:translateY(-1px);}
-  .yearly-enter-btn:disabled{opacity:.6; cursor:wait; transform:none;}
+  .yearly-enter-btn:hover{background:linear-gradient(135deg, var(--blue-dark) 0%, var(--navy) 100%); transform:translateY(-1px); box-shadow:0 6px 16px rgba(29,78,216,.38);}
+  .yearly-enter-btn:active{transform:translateY(0);}
   .yearly-summary-row td.total-col{font-family:'Inter'; font-weight:700;}
   .simple-num{font-family:'IBM Plex Mono'; font-weight:600;}
   .simple-num.present{color:var(--present);}
@@ -688,29 +712,37 @@
   .yearly-pane-month{padding-left:2px;}
 
   .yearly-card-grid{
-    display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:10px;
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:16px;
   }
   .yearly-month-card{
-    background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:13px;
-    cursor:pointer; text-align:left; transition:transform .15s, box-shadow .15s, border-color .15s;
-    display:flex; flex-direction:column; gap:10px;
+    position:relative; background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:18px 18px 16px;
+    cursor:pointer; text-align:left; transition:transform .18s cubic-bezier(.4,0,.2,1), box-shadow .18s, border-color .18s;
+    display:flex; flex-direction:column; gap:14px; overflow:hidden;
   }
-  .yearly-month-card:hover{transform:translateY(-3px); box-shadow:0 10px 26px rgba(20,30,50,.12); border-color:var(--blue);}
-  .yearly-month-card.is-empty{cursor:default; opacity:.6;}
+  .yearly-month-card::before{
+    content:''; position:absolute; inset:0 0 auto 0; height:3px; background:var(--month-accent, var(--border));
+    opacity:0; transition:opacity .18s;
+  }
+  .yearly-month-card:hover{transform:translateY(-4px); box-shadow:0 14px 32px rgba(20,30,50,.14); border-color:var(--month-accent, var(--blue));}
+  .yearly-month-card:hover::before{opacity:1;}
+  .yearly-month-card.is-empty{cursor:default;}
   .yearly-month-card.is-empty:hover{transform:none; box-shadow:none; border-color:var(--border);}
-  .yc-head{display:flex; align-items:center; justify-content:space-between; gap:10px;}
-  .yc-title{font-family:'Inter'; font-weight:700; font-size:14px; color:var(--ink);}
-  .yc-title small{display:block; font-weight:500; font-size:11px; color:var(--text-muted); margin-top:1px;}
+  .yearly-month-card.is-empty:hover::before{opacity:0;}
+  .yc-head{display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
+  .yc-title{font-family:'Inter'; font-weight:700; font-size:15px; color:var(--ink); letter-spacing:-.01em;}
+  .yc-title small{display:block; font-weight:500; font-size:11.5px; color:var(--text-muted); margin-top:2px; letter-spacing:.02em;}
   .yc-ring text{font-family:'IBM Plex Mono';}
-  .yc-stats{display:flex; flex-wrap:wrap; gap:8px 14px;}
-  .yc-stat{display:flex; align-items:center; gap:6px; font-family:'IBM Plex Mono'; font-size:12px; font-weight:600; color:var(--ink-soft);}
+  .yc-ring .yc-ring-empty{stroke:var(--border); stroke-dasharray:2 5;}
+  .yc-stats{display:flex; flex-wrap:wrap; gap:9px 16px; border-top:1px dashed var(--line); padding-top:12px;}
+  .yc-stat{display:flex; align-items:center; gap:6px; font-family:'IBM Plex Mono'; font-size:12.5px; font-weight:600; color:var(--ink-soft);}
   .yc-dot{width:8px; height:8px; border-radius:50%; flex:none;}
   .yc-cta{
-    display:flex; align-items:center; gap:5px; font-family:'Inter'; font-size:11.5px; font-weight:700;
-    color:var(--blue); margin-top:2px;
+    display:flex; align-items:center; gap:5px; font-family:'Inter'; font-size:12px; font-weight:700;
+    color:var(--blue); margin-top:auto;
   }
-  .yc-cta svg{transition:transform .15s;}
+  .yc-cta svg{transition:transform .18s;}
   .yearly-month-card:hover .yc-cta svg{transform:translateX(3px);}
+  .yc-empty-note{font-family:'Inter'; font-size:12px; color:var(--text-muted); font-weight:500; margin-top:auto;}
 
   .yearly-back-btn{
     display:inline-flex; align-items:center; gap:7px; font-family:'Inter'; font-size:12px; font-weight:700;
@@ -722,12 +754,16 @@
   .yearly-month-stat-strip{display:flex; flex-wrap:wrap; gap:10px; margin-bottom:16px;}
   .yearly-month-stat-strip .kpi-card{flex:1 1 110px; padding:12px 14px;}
 
+  .yearly-summary-strip .kpi-card{border-left:3px solid var(--accent, var(--border)); padding-left:16px;}
+  .yearly-summary-strip .kpi-card .value{font-size:26px;}
+
   @media (max-width:640px){
     .yearly-card-grid{grid-template-columns:repeat(auto-fill, minmax(150px, 1fr));}
   }
   .modal-head{
-    padding:18px 22px; background:linear-gradient(90deg, #1E3A8A 0%, #2547D0 55%, #2563EB 100%); color:#fff;
+    padding:22px 26px; background:linear-gradient(100deg, #060D1F 0%, #0A1A3F 30%, #132E8C 68%, #1D4ED8 100%); color:#fff;
     display:flex; align-items:flex-start; justify-content:space-between; gap:14px;
+    border-bottom:2px solid var(--gold);
   }
   .modal-head h2{margin:0 0 4px; font-size:19px; font-weight:700;}
   .modal-head p{margin:0; font-size:12.5px; color:rgba(255,255,255,.82);}
@@ -736,7 +772,7 @@
     background:rgba(255,255,255,.16); color:#fff; cursor:pointer; flex:none; transition:background .15s;
   }
   .modal-close:hover{background:rgba(255,255,255,.28);}
-  .modal-body{padding:18px 20px 22px;}
+  .modal-body{padding:22px 26px 26px;}
   .modal-body .holiday-board{gap:10px;}
   .modal-foot-note{font-size:11px; color:var(--text-muted); margin-top:16px; line-height:1.6;}
 
@@ -747,20 +783,38 @@
     color:#fff; font-weight:700; font-size:18px; flex:none;
   }
   .summary-stat-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-top:6px;}
-  .summary-stat{border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 14px; background:var(--surface-2);}
-  .summary-stat .stat-label{font-size:9.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); font-weight:700;}
+  .summary-stat{
+    border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 14px; background:var(--surface-2);
+    text-align:left; cursor:pointer; width:100%; font-family:inherit; transition:border-color .15s, transform .12s, box-shadow .15s;
+  }
+  .summary-stat:hover{border-color:var(--blue); transform:translateY(-1px); box-shadow:0 6px 16px rgba(20,30,50,.08);}
+  .summary-stat.is-active{border-color:var(--blue); background:var(--field-bg); box-shadow:0 0 0 2px rgba(29,78,216,.18) inset;}
+  .summary-stat .stat-label{font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); font-weight:700;}
   .summary-stat .stat-value{font-family:'IBM Plex Mono'; font-size:19px; font-weight:600; margin-top:4px; color:var(--ink);}
   .summary-stat.accent-absent .stat-value{color:var(--absent);}
   .summary-stat.accent-present .stat-value{color:var(--present);}
   .summary-stat.accent-field .stat-value{color:var(--field);}
   .summary-stat.accent-holiday .stat-value{color:var(--holiday);}
+  .summary-stat.accent-holidayAbsent .stat-value{color:var(--holidayAbsent);}
+  .summary-stat.accent-leave .stat-value{color:var(--leave);}
+
+  #summaryModalDetail:empty{display:none;}
+  .summary-detail-heading{font-family:'Inter'; font-size:12.5px; font-weight:700; color:var(--ink); margin:18px 0 10px;}
+  .summary-detail-list{display:flex; flex-direction:column; gap:6px; max-height:280px; overflow-y:auto;}
+  .summary-detail-row{
+    display:flex; align-items:center; gap:14px; padding:8px 12px; border-radius:8px; background:var(--surface-2);
+    font-family:'IBM Plex Mono'; font-size:12px;
+  }
+  .summary-detail-row .sdr-day{font-weight:700; color:var(--ink); min-width:60px; flex:none;}
+  .summary-detail-row .sdr-weekday{color:var(--text-muted); min-width:90px; flex:none;}
+  .summary-detail-row .sdr-detail{color:var(--ink-soft); flex:1;}
 
   /* ---- Monthly history selector ---- */
   .history-bar{
     display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:var(--surface-2); border:1px solid var(--border);
     border-radius:999px; padding:5px 6px 5px 12px; margin:0 0 14px;
   }
-  .history-bar .history-label{font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:700; margin-right:2px;}
+  .history-bar .history-label{font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:700; margin-right:2px;}
   .history-bar select{padding:6px 9px; font-size:12px; border-radius:999px;}
   .history-nav-btn{
     display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:50%; border:none;
@@ -771,7 +825,7 @@
 
   /* ---- Working Days modal: simple read-only month grid ---- */
   .mini-cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:5px;}
-  .mini-cal-dow{text-align:center; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); padding-bottom:4px;}
+  .mini-cal-dow{text-align:center; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); padding-bottom:4px;}
   .mini-cal-cell{
     aspect-ratio:1; display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius:9px;
     font-family:'IBM Plex Mono'; font-size:12.5px; font-weight:600; color:var(--ink-soft); background:var(--surface-2);
@@ -786,6 +840,15 @@
 
   /* ---- Field Duty modal: scrollable assignment list ---- */
   .field-duty-list{max-height:420px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;}
+  .field-duty-group{display:flex; flex-direction:column; gap:8px;}
+  .field-duty-group + .field-duty-group{margin-top:6px; padding-top:14px; border-top:1px solid var(--line);}
+  .field-duty-group-head{display:flex; align-items:center; gap:8px; padding:0 2px;}
+  .field-duty-group-head .fd-avatar{
+    display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:50%;
+    background:var(--field-bg); color:var(--field); font-family:'Inter'; font-weight:700; font-size:11px; flex:none;
+  }
+  .field-duty-group-head .fd-group-name{font-weight:700; font-size:13.5px; color:var(--ink);}
+  .field-duty-group-head .fd-group-count{font-size:11.5px; color:var(--text-muted); margin-left:auto; font-weight:600;}
   .field-duty-item{
     display:flex; align-items:center; gap:12px; padding:10px 14px; border:1px solid var(--border);
     border-radius:var(--radius-sm); background:var(--surface-2);
@@ -905,24 +968,28 @@
           <div class="signatory-item">
             <div class="signatory-name-wrap">
               <div class="signatory-sig-slot"><img class="signatory-overlay" src="data:image/png;base64,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" alt="Signature of Karl Jenard Del Rio"></div>
+              <div class="signatory-line"></div>
               <p class="signatory-name">KARL JENARD DEL RIO</p>
             </div>
           </div>
           <div class="signatory-item">
             <div class="signatory-name-wrap">
               <div class="signatory-sig-slot"><img class="signatory-overlay" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAN8AAACMCAYAAAD843x1AAALI0lEQVR42u2deawdVR3HP+W1ZX1Q2iO0EgcK2KCQQgOUIAiUYIkGISzFUIMGhUhYQlNAtIoaDKBICqSY1Ai4sIlswRANu8UCUjAIFCo7nLIU/BFqX8HSUp5/zO/KcLnv9i1zZ+be+/0kN3NmubP8zvme39nmDAghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBCiwoySCVpLCMlE4LdAn1mcJYsIia/1ovsA6Gmwa7FZ/GLO1+oHMIuKzzZiI5kgVxFMCSHpdzH0AIeaxVG1H3ANsH8Iye55C8/DZ5T03P0hJFcoBcjzlZH4dgGW1dabeaC8vVRWfMA+ZnFJ0cIbzHOLTzJaJig28ZnFUXWCyQUlfBU7u0l0t2dENHmIif+qDrHBg5nVk5UqVOws0tvdZxYPrsK9lOH51NCjYmeRie00YIGvjjOL/6nIra0twRYHefAFpQyJr5sbFl4v4Zq/8+URSh2q87VKdPtmhHdrRYtYL5VwzcQzoqeUSuT5us3bZVmj2JLn6xTRnZUR3tlt0KDwmmJNnk/erth7nejBNwq+7nUe/JVSjDxfHgnq6ozwZrRJ8/kEX75Z8HWP88xJfXvyfN3j7erYyZevKBbl+dpNdEdmhHd4G3YWb+3LVwu0Wa8Hl0k+8nzDTUSrgc3b0Ns18nyPF3jNH/ryAslHnm+4xczNgfvbfGjUNM88+gu85nf9mtdIPvJ8QxHdfsBiX92tAzqIpykJS3ztILwbgWPavJhZz3ZKwhJfOxQzAVabxV5F+7DtOMWDb8saqvMNRXgLJbwR8wtf/kSmkOcbrPCmm8VHFN0j5nAvtl8uU0h8GxReF7zo+aySscRXFdH1Aqu6RHgA9ysZq85XFbpCeJlB1TcXmKlBwYO4JT4VNavIIb68p6DrzfHlfMkmH0ZJeG37vC8BOxT1vJnGq0Vm8aAG+8cDk311HdALbGoW75bMOlh8mYQx1Sw+2SXiqz3zBidyCiHpASYCWwIfAlsA25CODd0R+IwLZwKwQ863OsMs/lVS+ySjOyARzvTgtXkJL4TkSMBIv6vQX/Dz9AJTSEevTAG2999UX9azMoSkFbeyhvRVpaeBIzPbLzSL8yQdeb5WT7/eTrwFLCedTGm5N4y8STq138tm8bUq2Vl0TlfDsXmdyKdzvxeYBOwyiL/0ZTzFW57oVwAReMe3r/Nj1nu4H3iPdL7NtcC//TwvmcV1gxBC9KLidWbx6wVkcKd4UG8yiP8ninlFeaoQksNCSOZW5LlXFOmhQ0ge9S8Rzcz5vBvL87Uv44u6kFm8vULPvW3B19vTbXBnDoI7D5gH3ALM8vpqYhaXd5v42r2f748eodvSfbRVETDz3cJzgR6zeCxwqu+eLs/XZpjFJZ5zrqBLPvoSQjLGg39pk/u9CTi6Vp+uE2ItHm/uRvF1wgiX2+saBTqdfX35QEHiqc0T89oQ/3eUC+xo0v7XbOb4o4zw1Hra5t6g33/ndcGznl5wY8tCt+1pgzx+diY+rMH+U+o9X7fSccPLOj03Lbq/bTDX82/BX5rZ9KBZ3K/BcZ0wY5zqfA3qf7X+uRkZIW5sFtciWiXMx4A9MpvmmMXLGhy3GfCur95qFo+S9Trsfb7aV2K9uDMBeN8bZFYDe5vFf3WIdz+pSiWNZp7MPx1dq6dubRZXSnYdKL5MQgge8SeQfv98C2BZZgzkB8AvSfuaFpvFD3NKkBNc9GNJR7PUWib/C6wE+szimhye74qCTRobCO9Mszi/Wd0ts+9Ks3hih3j7cR6vPV6E7vVlj3v3Pj5qyOwBxnmcPdCxdb5BGO2rwNXAVhW9xYeBS8ziDRtIzCvM4qSCbHYMcCNwlVn8dvY+st0G9Z4vhOQ7wMIqFDNDSEYDnyYdqD7dvfA00kHrhVaLulZ8TSJnV4+IKaTjOXvdU47x8Daes60hfUv+FdJm93dJx2e+Tzo+cyPP6cb68eOBzXx9e9JXdcb7uYfCE6SDo7NvFswhnbtlArCJbxvry7V+75tmcuB1fDS+tN/3bZLJndd7jt1P+trRetLvQJyTuealpGNQz89suxOoDTl7G7gBaNTl8wDwvN/D+sz2fk+D6zMlsS38HrZ0r7GJhz/l99oKVgFPuZ0j6fjcCCwzi8+1Ku2pj6UaGcAi4ABZYsSsIH2rYwmwCFgy0rc5WonE90khjAEOBb4CHAh8fpB/XeuesOaFavWdzYd5K88C93lun60vzQcu9vA7edQhG9ggO60+wE1mcZbv2wy4rO6earwA7G8WVygldan4Qkime7l+kpf1d/JfUpFbfBz4O/Bns/inQTzPecC5RfaNhZA8TvoC70Vm8ZwmjSkD1mlEB4jPc9spwF7AbsBBwO4tuNRTwB3+W2wW36vI8xf+Imuza2Y7y4GTzaI+Dz0MRpecqMYAs4FvAAfncMolwN1eXHvYLPYpivMVo7xdm4nPhx/NHUKxbzFpC9kzpC2Ly4Fn8uqP6wAhfNYzq0DaIttL2pK6o5cQxg3w15XAY8BDwA1m8YnhiE7Cq2ix0992XkDzfpSVpJ3fC8ziy4qG4QmgCX2kXSJjSbtKxjU7uF5IISRvkM529rFjfBCBSXwV8XzeoTqftE+rntXAWaoTjMi+tclx15vF0TmeNwFuA/bIfkKNun7IOpFJeFUQX5Pc+GyzeLFMmxt3eYLPtYpgFiMwzadJvMU31w8A+EEmvn/swWMUJSUVO0NIrvVGkix7mcV/yJwtK3K+ZRa3beH5m7EzcBj+ypC8XkmeL4TkD8DXVOkuvMg5uQXnng1cWx+PDcT4vOK7GsVOCa9Yat7mvRxFNxl40Ve/ZRZ/M0CxVPFb1TqfyNULjRlgstxdc7zGrsBSX73MLM5pcMwED65RrLSeoU6gdJ9MlrvwTgfWhpBcNMAhZ47w/FO9KLkUuMMsjmokPOdRX05TzFQzsfxUE+DkZssvD2TLEJJ9RmLjEJIZmYmM/jnI/yheRdeIb8DEHkLy3HCEEEJyV0Z0T+d1P0J1vo4S3gYO2Xmong64t7Y+1AaTEJLaPCvfU+xIfJ0svAsGKZILhyrkEbRSLvD//1wxJPF1Mt/fgJjmuBDmNTlmEvB6ZtPYwXxerAl7Klokvm7icwNsv6SJ6I4Hfp+j6ITE1zVFztMzRcRm84j21f0vO0HtKrPYilnY7lcMSXydzJY17Q0gzqke7A0huRQ4I7P7GrN4fAsyhG968CxFj8TXyfzNlwO9GHx9JlwT3hfM4kMtvKe57okfUfQUh8bvlVP0rLVOzjaL1/u2j3UVuBgq8zEUIfF1ivj2Jp1vZkCqMlmSaB0byQTFYxYf8TGWo4CtfPmlMoSXQXNtSnxdJ8RVvrzbNx1a0q0sVGxIfN0uxjsLLgKf4MErZX2Jr1vrgceVdOnZLvpXFQsSX7dyYEnXPUSml/i6nYkygcQnyuEImUDiE+VRVhHwWZle4utKQkgOADCL95R0C3e04Jm2CyFZ6hM3CYmvsiwi/SZ7WdzWgnO+Sjr72tIQkssVxRJflZlbgsc9rCCPe2oIyYmKYomvqrxYwjVntvDcJ9Wt/1qTM0l8VaWMsZUt61s0i1dkxq/OUvSKSlKWR9BUgfJ8Qkh8oit5QiaQ+EQ5PCkTSHyiHF6XCSQ+UQ5jZQKJr2spee6U6YoBiU+Uw74ygcQniud6mUCIklAnuzyfKFeA58gKEp8onvOBn8kMQpTj+S5S8VMIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIarK/wAv1uBTr331WAAAAABJRU5ErkJggg==" alt="Signature of Genesis Lopez"></div>
+              <div class="signatory-line"></div>
               <p class="signatory-name">GENESIS LOPEZ</p>
             </div>
           </div>
           <div class="signatory-item">
             <div class="signatory-name-wrap">
               <div class="signatory-sig-slot"><img class="signatory-overlay" src="data:image/png;base64,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" alt="Signature of Edison Ibarlin"></div>
+              <div class="signatory-line"></div>
               <p class="signatory-name">EDISON IBARLIN</p>
             </div>
           </div>
           <div class="signatory-item">
             <div class="signatory-name-wrap">
               <div class="signatory-sig-slot"><img class="signatory-overlay" src="data:image/png;base64,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" alt="Signature of John Laurence Aguilar"></div>
+              <div class="signatory-line"></div>
               <p class="signatory-name">JOHN LAURENCE AGUILAR</p>
             </div>
           </div>
@@ -945,15 +1012,18 @@
     </div>
     <div class="modal-body">
       <div class="yearly-controls">
-        <div class="field-group">
+        <div class="yearly-field">
           <label for="yearlyEmpSelect">Name</label>
           <select id="yearlyEmpSelect"></select>
         </div>
-        <div class="field-group">
+        <div class="yearly-field">
           <label for="yearlyYearSelect">Year</label>
           <select id="yearlyYearSelect"></select>
         </div>
-        <button class="yearly-enter-btn" id="yearlyEnterBtn" type="button">Enter</button>
+        <button class="yearly-enter-btn" id="yearlyEnterBtn" type="button">
+          Enter
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
       </div>
       <div class="yearly-slide-viewport">
         <div class="yearly-slide-track" id="yearlySlideTrack">
@@ -989,7 +1059,7 @@
     </div>
     <div class="modal-body">
       <div class="summary-stat-grid" id="summaryModalStats"></div>
-      <p class="modal-foot-note">Attendance rate is present + field duty days divided by present + field duty + absent days. Holiday-absent days are counted as present.</p>
+      <div id="summaryModalDetail"></div>
     </div>
   </div>
 </div>
@@ -1047,8 +1117,9 @@
 </div>
 <div class="wrap">
 
-
   <div id="kpiRow" class="kpi-row"></div>
+
+  <div id="teamOverviewRow"></div>
 
   <div class="panel" id="entryPanel">
     <p class="panel-title"><span>Update attendance</span></p>
@@ -1098,6 +1169,7 @@
           <option value="present">Present</option>
           <option value="absent">Absent</option>
           <option value="holidayAbsent">Holiday Absent</option>
+          <option value="leave">Leave</option>
           <option value="halfday">Half day</option>
           <option value="field">Field duty</option>
           <option value="others">Others</option>
@@ -1105,21 +1177,19 @@
       </div>
       <div id="entryTimeInWrap">
         <label for="entryTimeInHour">Time in</label>
-        <div class="time-scroll-group">
-          <select id="entryTimeInHour" aria-label="Time in hour"></select>
-          <select id="entryTimeInMin" aria-label="Time in minute"></select>
-          <select id="entryTimeInAmPm" class="ts-ampm" aria-label="Time in AM/PM"><option value="AM">AM</option><option value="PM">PM</option></select>
+        <div class="time-input-group">
+          <input type="text" id="entryTimeInHour" class="time-box" inputmode="numeric" autocomplete="off" maxlength="2" placeholder="HH" aria-label="Hour">
+          <span class="time-colon">:</span>
+          <input type="text" id="entryTimeInMinute" class="time-box" inputmode="numeric" autocomplete="off" maxlength="2" placeholder="MM" aria-label="Minute">
+          <select id="entryTimeInPeriod" aria-label="AM or PM">
+            <option value="AM">AM</option>
+            <option value="PM">PM</option>
+          </select>
         </div>
-        <input type="hidden" id="entryTimeIn">
       </div>
       <div id="entryTimeOutWrap" style="display:none;">
-        <label for="entryTimeOutHour">Time out</label>
-        <div class="time-scroll-group">
-          <select id="entryTimeOutHour" aria-label="Time out hour"></select>
-          <select id="entryTimeOutMin" aria-label="Time out minute"></select>
-          <select id="entryTimeOutAmPm" class="ts-ampm" aria-label="Time out AM/PM"><option value="AM">AM</option><option value="PM" selected>PM</option></select>
-        </div>
-        <input type="hidden" id="entryTimeOut" value="17:00">
+        <label for="entryTimeOut">Time out</label>
+        <input type="time" id="entryTimeOut" value="17:00">
       </div>
       <div id="entryNoteWrap" style="display:none;">
         <label for="entryNote" id="entryNoteLabel">Branch</label>
@@ -1145,22 +1215,7 @@
 const SHEET_ID = "1BUeSUuFzYnLnEVrmeNZuzpcrwgbxjMQytkIp0YMVlSw";
 const SNAPSHOT = JSON.parse(document.getElementById('snapshot-data').textContent);
 
-const MONTHS = [
-  {key:'JANUARY 2026', month:0, year:2026, label:'January'},
-  {key:'FEBRUARY 2026', month:1, year:2026, label:'February'},
-  {key:'MARCH 2026', month:2, year:2026, label:'March'},
-  {key:'APRIL 2026', month:3, year:2026, label:'April'},
-  {key:'MAY 2026', month:4, year:2026, label:'May'},
-  {key:'JUNE 2026', month:5, year:2026, label:'June'},
-  {key:'JULY 2026', month:6, year:2026, label:'July'},
-  {key:'AUGUST 2026', month:7, year:2026, label:'August'},
-  {key:'SEPTEMBER 2026', month:8, year:2026, label:'September'},
-  {key:'OCTOBER 2026', month:9, year:2026, label:'October'},
-  {key:'NOVEMBER 2026', month:10, year:2026, label:'November'},
-  {key:'DECEMBER 2026', month:11, year:2026, label:'December'},
-  {key:'JANUARY 2027', month:0, year:2027, label:'January'}
-];
-const ALL_EMPLOYEES = ['Karl','Edison','Genesis','Laurence'];
+const ALL_EMPLOYEES = ['Karl','Genesis','Edison','Laurence'];
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const WEEKDAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
@@ -1176,6 +1231,28 @@ function parseMonthKey(key){
   return {year, month};
 }
 
+// Auto-generates every month tab from START_YEAR through END_YEAR (inclusive),
+// plus one extra lookahead month past END_YEAR so the dashboard always has a
+// "next month" tab ready to go, just like the old hand-typed list did.
+// Bump END_YEAR whenever you want the dashboard to reach further into the
+// future \u2014 nothing else needs to change; every dropdown, the Yearly
+// Attendance report, and the History bar all read from this automatically.
+const MONTHS_START_YEAR = 2026;
+const MONTHS_END_YEAR = 2030;
+function generateMonths(startYear, endYear){
+  const months = [];
+  for(let y = startYear; y <= endYear; y++){
+    for(let mIdx = 0; mIdx < 12; mIdx++){
+      months.push({key: monthKey(y, mIdx), month: mIdx, year: y, label: MONTH_NAMES[mIdx]});
+    }
+  }
+  // One lookahead month (January of the year after END_YEAR) so there's
+  // always an upcoming tab available, mirroring the previous behavior.
+  months.push({key: monthKey(endYear+1, 0), month: 0, year: endYear+1, label: MONTH_NAMES[0]});
+  return months;
+}
+const MONTHS = generateMonths(MONTHS_START_YEAR, MONTHS_END_YEAR);
+
 // Company branch list, used to populate the "Update attendance" form's
 // branch field (Field duty entries) with type-to-filter support.
 const BRANCHES = [
@@ -1188,8 +1265,8 @@ const BRANCHES = [
   'San Francisco','San Pablo','San Pablo (Yamaha Exclusive)','Silang Cavite','Siniloan','Sta Cruz',
   'Sta Rosa (Yamaha Exclusive)','Sta. Rosa','Sto Tomas','Tanauan','Tanay','Tanza','Tarlac'
 ];
-const EMP_COLORS = {Karl:'#2563EB', Genesis:'#1E8A6E', Edison:'#B8842A', Laurence:'#7A55C7'};
-const STATUS_LABEL = {present:'Present', absent:'Absent', holiday:'Holiday', halfday:'Half day', holidayAbsent:'Holiday Absent', closed:'Closed', field:'Field duty', sunday:'Sunday', pending:'Pending', unmarked:'No entry'};
+const EMP_COLORS = {Karl:'#1D4ED8', Genesis:'#0F8A5F', Edison:'#B4881A', Laurence:'#7C3AED'};
+const STATUS_LABEL = {present:'Present', absent:'Absent', holiday:'Holiday', halfday:'Half day', holidayAbsent:'Holiday Absent', leave:'Leave', closed:'Closed', field:'Field duty', sunday:'Sunday', pending:'Pending', unmarked:'No entry'};
 
 // 2026 Philippine holiday reference (auto-classifies days even when the sheet cell is left blank)
 const HOLIDAYS = {
@@ -1372,22 +1449,9 @@ async function fetchSheetLive(name){
   return parsed;
 }
 
-// Recomputes every day's weekday label from the actual calendar date
-// (rather than trusting whatever text is in the sheet's Weekday column),
-// so Sunday - and every other weekday - is always correct automatically,
-// even if a cell is mistyped or left blank in the source spreadsheet.
-function normalizeWeekdays(data, year, monthIdx){
-  if(!data || !Array.isArray(data.days) || year == null || monthIdx == null || isNaN(year) || monthIdx < 0) return data;
-  data.days.forEach(d => {
-    d.weekday = WEEKDAY_NAMES[new Date(year, monthIdx, d.day).getDay()];
-  });
-  return data;
-}
-
 async function getSheetData(name, force){
   if(!force && state.cache[name]) return state.cache[name];
   setSyncBadge('connecting');
-  const mMeta = MONTHS.find(x => x.key === name) || parseMonthKey(name);
   let live = null, lastErr = null;
   if(state.webAppUrl){
     try{ live = await fetchSheetViaWebApp(name); }
@@ -1398,7 +1462,6 @@ async function getSheetData(name, force){
     catch(err){ if(!lastErr) lastErr = err; }
   }
   if(live){
-    if(mMeta) normalizeWeekdays(live, mMeta.year, mMeta.month);
     const data = Object.assign({}, live, {source:'live'});
     state.cache[name] = data; state.anyLive = true; state.lastSynced = new Date();
     state.lastError = null;
@@ -1408,7 +1471,7 @@ async function getSheetData(name, force){
   state.lastError = (lastErr && lastErr.message) ? lastErr.message : String(lastErr);
   console.warn('Live sheet fetch failed for "' + name + '":', state.lastError);
   const snap = SNAPSHOT.months[name];
-  if(snap && mMeta) normalizeWeekdays(snap, mMeta.year, mMeta.month);
+  const mMeta = MONTHS.find(x => x.key === name) || parseMonthKey(name);
   const data = snap
     ? Object.assign({}, snap, {source:'snapshot'})
     : (mMeta && mMeta.month != null && !isNaN(mMeta.year)
@@ -1440,71 +1503,51 @@ function minutesToTimeInput(mins){
   return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
 }
 
-// ---- Scrollable Hour / Minute / AM-PM time picker ----
-// Replaces the native <input type="time"> with three plain <select>
-// elements (a real dropdown list scrolls naturally, which is far easier
-// to use on touch devices than the native time-wheel). A hidden input
-// keeps the same id the rest of the app already reads/writes ("HH:MM",
-// 24-hour), so it's populated here and kept in sync on every change.
-function populateTimeScrollSelect(sel, kind){
-  if(!sel) return;
-  let opts = '';
-  if(kind === 'hour'){
-    for(let h=1; h<=12; h++){ const v = String(h).padStart(2,'0'); opts += `<option value="${v}">${v}</option>`; }
-  } else {
-    for(let m=0; m<60; m++){ const v = String(m).padStart(2,'0'); opts += `<option value="${v}">${v}</option>`; }
-  }
-  sel.innerHTML = opts;
+// ---- Time In field ----
+// Separate hour and minute text boxes for manual entry, plus an AM/PM
+// dropdown. Each box only accepts digits (filtered on input) but there's
+// no forced auto-advance/auto-focus, so typing stays predictable.
+function time24ToParts(t24){
+  if(!t24) return {hh:'', mm:'', period:'AM'};
+  const [hStr, mStr] = t24.split(':');
+  let h = parseInt(hStr, 10);
+  if(isNaN(h)) return {hh:'', mm:'', period:'AM'};
+  const period = h >= 12 ? 'PM' : 'AM';
+  let h12 = h % 12; if(h12 === 0) h12 = 12;
+  return {hh: String(h12), mm: mStr, period};
 }
-function initTimeScrollInputs(){
-  ['entryTimeIn','entryTimeOut'].forEach(prefix => {
-    populateTimeScrollSelect(document.getElementById(prefix+'Hour'), 'hour');
-    populateTimeScrollSelect(document.getElementById(prefix+'Min'), 'minute');
-    ['Hour','Min','AmPm'].forEach(part => {
-      const el = document.getElementById(prefix+part);
-      if(el) el.addEventListener('change', () => syncHiddenFromScrollSelects(prefix));
-    });
+function setEntryTimeIn(t24){
+  const {hh, mm, period} = time24ToParts(t24);
+  document.getElementById('entryTimeInHour').value = hh;
+  document.getElementById('entryTimeInMinute').value = mm;
+  document.getElementById('entryTimeInPeriod').value = period;
+}
+function readEntryTimeIn24(){
+  const hh = document.getElementById('entryTimeInHour').value.trim();
+  const mm = document.getElementById('entryTimeInMinute').value.trim();
+  const period = document.getElementById('entryTimeInPeriod').value;
+  if(!hh || !mm) return '';
+  let h = parseInt(hh, 10);
+  const m = parseInt(mm, 10);
+  if(isNaN(h) || isNaN(m) || h<1 || h>12 || m<0 || m>59) return '';
+  if(period === 'AM'){ if(h===12) h = 0; } else if(h !== 12){ h += 12; }
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+// Restricts the hour/minute boxes to digits only, and pads the minute
+// box to two digits on blur for a tidy display (no auto-advance, so
+// manual typing never jumps focus unexpectedly).
+function setupTimeInBoxes(){
+  const hourEl = document.getElementById('entryTimeInHour');
+  const minEl = document.getElementById('entryTimeInMinute');
+  if(!hourEl || !minEl || hourEl.dataset.wired) return;
+  hourEl.dataset.wired = '1';
+  hourEl.addEventListener('input', () => { hourEl.value = hourEl.value.replace(/\D/g,'').slice(0,2); });
+  minEl.addEventListener('input', () => { minEl.value = minEl.value.replace(/\D/g,'').slice(0,2); });
+  minEl.addEventListener('blur', () => {
+    if(minEl.value){ const m = parseInt(minEl.value,10); if(!isNaN(m) && m>=0 && m<=59) minEl.value = String(m).padStart(2,'0'); }
   });
-  setScrollTimeValue('entryTimeIn', '');
-  setScrollTimeValue('entryTimeOut', '17:00');
 }
-function syncHiddenFromScrollSelects(prefix){
-  const hidden = document.getElementById(prefix);
-  if(hidden) hidden.value = getScrollTimeValue(prefix);
-}
-function getScrollTimeValue(prefix){
-  const hourSel = document.getElementById(prefix+'Hour');
-  const minSel = document.getElementById(prefix+'Min');
-  const apSel = document.getElementById(prefix+'AmPm');
-  if(!hourSel || !hourSel.value) return '';
-  let hh = parseInt(hourSel.value, 10);
-  const isPM = apSel && apSel.value === 'PM';
-  if(isPM && hh < 12) hh += 12;
-  if(!isPM && hh === 12) hh = 0;
-  return `${String(hh).padStart(2,'0')}:${minSel.value || '00'}`;
-}
-function setScrollTimeValue(prefix, val24){
-  const hourSel = document.getElementById(prefix+'Hour');
-  const minSel = document.getElementById(prefix+'Min');
-  const apSel = document.getElementById(prefix+'AmPm');
-  const hidden = document.getElementById(prefix);
-  if(!hourSel || !minSel || !apSel) return;
-  if(!val24){
-    hourSel.value = '';
-    minSel.value = '00';
-    apSel.value = 'AM';
-    if(hidden) hidden.value = '';
-    return;
-  }
-  const [hStr, mStr] = val24.split(':');
-  let hh = parseInt(hStr, 10);
-  const ap = hh >= 12 ? 'PM' : 'AM';
-  let h12 = hh % 12; if(h12 === 0) h12 = 12;
-  hourSel.value = String(h12).padStart(2,'0');
-  minSel.value = mStr;
-  apSel.value = ap;
-  if(hidden) hidden.value = val24;
-}
+
 
 // A half day is a single shift that only covers the morning (~7am-12pm) or
 // only the afternoon (~12pm-5pm) rather than a full 7am-5pm day.
@@ -1529,13 +1572,14 @@ function classifyDay(weekday, tin, tout, holiday){
   const low = tin.toLowerCase();
   if(low.includes('holiday') && low.includes('absent')) return {status:'holidayAbsent', label:tin};
   if(low.includes('holiday')) return {status:'holidayAbsent', label:tin};
+  if(low.includes('leave')) return {status:'leave', label:tin};
   if(low.includes('election') || low.includes('closed')) return {status:'closed', label:tin};
   if(low.includes('absent')) return {status:'absent', label:tin};
   return {status:'field', label:tin};
 }
 
 function computeStats(days, m, employee, lateThreshold){
-  let present=0, absent=0, field=0, holiday=0, holidayAbsent=0, closed=0, sundays=0, pending=0, unmarked=0, late=0, halfDay=0;
+  let present=0, absent=0, field=0, holiday=0, holidayAbsent=0, leave=0, closed=0, sundays=0, pending=0, unmarked=0, late=0, halfDay=0;
   let inSum=0, inCount=0;
   const today = new Date(); today.setHours(0,0,0,0);
   days.forEach(d => {
@@ -1548,6 +1592,7 @@ function computeStats(days, m, employee, lateThreshold){
     if(cls.status==='absent'){ absent++; return; }
     if(cls.status==='halfday'){ halfDay++; return; }
     if(cls.status==='holidayAbsent'){ holidayAbsent++; present++; return; }
+    if(cls.status==='leave'){ leave++; return; }
     if(cls.status==='closed'){ closed++; return; }
     if(cls.status==='field'){ field++; return; }
   });
@@ -1555,7 +1600,7 @@ function computeStats(days, m, employee, lateThreshold){
   const denom = present+field+absent;
   const rate = denom ? Math.round(((present+field)/denom)*1000)/10 : null;
   const avgIn = inCount ? Math.round(inSum/inCount) : null;
-  return {present, absent, field, holiday, holidayAbsent, closed, sundays, pending, unmarked, late, halfDay, rate, avgIn};
+  return {present, absent, field, holiday, holidayAbsent, leave, closed, sundays, pending, unmarked, late, halfDay, rate, avgIn};
 }
 
 function meta(){
@@ -1607,6 +1652,7 @@ function populateControls(){
   updateEntryFormVisibility();
   document.getElementById('saveEntryBtn').addEventListener('click', saveEntry);
   setupDatePicker();
+  setupTimeInBoxes();
 }
 
 function openSidebar(){
@@ -1631,7 +1677,7 @@ function toggleSidebar(){
 async function setMonth(newMonthKey){
   state.month = newMonthKey;
   currentTableFilter = 'all';
-  setEntryDateLabel(null);
+  defaultEntryDateToday();
   showLoadingState();
   await getSheetData(state.month);
   await render();
@@ -1709,6 +1755,19 @@ function setEntryDateLabel(day){
   label.textContent = day ? `${m.label} ${day}, ${m.year}` : 'Select date';
 }
 
+// Defaults the Update Attendance date field to today's date whenever the
+// month currently on screen matches the real current month; otherwise
+// clears it, since "today" wouldn't fall inside a past/future tab.
+function defaultEntryDateToday(){
+  const m = meta();
+  const today = new Date();
+  if(m.year === today.getFullYear() && m.month === today.getMonth()){
+    setEntryDateLabel(today.getDate());
+  } else {
+    setEntryDateLabel(null);
+  }
+}
+
 function renderDatePopover(){
   const m = meta();
   document.getElementById('datePopoverHead').textContent = `${m.label} ${m.year}`;
@@ -1740,6 +1799,7 @@ function closeDatePopover(){
   document.getElementById('entryDatePopover').hidden = true;
 }
 function setupDatePicker(){
+  defaultEntryDateToday();
   document.getElementById('entryDateBtn').addEventListener('click', (e) => {
     e.stopPropagation();
     const pop = document.getElementById('entryDatePopover');
@@ -1767,12 +1827,14 @@ function openEntryFor(employee, day, cls){
   const typeSel = document.getElementById('entryType');
   if(cls.status==='present'){
     typeSel.value = 'present';
-    setScrollTimeValue('entryTimeIn', minutesToTimeInput(cls.inMin));
-    setScrollTimeValue('entryTimeOut', minutesToTimeInput(cls.outMin) || '17:00');
+    setEntryTimeIn(minutesToTimeInput(cls.inMin));
+    document.getElementById('entryTimeOut').value = minutesToTimeInput(cls.outMin) || '17:00';
   } else if(cls.status==='absent'){
     typeSel.value = 'absent';
   } else if(cls.status==='holidayAbsent'){
     typeSel.value = 'holidayAbsent';
+  } else if(cls.status==='leave'){
+    typeSel.value = 'leave';
   } else if(cls.status==='halfday' || cls.status==='closed'){
     typeSel.value = 'halfday';
   } else if(cls.status==='field'){
@@ -1780,8 +1842,8 @@ function openEntryFor(employee, day, cls){
     document.getElementById('entryNote').value = cls.label || '';
   } else {
     typeSel.value = 'present';
-    setScrollTimeValue('entryTimeIn', '');
-    setScrollTimeValue('entryTimeOut', '17:00');
+    setEntryTimeIn('');
+    document.getElementById('entryTimeOut').value = '17:00';
   }
   updateEntryFormVisibility();
   const panel = document.getElementById('entryPanel');
@@ -1857,14 +1919,16 @@ async function saveEntry(){
 
   let payload = { sheet: state.month, employee, day, type };
   if(type==='present'){
-    const tin = getScrollTimeValue('entryTimeIn');
-    const tout = getScrollTimeValue('entryTimeOut');
-    if(!tin){ statusEl.className='entry-status err'; statusEl.textContent='Enter a time in.'; return; }
+    const tin = readEntryTimeIn24();
+    const tout = document.getElementById('entryTimeOut').value;
+    if(!tin){ statusEl.className='entry-status err'; statusEl.textContent='Enter a valid time in (e.g. 9:00) and select AM or PM.'; return; }
     payload.timeIn = tin; payload.timeOut = tout;
   } else if(type==='absent'){
     payload.status = 'Absent';
   } else if(type==='holidayAbsent'){
     payload.status = 'Holiday Absent';
+  } else if(type==='leave'){
+    payload.status = 'Leave';
   } else if(type==='halfday'){
     payload.status = 'Holiday';
   } else if(type==='field'){
@@ -1891,9 +1955,7 @@ function applyOptimisticUpdate(payload, type){
   if(!sheetData) return;
   let dayEntry = sheetData.days.find(d => d.day === payload.day);
   if(!dayEntry){
-    const mm = meta();
-    const weekday = (mm && mm.month != null) ? WEEKDAY_NAMES[new Date(mm.year, mm.month, payload.day).getDay()] : null;
-    dayEntry = { day: payload.day, weekday, e: {} };
+    dayEntry = { day: payload.day, weekday: null, e: {} };
     sheetData.days.push(dayEntry);
     sheetData.days.sort((a,b) => a.day - b.day);
   }
@@ -1947,9 +2009,7 @@ function startInlineTimeEdit(span, sheetData){
 async function commitInlineTimeEdit(sheetData, day, employee, part, newVal){
   let dayEntry = sheetData.days.find(d => d.day === day);
   if(!dayEntry){
-    const mm = meta();
-    const weekday = (mm && mm.month != null) ? WEEKDAY_NAMES[new Date(mm.year, mm.month, day).getDay()] : null;
-    dayEntry = { day, weekday, e: {} };
+    dayEntry = { day, weekday: null, e: {} };
     sheetData.days.push(dayEntry);
     sheetData.days.sort((a,b) => a.day - b.day);
   }
@@ -2070,9 +2130,9 @@ function renderKPIs(sheetData, m){
       <div class="kpi-card"><p class="label">Absent</p><p class="value absent">${s.absent}</p><p class="hint">days out</p></div>
       <div class="kpi-card"><p class="label">Field duty</p><p class="value field">${s.field}</p><p class="hint">on assignment</p></div>
       <div class="kpi-card"><p class="label">Half days</p><p class="value halfday">${s.halfDay}</p><p class="hint">partial shifts</p></div>
-      <div class="kpi-card"><p class="label">Holidays</p><p class="value present">${s.holidayAbsent}</p><p class="hint">counted as present</p></div>
+      <div class="kpi-card"><p class="label">Holiday absent</p><p class="value present">${s.holidayAbsent}</p><p class="hint">counted as present</p></div>
+      <div class="kpi-card"><p class="label">Leave</p><p class="value leave">${s.leave}</p><p class="hint">not counted in rate</p></div>
       <div class="kpi-card"><p class="label">Attendance rate</p><p class="value">${s.rate!=null?s.rate+'%':'\u2014'}</p><p class="hint">present + field vs total</p></div>
-      <div class="kpi-card"><p class="label">Avg time in</p><p class="value">${minutesToLabel(s.avgIn)}</p><p class="hint">on present days</p></div>
       <div class="kpi-card"><p class="label">Late arrivals</p><p class="value absent">${s.late}</p><p class="hint">after threshold</p></div>
     `;
   }
@@ -2127,14 +2187,34 @@ function openFieldDutyModal(sheetData, m){
   });
   document.getElementById('fieldDutyModalSubtitle').textContent = `${m.label} ${m.year} \u00b7 ${assignments.length} assignment${assignments.length===1?'':'s'}`;
   const list = document.getElementById('fieldDutyModalList');
-  list.innerHTML = assignments.length
-    ? assignments.map(a => `
-      <div class="field-duty-item">
-        <span class="fd-date">${m.label.slice(0,3)} ${a.day}</span>
-        <span class="fd-emp">${a.employee}</span>
-        <span class="fd-branch">${a.branch}</span>
-      </div>`).join('')
-    : '<p class="empty-note">No field duty assignments recorded for this month.</p>';
+  if(!assignments.length){
+    list.innerHTML = '<p class="empty-note">No field duty assignments recorded for this month.</p>';
+    overlay.classList.add('is-open');
+    return;
+  }
+  const groups = new Map();
+  assignments.forEach(a => {
+    if(!groups.has(a.employee)) groups.set(a.employee, []);
+    groups.get(a.employee).push(a);
+  });
+  const sortedNames = Array.from(groups.keys()).sort((x,y) => x.localeCompare(y));
+  list.innerHTML = sortedNames.map(name => {
+    const rows = groups.get(name).slice().sort((x,y) => x.day - y.day);
+    const initials = name.split(/\s+/).map(w => w[0]).slice(0,2).join('').toUpperCase();
+    return `
+      <div class="field-duty-group">
+        <div class="field-duty-group-head">
+          <span class="fd-avatar">${initials}</span>
+          <span class="fd-group-name">${name}</span>
+          <span class="fd-group-count">${rows.length} assignment${rows.length===1?'':'s'}</span>
+        </div>
+        ${rows.map(a => `
+        <div class="field-duty-item">
+          <span class="fd-date">${m.label.slice(0,3)} ${a.day}</span>
+          <span class="fd-branch">${a.branch}</span>
+        </div>`).join('')}
+      </div>`;
+  }).join('');
   overlay.classList.add('is-open');
 }
 function closeFieldDutyModal(){
@@ -2306,7 +2386,7 @@ function buildLegend(){
 }
 
 function buildSingleTable(sheetData, m, employee){
-  const filters = ['all','present','absent','field','halfday','holidayAbsent'];
+  const filters = ['all','present','absent','field','halfday','holidayAbsent','leave'];
   const filterRow = '<div class="filter-row">' +
     filters.map(f => `<button class="filter-btn ${currentTableFilter===f?'active':''}" data-filter="${f}" type="button">${f==='all'?'All days':STATUS_LABEL[f]||f}</button>`).join('') +
     `<span class="time-filter">Time in from <input type="time" id="timeFromInput" value="${state.timeFrom}"> to <input type="time" id="timeToInput" value="${state.timeTo}">
@@ -2554,12 +2634,23 @@ async function render(){
         <div class="stat-grid">
           <div class="stat stat-present"><div class="stat-label">Days present</div><div class="stat-value">${s.present}</div></div>
           <div class="stat stat-field"><div class="stat-label">Field duty</div><div class="stat-value">${s.field}</div></div>
-          <div class="stat stat-holidayAbsent"><div class="stat-label">Leave</div><div class="stat-value">${s.holidayAbsent}</div></div>
+          <div class="stat stat-holidayAbsent"><div class="stat-label">Holiday absent</div><div class="stat-value">${s.holidayAbsent}</div></div>
+          <div class="stat stat-leave"><div class="stat-label">Leave</div><div class="stat-value">${s.leave}</div></div>
           <div class="stat stat-halfday"><div class="stat-label">Half days</div><div class="stat-value">${s.halfDay}</div></div>
           <div class="stat stat-absent"><div class="stat-label">Absent</div><div class="stat-value">${s.absent}</div></div>
         </div>
       </button>`;
     });
+    const teamRow = document.getElementById('teamOverviewRow');
+    if(teamRow) teamRow.innerHTML = `
+      <div class="panel">
+        <p class="panel-title">
+          <span>Team overview</span>
+          ${buildMonthYearShortcut(m, 'team')}
+        </p>
+        <div class="team-grid">${teamCards || '<p class="empty-note">No employees match your search.</p>'}</div>
+      </div>`;
+    attachMonthYearShortcut('team');
     mainEl.innerHTML = `
       <div class="panel" id="dailyLogPanel">
         <p class="panel-title">
@@ -2579,9 +2670,6 @@ async function render(){
         </div>
         ${buildLegend()}
         ${buildTeamTable(sheetData, m)}
-      </div>
-      <div class="panel">
-        <div class="team-grid">${teamCards || '<p class="empty-note">No employees match your search.</p>'}</div>
       </div>
     `;
     attachTeamTableClicks(sheetData);
@@ -2604,6 +2692,8 @@ async function render(){
       pdf: () => exportRowsToPdf(`${teamFileBase}.pdf`, teamTitle, window.__teamExportRows || [])
     });
   } else {
+    const teamRow = document.getElementById('teamOverviewRow');
+    if(teamRow) teamRow.innerHTML = '';
     mainEl.innerHTML = `
       <div class="panel">
         <p class="panel-title"><span>${state.employee} &mdash; ${m.label} ${m.year} calendar</span><span class="pill">click a day to edit</span></p>
@@ -2635,20 +2725,22 @@ async function render(){
 // Replaces the old "hide/show holiday dates" toggle on the all-employees
 // Daily Log panel with a quick Month + Year jump, reusing the same
 // setMonth()/monthKey() machinery as the History bar below.
-function buildMonthYearShortcut(m){
+function buildMonthYearShortcut(m, idPrefix){
+  const prefix = idPrefix || 'dailyLog';
   const monthOptions = MONTH_NAMES.map((name, idx) => `<option value="${idx}" ${idx===m.month?'selected':''}>${name}</option>`).join('');
   const years = Array.from(new Set(MONTHS.map(x => x.year))).sort((a,b) => a-b);
   if(!years.includes(m.year)) years.push(m.year);
   years.sort((a,b) => a-b);
   const yearOptions = years.map(y => `<option value="${y}" ${y===m.year?'selected':''}>${y}</option>`).join('');
   return `<span class="month-year-shortcut">
-    <select id="dailyLogMonthSelect" aria-label="Jump to month">${monthOptions}</select>
-    <select id="dailyLogYearSelect" aria-label="Jump to year">${yearOptions}</select>
+    <select id="${prefix}MonthSelect" aria-label="Jump to month">${monthOptions}</select>
+    <select id="${prefix}YearSelect" aria-label="Jump to year">${yearOptions}</select>
   </span>`;
 }
-function attachMonthYearShortcut(){
-  const monthSel = document.getElementById('dailyLogMonthSelect');
-  const yearSel = document.getElementById('dailyLogYearSelect');
+function attachMonthYearShortcut(idPrefix){
+  const prefix = idPrefix || 'dailyLog';
+  const monthSel = document.getElementById(`${prefix}MonthSelect`);
+  const yearSel = document.getElementById(`${prefix}YearSelect`);
   if(!monthSel || !yearSel) return;
   const jump = async () => {
     const monthIdx = parseInt(monthSel.value, 10);
@@ -2734,11 +2826,75 @@ function setupHolidaysModal(){
 // ---- Employee Summary Report modal ----
 // Clicking a team card in the "All employees" view opens a detailed
 // per-employee report for whichever month is currently displayed.
+const summaryState = { employee: null, month: null, sheetData: null, activeStat: null };
 function attachTeamCards(){
   document.querySelectorAll('.team-card[data-emp]').forEach(card => {
     card.addEventListener('click', () => openEmployeeSummary(card.dataset.emp));
   });
 }
+function summaryDetailList(matcher, emptyText, focusTime){
+  const { sheetData, month: m, employee } = summaryState;
+  const rows = [];
+  sheetData.days.forEach(d => {
+    const holidayInfo = getHoliday(m.year, m.month, d.day);
+    const pair = d.e[employee] || [null,null];
+    const cls = classifyDay(d.weekday, pair[0], pair[1], holidayInfo);
+    if(matcher(cls)) rows.push({day:d.day, weekday:d.weekday, cls});
+  });
+  if(!rows.length) return `<p class="empty-note">${emptyText}</p>`;
+  return `<div class="summary-detail-list">` + rows.map(r => {
+    let detail;
+    if(focusTime && r.cls.status==='present'){
+      detail = minutesToLabel(r.cls.inMin);
+    } else if(r.cls.status==='present'){
+      detail = `${minutesToLabel(r.cls.inMin)}${r.cls.outMin!=null ? ' \u2013 ' + minutesToLabel(r.cls.outMin) : ''}${r.cls.halfDay ? ' \u00b7 Half day' : ''}`;
+    } else {
+      detail = r.cls.label || STATUS_LABEL[r.cls.status] || '\u2014';
+    }
+    return `<div class="summary-detail-row"><span class="sdr-day">${m.label.slice(0,3)} ${r.day}</span><span class="sdr-weekday">${r.weekday||''}</span><span class="sdr-detail">${detail}</span></div>`;
+  }).join('') + `</div>`;
+}
+function showSummaryDetail(stat, btn){
+  const detailEl = document.getElementById('summaryModalDetail');
+  document.querySelectorAll('#summaryModalStats .summary-stat').forEach(b => b.classList.remove('is-active'));
+  if(summaryState.activeStat === stat){
+    // Clicking the same card again collapses the detail panel.
+    summaryState.activeStat = null;
+    detailEl.innerHTML = '';
+    return;
+  }
+  summaryState.activeStat = stat;
+  btn.classList.add('is-active');
+  const { sheetData, month: m, employee } = summaryState;
+
+  if(stat === 'present' || stat === 'rate'){
+    detailEl.innerHTML = `
+      <p class="summary-detail-heading">${employee}\u2019s ${m.label} ${m.year} calendar</p>
+      ${buildLegend()}
+      ${buildCalendar(sheetData, m, employee)}
+    `;
+    return;
+  }
+
+  const configs = {
+    field: {matcher: c => c.status==='field', empty:'No field duty days recorded this month.'},
+    holidays: {matcher: c => c.status==='holidayAbsent', empty:'No holiday absences recorded this month.'},
+    leave: {matcher: c => c.status==='leave', empty:'No leave days recorded this month.'},
+    halfday: {matcher: c => c.status==='halfday' || (c.status==='present' && c.halfDay), empty:'No half days recorded this month.'},
+    absent: {matcher: c => c.status==='absent', empty:'No absences recorded this month.'},
+    late: {matcher: c => c.status==='present' && state.lateThreshold!=null && c.inMin>state.lateThreshold, empty:'No late arrivals this month.', focusTime:true},
+  };
+  const cfg = configs[stat];
+  if(!cfg) return;
+  detailEl.innerHTML = `
+    <p class="summary-detail-heading">${employee}\u2019s ${STATUS_LABEL_TITLES[stat] || ''} \u2014 ${m.label} ${m.year}</p>
+    ${summaryDetailList(cfg.matcher, cfg.empty, cfg.focusTime)}
+  `;
+}
+const STATUS_LABEL_TITLES = {
+  field:'Field duty days', holidays:'Holiday absent days', leave:'Leave days', halfday:'Half days',
+  absent:'Absent days', late:'Late arrivals'
+};
 function openEmployeeSummary(name){
   const sheetData = state.cache[state.month];
   if(!sheetData) return;
@@ -2754,15 +2910,23 @@ function openEmployeeSummary(name){
     `Summary report \u00b7 ${m.label} ${m.year} \u00b7 ${s.rate!=null ? s.rate+'% attendance' : 'no rate yet'}`;
 
   document.getElementById('summaryModalStats').innerHTML = `
-    <div class="summary-stat accent-present"><div class="stat-label">Days present</div><div class="stat-value">${s.present}</div></div>
-    <div class="summary-stat accent-field"><div class="stat-label">Field duty</div><div class="stat-value">${s.field}</div></div>
-    <div class="summary-stat"><div class="stat-label">Leave</div><div class="stat-value">${s.holidayAbsent}</div></div>
-    <div class="summary-stat accent-holiday"><div class="stat-label">Half days</div><div class="stat-value">${s.halfDay}</div></div>
-    <div class="summary-stat accent-absent"><div class="stat-label">Absent</div><div class="stat-value">${s.absent}</div></div>
-    <div class="summary-stat"><div class="stat-label">Attendance rate</div><div class="stat-value">${s.rate!=null?s.rate+'%':'\u2014'}</div></div>
-    <div class="summary-stat"><div class="stat-label">Avg time in</div><div class="stat-value">${minutesToLabel(s.avgIn)}</div></div>
-    <div class="summary-stat"><div class="stat-label">Late arrivals</div><div class="stat-value">${s.late}</div></div>
+    <button class="summary-stat accent-present" type="button" data-stat="present"><div class="stat-label">Days present</div><div class="stat-value">${s.present}</div></button>
+    <button class="summary-stat accent-field" type="button" data-stat="field"><div class="stat-label">Field duty</div><div class="stat-value">${s.field}</div></button>
+    <button class="summary-stat accent-holidayAbsent" type="button" data-stat="holidays"><div class="stat-label">Holiday absent</div><div class="stat-value">${s.holidayAbsent}</div></button>
+    <button class="summary-stat accent-leave" type="button" data-stat="leave"><div class="stat-label">Leave</div><div class="stat-value">${s.leave}</div></button>
+    <button class="summary-stat accent-holiday" type="button" data-stat="halfday"><div class="stat-label">Half days</div><div class="stat-value">${s.halfDay}</div></button>
+    <button class="summary-stat accent-absent" type="button" data-stat="absent"><div class="stat-label">Absent</div><div class="stat-value">${s.absent}</div></button>
+    <button class="summary-stat" type="button" data-stat="rate"><div class="stat-label">Attendance rate</div><div class="stat-value">${s.rate!=null?s.rate+'%':'\u2014'}</div></button>
+    <button class="summary-stat" type="button" data-stat="late"><div class="stat-label">Late arrivals</div><div class="stat-value">${s.late}</div></button>
   `;
+  summaryState.employee = name;
+  summaryState.month = m;
+  summaryState.sheetData = sheetData;
+  summaryState.activeStat = null;
+  document.getElementById('summaryModalDetail').innerHTML = '';
+  document.querySelectorAll('#summaryModalStats .summary-stat').forEach(btn => {
+    btn.addEventListener('click', () => showSummaryDetail(btn.dataset.stat, btn));
+  });
 
   const overlay = document.getElementById('employeeSummaryOverlay');
   overlay.classList.add('is-open');
@@ -2782,18 +2946,32 @@ function setupEmployeeSummaryModal(){
 
 // ---- Salary Cut-off Calendar modal ----
 // Shows real attendance (not just a date grid) for one semi-monthly cut-off
-// period at a time: the 26th of the prior month through the 10th of the
-// "anchor" month. Pulls both months via getSheetData and stitches the two
+// period at a time. Each calendar month has two cut-off periods:
+//   Period A (half 0): the 26th of the prior month through the 10th of the
+//     "anchor" month (e.g. Jul 26 - Aug 10).
+//   Period B (half 1): the 11th through the 25th of the anchor month
+//     (e.g. Jul 11 - Jul 25).
+// Navigating "next"/"prev" steps through A -> B -> A(next month) -> ...
+// Pulls whichever month(s) a period spans via getSheetData and stitches the
 // day ranges into one Daily-Log-style table so payroll can be read straight
 // off the dashboard, and prints the same way the Daily Log does.
-const cutoffState = { year: null, monthIdx: null };
+const cutoffState = { year: null, monthIdx: null, half: 0 };
 
-function getCutoffPeriod(anchorYear, anchorMonthIdx){
+function getCutoffPeriod(anchorYear, anchorMonthIdx, half){
+  if(half === 1){
+    return {
+      half: 1,
+      anchorYear, anchorMonthIdx,
+      startDate: new Date(anchorYear, anchorMonthIdx, 11),
+      endDate: new Date(anchorYear, anchorMonthIdx, 25)
+    };
+  }
   let prevMonthIdx = anchorMonthIdx - 1, prevYear = anchorYear;
   if(prevMonthIdx < 0){ prevMonthIdx = 11; prevYear -= 1; }
   const daysInPrevMonth = new Date(prevYear, prevMonthIdx+1, 0).getDate();
   const startDay = Math.min(26, daysInPrevMonth);
   return {
+    half: 0,
     prevYear, prevMonthIdx, startDay,
     anchorYear, anchorMonthIdx,
     startDate: new Date(prevYear, prevMonthIdx, startDay),
@@ -2806,24 +2984,37 @@ function formatCutoffDate(d){
 }
 
 async function buildCutoffDayList(period){
-  const prevKey = monthKey(period.prevYear, period.prevMonthIdx);
-  const curKey = monthKey(period.anchorYear, period.anchorMonthIdx);
-  const [prevData, curData] = await Promise.all([getSheetData(prevKey), getSheetData(curKey)]);
+  const start = period.startDate, end = period.endDate;
+  const monthsNeeded = [];
+  let cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+  const endMonthStart = new Date(end.getFullYear(), end.getMonth(), 1);
+  while(cursor <= endMonthStart){
+    monthsNeeded.push({ year: cursor.getFullYear(), monthIdx: cursor.getMonth() });
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth()+1, 1);
+  }
+  const dataByKey = {};
+  await Promise.all(monthsNeeded.map(async m => {
+    const key = monthKey(m.year, m.monthIdx);
+    dataByKey[key] = await getSheetData(key);
+  }));
   const list = [];
-  const prevDaysInMonth = new Date(period.prevYear, period.prevMonthIdx+1, 0).getDate();
-  for(let day = period.startDay; day <= prevDaysInMonth; day++){
-    const entry = (prevData && prevData.days.find(d => d.day===day)) || null;
-    list.push({ date: new Date(period.prevYear, period.prevMonthIdx, day), year:period.prevYear, monthIdx:period.prevMonthIdx, day,
-      weekday: entry ? entry.weekday : WEEKDAY_NAMES[new Date(period.prevYear, period.prevMonthIdx, day).getDay()],
+  let d = new Date(start);
+  while(d <= end){
+    const y = d.getFullYear(), mIdx = d.getMonth(), day = d.getDate();
+    const key = monthKey(y, mIdx);
+    const data = dataByKey[key];
+    const entry = (data && data.days.find(x => x.day===day)) || null;
+    list.push({ date: new Date(y, mIdx, day), year:y, monthIdx:mIdx, day,
+      weekday: entry ? entry.weekday : WEEKDAY_NAMES[new Date(y, mIdx, day).getDay()],
       e: entry ? entry.e : {} });
+    d = new Date(y, mIdx, day+1);
   }
-  for(let day = 1; day <= 10; day++){
-    const entry = (curData && curData.days.find(d => d.day===day)) || null;
-    list.push({ date: new Date(period.anchorYear, period.anchorMonthIdx, day), year:period.anchorYear, monthIdx:period.anchorMonthIdx, day,
-      weekday: entry ? entry.weekday : WEEKDAY_NAMES[new Date(period.anchorYear, period.anchorMonthIdx, day).getDay()],
-      e: entry ? entry.e : {} });
+  let employees = ALL_EMPLOYEES;
+  for(const m of monthsNeeded){
+    const key = monthKey(m.year, m.monthIdx);
+    const data = dataByKey[key];
+    if(data && data.employees && data.employees.length){ employees = data.employees; break; }
   }
-  const employees = (prevData && prevData.employees && prevData.employees.length ? prevData.employees : ALL_EMPLOYEES);
   return { days: list, employees };
 }
 
@@ -2873,23 +3064,24 @@ async function renderCutoffPanel(){
   const label = document.getElementById('cutoffPeriodLabel');
   const printSub = document.getElementById('cutoffPrintSub');
   if(!grid) return;
-  const period = getCutoffPeriod(cutoffState.year, cutoffState.monthIdx);
+  const period = getCutoffPeriod(cutoffState.year, cutoffState.monthIdx, cutoffState.half);
   const labelText = `${formatCutoffDate(period.startDate)} \u2013 ${formatCutoffDate(period.endDate)}`;
   if(label) label.textContent = labelText;
   if(printSub) printSub.textContent = `${labelText} \u00b7 Generated ${new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'})}`;
   grid.innerHTML = '<div class="loading-panel"><div class="loading-spinner"></div><p>Loading the cut-off period&rsquo;s attendance&hellip;</p></div>';
-  const requestedYear = cutoffState.year, requestedMonthIdx = cutoffState.monthIdx;
+  const requestedYear = cutoffState.year, requestedMonthIdx = cutoffState.monthIdx, requestedHalf = cutoffState.half;
   const { days, employees } = await buildCutoffDayList(period);
   // Bail out quietly if the period was changed again mid-fetch.
-  if(cutoffState.year !== requestedYear || cutoffState.monthIdx !== requestedMonthIdx) return;
+  if(cutoffState.year !== requestedYear || cutoffState.monthIdx !== requestedMonthIdx || cutoffState.half !== requestedHalf) return;
   grid.innerHTML = buildCutoffTable(days, employees, period);
 }
 
 function shiftCutoffPeriod(delta){
-  let monthIdx = cutoffState.monthIdx + delta, year = cutoffState.year;
-  if(monthIdx > 11){ monthIdx = 0; year += 1; }
-  if(monthIdx < 0){ monthIdx = 11; year -= 1; }
-  cutoffState.monthIdx = monthIdx; cutoffState.year = year;
+  let { year, monthIdx, half } = cutoffState;
+  half += delta;
+  if(half > 1){ half = 0; monthIdx += 1; if(monthIdx > 11){ monthIdx = 0; year += 1; } }
+  else if(half < 0){ half = 1; monthIdx -= 1; if(monthIdx < 0){ monthIdx = 11; year -= 1; } }
+  cutoffState.year = year; cutoffState.monthIdx = monthIdx; cutoffState.half = half;
   renderCutoffPanel();
 }
 
@@ -2903,8 +3095,20 @@ function openPayrollModal(){
   const overlay = document.getElementById('payrollModalOverlay');
   if(!overlay) return;
   if(cutoffState.year == null){
-    const m = meta();
-    cutoffState.year = m.year; cutoffState.monthIdx = m.month;
+    // Default to whichever cut-off period covers today: days 1-10 and 26+
+    // fall in the "A" period (26th-10th), days 11-25 fall in the "B" period
+    // (11th-25th) of the current month.
+    const today = new Date();
+    const y = today.getFullYear(), mo = today.getMonth(), day = today.getDate();
+    if(day >= 26){
+      let nextMonthIdx = mo + 1, nextYear = y;
+      if(nextMonthIdx > 11){ nextMonthIdx = 0; nextYear += 1; }
+      cutoffState.year = nextYear; cutoffState.monthIdx = nextMonthIdx; cutoffState.half = 0;
+    } else if(day <= 10){
+      cutoffState.year = y; cutoffState.monthIdx = mo; cutoffState.half = 0;
+    } else {
+      cutoffState.year = y; cutoffState.monthIdx = mo; cutoffState.half = 1;
+    }
   }
   overlay.classList.add('is-open');
   closeSidebar();
@@ -2936,9 +3140,6 @@ function setupPayrollModal(){
 // (each with a circular rate ring); clicking a card slides a calendar
 // drill-down into view for that specific month, reusing buildCalendar().
 const yearlyState = { employee: null, year: null, rows: [], monthOpen: false };
-// Distinct years available in MONTHS, most recent first, so the Yearly
-// History report can be filtered to a single year at a time.
-const YEARLY_YEARS = [...new Set(MONTHS.map(m => m.year))].sort((a,b) => b-a);
 function rateChipClass(rate){
   if(rate == null) return '';
   if(rate >= 95) return '';
@@ -2952,81 +3153,88 @@ function rateRingColor(rate){
   return 'var(--present)';
 }
 function progressRingSvg(rate){
-  const radius = 21, stroke = 5, c = 2*Math.PI*radius;
-  const pct = rate==null ? 0 : Math.max(0, Math.min(100, rate));
+  const radius = 19, stroke = 5, c = 2*Math.PI*radius;
+  if(rate == null){
+    return `<svg width="46" height="46" viewBox="0 0 46 46" class="yc-ring">
+      <circle cx="23" cy="23" r="${radius}" fill="none" class="yc-ring-empty" stroke-width="${stroke}"/>
+      <text x="23" y="27" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text-muted)">\u2014</text>
+    </svg>`;
+  }
+  const pct = Math.max(0, Math.min(100, rate));
   const offset = c - (pct/100)*c;
   const color = rateRingColor(rate);
-  return `<svg width="52" height="52" viewBox="0 0 52 52" class="yc-ring">
-    <circle cx="26" cy="26" r="${radius}" fill="none" stroke="var(--border)" stroke-width="${stroke}"/>
-    <circle cx="26" cy="26" r="${radius}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round"
-      stroke-dasharray="${c.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}" transform="rotate(-90 26 26)"/>
-    <text x="26" y="30" text-anchor="middle" font-size="11" font-weight="700" fill="var(--ink)">${rate!=null ? rate+'%' : '\u2014'}</text>
+  return `<svg width="46" height="46" viewBox="0 0 46 46" class="yc-ring">
+    <circle cx="23" cy="23" r="${radius}" fill="none" stroke="var(--border)" stroke-width="${stroke}"/>
+    <circle cx="23" cy="23" r="${radius}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round"
+      stroke-dasharray="${c.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}" transform="rotate(-90 23 23)"/>
+    <text x="23" y="27" text-anchor="middle" font-size="11.5" font-weight="700" fill="${color}">${Math.round(rate)}%</text>
   </svg>`;
+}
+function yearlyAvailableYears(){
+  return [...new Set(MONTHS.map(m => m.year))].sort((a,b) => a-b);
 }
 function renderYearlyEmpSwitch(){
   const sel = document.getElementById('yearlyEmpSelect');
-  if(!sel) return;
-  sel.innerHTML = ALL_EMPLOYEES.map(n => `<option value="${n}" ${n===yearlyState.employee?'selected':''}>${n}</option>`).join('');
-  sel.onchange = () => { yearlyState.employee = sel.value; };
   const yearSel = document.getElementById('yearlyYearSelect');
-  if(yearSel){
-    yearSel.innerHTML = YEARLY_YEARS.map(y => `<option value="${y}" ${y===yearlyState.year?'selected':''}>${y}</option>`).join('');
-    yearSel.onchange = () => { yearlyState.year = parseInt(yearSel.value, 10); };
-  }
   const enterBtn = document.getElementById('yearlyEnterBtn');
-  if(enterBtn){
-    enterBtn.onclick = async () => {
-      yearlyState.employee = sel.value;
-      if(yearSel) yearlyState.year = parseInt(yearSel.value, 10);
-      closeYearlyMonthDetail();
-      enterBtn.disabled = true;
-      try{ await renderYearlyTable(); } finally { enterBtn.disabled = false; }
-    };
-  }
+  if(!sel || !yearSel) return;
+  sel.innerHTML = ALL_EMPLOYEES.map(n => `<option value="${n}" ${n===yearlyState.employee?'selected':''}>${n}</option>`).join('');
+  const years = yearlyAvailableYears();
+  yearSel.innerHTML = years.map(y => `<option value="${y}" ${y===yearlyState.year?'selected':''}>${y}</option>`).join('');
+  const apply = async () => {
+    yearlyState.employee = sel.value;
+    yearlyState.year = parseInt(yearSel.value, 10);
+    closeYearlyMonthDetail();
+    await renderYearlyTable();
+  };
+  sel.onchange = apply;
+  yearSel.onchange = apply;
+  if(enterBtn) enterBtn.onclick = apply;
 }
 async function renderYearlyTable(){
   const holder = document.getElementById('yearlyModalTable');
   if(!holder) return;
   const emp = yearlyState.employee;
-  const year = yearlyState.year;
-  // Only the four tracked employees ever exist in this workbook, so a
-  // single month fetch already covers everyone \u2014 no per-employee
-  // requests needed. The real speed win is fetching every month for the
-  // selected year in parallel instead of one-at-a-time.
-  const yearMonths = MONTHS.filter(m => m.year === year);
+  const yr = yearlyState.year;
+  const monthsForYear = MONTHS.filter(m => m.year === yr);
   holder.innerHTML = '<div class="loading-panel"><div class="loading-spinner"></div><p>Loading ' + emp + '\u2019s attendance records\u2026</p></div>';
   const subtitle = document.getElementById('yearlyModalSubtitle');
-  if(subtitle) subtitle.textContent = `${emp} \u00b7 present & absent history for ${year} (${yearMonths.length} recorded months) \u00b7 click a month to see the day-by-day calendar`;
+  if(subtitle) subtitle.textContent = `${emp} \u00b7 present & absent history for ${yr} (${monthsForYear.length} recorded months) \u00b7 click a month to see the day-by-day calendar`;
 
+  const rows = [];
   const totals = {present:0, absent:0, field:0, halfDay:0, holidayAbsent:0};
-  const fetched = await Promise.all(yearMonths.map(async m => {
-    try{ return {m, sheetData: await getSheetData(m.key)}; }
-    catch(err){ return {m, sheetData: null}; }
-  }));
-  // Bail out quietly if the employee or year switch was clicked again mid-fetch.
-  if(yearlyState.employee !== emp || yearlyState.year !== year) return;
-
-  const rows = fetched.map(({m, sheetData}) => {
-    if(!sheetData || !sheetData.employees.includes(emp)) return {m, empty:true};
+  for(const m of monthsForYear){
+    let sheetData = null;
+    try{ sheetData = await getSheetData(m.key); } catch(err){ sheetData = null; }
+    if(!sheetData || !sheetData.employees.includes(emp)){
+      rows.push({m, empty:true});
+      continue;
+    }
     const s = computeStats(sheetData.days, m, emp, state.lateThreshold);
     totals.present += s.present; totals.absent += s.absent; totals.field += s.field;
     totals.halfDay += s.halfDay; totals.holidayAbsent += s.holidayAbsent;
-    return {m, s};
-  });
+    rows.push({m, s});
+  }
+  // Bail out quietly if the employee/year switch was clicked again mid-fetch.
+  if(yearlyState.employee !== emp || yearlyState.year !== yr) return;
   yearlyState.rows = rows;
 
   const totalDenom = totals.present+totals.field+totals.absent;
   const totalRate = totalDenom ? Math.round(((totals.present+totals.field)/totalDenom)*1000)/10 : null;
 
-  const cards = rows.map(r => {
+  const cards_html = rows.map(r => {
     if(r.empty){
       return `<div class="yearly-month-card is-empty">
-        <div class="yc-head"><span class="yc-title">${r.m.label}<small>${r.m.year}</small></span></div>
-        <p class="simple-num muted" style="font-size:12px;">No data recorded</p>
+        <div class="yc-head">
+          <span class="yc-title">${r.m.label}<small>${r.m.year}</small></span>
+          ${progressRingSvg(null)}
+        </div>
+        <span class="yc-empty-note">No data recorded yet</span>
       </div>`;
     }
     const s = r.s;
-    return `<button class="yearly-month-card" type="button" data-month-key="${r.m.key}">
+    const accent = rateRingColor(s.rate);
+    return `<button class="yearly-month-card" type="button" data-month-key="${r.m.key}" style="--month-accent:${accent};">
       <div class="yc-head">
         <span class="yc-title">${r.m.label}<small>${r.m.year}</small></span>
         ${progressRingSvg(s.rate)}
@@ -3037,18 +3245,20 @@ async function renderYearlyTable(){
         <span class="yc-stat"><span class="yc-dot" style="background:var(--field);"></span>${s.field}</span>
         <span class="yc-stat"><span class="yc-dot" style="background:var(--halfday);"></span>${s.halfDay}</span>
       </div>
-      <span class="yc-cta">View details <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      <span class="yc-cta">View details
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </span>
     </button>`;
   }).join('');
 
   holder.innerHTML = `
-    <div class="yearly-card-grid">${cards}</div>
-    <div class="yearly-summary-strip kpi-row" style="margin-top:18px;">
-      <div class="kpi-card"><p class="label">Year present</p><p class="value present">${totals.present}</p></div>
-      <div class="kpi-card"><p class="label">Year absent</p><p class="value absent">${totals.absent}</p></div>
-      <div class="kpi-card"><p class="label">Year field duty</p><p class="value field">${totals.field}</p></div>
-      <div class="kpi-card"><p class="label">Year half days</p><p class="value halfday">${totals.halfDay}</p></div>
-      <div class="kpi-card"><p class="label">Year rate</p><p class="value" style="color:${rateRingColor(totalRate)};">${totalRate!=null?totalRate+'%':'\u2014'}</p></div>
+    <div class="yearly-card-grid">${cards_html}</div>
+    <div class="yearly-summary-strip kpi-row" style="margin-top:20px;">
+      <div class="kpi-card" style="--accent:var(--present);"><p class="label">Year present</p><p class="value present">${totals.present}</p></div>
+      <div class="kpi-card" style="--accent:var(--absent);"><p class="label">Year absent</p><p class="value absent">${totals.absent}</p></div>
+      <div class="kpi-card" style="--accent:var(--field);"><p class="label">Year field duty</p><p class="value field">${totals.field}</p></div>
+      <div class="kpi-card" style="--accent:var(--halfday);"><p class="label">Year half days</p><p class="value halfday">${totals.halfDay}</p></div>
+      <div class="kpi-card" style="--accent:${rateRingColor(totalRate)};"><p class="label">Year rate</p><p class="value" style="color:${rateRingColor(totalRate)};">${totalRate!=null?totalRate+'%':'\u2014'}</p></div>
     </div>`;
 
   holder.querySelectorAll('.yearly-month-card[data-month-key]').forEach(card => {
@@ -3090,8 +3300,8 @@ function closeYearlyMonthDetail(){
   if(track) track.classList.remove('show-month');
   yearlyState.monthOpen = false;
   if(subtitle && yearlyState.employee){
-    const yearMonths = MONTHS.filter(m => m.year === yearlyState.year);
-    subtitle.textContent = `${yearlyState.employee} \u00b7 present & absent history for ${yearlyState.year} (${yearMonths.length} recorded months) \u00b7 click a month to see the day-by-day calendar`;
+    const monthsForYear = MONTHS.filter(m => m.year === yearlyState.year);
+    subtitle.textContent = `${yearlyState.employee} \u00b7 present & absent history for ${yearlyState.year} (${monthsForYear.length} recorded months) \u00b7 click a month to see the day-by-day calendar`;
   }
 }
 async function openYearlyModal(){
@@ -3104,11 +3314,8 @@ async function openYearlyModal(){
     yearlyState.employee = (state.employee && state.employee !== 'All') ? state.employee : ALL_EMPLOYEES[0];
   }
   if(!yearlyState.year){
-    // Default to the most recent year that actually has more than one
-    // month of data, so opening the report lands on real history rather
-    // than a stub year with a single upcoming month.
-    const withData = YEARLY_YEARS.filter(y => MONTHS.filter(m => m.year === y).length > 1);
-    yearlyState.year = (withData[0] !== undefined) ? withData[0] : YEARLY_YEARS[0];
+    const years = yearlyAvailableYears();
+    yearlyState.year = years.includes(state.year) ? state.year : years[years.length-1];
   }
   renderYearlyEmpSwitch();
   await renderYearlyTable();
@@ -3183,7 +3390,6 @@ document.addEventListener('click', () => {
   populateControls();
   const branchList = document.getElementById('branchOptions');
   if(branchList) branchList.innerHTML = BRANCHES.map(b => `<option value="${b}">`).join('');
-  initTimeScrollInputs();
   renderHolidays();
   setupHolidaysModal();
   setupPayrollModal();
