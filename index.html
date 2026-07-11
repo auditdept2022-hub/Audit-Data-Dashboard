@@ -1648,16 +1648,9 @@ body.bg-coolDark{
   #liveTimeText, #liveDateText {
     transition: color .3s ease;
   }
-  /* Shared fixed height for the header's action controls (Update data,
-     Upload File, Log out) so they line up evenly. Update data now carries
-     two lines of text (the "Last synced" line), so it and its neighbors
-     need an explicit height rather than relying on padding alone — a
-     plain CSS rule instead of a Tailwind h-* utility so it doesn't depend
-     on classes only the Tailwind CDN's runtime compiler would generate. */
-  #updateDataBtn, #uploadFileLabel {
-    height: 2.75rem;
-  }
-  #authLogoutBtn { height: 2.75rem; width: 2.75rem; }
+  /* Flat, minimalist header controls (Update data / Upload File / Log out)
+     size themselves via padding now — no fixed pixel height needed, they
+     line up naturally since they share the same py-2 padding. */
   /* Once-a-minute settle so the date/minute change doesn't feel like a jump cut */
   @keyframes liveClockSettle {
     0%   { opacity: .45; transform: translateY(2px); }
@@ -2436,30 +2429,26 @@ body.bg-coolDark{
         </div>
       </div>
 
-      <div class="flex items-center gap-2.5 w-full lg:w-auto justify-end">
-        <div class="flex items-stretch bg-white rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,.06),0_10px_24px_-12px_rgba(15,23,42,.25)] border border-white/60 overflow-hidden">
-          <button id="updateDataBtn" onclick="fetchSheet()" title="Refresh dashboard data" class="group flex items-center gap-2 pl-3.5 pr-3 hover:bg-royalBlue/[0.06] active:bg-royalBlue/10 cursor-pointer text-sm font-semibold transition-colors duration-150 text-royalBlue whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
-            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-cloud-download text-royalBlue shrink-0 transition-transform duration-500 group-active:-rotate-180"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="m8 17 4 4 4-4"></path></svg>
-            <span class="hidden sm:flex sm:flex-col sm:items-start leading-tight">
-              <span>Update data</span>
-              <span class="flex items-center gap-1 h-[11px]">
-                <span id="autoRefreshDot" class="hidden w-1.5 h-1.5 rounded-full bg-accentEmerald animate-pulse" title="Auto-refreshing in the background"></span>
-                <span id="lastSyncedLabel" class="text-[9px] font-medium normal-case text-slate-400"></span>
-              </span>
+      <div class="flex items-center gap-0.5 w-full lg:w-auto justify-end">
+        <button id="updateDataBtn" onclick="fetchSheet()" title="Refresh dashboard data" class="group flex items-center gap-2 px-2.5 sm:px-3 py-2 rounded-lg hover:bg-white/10 active:bg-white/15 cursor-pointer text-sm font-medium transition-colors duration-150 text-white/90 hover:text-white whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
+          <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-cloud-download shrink-0 transition-transform duration-500 group-active:-rotate-180"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="m8 17 4 4 4-4"></path></svg>
+          <span class="hidden sm:flex sm:flex-col sm:items-start leading-tight">
+            <span>Update data</span>
+            <span class="flex items-center gap-1 h-[11px]">
+              <span id="autoRefreshDot" class="hidden w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" title="Auto-refreshing in the background"></span>
+              <span id="lastSyncedLabel" class="text-[9px] font-medium normal-case text-white/50"></span>
             </span>
-          </button>
+          </span>
+        </button>
 
-          <div class="w-px my-2 bg-coolBorder shrink-0"></div>
+        <label id="uploadFileLabel" title="Upload a spreadsheet" class="group flex items-center gap-2 px-2.5 sm:px-3 py-2 rounded-lg hover:bg-white/10 active:bg-white/15 cursor-pointer text-sm font-medium transition-colors duration-150 text-white/90 hover:text-white whitespace-nowrap aria-disabled:opacity-40 aria-disabled:cursor-not-allowed">
+          <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-spreadsheet shrink-0 transition-transform duration-200 group-active:scale-90"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M8 13h2"></path><path d="M14 13h2"></path><path d="M8 17h2"></path><path d="M14 17h2"></path></svg>
+          <span id="uploadFileLabelText" class="hidden sm:inline">Upload File</span>
+          <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" class="hidden">
+        </label>
 
-          <label id="uploadFileLabel" title="Upload a spreadsheet" class="group flex items-center gap-2 pl-3 pr-3.5 hover:bg-royalBlue/[0.06] active:bg-royalBlue/10 cursor-pointer text-sm font-semibold transition-colors duration-150 text-royalBlue whitespace-nowrap aria-disabled:opacity-40 aria-disabled:cursor-not-allowed">
-            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-spreadsheet text-royalBlue shrink-0 transition-transform duration-200 group-active:scale-90"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M8 13h2"></path><path d="M14 13h2"></path><path d="M8 17h2"></path><path d="M14 17h2"></path></svg>
-            <span id="uploadFileLabelText" class="hidden sm:inline">Upload File</span>
-            <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" class="hidden">
-          </label>
-        </div>
-
-        <button id="authLogoutBtn" type="button" title="Log out" aria-label="Log out" class="hidden items-center justify-center w-11 h-11 shrink-0 bg-white/10 hover:bg-accentRose active:scale-95 border border-white/25 hover:border-accentRose rounded-2xl cursor-pointer transition-all duration-200 text-white shadow-[0_1px_2px_rgba(15,23,42,.06)] hover:shadow-[0_6px_16px_-4px_rgba(225,29,72,.55)]">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" x2="12" y1="2" y2="12"></line></svg>
+        <button id="authLogoutBtn" type="button" title="Log out" aria-label="Log out" class="hidden items-center gap-1.5 ml-1 pl-3 py-2 pr-2.5 border-l border-white/15 text-white/60 hover:text-white active:scale-95 cursor-pointer transition-colors duration-150 text-sm font-medium whitespace-nowrap">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" x2="12" y1="2" y2="12"></line></svg>
           <span id="authLogoutEmail" class="hidden"></span>
         </button>
       </div>
