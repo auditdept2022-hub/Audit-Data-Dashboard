@@ -3440,7 +3440,7 @@ body.bg-coolDark{
     // Opens the small editable form for a single branch's next-assignment
     // fields (expected date, rotation rounds). Saving this writes
     // expectedDate straight into AUDIT DATA (FINAL) column AM, and the
-    // rotation rounds into AUDIT ROTATION (FINAL) columns C:J, via the
+    // rotation rounds into AUDIT DATA (FINAL) columns AO:AV, via the
     // Apps Script backend, so nobody has to type it into the Sheet by hand.
     function openEditAssignmentModal(branchName) {
       openModal('Edit Assignment — ' + branchName, 'editAssignment', branchName);
@@ -3479,8 +3479,8 @@ body.bg-coolDark{
     // Renders the Edit Assignment form. branchName selects which branch is
     // being edited; the Branch dropdown at the top lets you switch to any
     // other branch without leaving the popup. Auditor + Date pairs for
-    // rotation rounds 1-4 map straight onto AUDIT ROTATION (FINAL) columns
-    // C/D (1st), E/F (2nd), G/H (3rd), I/J (4th) — so it's always
+    // rotation rounds 1-4 map straight onto AUDIT DATA (FINAL) columns
+    // AO/AP (1st), AQ/AR (2nd), AS/AT (3rd), AU/AV (4th) — so it's always
     // clear which round a given name/date belongs to. Status is NOT set
     // here: it's driven by the sheet's own formula off the Expected Audit
     // Date (column AM), so entering that date is what moves a branch
@@ -3538,7 +3538,7 @@ body.bg-coolDark{
 
       modalBody.innerHTML = `
         <div class="bg-white border border-coolBorder rounded-xl p-5 shadow-sm max-w-lg mx-auto">
-          <p class="text-xs text-slate-500 mb-4">Rotation fields save straight to <strong>AUDIT ROTATION (FINAL)</strong> (auditor names in columns C/E/G/I, dates in D/F/H/J) — no need to open the Sheet. Status updates automatically from the Expected Audit Date formula, so it isn't set here.</p>
+          <p class="text-xs text-slate-500 mb-4">Rotation fields save straight to <strong>AUDIT DATA (FINAL)</strong> (auditor names in columns AO/AQ/AS/AU, dates in AP/AR/AT/AV) — no need to open the Sheet. Status updates automatically from the Expected Audit Date formula, so it isn't set here.</p>
 
           <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Branch</label>
           <select id="editAssign-branch" onchange="openEditAssignmentModal(this.value)"
@@ -3689,10 +3689,10 @@ body.bg-coolDark{
     }
 
     // Sends the assignment fields to the Apps Script backend, which writes
-    // them into AUDIT DATA (FINAL) / AUDIT ROTATION (FINAL) for the matching
-    // branch row: expectedDate -> AUDIT DATA (FINAL) column AM (drives the
-    // status formula), and each rotation round's auditor/date -> AUDIT
-    // ROTATION (FINAL) columns C/D, E/F, G/H, I/J respectively.
+    // them into AUDIT DATA (FINAL) for the matching branch row:
+    // expectedDate -> column AM (drives the status formula), and each
+    // rotation round's auditor/date -> columns AO/AP, AQ/AR, AS/AT, AU/AV
+    // respectively.
     //
     // NOTE: this used to POST a JSON body to doPost(). That silently never
     // reached the sheet: Apps Script /exec URLs respond with a redirect,
@@ -4723,6 +4723,13 @@ body.bg-coolDark{
                           ${riskLevel} <span class="opacity-70 font-semibold">(${riskProfile.score}/100)</span>
                       </span>
                       <span class="px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-royalBlue shadow-sm">${escapeHTML((b.auditStatus || 'PENDING').toUpperCase())}</span>
+                      <button type="button" onclick="openEditAssignmentModal('${escapeHTML(b.name)}')" title="Edit this branch's assignment"
+                              class="flex items-center justify-center w-8 h-8 rounded-xl bg-white/15 border border-white/25 backdrop-blur-sm hover:bg-white/25 active:scale-95 transition-all">
+                          <svg class="w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                          </svg>
+                      </button>
                   </div>
               </div>
 
