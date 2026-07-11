@@ -3497,30 +3497,22 @@ body.bg-coolDark{
           return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
       };
 
-      const schedule = (activeData.branchAuditSchedule && activeData.branchAuditSchedule[resolvedName]) || null;
-      const roundsByNumber = {};
-      (schedule ? schedule.rounds : []).forEach(r => { roundsByNumber[r.round] = r; });
-
-      // Rotation date strings from the sheet are display-formatted (e.g.
-      // "July 11, 2026"), not <input type="date">-compatible — convert
-      // when possible so the field pre-fills instead of showing blank.
-      const toInputDate = (rnd) => {
-          if (!rnd || !rnd.dateRaw) return '';
-          const d = new Date(rnd.dateRaw);
-          if (isNaN(d.getTime())) return '';
-          const mm = String(d.getMonth() + 1).padStart(2, '0');
-          const dd = String(d.getDate()).padStart(2, '0');
-          return `${d.getFullYear()}-${mm}-${dd}`;
-      };
+      // Rotation rounds + expected date come straight off this branch's own
+      // row in AUDIT DATA (FINAL) — the exact sheet+row this form saves
+      // back into — NOT from the separate AUDIT ROTATION (FINAL) sheet.
+      // That keeps the form honest: if a round is blank in the sheet, it
+      // shows blank here, and never shows a leftover value from elsewhere.
+      const roundsByNumber = (b && b.assignmentRounds) ? b.assignmentRounds : {};
 
       const branchOptions = branches
           .map(x => `<option value="${escapeHTML(x.name)}" ${x.name === resolvedName ? 'selected' : ''}>${escapeHTML(x.name)}</option>`)
           .join('');
 
       const auditorOptionsFor = (roundNum) => {
-          const current = (roundsByNumber[roundNum] && roundsByNumber[roundNum].auditor !== 'Unassigned') ? roundsByNumber[roundNum].auditor : '';
+          const current = (roundsByNumber[roundNum] && roundsByNumber[roundNum].auditor) ? roundsByNumber[roundNum].auditor : '';
+          const currentUpper = current.toUpperCase();
           const blank = `<option value="" ${!current ? 'selected' : ''}>—</option>`;
-          const opts = AUDITOR_NAMES.map(name => `<option value="${name}" ${name === current ? 'selected' : ''}>${name}</option>`).join('');
+          const opts = AUDITOR_NAMES.map(name => `<option value="${name}" ${name.toUpperCase() === currentUpper ? 'selected' : ''}>${name}</option>`).join('');
           return blank + opts;
       };
 
@@ -3534,7 +3526,7 @@ body.bg-coolDark{
             </div>
             <div>
               <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">${label} Date</label>
-              <input id="editAssign-date${roundNum}" type="date" value="${toInputDate(roundsByNumber[roundNum])}"
+              <input id="editAssign-date${roundNum}" type="date" value="${(roundsByNumber[roundNum] && roundsByNumber[roundNum].dateInput) || ''}"
                      class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
             </div>
           </div>`;
@@ -3550,7 +3542,7 @@ body.bg-coolDark{
           </select>
 
           <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Expected Audit Date <span class="normal-case font-normal text-slate-400">(col AM — drives status automatically)</span></label>
-          <input id="editAssign-expectedDate" type="date"
+          <input id="editAssign-expectedDate" type="date" value="${(b && b.expectedAuditDateInput) || ''}"
                  class="w-full mb-5 px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
 
           <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 border-t border-coolBorder pt-4">Audit Rotation Schedule</div>
@@ -3674,8 +3666,24 @@ body.bg-coolDark{
           // Pull the just-saved values back in so the dashboard reflects the
           // change immediately, without waiting on a full server refresh.
           const b = (activeData.branches || []).find(x => x.name === branchName);
-          const latestRotation = [...fields.rotations].reverse().find(r => r.auditor && r.date);
-          if (b && latestRotation) b.auditor = latestRotation.auditor;
+          if (b) {
+              b.expectedAuditDateInput = fields.expectedDate || '';
+              const newRounds = {};
+              (fields.rotations || []).forEach(r => {
+                  newRounds[r.round] = {
+                      round: r.round,
+                      auditor: r.auditor || '',
+                      dateInput: r.date || '',
+                      dateRaw: r.date ? new Date(r.date + 'T00:00:00').getTime() : null
+                  };
+              });
+              b.assignmentRounds = newRounds;
+              const dated = Object.values(newRounds).filter(r => r.dateRaw && r.auditor);
+              if (dated.length > 0) {
+                  dated.sort((x, y) => y.dateRaw - x.dateRaw);
+                  b.auditor = dated[0].auditor;
+              }
+          }
           if (typeof initDashboard === 'function') initDashboard();
           // Refresh from the server shortly after so everyone sees the
           // authoritative Sheet state (not just this browser's optimistic guess).
@@ -6032,6 +6040,28 @@ body.bg-coolDark{
           let matchedAny = false;
           let auditorMap = { "KARL": [], "GENESIS": [], "EDISON": [], "LAURENCE": [] };
           const seenBranches = new Set();
+
+          // Shared date parser (sheet serial numbers, JS Date objects, or
+          // plain strings) used both for the AUDIT DATA (FINAL) assignment
+          // columns read below AND the AUDIT ROTATION (FINAL) sheet further
+          // down, so the two stay in sync instead of drifting apart.
+          const parseSheetDate = (val) => {
+              if (val === undefined || val === null || val === "") return null;
+              if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+              if (!isNaN(val) && Number(val) > 10000) {
+                  const d = new Date(1899, 11, 30);
+                  d.setDate(d.getDate() + Number(val));
+                  return d;
+              }
+              const d2 = new Date(val);
+              return isNaN(d2.getTime()) ? null : d2;
+          };
+          const toDateInputValue = (d) => {
+              if (!d) return '';
+              const mm = String(d.getMonth() + 1).padStart(2, '0');
+              const dd = String(d.getDate()).padStart(2, '0');
+              return `${d.getFullYear()}-${mm}-${dd}`;
+          };
           
           let startIdx = 1;
           let headerRowIndex = 0;
@@ -6111,6 +6141,33 @@ body.bg-coolDark{
             
             const assignedAuditor = String(row[39] || "UNASSIGNED").trim();
 
+            // Expected Audit Date (column AM, index 38) and the 4 rotation
+            // round auditor/date pairs (AO/AP, AQ/AR, AS/AT, AU/AV — indices
+            // 40-47), read directly from THIS row so the Edit Assignment
+            // form always shows exactly what's in AUDIT DATA (FINAL) right
+            // now — the same sheet+row it saves back into. A round with a
+            // truly blank auditor AND blank date is left blank here (not
+            // carried over from any other sheet), so clearing a round in
+            // the sheet clears it in the form too.
+            const expectedDateParsed = parseSheetDate(row[38]);
+            const assignmentRoundDefs = [
+                { round: 1, auditor: row[40], date: row[41] },
+                { round: 2, auditor: row[42], date: row[43] },
+                { round: 3, auditor: row[44], date: row[45] },
+                { round: 4, auditor: row[46], date: row[47] }
+            ];
+            const assignmentRounds = {};
+            assignmentRoundDefs.forEach(rd => {
+                const auditorName = String(rd.auditor || "").trim();
+                const parsedDate = parseSheetDate(rd.date);
+                assignmentRounds[rd.round] = {
+                    round: rd.round,
+                    auditor: auditorName,
+                    dateInput: toDateInputValue(parsedDate),
+                    dateRaw: parsedDate ? parsedDate.getTime() : null
+                };
+            });
+
             const parseRepoPct = (raw) => {
                if (raw === undefined || raw === null || raw === "") return 0;
                let val = parseFloat(String(raw).replace('%', ''));
@@ -6158,7 +6215,9 @@ body.bg-coolDark{
               salesApr: { ins: parseInt(row[20])||0, cod: parseInt(row[21])||0, ca: parseInt(row[22])||0 }, 
               salesMay: { ins: parseInt(row[23])||0, cod: parseInt(row[24])||0, ca: parseInt(row[25])||0 },
               expectedIns: parseInt(row[15]) || 0,
-              expectedCod: parseInt(row[16]) || 0
+              expectedCod: parseInt(row[16]) || 0,
+              expectedAuditDateInput: toDateInputValue(expectedDateParsed),
+              assignmentRounds: assignmentRounds
             };
           }
           
@@ -6277,14 +6336,39 @@ body.bg-coolDark{
               }
 
               // Apply the most recent (auditor, date) found per branch as the
-              // "Last Assigned Auditor" shown on the branch detail card.
+              // "Last Assigned Auditor" shown on the branch detail card —
+              // but ONLY as a fallback for branches that have no rotation
+              // data at all in AUDIT DATA (FINAL) itself. A branch's own
+              // assignmentRounds (parsed straight from AO:AV on its row,
+              // the same sheet+row the Edit Assignment form saves to)
+              // always wins when present, so the sheet you actually edited
+              // is the one reflected here after a refresh.
               Object.keys(branchLastAudit).forEach(branchName => {
-                  if (tempBranchesMap[branchName]) {
-                      const info = branchLastAudit[branchName];
-                      tempBranchesMap[branchName].auditor = info.auditor;
-                      tempBranchesMap[branchName].lastAuditDate = info.date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-                      tempBranchesMap[branchName].lastAuditDateRaw = info.date.getTime();
-                  }
+                  const branchObj = tempBranchesMap[branchName];
+                  if (!branchObj) return;
+                  const ownRounds = branchObj.assignmentRounds || {};
+                  const ownDated = Object.values(ownRounds).filter(r => r.dateRaw);
+                  if (ownDated.length > 0) return; // AUDIT DATA (FINAL) has its own rotation info — don't override it
+                  const info = branchLastAudit[branchName];
+                  branchObj.auditor = info.auditor;
+                  branchObj.lastAuditDate = info.date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+                  branchObj.lastAuditDateRaw = info.date.getTime();
+              });
+
+              // For branches that DO have rotation data of their own in
+              // AUDIT DATA (FINAL), derive "current auditor" / "last audit
+              // date" from that instead — the latest dated round wins.
+              Object.keys(tempBranchesMap).forEach(branchName => {
+                  const branchObj = tempBranchesMap[branchName];
+                  const ownRounds = branchObj.assignmentRounds || {};
+                  const dated = Object.values(ownRounds).filter(r => r.dateRaw && r.auditor);
+                  if (dated.length === 0) return;
+                  dated.sort((a, b) => b.dateRaw - a.dateRaw);
+                  const latest = dated[0];
+                  branchObj.auditor = latest.auditor;
+                  const d = new Date(latest.dateRaw);
+                  branchObj.lastAuditDate = d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+                  branchObj.lastAuditDateRaw = latest.dateRaw;
               });
 
               // Full audit schedule (every round + interval), attached per
