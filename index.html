@@ -150,6 +150,7 @@
         topDecliningService: [],
         auditors: [],
         dataAudit: {},
+        branchAuditSchedule: {},
         emergencyHistory: []
     };
     let charts = {};
@@ -197,6 +198,50 @@
             emergencyAuditor: activeData.summary?.emergencyAuditor || "PENDING",
             trendLabels: activeData.summary?.trendLabels || ["MARCH", "APRIL", "MAY"]
         };
+
+        // --- Auditor Next Assignment: who is queued up for a "FOR AUDIT" branch ---
+        const forAuditList = tb.filter(b => (b.auditStatus || '').toUpperCase() === "FOR AUDIT");
+        const auditorQueueCounts = {};
+        forAuditList.forEach(b => {
+            const a = (b.auditor && b.auditor !== 'UNASSIGNED') ? b.auditor : 'Unassigned';
+            auditorQueueCounts[a] = (auditorQueueCounts[a] || 0) + 1;
+        });
+        const forAuditBreakdown = Object.keys(auditorQueueCounts)
+            .map(name => ({ name, count: auditorQueueCounts[name] }))
+            .sort((a, b) => b.count - a.count);
+
+        // Branch that's been waiting longest since its last audit gets shown
+        // as the "up next" branch in the queue (falls back to the first
+        // unaudited branch on record if no prior audit date exists).
+        const sortedQueue = [...forAuditList].sort((a, b) => (a.lastAuditDateRaw || 0) - (b.lastAuditDateRaw || 0));
+        const nextUpBranch = sortedQueue[0] || null;
+
+        // --- Branch Last Audited: most recently completed audit(s) across the whole portfolio ---
+        const auditedBranches = tb.filter(b => b.lastAuditDateRaw);
+        const auditedBranchesByRecency = [...auditedBranches].sort((a, b) => (b.lastAuditDateRaw || 0) - (a.lastAuditDateRaw || 0));
+        const lastAuditedBranch = auditedBranchesByRecency[0] || null;
+        // Top 5 most recently audited branches, for the Branch Audit Interval
+        // stack card so it's clear at a glance which branches were audited
+        // most recently, not just the single most recent one.
+        const recentlyAuditedBranches = auditedBranchesByRecency.slice(0, 5).map(b => ({
+            name: b.name,
+            auditor: b.auditor || 'Unassigned',
+            lastAuditDate: b.lastAuditDate || null
+        }));
+
+        activeData.summary.forAuditBreakdown = forAuditBreakdown;
+        activeData.summary.nextUpBranch = nextUpBranch ? {
+            name: nextUpBranch.name,
+            auditor: (nextUpBranch.auditor && nextUpBranch.auditor !== 'UNASSIGNED') ? nextUpBranch.auditor : 'Unassigned',
+            lastAuditDate: nextUpBranch.lastAuditDate || null
+        } : null;
+        activeData.summary.lastAuditedBranch = lastAuditedBranch ? {
+            name: lastAuditedBranch.name,
+            auditor: lastAuditedBranch.auditor || 'Unassigned',
+            lastAuditDate: lastAuditedBranch.lastAuditDate || null,
+            findings2026: lastAuditedBranch.findings2026 || 0
+        } : null;
+        activeData.summary.recentlyAuditedBranches = recentlyAuditedBranches;
 
         activeData.lowestEfficiency = [...tb].sort((a,b) => a.effLatest - b.effLatest).slice(0, 10).map(x => ({ branch: x.name, rate: x.effLatest }));
         activeData.highestRepo = [...tb].sort((a,b) => b.repoRate - a.repoRate).slice(0, 10).map(x => ({ branch: x.name, rate: parseFloat(x.repoRate.toFixed(2)) }));
@@ -2259,6 +2304,9 @@ body.bg-coolDark{
             <h2 class="text-base sm:text-xl font-bold text-slate-800 flex items-center gap-2 min-w-0" id="modalTitle">BINALONAN — Detailed Profile</h2>
           </div>
           <div class="flex items-center gap-1 flex-shrink-0">
+            <button id="modalEditAssignBtn" onclick="openHeaderEditAssignment()" title="Edit assignment" aria-label="Edit assignment" class="hidden p-2 text-slate-400 hover:text-accentAmber hover:bg-accentAmber/10 active:scale-95 rounded-xl transition-all cursor-pointer">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path><path d="m15 5 4 4"></path></svg>
+            </button>
             <button onclick="openExportPicker('current')" title="Download this data" aria-label="Download this data" class="p-2 text-slate-400 hover:text-accentEmerald hover:bg-accentEmerald/10 active:scale-95 rounded-xl transition-all cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>
             </button>
@@ -2368,6 +2416,33 @@ body.bg-coolDark{
           <button onclick="cancelQuickLinkPassword()" class="flex-1 text-xs font-semibold text-slate-500 hover:text-slate-700 py-2 rounded-xl border border-coolBorder cursor-pointer">Cancel</button>
           <button id="quickLinkPasswordSubmitBtn" onclick="submitQuickLinkPassword()" class="flex-1 text-xs font-semibold text-white bg-royalBlue hover:bg-blue-700 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-60">
             <span id="quickLinkPasswordSubmitLabel">Unlock &amp; Open</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="editAssignPasswordModal" class="fixed inset-0 z-[70] hidden">
+    <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="cancelEditAssignPassword()"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+      <div class="bg-coolCard w-full max-w-xs rounded-2xl shadow-2xl p-5 pointer-events-auto border border-coolBorder">
+        <div class="flex items-start justify-between gap-3 mb-1">
+          <div class="flex items-center gap-2 min-w-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue flex-shrink-0"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            <h3 class="text-sm font-bold text-slate-800 truncate">Confirm Your Password</h3>
+          </div>
+          <button onclick="cancelEditAssignPassword()" title="Close" aria-label="Close" class="p-2 -mr-2 text-slate-400 hover:text-accentRose hover:bg-accentRose/10 active:scale-95 rounded-xl transition-all cursor-pointer flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+          </button>
+        </div>
+        <p class="text-xs text-slate-500 mb-1">Re-enter your account password to save changes to <span id="editAssignPasswordBranchLabel" class="font-semibold text-slate-600">this assignment</span>.</p>
+        <p class="text-[11px] text-slate-400 mb-3">Signed in as <span id="editAssignPasswordUserLabel" class="font-semibold text-slate-500">\u2014</span></p>
+        <input id="editAssignPasswordInput" type="password" autocomplete="current-password" placeholder="Your password" onkeydown="if(event.key==='Enter'){submitEditAssignPassword();}" class="w-full px-3 py-2 rounded-xl border border-coolBorder text-sm focus:outline-none focus:ring-2 focus:ring-accentBlue/40 mb-1" />
+        <p id="editAssignPasswordError" class="text-[11px] text-accentRose mb-1 hidden">Incorrect password. Try again.</p>
+        <div class="flex gap-2 mt-3">
+          <button onclick="cancelEditAssignPassword()" class="flex-1 text-xs font-semibold text-slate-500 hover:text-slate-700 py-2 rounded-xl border border-coolBorder cursor-pointer">Cancel</button>
+          <button id="editAssignPasswordSubmitBtn" onclick="submitEditAssignPassword()" class="flex-1 text-xs font-semibold text-white bg-royalBlue hover:bg-blue-700 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-60">
+            <span id="editAssignPasswordSubmitLabel">Unlock &amp; Save</span>
           </button>
         </div>
       </div>
@@ -2696,37 +2771,26 @@ body.bg-coolDark{
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-      <div onclick="openModal('Audit Findings FY2024 Breakdown', 'findings', 'findings2024')" class="bg-coolCard border border-coolBorder rounded-2xl p-4 sm:p-5 hover:border-slate-500 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-semibold tracking-wider text-slate-500">AUDIT FINDINGS FY2024</span>
-          <span class="p-1.5 bg-slate-200 text-slate-600 rounded-lg group-hover:bg-slate-500 group-hover:text-white transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar w-4 h-4"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg></span>
-        </div>
-        <div class="mt-4">
-          <h3 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900" id="stat-findings-2024">197</h3>
-          <p class="text-xs text-slate-500 mt-1">Total recorded incidents</p>
-        </div>
-      </div>
-
-      <div onclick="openModal('Audit Findings FY2025 Breakdown', 'findings', 'findings2025')" class="bg-coolCard border border-coolBorder rounded-2xl p-4 sm:p-5 hover:border-accentRose/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-semibold tracking-wider text-slate-500">AUDIT FINDINGS FY2025</span>
-          <span class="p-1.5 bg-accentRose/10 text-accentRose rounded-lg group-hover:bg-accentRose group-hover:text-white transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-alert-triangle w-4 h-4"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg></span>
-        </div>
-        <div class="mt-4">
-          <h3 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-accentRose" id="stat-findings-2025">280</h3>
-          <p class="text-xs text-accentRose mt-1" id="stat-findings-2025-sub">+42% vs 2024</p>
-        </div>
-      </div>
-
       <div onclick="openModal('Audit Findings FY2026 Breakdown', 'findings', 'findings2026')" class="bg-coolCard border border-coolBorder rounded-2xl p-4 sm:p-5 hover:border-accentCyan/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-semibold tracking-wider text-slate-500">AUDIT FINDINGS FY2026</span>
-          <span class="p-1.5 bg-accentCyan/10 text-accentCyan rounded-lg group-hover:bg-accentCyan group-hover:text-white transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check-circle-2 w-4 h-4"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg></span>
+          <span class="text-xs font-semibold tracking-wider text-slate-500">AUDIT FINDINGS (FY2024–FY2026)</span>
+          <span class="p-1.5 bg-accentCyan/10 text-accentCyan rounded-lg group-hover:bg-accentCyan group-hover:text-white transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-alert-triangle w-4 h-4"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg></span>
         </div>
-        <div class="mt-4">
-          <h3 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-accentCyan" id="stat-findings-2026">202</h3>
-          <p class="text-xs text-accentEmerald mt-1">YTD (on track)</p>
+        <div class="mt-4 grid grid-cols-3 divide-x divide-coolBorder text-center">
+          <div class="cursor-pointer" onclick="event.stopPropagation(); openModal('Audit Findings FY2024 Breakdown', 'findings', 'findings2024')">
+            <h3 class="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900" id="stat-findings-2024">197</h3>
+            <p class="text-[10px] font-semibold text-slate-400 mt-0.5 uppercase tracking-wide">FY2024</p>
+          </div>
+          <div class="cursor-pointer" onclick="event.stopPropagation(); openModal('Audit Findings FY2025 Breakdown', 'findings', 'findings2025')">
+            <h3 class="text-xl sm:text-2xl font-extrabold tracking-tight text-accentRose" id="stat-findings-2025">280</h3>
+            <p class="text-[10px] font-semibold text-slate-400 mt-0.5 uppercase tracking-wide">FY2025</p>
+          </div>
+          <div class="cursor-pointer" onclick="event.stopPropagation(); openModal('Audit Findings FY2026 Breakdown', 'findings', 'findings2026')">
+            <h3 class="text-xl sm:text-2xl font-extrabold tracking-tight text-accentCyan" id="stat-findings-2026">202</h3>
+            <p class="text-[10px] font-semibold text-slate-400 mt-0.5 uppercase tracking-wide">FY2026</p>
+          </div>
         </div>
+        <p class="text-xs text-accentRose mt-3 text-center" id="stat-findings-2025-sub">+42% vs 2024</p>
       </div>
 
       <div onclick="openModal('Total Active Accounts Breakdown', 'accounts', 'accountsMay')" class="bg-coolCard border border-coolBorder rounded-2xl p-4 sm:p-5 hover:border-accentBlue/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
@@ -2737,6 +2801,28 @@ body.bg-coolDark{
         <div class="mt-4">
           <h3 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900" id="stat-total-accounts">12,924</h3>
           <p class="text-xs text-slate-500 mt-1">Active collection portfolio</p>
+        </div>
+      </div>
+
+      <div onclick="openAuditQueueModal()" class="bg-coolCard border border-coolBorder rounded-2xl p-4 sm:p-5 hover:border-accentAmber/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold tracking-wider text-slate-500">AUDITOR NEXT ASSIGNMENT</span>
+          <span class="p-1.5 bg-accentAmber/10 text-accentAmber rounded-lg group-hover:bg-accentAmber group-hover:text-white transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-clipboard-list w-4 h-4"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><path d="M12 11h4"></path><path d="M12 16h4"></path><path d="M8 11h.01"></path><path d="M8 16h.01"></path></svg></span>
+        </div>
+        <div class="mt-4">
+          <h3 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-accentAmber" id="stat-next-assignment-count">0 <span class="text-sm font-medium text-slate-500">queued</span></h3>
+          <p class="text-xs text-slate-500 mt-1" id="stat-next-assignment-sub">No branches for audit</p>
+          <p class="text-xs font-semibold text-slate-700 mt-2 truncate" id="stat-next-assignment-branch">—</p>
+        </div>
+      </div>
+
+      <div onclick="openBranchAuditScheduleModal()" class="bg-coolCard border border-coolBorder rounded-2xl p-4 sm:p-5 hover:border-accentEmerald/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold tracking-wider text-slate-500">BRANCH AUDIT INTERVAL</span>
+          <span class="p-1.5 bg-accentEmerald/10 text-accentEmerald rounded-lg group-hover:bg-accentEmerald group-hover:text-white transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-badge-check w-4 h-4"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"></path><path d="m9 12 2 2 4-4"></path></svg></span>
+        </div>
+        <div class="mt-4">
+          <div class="flex flex-col gap-1" id="stat-recent-audited-list"></div>
         </div>
       </div>
     </div>
@@ -3216,11 +3302,19 @@ body.bg-coolDark{
       const modalBody = document.getElementById('modalBody');
       modalTitle.innerHTML = title;
       modalBody.innerHTML = ''; 
+      // Default the header Edit button off; the 'all' branches-overview
+      // path (renderModalFilteredView, below) turns it back on for its
+      // own list right after this.
+      updateModalEditAssignButton(null);
 
       let branchesToDisplay = [];
 
       if (type === 'branchDetail') {
           renderBranchDetail(filterValue, modalBody);
+      } else if (type === 'auditSchedule') {
+          renderAuditScheduleModal(modalBody);
+      } else if (type === 'editAssignment') {
+          renderEditAssignmentModal(filterValue, modalBody);
       } else if (type === 'auditor') {
           const auditorObj = (activeData.auditors || []).find(a => a.name === filterValue) || { name: filterValue, count: 0, branches: [] };
           const branches = auditorObj.branches || [];
@@ -3343,9 +3437,438 @@ body.bg-coolDark{
       setTimeout(() => { window.print(); }, 50);
     }
 
+    // Opens the small editable form for a single branch's next-assignment
+    // fields (expected date, rotation rounds). Saving this writes
+    // expectedDate straight into AUDIT DATA (FINAL) column AM, and the
+    // rotation rounds into AUDIT ROTATION (FINAL) columns C:J, via the
+    // Apps Script backend, so nobody has to type it into the Sheet by hand.
+    function openEditAssignmentModal(branchName) {
+      openModal('Edit Assignment — ' + branchName, 'editAssignment', branchName);
+    }
+
+    // Tracks which branch the header Edit button (next to Download) should
+    // open the Edit Assignment form for — i.e. the first branch in whatever
+    // list the Branches Overview table is currently showing.
+    let headerEditAssignBranch = null;
+
+    // Shows/hides the header Edit button for the current modal view. Pass
+    // the currently-filtered branch list to show it (targeting its first
+    // branch), or null/empty to hide it — used for every modal type other
+    // than the Branches Overview table.
+    function updateModalEditAssignButton(list) {
+      const btn = document.getElementById('modalEditAssignBtn');
+      if (!btn) return;
+      if (list && list.length > 0) {
+          headerEditAssignBranch = list[0].name;
+          btn.classList.remove('hidden');
+      } else {
+          headerEditAssignBranch = null;
+          btn.classList.add('hidden');
+      }
+    }
+
+    // Click handler for the header Edit button. Opens the same Edit
+    // Assignment form as the old per-row button used to, pre-filled to the
+    // first branch currently in view — its own Branch dropdown lets you
+    // switch to any other branch on the list without leaving the popup.
+    function openHeaderEditAssignment() {
+      if (!headerEditAssignBranch) return;
+      openEditAssignmentModal(headerEditAssignBranch);
+    }
+
+    // Renders the Edit Assignment form. branchName selects which branch is
+    // being edited; the Branch dropdown at the top lets you switch to any
+    // other branch without leaving the popup. Auditor + Date pairs for
+    // rotation rounds 1-4 map straight onto AUDIT ROTATION (FINAL) columns
+    // C/D (1st), E/F (2nd), G/H (3rd), I/J (4th) — so it's always
+    // clear which round a given name/date belongs to. Status is NOT set
+    // here: it's driven by the sheet's own formula off the Expected Audit
+    // Date (column AM), so entering that date is what moves a branch
+    // through Pending/For Audit/Done automatically.
+    function renderEditAssignmentModal(branchName, modalBody) {
+      const branches = (activeData.branches || []);
+      const b = branches.find(x => x.name === branchName) || branches[0];
+      const resolvedName = b ? b.name : branchName;
+      const escapeHTML = str => {
+          if (!str) return '';
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+      };
+
+      const schedule = (activeData.branchAuditSchedule && activeData.branchAuditSchedule[resolvedName]) || null;
+      const roundsByNumber = {};
+      (schedule ? schedule.rounds : []).forEach(r => { roundsByNumber[r.round] = r; });
+
+      // Rotation date strings from the sheet are display-formatted (e.g.
+      // "July 11, 2026"), not <input type="date">-compatible — convert
+      // when possible so the field pre-fills instead of showing blank.
+      const toInputDate = (rnd) => {
+          if (!rnd || !rnd.dateRaw) return '';
+          const d = new Date(rnd.dateRaw);
+          if (isNaN(d.getTime())) return '';
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          return `${d.getFullYear()}-${mm}-${dd}`;
+      };
+
+      const branchOptions = branches
+          .map(x => `<option value="${escapeHTML(x.name)}" ${x.name === resolvedName ? 'selected' : ''}>${escapeHTML(x.name)}</option>`)
+          .join('');
+
+      const auditorOptionsFor = (roundNum) => {
+          const current = (roundsByNumber[roundNum] && roundsByNumber[roundNum].auditor !== 'Unassigned') ? roundsByNumber[roundNum].auditor : '';
+          const blank = `<option value="" ${!current ? 'selected' : ''}>—</option>`;
+          const opts = AUDITOR_NAMES.map(name => `<option value="${name}" ${name === current ? 'selected' : ''}>${name}</option>`).join('');
+          return blank + opts;
+      };
+
+      const rotationRowHtml = (roundNum, label) => `
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <div>
+              <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">${label} Auditor</label>
+              <select id="editAssign-auditor${roundNum}" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+                ${auditorOptionsFor(roundNum)}
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">${label} Date</label>
+              <input id="editAssign-date${roundNum}" type="date" value="${toInputDate(roundsByNumber[roundNum])}"
+                     class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+            </div>
+          </div>`;
+
+      modalBody.innerHTML = `
+        <div class="bg-white border border-coolBorder rounded-xl p-5 shadow-sm max-w-lg mx-auto">
+          <p class="text-xs text-slate-500 mb-4">Rotation fields save straight to <strong>AUDIT ROTATION (FINAL)</strong> (auditor names in columns C/E/G/I, dates in D/F/H/J) — no need to open the Sheet. Status updates automatically from the Expected Audit Date formula, so it isn't set here.</p>
+
+          <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Branch</label>
+          <select id="editAssign-branch" onchange="openEditAssignmentModal(this.value)"
+                  class="w-full mb-4 px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+            ${branchOptions}
+          </select>
+
+          <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Expected Audit Date <span class="normal-case font-normal text-slate-400">(col AM — drives status automatically)</span></label>
+          <input id="editAssign-expectedDate" type="date"
+                 class="w-full mb-5 px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+
+          <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 border-t border-coolBorder pt-4">Audit Rotation Schedule</div>
+          ${rotationRowHtml(1, '1st Rotation')}
+          ${rotationRowHtml(2, '2nd Rotation')}
+          ${rotationRowHtml(3, '3rd Rotation')}
+          ${rotationRowHtml(4, '4th Rotation')}
+
+          <div id="editAssign-error" class="hidden text-xs text-accentRose font-semibold mb-3"></div>
+
+          <div class="flex justify-end gap-2">
+            <button onclick="closeModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
+            <button id="editAssign-saveBtn" onclick="submitEditAssignment('${escapeHTML(resolvedName)}')"
+                    class="px-4 py-2 text-xs font-bold text-white bg-accentIndigo rounded-lg hover:bg-accentIndigo/90 transition-colors">Save Assignment</button>
+          </div>
+        </div>
+      `;
+    }
+
+    // Step 1: person presses "Save Assignment" -> just collects the form
+    // fields and opens the password gate. Nothing is written to the Sheet
+    // yet — that only happens once the password is verified below, so any
+    // change to an assignment always requires proving it's really the
+    // signed-in user, right now.
+    let pendingEditAssignment = null; // { branchName, fields } awaiting password confirmation
+
+    function submitEditAssignment(branchName) {
+      const val = id => (document.getElementById(id) || {}).value || '';
+      const fields = {
+          expectedDate: val('editAssign-expectedDate'),
+          rotations: [1, 2, 3, 4].map(n => ({
+              round: n,
+              auditor: val(`editAssign-auditor${n}`),
+              date: val(`editAssign-date${n}`)
+          }))
+      };
+      pendingEditAssignment = { branchName: branchName, fields: fields };
+      openEditAssignPasswordGate(branchName);
+    }
+
+    function openEditAssignPasswordGate(branchName) {
+      const modal = document.getElementById('editAssignPasswordModal');
+      const input = document.getElementById('editAssignPasswordInput');
+      const err = document.getElementById('editAssignPasswordError');
+      const userLabel = document.getElementById('editAssignPasswordUserLabel');
+      const nameLabel = document.getElementById('editAssignPasswordBranchLabel');
+      if (!modal || !input) return;
+      err.classList.add('hidden');
+      input.value = '';
+      if (userLabel) userLabel.textContent = (typeof window.getCurrentUserEmail === 'function' && window.getCurrentUserEmail()) || 'unknown user';
+      if (nameLabel) nameLabel.textContent = branchName ? `the ${branchName} assignment` : 'this assignment';
+      setEditAssignPasswordSubmitting(false);
+      modal.classList.remove('hidden');
+      setTimeout(function() { input.focus(); }, 50);
+    }
+
+    window.cancelEditAssignPassword = function() {
+      const modal = document.getElementById('editAssignPasswordModal');
+      if (modal) modal.classList.add('hidden');
+      pendingEditAssignment = null;
+    };
+
+    function setEditAssignPasswordSubmitting(isSubmitting) {
+      const btn = document.getElementById('editAssignPasswordSubmitBtn');
+      const label = document.getElementById('editAssignPasswordSubmitLabel');
+      const input = document.getElementById('editAssignPasswordInput');
+      if (btn) btn.disabled = isSubmitting;
+      if (input) input.disabled = isSubmitting;
+      if (label) label.textContent = isSubmitting ? 'Verifying\u2026' : 'Unlock & Save';
+    }
+
+    function editAssignPasswordErrorMessage(reason) {
+      if (reason === 'not-signed-in') return 'You\u2019re not signed in \u2014 please sign in first.';
+      if (reason === 'auth/too-many-requests') return 'Too many attempts. Please wait a moment and try again.';
+      if (reason === 'auth/network-request-failed') return 'Network error \u2014 check your connection and try again.';
+      return 'Incorrect password. Try again.';
+    }
+
+    // Step 2: person types their password -> re-authenticate against
+    // Firebase (proves it's really them, right now) -> only THEN write the
+    // change to the Sheet via the Apps Script backend.
+    window.submitEditAssignPassword = async function() {
+      const pending = pendingEditAssignment;
+      const input = document.getElementById('editAssignPasswordInput');
+      const err = document.getElementById('editAssignPasswordError');
+      if (!pending || !input) { window.cancelEditAssignPassword(); return; }
+      if (typeof window.reauthenticateCurrentUser !== 'function') {
+          err.textContent = 'Password check is unavailable right now.';
+          err.classList.remove('hidden');
+          return;
+      }
+      setEditAssignPasswordSubmitting(true);
+      const result = await window.reauthenticateCurrentUser(input.value);
+      if (!result || !result.ok) {
+          setEditAssignPasswordSubmitting(false);
+          err.textContent = editAssignPasswordErrorMessage(result && result.reason);
+          err.classList.remove('hidden');
+          input.value = '';
+          input.focus();
+          return;
+      }
+      const modal = document.getElementById('editAssignPasswordModal');
+      if (modal) modal.classList.add('hidden');
+      pendingEditAssignment = null;
+      setEditAssignPasswordSubmitting(false);
+      await performEditAssignmentSave(pending.branchName, pending.fields);
+    };
+
+    // Actually writes the assignment to the Sheet — only ever called after
+    // the password gate above has confirmed it's really the signed-in user.
+    async function performEditAssignmentSave(branchName, fields) {
+      const btn = document.getElementById('editAssign-saveBtn');
+      const errEl = document.getElementById('editAssign-error');
+      if (errEl) errEl.classList.add('hidden');
+      if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
+
+      try {
+          await saveAuditorAssignmentRemote(branchName, fields);
+          showToast('Assignment saved — refreshing data\u2026');
+          closeModal();
+          // Pull the just-saved values back in so the dashboard reflects the
+          // change immediately, without waiting on a full server refresh.
+          const b = (activeData.branches || []).find(x => x.name === branchName);
+          const latestRotation = [...fields.rotations].reverse().find(r => r.auditor && r.date);
+          if (b && latestRotation) b.auditor = latestRotation.auditor;
+          if (typeof initDashboard === 'function') initDashboard();
+          // Refresh from the server shortly after so everyone sees the
+          // authoritative Sheet state (not just this browser's optimistic guess).
+          if (typeof fetchSheet === 'function') setTimeout(function() { fetchSheet(true); }, 2000);
+      } catch (err) {
+          console.error('Saving assignment failed:', err);
+          if (errEl) {
+              errEl.textContent = (err && err.message) ? err.message : "Couldn't save — please try again.";
+              errEl.classList.remove('hidden');
+          }
+      } finally {
+          if (btn) { btn.disabled = false; btn.textContent = 'Save Assignment'; }
+      }
+    }
+
+    // Sends the assignment fields to the Apps Script backend, which writes
+    // them into AUDIT DATA (FINAL) / AUDIT ROTATION (FINAL) for the matching
+    // branch row: expectedDate -> AUDIT DATA (FINAL) column AM (drives the
+    // status formula), and each rotation round's auditor/date -> AUDIT
+    // ROTATION (FINAL) columns C/D, E/F, G/H, I/J respectively.
+    //
+    // NOTE: this used to POST a JSON body to doPost(). That silently never
+    // reached the sheet: Apps Script /exec URLs respond with a redirect,
+    // and browsers downgrade a redirected POST to a GET, dropping the body
+    // before doPost() ever saw it. The old code also swallowed the
+    // resulting "can't read the response" error as an expected CORS quirk
+    // (which is genuinely expected on the *read* path, since that path
+    // never had a body to lose), so it showed "Assignment saved" even
+    // though nothing was written.
+    //
+    // Fix: send it as a GET (action=saveAssignment) through the exact same
+    // transport already proven reliable for reads — fetchSheetOnce(), which
+    // races a direct fetch against a JSONP <script> tag and remembers
+    // whichever one works on this network/browser. GET has no body to lose
+    // and JSONP bypasses CORS entirely, so this actually reaches the sheet.
+    async function saveAuditorAssignmentRemote(branchName, fields) {
+      const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+      if (!idToken) throw new Error('Not signed in — please sign in again.');
+
+      const params = new URLSearchParams({
+          action: 'saveAssignment',
+          secret: appsScriptSecret,
+          idToken: idToken,
+          branchName: branchName,
+          expectedDate: fields.expectedDate || '',
+          rotations: JSON.stringify(fields.rotations)
+      });
+      const url = defaultAppsScriptUrl + '?' + params.toString();
+
+      const json = await fetchSheetOnce(url);
+      if (json && json.error) throw new Error(json.error);
+      if (!json || !json.success) throw new Error("Save didn't complete — please try again.");
+    }
+
     function openModalDetail(branchName) {
       const b = activeData.branches.find(x => x.name === branchName);
       if(b) openModal(`${b.name} — Detailed Profile`, 'branchDetail', b);
+    }
+
+    // Opens the "All Branches" modal pre-filtered to the FOR AUDIT queue —
+    // used by the Auditor Next Assignment stack card.
+    // Opens the "All Branches" modal showing every branch (not pre-filtered
+    // to the FOR AUDIT queue) — used by the Auditor Next Assignment stack card.
+    function openAuditQueueModal() {
+      openModal('All Branches Overview', 'all', null);
+    }
+
+    // Opens the full per-branch audit schedule (every round found in AUDIT
+    // ROTATION (FINAL), not just the most recent one) so it's clear how many
+    // audits each branch has had (1st, 2nd, 3rd...) and how many days apart
+    // they were — used by the "Branch Audit Interval" stack card.
+    function openBranchAuditScheduleModal() {
+      window.auditScheduleFilterRange = { start: '', end: '' };
+      openModal('Branch Audit Interval — Full Schedule', 'auditSchedule', null);
+    }
+
+    // Manual date-range filter for the Branch Audit Interval full-schedule
+    // modal (e.g. "July 1" to "July 30") — replaces the old fixed "1/2/3
+    // months ago" buckets with an exact, user-chosen range. A branch
+    // matches if ANY of its recorded audit rounds falls within the
+    // selected range (inclusive). Leaving Start or End blank leaves that
+    // side unbounded; leaving both blank shows every branch.
+    function setAuditScheduleFilterRange(field, value) {
+      if (!window.auditScheduleFilterRange) window.auditScheduleFilterRange = { start: '', end: '' };
+      window.auditScheduleFilterRange[field] = value;
+      const modalBody = document.getElementById('modalBody');
+      if (modalBody) renderAuditScheduleModal(modalBody);
+    }
+
+    function clearAuditScheduleFilterRange() {
+      window.auditScheduleFilterRange = { start: '', end: '' };
+      const modalBody = document.getElementById('modalBody');
+      if (modalBody) renderAuditScheduleModal(modalBody);
+    }
+
+    function renderAuditScheduleModal(modalBody) {
+      const schedule = activeData.branchAuditSchedule || {};
+      const allBranchNames = Object.keys(schedule).sort();
+
+      if (allBranchNames.length === 0) {
+          modalBody.innerHTML = `<div class="p-8 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No audit rotation history found in AUDIT ROTATION (FINAL).</div>`;
+          return;
+      }
+
+      const escapeHTML = str => {
+          if (!str) return '';
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+      };
+
+      // Manual date range (inclusive). A branch matches if any of its
+      // recorded rounds' dates falls inside [start, end]; an unset side is
+      // unbounded, and an unset range shows every branch.
+      const range = window.auditScheduleFilterRange || { start: '', end: '' };
+      const startMs = range.start ? new Date(range.start + 'T00:00:00').getTime() : null;
+      const endMs = range.end ? new Date(range.end + 'T23:59:59').getTime() : null;
+
+      const branchNames = allBranchNames.filter(branchName => {
+          if (startMs === null && endMs === null) return true;
+          const rounds = (schedule[branchName].rounds || []).filter(r => r.dateRaw);
+          return rounds.some(r => {
+              if (startMs !== null && r.dateRaw < startMs) return false;
+              if (endMs !== null && r.dateRaw > endMs) return false;
+              return true;
+          });
+      });
+
+      const filterBarHtml = `
+          <div class="flex flex-wrap items-end gap-2 mb-4">
+              <div>
+                  <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">From</label>
+                  <input type="date" value="${range.start || ''}" onchange="setAuditScheduleFilterRange('start', this.value)"
+                         class="px-3 py-1.5 bg-gray-50 border border-coolBorder rounded-lg text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-accentCyan">
+              </div>
+              <div>
+                  <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">To</label>
+                  <input type="date" value="${range.end || ''}" onchange="setAuditScheduleFilterRange('end', this.value)"
+                         class="px-3 py-1.5 bg-gray-50 border border-coolBorder rounded-lg text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-accentCyan">
+              </div>
+              ${(range.start || range.end) ? `<button onclick="clearAuditScheduleFilterRange()" class="px-3 py-1.5 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-lg text-xs font-semibold text-slate-600 transition-colors">Clear</button>` : ''}
+              <span class="text-[11px] text-slate-400 mb-1.5">${branchNames.length} of ${allBranchNames.length} branches</span>
+          </div>`;
+
+      if (branchNames.length === 0) {
+          modalBody.innerHTML = filterBarHtml + `<div class="p-8 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No branches match this filter.</div>`;
+          return;
+      }
+
+      const rowsHtml = branchNames.map((branchName, idx) => {
+          const entry = schedule[branchName];
+          const rounds = entry.rounds || [];
+          const roundsHtml = rounds.map(rnd => `
+              <span class="inline-flex items-center gap-1 bg-gray-50 border border-coolBorder rounded-md px-1.5 py-0.5 whitespace-nowrap leading-none">
+                  <span class="w-3.5 h-3.5 rounded bg-accentIndigo/10 text-accentIndigo flex items-center justify-center font-bold flex-shrink-0 text-[9px]">${rnd.round}</span>
+                  <span class="text-[11px] font-semibold text-slate-700">${escapeHTML(rnd.auditor)}</span>
+                  <span class="text-[10px] text-slate-400">${rnd.date ? escapeHTML(rnd.date) : 'No date'}</span>
+                  ${rnd.intervalDays !== null && rnd.intervalDays !== undefined ? `<span class="text-[9px] font-bold text-accentEmerald">+${rnd.intervalDays}d</span>` : ''}
+              </span>
+          `).join('');
+
+          return `
+              <tr class="border-b border-coolBorder hover:bg-gray-50/70 transition-colors align-top">
+                  <td class="p-2 text-center text-[11px] text-slate-400 font-semibold w-7">${idx + 1}</td>
+                  <td class="p-2 min-w-[130px]">
+                      <span class="text-xs font-bold text-slate-800 cursor-pointer hover:text-accentIndigo whitespace-nowrap" onclick="openModalDetail('${escapeHTML(branchName)}')">${escapeHTML(branchName)}</span>
+                      <span class="block text-[10px] font-semibold text-slate-400 mt-0.5">${rounds.length} audit${rounds.length === 1 ? '' : 's'}</span>
+                  </td>
+                  <td class="p-2">
+                      <div class="flex flex-wrap gap-1">
+                          ${roundsHtml || '<span class="text-[11px] text-slate-400 italic">No rounds recorded.</span>'}
+                      </div>
+                      ${entry.note ? `<p class="text-[10px] text-slate-400 italic mt-1">Note (col K): ${escapeHTML(entry.note)}</p>` : ''}
+                  </td>
+              </tr>
+          `;
+      }).join('');
+
+      modalBody.innerHTML = `
+          ${filterBarHtml}
+          <div class="p-3 bg-accentEmerald/10 border border-accentEmerald/20 rounded-xl mb-3 text-[11px] text-slate-600">
+              Each chip is one audit round for that branch (1st, 2nd, 3rd…), pulled straight from AUDIT ROTATION (FINAL) columns A–K. The green "+Nd" tag is the number of days since the previous round for that branch.
+          </div>
+          <div class="rounded-xl border border-coolBorder max-h-[65vh] overflow-auto custom-scrollbar">
+              <table class="w-full min-w-[560px] text-left border-collapse bg-white">
+                  <thead class="bg-gray-50 border-b border-coolBorder text-[10px] text-slate-500 tracking-wider font-bold uppercase sticky top-0 z-10 shadow-sm">
+                      <tr>
+                          <th class="p-2 bg-gray-50 text-center w-7">#</th>
+                          <th class="p-2 bg-gray-50 min-w-[130px]">Branch</th>
+                          <th class="p-2 bg-gray-50">Schedule</th>
+                      </tr>
+                  </thead>
+                  <tbody class="text-sm">
+                      ${rowsHtml}
+                  </tbody>
+              </table>
+          </div>
+      `;
     }
 
     // Fired from the "AUDIT FINDINGS" side-menu item. The whole menu row is
@@ -3990,6 +4513,12 @@ body.bg-coolDark{
       }
       modalTitle.innerHTML = titleText;
 
+      // The header Edit button (next to Download) only makes sense for the
+      // Branches Overview table (type 'all') — it opens the Edit Assignment
+      // form for the first branch currently in view, and that form's own
+      // Branch dropdown covers switching to any other one on the list.
+      updateModalEditAssignButton(state.type === 'all' ? list : null);
+
       let barsHtml = '';
       if (state.type === 'sales') {
           barsHtml += buildSalesSummaryBar(list);
@@ -4601,6 +5130,12 @@ body.bg-coolDark{
       // status noise, and no Auditor column — just what's sourced from the
       // AUDIT FINDINGS sheet for that branch.
       const showAuditorCol = (type !== 'findings');
+      // Edit now lives as a single icon button in the modal's header, right
+      // next to Download (see openHeaderEditAssignment) — not as a per-row
+      // column. A per-row Edit button in a list of dozens of branches was
+      // easy to miss/mis-click; the header button + the Branch dropdown
+      // inside the Edit Assignment form itself covers switching branches.
+      const showEditCol = false;
 
       let statusHeaders = '';
       if (showCollection) statusHeaders += `<th class="p-2 bg-gray-50 text-center whitespace-nowrap">Collection</th>`;
@@ -4671,6 +5206,7 @@ body.bg-coolDark{
               <tr>
                 <th class="p-2 bg-gray-50 text-center w-8 whitespace-nowrap">#</th>
                 <th class="p-2 bg-gray-50 min-w-[140px] whitespace-nowrap">Branch</th>
+                ${showEditCol ? `<th class="p-2 bg-gray-50 text-center whitespace-nowrap">Edit</th>` : ''}
                 ${showAuditorCol ? `<th class="p-2 bg-gray-50 text-center whitespace-nowrap">Auditor</th>` : ''}
                 ${statusHeaders}
                 ${detailHeaders}
@@ -4694,6 +5230,16 @@ body.bg-coolDark{
           const auditorBadge = b.auditor === 'UNASSIGNED' 
               ? `<span class="text-xs text-slate-400 italic">Unassigned</span>` 
               : `<span class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 rounded-md border border-slate-200">${b.auditor}</span>`;
+
+          // Edit Assignment button — right next to the branch name so it's
+          // clearly a per-row list action. stopPropagation keeps the click
+          // from also opening the branch's detail profile.
+          const editCellHtml = showEditCol
+              ? `<td class="p-2 text-center">
+                  <button onclick="event.stopPropagation(); openEditAssignmentModal('${escapeFindingHTML(b.name)}')"
+                          class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider bg-accentAmber text-white rounded-md hover:bg-accentAmber/90 transition-colors">Edit</button>
+                </td>`
+              : '';
 
           let rowBorder = "border-l-4 border-l-transparent";
           if(b.collection === 'Improving' || b.collection === 'Target') rowBorder = "border-l-4 border-l-accentEmerald";
@@ -4759,6 +5305,9 @@ body.bg-coolDark{
                 </div>
               </td>`;
           } else if (type === 'all') {
+            // Audit Status still lives here; the Edit button itself now
+            // renders right after the Branch cell (see editCellHtml below)
+            // so it's visible immediately per row, not scrolled off to the end.
             detailCells = `<td class="p-2 text-center">${getAuditStatusBadge(b.auditStatus)}</td>`;
           } else if (type === 'findings') {
             detailCells = `
@@ -4781,6 +5330,7 @@ body.bg-coolDark{
               <tr class="${index % 2 === 1 ? 'bg-gray-50/50' : ''} hover:bg-accentCyan/10 cursor-pointer active:scale-[0.99] transition-colors ${rowBorder}" onclick="${rowOnClick}">
                   <td class="p-2 text-center text-xs font-bold text-slate-400">${index + 1}</td>
                   <td class="p-2 font-bold text-slate-800 text-sm break-words">${b.name}</td>
+                  ${editCellHtml}
                   ${showAuditorCol ? `<td class="p-2 text-center">${auditorBadge}</td>` : ''}
                   ${statusCells}
                   ${detailCells}
@@ -4933,6 +5483,40 @@ body.bg-coolDark{
       
       document.getElementById('stat-findings-2026').innerText = sum.findings2026 || 0;
       document.getElementById('stat-total-accounts').innerText = sum.totalAccounts || 0;
+
+      // Auditor Next Assignment card
+      const queueCountEl = document.getElementById('stat-next-assignment-count');
+      const queueSubEl = document.getElementById('stat-next-assignment-sub');
+      const queueBranchEl = document.getElementById('stat-next-assignment-branch');
+      if (queueCountEl) queueCountEl.innerHTML = `${sum.forAuditCount || 0} <span class="text-sm font-medium text-slate-500">queued</span>`;
+      if (queueSubEl) {
+          const breakdown = sum.forAuditBreakdown || [];
+          queueSubEl.innerText = breakdown.length > 0
+              ? breakdown.map(a => `${a.count} ${a.name}`).join(' · ')
+              : 'No branches for audit';
+      }
+      if (queueBranchEl) {
+          const nextUp = sum.nextUpBranch;
+          queueBranchEl.innerText = nextUp
+              ? `Up next: ${nextUp.name} — ${nextUp.auditor}`
+              : 'Nothing queued right now';
+      }
+
+      // Branch Audit Interval card — shows up to 5 of the most recently
+      // audited branches. (Previously this also showed a large standalone
+      // "most recent branch" name/subtext above the list, but that just
+      // duplicated the list's own first row, so it was removed.)
+      const recentListEl = document.getElementById('stat-recent-audited-list');
+      if (recentListEl) {
+          const recent = sum.recentlyAuditedBranches || [];
+          recentListEl.innerHTML = recent.length
+              ? recent.map(b => `
+                  <div class="flex items-center justify-between gap-2 text-[11px]">
+                      <span class="font-semibold text-slate-700 truncate">${b.name}</span>
+                      <span class="text-slate-400 whitespace-nowrap">${b.lastAuditDate || '—'}</span>
+                  </div>`).join('')
+              : '<p class="text-xs text-slate-500">No completed audits on record</p>';
+      }
 
       const labels = activeData.summary.trendLabels || ["MARCH", "APRIL", "LATEST"];
       if(document.getElementById('span-rankings-month')) document.getElementById('span-rankings-month').innerText = labels[2];
@@ -5575,6 +6159,7 @@ body.bg-coolDark{
             };
           }
           
+          activeData.branchAuditSchedule = {};
           const rotationSheetName = workbook.SheetNames.find(n => n.toUpperCase().replace(/\\s/g, '').includes("ROTATION"));
           if (rotationSheetName) {
               const rotationSheet = workbook.Sheets[rotationSheetName];
@@ -5598,7 +6183,17 @@ body.bg-coolDark{
               // Tracks, per branch, the most recent (auditor, date) pair found across
               // columns C/D, E/F, G/H, I/J (branch name lives in column B)
               const branchLastAudit = {};
-              
+
+              // Tracks, per branch, EVERY audit round found (not just the most
+              // recent one) so the dashboard can show the full audit schedule /
+              // interval history, not only "last audited". Uses the full
+              // column A -> K range of AUDIT ROTATION (FINAL):
+              //   A = row/serial (kept as-is, not interpreted)
+              //   B = branch name
+              //   C/D, E/F, G/H, I/J = audit round 1, 2, 3, 4 (auditor + date)
+              //   K = free-text note/next-due column (kept as-is, not interpreted)
+              const branchAuditSchedule = {};
+
               for (let i = 1; i < rotRows.length; i++) {
                   const r = rotRows[i];
                   if (!r || r.length === 0) continue;
@@ -5630,21 +6225,52 @@ body.bg-coolDark{
                   const branchName = branchList[branchIdx];
 
                   const candidatePairs = [
-                      { auditor: r[2], date: r[3] },   // C, D
-                      { auditor: r[4], date: r[5] },   // E, F
-                      { auditor: r[6], date: r[7] },   // G, H
-                      { auditor: r[8], date: r[9] }    // I, J
+                      { round: 1, auditor: r[2], date: r[3] },   // C, D
+                      { round: 2, auditor: r[4], date: r[5] },   // E, F
+                      { round: 3, auditor: r[6], date: r[7] },   // G, H
+                      { round: 4, auditor: r[8], date: r[9] }    // I, J
                   ];
 
+                  const scheduleRounds = [];
                   candidatePairs.forEach(pair => {
                       const auditorName = String(pair.auditor || "").trim();
                       const parsedDate = parseRotationDate(pair.date);
-                      if (!auditorName || !parsedDate) return;
-                      const existing = branchLastAudit[branchName];
-                      if (!existing || parsedDate > existing.date) {
-                          branchLastAudit[branchName] = { auditor: auditorName, date: parsedDate };
+                      if (!auditorName && !parsedDate) return;
+                      scheduleRounds.push({
+                          round: pair.round,
+                          auditor: auditorName || 'Unassigned',
+                          date: parsedDate ? parsedDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : null,
+                          dateRaw: parsedDate ? parsedDate.getTime() : null
+                      });
+
+                      if (auditorName && parsedDate) {
+                          const existing = branchLastAudit[branchName];
+                          if (!existing || parsedDate > existing.date) {
+                              branchLastAudit[branchName] = { auditor: auditorName, date: parsedDate };
+                          }
                       }
                   });
+
+                  if (scheduleRounds.length > 0) {
+                      // Interval (in days) between this round's date and the
+                      // previous dated round, so the dashboard can show "every
+                      // ~N days" per branch, not just raw dates.
+                      let prevDateRaw = null;
+                      scheduleRounds.forEach(rnd => {
+                          if (rnd.dateRaw !== null) {
+                              rnd.intervalDays = (prevDateRaw !== null) ? Math.round((rnd.dateRaw - prevDateRaw) / 86400000) : null;
+                              prevDateRaw = rnd.dateRaw;
+                          } else {
+                              rnd.intervalDays = null;
+                          }
+                      });
+
+                      branchAuditSchedule[branchName] = {
+                          rowId: r[0] !== undefined ? r[0] : null,      // column A, kept as-is
+                          note: r[10] !== undefined ? String(r[10] || '').trim() : '', // column K, kept as-is
+                          rounds: scheduleRounds
+                      };
+                  }
               }
 
               // Apply the most recent (auditor, date) found per branch as the
@@ -5654,8 +6280,13 @@ body.bg-coolDark{
                       const info = branchLastAudit[branchName];
                       tempBranchesMap[branchName].auditor = info.auditor;
                       tempBranchesMap[branchName].lastAuditDate = info.date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+                      tempBranchesMap[branchName].lastAuditDateRaw = info.date.getTime();
                   }
               });
+
+              // Full audit schedule (every round + interval), attached per
+              // branch so it survives into activeData.branches below.
+              activeData.branchAuditSchedule = branchAuditSchedule;
           }
 
           let dataAuditSheetName = workbook.SheetNames.find(n => n.toUpperCase().replace(/[\s_]/g, '').includes("AUDITREPORT"));
@@ -5896,7 +6527,12 @@ body.bg-coolDark{
         }
     }
 
-    const defaultAppsScriptUrl = "https://script.google.com/macros/s/AKfycbznUM-5ohukVLMptwMFqKV-AyQlUrihx0FZ6xPzXmIIjpZ4Ybli2N1o4ehgw3BBJxgGaQ/exec";
+    // The 4 fixed auditors used throughout the Edit Assignment form's
+    // rotation dropdowns (mirrors the auditor-map keys used elsewhere in
+    // this file for AUDIT ROTATION (FINAL)).
+    const AUDITOR_NAMES = ["KARL", "GENESIS", "EDISON", "LAURENCE"];
+
+    const defaultAppsScriptUrl = "https://script.google.com/macros/s/AKfycbwiSvFLnL6H9VsCU9PybrN4QnNZcwKTXplce3LLPapiqd2N2_X5GmgZsiMqoCDYE9iJJg/exec";
     // Must match API_SHARED_SECRET set in your Apps Script's Script Properties.
     // SECURITY: anyone with view-source access to this page can read this
     // value — it only blocks casual/automated access to the endpoint, it is
@@ -6285,9 +6921,10 @@ body.bg-coolDark{
             serviceTarget: 0, serviceDeclining: 0,
             findings2024: 0, findings2025: 0, findings2026: 0,
             totalAccounts: 0, emergencyAuditor: "", recentEmergencyD: "", recentEmergencyE: "", recentEmergencyF: "",
-            trendLabels: ["MARCH", "APRIL", "MAY"]
+            trendLabels: ["MARCH", "APRIL", "MAY"],
+            forAuditBreakdown: [], nextUpBranch: null, lastAuditedBranch: null, recentlyAuditedBranches: []
         }, 
-        branches: [], lowestEfficiency: [], highestRepo: [], highestNoRepo: [], topFindings26: [], topDecliningCollection: [], topDecliningSales: [], topDecliningService: [], auditors: [], dataAudit: {}, emergencyHistory: [] 
+        branches: [], lowestEfficiency: [], highestRepo: [], highestNoRepo: [], topFindings26: [], topDecliningCollection: [], topDecliningSales: [], topDecliningService: [], auditors: [], dataAudit: {}, branchAuditSchedule: {}, emergencyHistory: [] 
       };
     }
 
