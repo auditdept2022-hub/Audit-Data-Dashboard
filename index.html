@@ -200,10 +200,19 @@
         };
 
         // --- Auditor Next Assignment: who is queued up for a "FOR AUDIT" branch ---
+        // Uses assignedAuditorRaw (column AN, "Assigned Auditor") specifically
+        // — who's actually assigned to do the next audit — rather than
+        // b.auditor, which can reflect whoever did the most recent *past*
+        // round instead. Falls back to b.auditor only if AN is blank.
         const forAuditList = tb.filter(b => (b.auditStatus || '').toUpperCase() === "FOR AUDIT");
+        const assignedAuditorOf = (b) => {
+            if (b.assignedAuditorRaw && b.assignedAuditorRaw !== 'UNASSIGNED') return b.assignedAuditorRaw;
+            if (b.auditor && b.auditor !== 'UNASSIGNED') return b.auditor;
+            return 'Unassigned';
+        };
         const auditorQueueCounts = {};
         forAuditList.forEach(b => {
-            const a = (b.auditor && b.auditor !== 'UNASSIGNED') ? b.auditor : 'Unassigned';
+            const a = assignedAuditorOf(b);
             auditorQueueCounts[a] = (auditorQueueCounts[a] || 0) + 1;
         });
         const forAuditBreakdown = Object.keys(auditorQueueCounts)
@@ -264,7 +273,7 @@
         activeData.summary.forAuditBreakdown = forAuditBreakdown;
         activeData.summary.nextUpBranch = nextUpBranch ? {
             name: nextUpBranch.name,
-            auditor: (nextUpBranch.auditor && nextUpBranch.auditor !== 'UNASSIGNED') ? nextUpBranch.auditor : 'Unassigned',
+            auditor: assignedAuditorOf(nextUpBranch),
             lastAuditDate: nextUpBranch.lastAuditDate || null
         } : null;
         activeData.summary.lastAuditedBranch = lastAuditedBranch ? {
@@ -3540,6 +3549,22 @@ body.bg-coolDark{
           .map(x => `<option value="${escapeHTML(x.name)}" ${x.name === resolvedName ? 'selected' : ''}>${escapeHTML(x.name)}</option>`)
           .join('');
 
+      // "Assigned Auditor" reflects column AN specifically (assignedAuditorRaw)
+      // — who's assigned to do the branch's NEXT audit — as opposed to
+      // b.auditor, which can get overwritten elsewhere with whoever did the
+      // most recent *past* round. Keeping this its own field is what lets
+      // it drive the Auditor Next Assignment card correctly.
+      const currentAssigned = (b && b.assignedAuditorRaw && b.assignedAuditorRaw !== 'UNASSIGNED') ? b.assignedAuditorRaw : '';
+      const currentAssignedUpper = currentAssigned.toUpperCase();
+      const assignedKnownUpper = AUDITOR_NAMES.map(n => n.toUpperCase());
+      const assignedAuditorOptions =
+          `<option value="" ${!currentAssigned ? 'selected' : ''}>—</option>` +
+          (currentAssigned && !assignedKnownUpper.includes(currentAssignedUpper)
+              ? `<option value="${escapeHTML(currentAssigned)}" selected>${escapeHTML(currentAssigned)}</option>`
+              : '') +
+          AUDITOR_NAMES.map(name => `<option value="${name}" ${name.toUpperCase() === currentAssignedUpper ? 'selected' : ''}>${name}</option>`).join('') +
+          `<option value="__add_new__">+ Add New Auditor…</option>`;
+
       // "current" auditor names aren't always one of the 4 standing
       // AUDITOR_NAMES (e.g. a one-off / external auditor typed in before) —
       // if a round's saved auditor isn't in the list, still show it as a
@@ -3553,22 +3578,16 @@ body.bg-coolDark{
               ? `<option value="${current}" selected>${current}</option>`
               : '';
           const opts = AUDITOR_NAMES.map(name => `<option value="${name}" ${name.toUpperCase() === currentUpper ? 'selected' : ''}>${name}</option>`).join('');
-          const addNew = `<option value="__add_new__">+ Add New Auditor…</option>`;
-          return blank + extra + opts + addNew;
+          return blank + extra + opts;
       };
 
-      // Picking "+ Add New Auditor…" reveals a small text field right below
-      // the dropdown so a name that isn't one of the 4 standing auditors
-      // can still be typed in and saved for that rotation round.
       const rotationRowHtml = (roundNum, label) => `
           <div class="grid grid-cols-2 gap-3 mb-4">
             <div>
               <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">${label} Auditor</label>
-              <select id="editAssign-auditor${roundNum}" onchange="handleAuditorSelectChange(${roundNum}, this)" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+              <select id="editAssign-auditor${roundNum}" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
                 ${auditorOptionsFor(roundNum)}
               </select>
-              <input id="editAssign-auditor${roundNum}-custom" type="text" placeholder="Type new auditor name"
-                     class="hidden mt-1.5 w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
             </div>
             <div>
               <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">${label} Date</label>
@@ -3591,7 +3610,14 @@ body.bg-coolDark{
           <input id="editAssign-expectedDate" type="date" value="${(b && b.expectedAuditDateInput) || ''}"
                  class="w-full mb-5 px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
 
-          <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 border-t border-coolBorder pt-4">Audit Rotation Schedule</div>
+          <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Assigned Auditor <span class="normal-case font-normal text-slate-400">(col AN — who's up next, shown on the Auditor Next Assignment card)</span></label>
+          <select id="editAssign-assignedAuditor" onchange="handleAssignedAuditorChange(this)" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+            ${assignedAuditorOptions}
+          </select>
+          <input id="editAssign-assignedAuditor-custom" type="text" placeholder="Type new auditor name"
+                 class="hidden mt-1.5 w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+
+          <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 mt-5 border-t border-coolBorder pt-4">Audit Rotation Schedule</div>
           ${rotationRowHtml(1, '1st Rotation')}
           ${rotationRowHtml(2, '2nd Rotation')}
           ${rotationRowHtml(3, '3rd Rotation')}
@@ -3610,9 +3636,11 @@ body.bg-coolDark{
 
     // Toggles the inline "type a name" field for a rotation round's auditor
     // dropdown when "+ Add New Auditor…" is picked, and hides/clears it
+    // Toggles the inline "type a name" field under the Assigned Auditor
+    // dropdown when "+ Add New Auditor…" is picked, and hides/clears it
     // again if the person switches back to a normal name.
-    function handleAuditorSelectChange(roundNum, selectEl) {
-      const customInput = document.getElementById(`editAssign-auditor${roundNum}-custom`);
+    function handleAssignedAuditorChange(selectEl) {
+      const customInput = document.getElementById('editAssign-assignedAuditor-custom');
       if (!customInput) return;
       if (selectEl.value === '__add_new__') {
           customInput.classList.remove('hidden');
@@ -3632,25 +3660,25 @@ body.bg-coolDark{
 
     function submitEditAssignment(branchName) {
       const val = id => (document.getElementById(id) || {}).value || '';
-      // If "+ Add New Auditor…" was picked for a round, use whatever name
-      // was typed into that round's inline text field instead of the
-      // sentinel select value. A brand-new name typed here is also added
-      // to AUDITOR_NAMES so it shows up as a normal option (no retyping
-      // needed) in every auditor dropdown for the rest of this session.
-      const auditorFor = (n) => {
-          const selectVal = val(`editAssign-auditor${n}`);
-          if (selectVal !== '__add_new__') return selectVal;
-          const typed = val(`editAssign-auditor${n}-custom`).trim();
+      // If "+ Add New Auditor…" was picked for the Assigned Auditor field,
+      // use whatever name was typed into its inline text field instead of
+      // the sentinel select value. A brand-new name typed here is also
+      // added to AUDITOR_NAMES so it shows up as a normal option (no
+      // retyping needed) in every auditor dropdown for the rest of this session.
+      let assignedAuditorVal = val('editAssign-assignedAuditor');
+      if (assignedAuditorVal === '__add_new__') {
+          const typed = val('editAssign-assignedAuditor-custom').trim();
           if (typed && !AUDITOR_NAMES.some(name => name.toUpperCase() === typed.toUpperCase())) {
               AUDITOR_NAMES.push(typed);
           }
-          return typed;
-      };
+          assignedAuditorVal = typed;
+      }
       const fields = {
           expectedDate: val('editAssign-expectedDate'),
+          assignedAuditor: assignedAuditorVal,
           rotations: [1, 2, 3, 4].map(n => ({
               round: n,
-              auditor: auditorFor(n),
+              auditor: val(`editAssign-auditor${n}`),
               date: val(`editAssign-date${n}`)
           }))
       };
@@ -3743,6 +3771,10 @@ body.bg-coolDark{
           const b = (activeData.branches || []).find(x => x.name === branchName);
           if (b) {
               b.expectedAuditDateInput = fields.expectedDate || '';
+              // Assigned Auditor (column AN) drives the Auditor Next
+              // Assignment card directly — update it independently of the
+              // rotation-round-derived b.auditor below.
+              b.assignedAuditorRaw = fields.assignedAuditor || 'UNASSIGNED';
               const newRounds = {};
               (fields.rotations || []).forEach(r => {
                   newRounds[r.round] = {
@@ -3759,6 +3791,7 @@ body.bg-coolDark{
                   b.auditor = dated[0].auditor;
               }
           }
+          if (typeof updateCalculations === 'function') updateCalculations();
           if (typeof initDashboard === 'function') initDashboard();
           // Refresh from the server shortly after so everyone sees the
           // authoritative Sheet state (not just this browser's optimistic guess).
@@ -3776,9 +3809,18 @@ body.bg-coolDark{
 
     // Sends the assignment fields to the Apps Script backend, which writes
     // them into AUDIT DATA (FINAL) for the matching branch row:
-    // expectedDate -> column AM (drives the status formula), and each
-    // rotation round's auditor/date -> columns AO/AP, AQ/AR, AS/AT, AU/AV
-    // respectively.
+    // expectedDate -> column AM (drives the status formula), assignedAuditor
+    // -> column AN ("Assigned Auditor" — feeds the Auditor Next Assignment
+    // card), and each rotation round's auditor/date -> columns AO/AP,
+    // AQ/AR, AS/AT, AU/AV respectively.
+    //
+    // NOTE: the assignedAuditor param requires the Apps Script doGet/
+    // saveAssignment handler to actually read it and write it to column AN.
+    // That backend script isn't part of this HTML file, so if it doesn't
+    // already accept this param it'll need a matching update there too —
+    // otherwise this field will save fine for the current browser session
+    // (the dashboard updates immediately) but won't persist to the Sheet
+    // across a refresh.
     //
     // NOTE: this used to POST a JSON body to doPost(). That silently never
     // reached the sheet: Apps Script /exec URLs respond with a redirect,
@@ -3804,6 +3846,7 @@ body.bg-coolDark{
           idToken: idToken,
           branchName: branchName,
           expectedDate: fields.expectedDate || '',
+          assignedAuditor: fields.assignedAuditor || '',
           rotations: JSON.stringify(fields.rotations)
       });
       const url = defaultAppsScriptUrl + '?' + params.toString();
@@ -6182,7 +6225,7 @@ body.bg-coolDark{
                   effMar: 0, effApr: 0, effLatest: 0, collection: "Stable", sales: "Stable", service: "Target",
                   repoRate: 0, repoRateMar: 0, repoRateApr: 0, repoRateLatest: 0,
                   noOfRepo: 0, noOfRepoMar: 0, noOfRepoApr: 0, noOfRepoLatest: 0,
-                  findings2024: 0, findings2025: 0, findings2026: 0, auditStatus: "PENDING", auditor: "UNASSIGNED",
+                  findings2024: 0, findings2025: 0, findings2026: 0, auditStatus: "PENDING", auditor: "UNASSIGNED", assignedAuditorRaw: "UNASSIGNED",
                   salesMar: { ins: 0, cod: 0, ca: 0 }, salesApr: { ins: 0, cod: 0, ca: 0 }, salesMay: { ins: 0, cod: 0, ca: 0 },
                   expectedIns: 0, expectedCod: 0,
                   serviceTarget: 0, serviceMar: 0, serviceApr: 0, serviceMay: 0
@@ -6286,6 +6329,12 @@ body.bg-coolDark{
               findings2026: parseInt(row[35]) || 0,
               auditStatus: finalAuditStat,
               auditor: assignedAuditor,
+              // Untouched copy of column AN ("Assigned Auditor") — b.auditor
+              // above gets overwritten further down with whoever did the most
+              // recent *past* rotation round, but this field always stays
+              // exactly what's in AN, so the Edit Assignment form and the
+              // Auditor Next Assignment card can rely on it specifically.
+              assignedAuditorRaw: assignedAuditor,
               salesMar: { ins: parseInt(row[17])||0, cod: parseInt(row[18])||0, ca: parseInt(row[19])||0 }, 
               salesApr: { ins: parseInt(row[20])||0, cod: parseInt(row[21])||0, ca: parseInt(row[22])||0 }, 
               salesMay: { ins: parseInt(row[23])||0, cod: parseInt(row[24])||0, ca: parseInt(row[25])||0 },
