@@ -44,8 +44,8 @@
     }
   </script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap');
-    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+    body, button, input, select, textarea { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #f3f4f6; }
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -100,8 +100,10 @@
       background-image: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
     }
 
-    /* Numeric headline figures get a touch of editorial character. */
-    .dash-container .font-extrabold { font-family: 'Fraunces', 'Plus Jakarta Sans', serif; letter-spacing: -0.01em; }
+    /* Standard type system: every headline/stat number uses the SAME
+       font family as the rest of the dashboard (Plus Jakarta Sans) so
+       nothing looks mismatched card-to-card. Only weight/spacing differs. */
+    .dash-container .font-extrabold { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
 
     /* Section headers (the h3 titles that open each card block) get a
        small colored rule in front for a cleaner, more "reporty" feel. */
@@ -1652,9 +1654,10 @@ body.bg-coolDark{
      need an explicit height rather than relying on padding alone — a
      plain CSS rule instead of a Tailwind h-* utility so it doesn't depend
      on classes only the Tailwind CDN's runtime compiler would generate. */
-  #updateDataBtn, #uploadFileLabel, #authLogoutBtn {
+  #updateDataBtn, #uploadFileLabel {
     height: 2.75rem;
   }
+  #authLogoutBtn { height: 2.75rem; width: 2.75rem; }
   /* Once-a-minute settle so the date/minute change doesn't feel like a jump cut */
   @keyframes liveClockSettle {
     0%   { opacity: .45; transform: translateY(2px); }
@@ -2378,6 +2381,35 @@ body.bg-coolDark{
     </div>
   </div>
 
+  <!-- ================= CONFIRM / "ARE YOU SURE" MODAL =================
+       Reused for two situations:
+       1) Clicking Log out (header button or side-menu button)
+       2) Pressing the browser back button / swiping back on mobile, which
+          would otherwise leave (and effectively reload) the dashboard
+          without warning.
+       Pure UI: exitConfirmModal.js below wires up show/hide + the actual
+       action, nothing here touches existing data logic. -->
+  <div id="exitConfirmModal" class="fixed inset-0 z-[80] hidden">
+    <div id="exitConfirmBackdrop" class="absolute inset-0 bg-slate-900/55 backdrop-blur-sm"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+      <div id="exitConfirmCard" class="bg-coolCard w-full max-w-sm rounded-2xl shadow-2xl p-5 pointer-events-auto border border-coolBorder transform transition-all duration-200 scale-95 opacity-0">
+        <div class="flex items-start gap-3">
+          <div id="exitConfirmIconWrap" class="w-10 h-10 rounded-xl bg-accentAmber/10 flex items-center justify-center shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentAmber"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+          </div>
+          <div class="min-w-0">
+            <h3 id="exitConfirmTitle" class="text-sm font-bold text-slate-800">Are you sure?</h3>
+            <p id="exitConfirmMessage" class="text-xs text-slate-500 mt-1 leading-relaxed">This will quit the dashboard.</p>
+          </div>
+        </div>
+        <div class="flex gap-2 mt-4">
+          <button id="exitConfirmCancelBtn" type="button" class="flex-1 text-xs font-semibold text-slate-600 hover:text-slate-800 py-2.5 rounded-xl border border-coolBorder hover:bg-slate-50 active:scale-[0.98] transition-all cursor-pointer">Stay on page</button>
+          <button id="exitConfirmOkBtn" type="button" class="flex-1 text-xs font-semibold text-white bg-accentRose hover:bg-rose-700 py-2.5 rounded-xl transition-colors active:scale-[0.98] cursor-pointer">Yes, quit</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="printArea"></div>
 
   <div id="toast" class="fixed bottom-6 right-6 z-50 transform transition-all duration-300 bg-coolCard border border-accentCyan/50 text-slate-700 px-5 py-3 rounded-xl shadow-lg shadow-accentCyan/10 flex items-center gap-3 translate-y-20 opacity-0">
@@ -2404,22 +2436,29 @@ body.bg-coolDark{
         </div>
       </div>
 
-      <div class="flex items-center gap-2 w-full lg:w-auto justify-end">
-        <button id="updateDataBtn" onclick="fetchSheet()" class="flex items-center gap-2 px-3 bg-white hover:bg-gray-50 active:scale-95 border border-transparent rounded-xl cursor-pointer text-sm font-semibold transition-all duration-200 shadow-sm text-royalBlue whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-cloud-download text-royalBlue shrink-0"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="m8 17 4 4 4-4"></path></svg>
-          <span class="hidden sm:flex sm:flex-col sm:items-start leading-tight">
-            <span>Update data</span>
-            <span id="lastSyncedLabel" class="text-[9px] font-medium normal-case text-slate-400"></span>
-          </span>
-        </button>
-        
-        <label id="uploadFileLabel" class="flex items-center gap-2 px-3 bg-white hover:bg-gray-50 active:scale-95 border border-transparent rounded-xl cursor-pointer text-sm font-semibold transition-all duration-200 shadow-sm text-royalBlue whitespace-nowrap aria-disabled:opacity-50 aria-disabled:cursor-not-allowed">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-spreadsheet text-royalBlue"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M8 13h2"></path><path d="M14 13h2"></path><path d="M8 17h2"></path><path d="M14 17h2"></path></svg>
-          <span id="uploadFileLabelText" class="hidden sm:inline">Upload File</span>
-          <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" class="hidden">
-        </label>
+      <div class="flex items-center gap-2.5 w-full lg:w-auto justify-end">
+        <div class="flex items-stretch bg-white rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,.06),0_10px_24px_-12px_rgba(15,23,42,.25)] border border-white/60 overflow-hidden">
+          <button id="updateDataBtn" onclick="fetchSheet()" title="Refresh dashboard data" class="group flex items-center gap-2 pl-3.5 pr-3 hover:bg-royalBlue/[0.06] active:bg-royalBlue/10 cursor-pointer text-sm font-semibold transition-colors duration-150 text-royalBlue whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
+            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-cloud-download text-royalBlue shrink-0 transition-transform duration-500 group-active:-rotate-180"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="m8 17 4 4 4-4"></path></svg>
+            <span class="hidden sm:flex sm:flex-col sm:items-start leading-tight">
+              <span>Update data</span>
+              <span class="flex items-center gap-1 h-[11px]">
+                <span id="autoRefreshDot" class="hidden w-1.5 h-1.5 rounded-full bg-accentEmerald animate-pulse" title="Auto-refreshing in the background"></span>
+                <span id="lastSyncedLabel" class="text-[9px] font-medium normal-case text-slate-400"></span>
+              </span>
+            </span>
+          </button>
 
-        <button id="authLogoutBtn" type="button" title="Log out" aria-label="Log out" class="hidden items-center justify-center w-10 h-10 shrink-0 bg-white/10 hover:bg-accentRose active:scale-95 border border-white/20 hover:border-accentRose rounded-xl cursor-pointer transition-all duration-200 text-white">
+          <div class="w-px my-2 bg-coolBorder shrink-0"></div>
+
+          <label id="uploadFileLabel" title="Upload a spreadsheet" class="group flex items-center gap-2 pl-3 pr-3.5 hover:bg-royalBlue/[0.06] active:bg-royalBlue/10 cursor-pointer text-sm font-semibold transition-colors duration-150 text-royalBlue whitespace-nowrap aria-disabled:opacity-40 aria-disabled:cursor-not-allowed">
+            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-spreadsheet text-royalBlue shrink-0 transition-transform duration-200 group-active:scale-90"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M8 13h2"></path><path d="M14 13h2"></path><path d="M8 17h2"></path><path d="M14 17h2"></path></svg>
+            <span id="uploadFileLabelText" class="hidden sm:inline">Upload File</span>
+            <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" class="hidden">
+          </label>
+        </div>
+
+        <button id="authLogoutBtn" type="button" title="Log out" aria-label="Log out" class="hidden items-center justify-center w-11 h-11 shrink-0 bg-white/10 hover:bg-accentRose active:scale-95 border border-white/25 hover:border-accentRose rounded-2xl cursor-pointer transition-all duration-200 text-white shadow-[0_1px_2px_rgba(15,23,42,.06)] hover:shadow-[0_6px_16px_-4px_rgba(225,29,72,.55)]">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" x2="12" y1="2" y2="12"></line></svg>
           <span id="authLogoutEmail" class="hidden"></span>
         </button>
@@ -6539,12 +6578,87 @@ body.bg-coolDark{
       }
     });
 
-    authLogoutBtn.addEventListener('click', () => {
-      signOut(auth);
-    });
+    // ================= "ARE YOU SURE?" CONFIRM MODAL =================
+    // One reusable modal for two situations people asked to be warned
+    // about: (1) tapping Log out, and (2) pressing the browser back
+    // button / swiping back on mobile — which on some phones exits the
+    // site straight away and forces a reload next time it's opened.
+    (function() {
+      const modal = document.getElementById('exitConfirmModal');
+      const card = document.getElementById('exitConfirmCard');
+      const titleEl = document.getElementById('exitConfirmTitle');
+      const messageEl = document.getElementById('exitConfirmMessage');
+      const cancelBtn = document.getElementById('exitConfirmCancelBtn');
+      const okBtn = document.getElementById('exitConfirmOkBtn');
+      let pendingResolve = null;
 
-    sideMenuLogoutBtn.addEventListener('click', () => {
-      signOut(auth);
+      function openModal(title, message, okLabel) {
+        titleEl.textContent = title;
+        messageEl.textContent = message;
+        okBtn.textContent = okLabel;
+        modal.classList.remove('hidden');
+        requestAnimationFrame(() => {
+          card.classList.remove('scale-95', 'opacity-0');
+          card.classList.add('scale-100', 'opacity-100');
+        });
+        return new Promise((resolve) => { pendingResolve = resolve; });
+      }
+
+      function closeModal(result) {
+        card.classList.remove('scale-100', 'opacity-100');
+        card.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => modal.classList.add('hidden'), 150);
+        if (pendingResolve) { pendingResolve(result); pendingResolve = null; }
+      }
+
+      cancelBtn.addEventListener('click', () => closeModal(false));
+      okBtn.addEventListener('click', () => closeModal(true));
+      document.getElementById('exitConfirmBackdrop').addEventListener('click', () => closeModal(false));
+
+      // Exposed for the logout buttons and the back/swipe handler below.
+      window.__confirmExit = function(title, message, okLabel) {
+        return openModal(title, message, okLabel || 'Yes, quit');
+      };
+    })();
+
+    async function handleLogoutClick() {
+      const ok = await window.__confirmExit(
+        'Log out?',
+        'Are you sure you want to log out? You\u2019ll need to sign in again to see your dashboard.',
+        'Yes, log out'
+      );
+      if (ok) signOut(auth);
+    }
+
+    authLogoutBtn.addEventListener('click', handleLogoutClick);
+    sideMenuLogoutBtn.addEventListener('click', handleLogoutClick);
+
+    // ================= BACK BUTTON / SWIPE-BACK GUARD =================
+    // On mobile, swiping back (or tapping the browser/back gesture) can
+    // exit the site immediately without warning, and coming back to it
+    // then forces a full reload (losing scroll position / in-progress
+    // work). We push a harmless extra history entry, then intercept the
+    // resulting "back" (popstate) with a confirmation instead of letting
+    // it navigate straight away.
+    let allowNextPop = false;
+    function armBackGuard() {
+      history.pushState({ dashboardGuard: true }, document.title, location.href);
+    }
+    armBackGuard();
+    window.addEventListener('popstate', function() {
+      if (allowNextPop) { allowNextPop = false; return; }
+      // Immediately cancel the navigation from the user's perspective by
+      // re-arming the guard, THEN ask for confirmation.
+      armBackGuard();
+      window.__confirmExit(
+        'Leave the dashboard?',
+        'Going back will quit the dashboard and you may need to reload it. Are you sure you want to leave?',
+        'Yes, leave'
+      ).then(function(confirmed) {
+        if (!confirmed) return; // stayed — guard is already re-armed above
+        allowNextPop = true;
+        history.back(); // now actually leave
+      });
     });
 
     // Auto sign-out after 1 hour of no interaction, so a session left
@@ -6580,6 +6694,50 @@ body.bg-coolDark{
       });
     }
 
+    // ================= SILENT BACKGROUND AUTO-REFRESH =================
+    // Keeps the dashboard's numbers current without anyone having to
+    // remember to hit "Update data": every few minutes, quietly re-pulls
+    // the latest sheet data in the background (isAutoLoad = true, so no
+    // full-screen loader and no toasts) and swaps it in once ready.
+    // Pauses while the tab is hidden/backgrounded to avoid wasted
+    // requests, and resumes (with an immediate refresh) when it's
+    // visible again. Started/stopped alongside sign-in, same pattern as
+    // the idle-timeout tracker above.
+    const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // every 5 minutes
+    let autoRefreshTimer = null;
+    const autoRefreshDot = document.getElementById('autoRefreshDot');
+
+    function silentRefreshTick() {
+      if (document.hidden) return; // don't burn requests while backgrounded
+      if (autoRefreshDot) autoRefreshDot.classList.remove('hidden');
+      fetchSheet(true)
+        .catch(function(err) {
+          console.warn('Silent background refresh failed (will retry next cycle):', err);
+        })
+        .finally(function() {
+          if (autoRefreshDot) autoRefreshDot.classList.add('hidden');
+        });
+    }
+
+    function handleVisibilityChange() {
+      if (!autoRefreshTimer) return; // not signed in / not tracking
+      if (!document.hidden) silentRefreshTick(); // catch up immediately on return
+    }
+
+    function startAutoRefresh() {
+      if (autoRefreshTimer) return; // already running
+      autoRefreshTimer = setInterval(silentRefreshTick, AUTO_REFRESH_INTERVAL_MS);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+
+    function stopAutoRefresh() {
+      if (!autoRefreshTimer) return;
+      clearInterval(autoRefreshTimer);
+      autoRefreshTimer = null;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (autoRefreshDot) autoRefreshDot.classList.add('hidden');
+    }
+
     // Ensures the dashboard loading sequence only ever runs once per
     // sign-in, right after the login screen has been dismissed — never
     // before, so it can't interrupt/cover the login screen.
@@ -6613,6 +6771,7 @@ body.bg-coolDark{
         sideMenuUserFooter.classList.remove('hidden');
         authPassword.value = '';
         startIdleTracking();
+        startAutoRefresh();
 
         // Login phase is done — now it's safe to load real data and show
         // the loading screen. Data loading is gated on this sign-in check
@@ -6644,6 +6803,7 @@ body.bg-coolDark{
       } else {
         dashboardLoadingStarted = false;
         stopIdleTracking();
+        stopAutoRefresh();
         authGate.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
         authLogoutBtn.classList.add('hidden');
