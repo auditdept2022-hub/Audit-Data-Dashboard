@@ -4778,11 +4778,12 @@ body.bg-coolDark{
       renderAssignmentModalView();
     }
 
-    // Default shape for the Assignment popup's filter state — mirrors every
-    // filter available on the Branch Scorecard (search + collection/sales/
-    // service/audit-status/risk) so the two tables behave the same way.
+    // Default shape for the Assignment popup's filter state — scoped to only
+    // the fields this table actually shows (audit status, the audited-by
+    // auditor, and branch name search), not the Collection/Sales/Service/
+    // Risk filters that belong to the Branch Scorecard's own table.
     function defaultAssignmentFilterState() {
-      return { auditStatus: 'ALL', collection: 'ALL', sales: 'ALL', service: 'ALL', risk: 'ALL', search: '' };
+      return { auditStatus: 'ALL', auditor: 'ALL', search: '' };
     }
 
     function setAssignmentFilter(key, value) {
@@ -4837,14 +4838,21 @@ body.bg-coolDark{
       return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block ${colorClass}">${arrow}</svg>`;
     }
 
-    // Full filter row for the Assignment popup — search box + Collection/
-    // Sales/Service/Audit Status/Risk dropdowns + Reset button, styled and
-    // laid out exactly like the Branch Scorecard's filter row (see
-    // #tableSearch/#filterCollection/etc. above), just wired to
-    // window.assignmentFilterState instead of the scorecard's own DOM state.
+    // Filter row for the Assignment popup — scoped to only what this table
+    // shows: branch name search, Audit Status, and the auditor who did the
+    // most recent round. The auditor list is built live off the actual data
+    // (every distinct "recent auditor" value currently in play) rather than
+    // a fixed guess list, so every real value is selectable.
     function buildAssignmentFilterBar(state) {
       const escapeAttr = str => String(str || '').replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      const opt = (value, label, current) => `<option value="${value}" ${value === current ? 'selected' : ''}>${label}</option>`;
+      const opt = (value, label, current) => `<option value="${escapeAttr(value)}" ${value === current ? 'selected' : ''}>${label}</option>`;
+
+      const auditorSet = new Set();
+      (activeData.branches || []).forEach(b => {
+          const info = getBranchAuditRoundInfo(b);
+          auditorSet.add(info.recentAuditor || 'Unassigned');
+      });
+      const auditorOptions = Array.from(auditorSet).sort((a, b) => a.localeCompare(b));
 
       return `
       <div class="flex flex-col lg:flex-row lg:items-center gap-3 mb-4">
@@ -4856,27 +4864,6 @@ body.bg-coolDark{
         </div>
 
         <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-2">
-          <select onchange="setAssignmentFilter('collection', this.value)" class="w-full sm:w-auto px-3 py-2 bg-white border border-coolBorder rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
-            ${opt('ALL', 'All Collection', state.collection)}
-            ${opt('Improving', 'Improving', state.collection)}
-            ${opt('Recovering', 'Recovering', state.collection)}
-            ${opt('Declining', 'Declining', state.collection)}
-            ${opt('Stable', 'Stable', state.collection)}
-          </select>
-
-          <select onchange="setAssignmentFilter('sales', this.value)" class="w-full sm:w-auto px-3 py-2 bg-white border border-coolBorder rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
-            ${opt('ALL', 'All Sales', state.sales)}
-            ${opt('Improving', 'Improving', state.sales)}
-            ${opt('Declining', 'Declining', state.sales)}
-            ${opt('Stable', 'Stable', state.sales)}
-          </select>
-
-          <select onchange="setAssignmentFilter('service', this.value)" class="w-full sm:w-auto px-3 py-2 bg-white border border-coolBorder rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
-            ${opt('ALL', 'All Service', state.service)}
-            ${opt('Target', 'Target', state.service)}
-            ${opt('Declining', 'Declining', state.service)}
-          </select>
-
           <select onchange="setAssignmentFilter('auditStatus', this.value)" class="w-full sm:w-auto px-3 py-2 bg-white border border-coolBorder rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
             ${opt('ALL', 'All Audit Status', state.auditStatus)}
             ${opt('PENDING', 'Pending', state.auditStatus)}
@@ -4884,11 +4871,9 @@ body.bg-coolDark{
             ${opt('DONE', 'Done', state.auditStatus)}
           </select>
 
-          <select onchange="setAssignmentFilter('risk', this.value)" class="w-full sm:w-auto px-3 py-2 bg-white border border-coolBorder rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
-            ${opt('ALL', 'All Risk Levels', state.risk)}
-            ${opt('High Risk', 'High Risk', state.risk)}
-            ${opt('Medium Risk', 'Medium Risk', state.risk)}
-            ${opt('Low Risk', 'Low Risk', state.risk)}
+          <select onchange="setAssignmentFilter('auditor', this.value)" class="w-full sm:w-auto px-3 py-2 bg-white border border-coolBorder rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
+            ${opt('ALL', 'All Auditors', state.auditor)}
+            ${auditorOptions.map(a => opt(a, a, state.auditor)).join('')}
           </select>
 
           <button type="button" onclick="resetAssignmentFilters()" class="col-span-2 sm:col-span-1 flex items-center justify-center sm:justify-start gap-1.5 px-3 py-2 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-xl text-xs font-semibold text-slate-600 transition-all cursor-pointer active:scale-95">
@@ -4990,11 +4975,11 @@ body.bg-coolDark{
 
     // Popup opened from the AUDITOR NEXT ASSIGNMENT stock card. Reuses the
     // same "total/done/for audit/pending" stock card as the general All
-    // Branches popup, plus the exact same filter set as the Branch Scorecard
-    // (search + collection/sales/service/audit-status/risk + reset). The
-    // table itself is scoped to audit scheduling: branch, last completed
-    // round, most recent completed round, and the interval between them in
-    // months — every column sortable (setAssignmentSort).
+    // Branches popup. Filters are scoped to only what this table shows:
+    // Audit Status, the auditor who did the most recent round, and branch
+    // name search — plus Reset. The table itself covers audit scheduling:
+    // branch, last completed round, most recent completed round, and the
+    // interval between them — every column sortable (setAssignmentSort).
     function renderAssignmentModalView() {
       const state = window.assignmentFilterState || (window.assignmentFilterState = defaultAssignmentFilterState());
 
@@ -5002,17 +4987,8 @@ body.bg-coolDark{
       if (state.auditStatus && state.auditStatus !== 'ALL') {
           list = list.filter(b => (b.auditStatus || '').toUpperCase() === state.auditStatus);
       }
-      if (state.collection && state.collection !== 'ALL') {
-          list = list.filter(b => b.collection === state.collection);
-      }
-      if (state.sales && state.sales !== 'ALL') {
-          list = list.filter(b => b.sales === state.sales);
-      }
-      if (state.service && state.service !== 'ALL') {
-          list = list.filter(b => b.service === state.service);
-      }
-      if (state.risk && state.risk !== 'ALL') {
-          list = list.filter(b => computeRiskProfile(b).level === state.risk);
+      if (state.auditor && state.auditor !== 'ALL') {
+          list = list.filter(b => getBranchAuditRoundInfo(b).recentAuditor === state.auditor);
       }
       if (state.search) {
           const q = state.search.toLowerCase();
