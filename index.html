@@ -2970,9 +2970,7 @@ body.bg-coolDark{
         </div>
         <div class="mt-4">
           <h3 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900" id="stat-total-accounts">12,924</h3>
-          <p class="text-xs text-slate-500 mt-1">Active collection portfolio</p>
-          <p class="text-[11px] text-slate-400 mt-2" id="stat-total-repo-all">— total repo</p>
-          <p class="text-[11px] text-slate-400" id="stat-total-repo-latest">— repo (<span id="span-repo-month">LATEST</span>)</p>
+          <p class="text-xs text-slate-400 mt-1" id="stat-total-repo-latest">— total repo (<span id="span-repo-month">LATEST</span>)</p>
         </div>
       </div>
     </div>
@@ -3550,11 +3548,9 @@ body.bg-coolDark{
               if (branchesToDisplay.length > 0) renderBranchTable(branchesToDisplay, tableContainer, type, filterValue);
               else tableContainer.innerHTML = '<div class="p-8 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No targeted branch parameters found.</div>';
           } else if (type === 'accounts') {
-              branchesToDisplay = [...activeData.branches].sort((a, b) => b.accountsMay - a.accountsMay);
+              window.accountsModalSort = null;
               modalBody.innerHTML = '<div id="modalTableContainer"></div>';
-              const tableContainer = document.getElementById('modalTableContainer');
-              if (branchesToDisplay.length > 0) renderBranchTable(branchesToDisplay, tableContainer, type, filterValue);
-              else tableContainer.innerHTML = '<div class="p-8 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No targeted branch parameters found.</div>';
+              renderAccountsModalTable();
           } else {
               // all, collection, sales, service — use combinable filter state (status + audit status)
               window.modalFilterState = {
@@ -5817,6 +5813,29 @@ body.bg-coolDark{
       renderModalFilteredView();
     }
 
+    // Total Active Accounts Breakdown modal (opened from the "TOTAL ACCOUNTS"
+    // stack card). Cycling the sort on the latest-month "No. of Repo" column
+    // lets you surface which branches carry (or picked up) the most repo
+    // accounts, same desc → asc → default cycle as the other sortable tables.
+    function renderAccountsModalTable() {
+      let list = [...activeData.branches];
+      if (window.accountsModalSort === 'desc') list.sort((a, b) => (b.noOfRepoLatest || 0) - (a.noOfRepoLatest || 0));
+      else if (window.accountsModalSort === 'asc') list.sort((a, b) => (a.noOfRepoLatest || 0) - (b.noOfRepoLatest || 0));
+      else list.sort((a, b) => b.accountsMay - a.accountsMay);
+
+      const tableContainer = document.getElementById('modalTableContainer');
+      if (!tableContainer) return;
+      tableContainer.innerHTML = list.length > 0
+          ? ''
+          : '<div class="p-8 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No targeted branch parameters found.</div>';
+      if (list.length > 0) renderBranchTable(list, tableContainer, 'accounts', 'accountsMay');
+    }
+
+    function toggleAccountsRepoSort() {
+      window.accountsModalSort = window.accountsModalSort === 'desc' ? 'asc' : (window.accountsModalSort === 'asc' ? null : 'desc');
+      renderAccountsModalTable();
+    }
+
     function buildSalesSummaryBar(list) {
       const improving = list.filter(b => b.sales === 'Improving').length;
       const declining = list.filter(b => b.sales === 'Declining').length;
@@ -5951,16 +5970,18 @@ body.bg-coolDark{
         let year = filterValue.replace('findings', '');
         extraColHeader = `<th class="p-2 bg-gray-50 text-center font-bold text-accentCyan whitespace-nowrap">Findings ${year}</th>`;
       } else if (type === 'accounts') {
-        extraColHeader = `<th class="p-2 bg-gray-50 text-center font-bold text-accentRose whitespace-nowrap">No. of Repo</th><th class="p-2 bg-gray-50 text-center font-bold text-accentCyan">Total Accounts</th>`;
+        extraColHeader = `<th class="p-2 bg-gray-50 text-center font-bold text-accentCyan">Total Accounts</th>`;
       }
 
       // Only show the status column(s) relevant to what was clicked.
       // Clicking the Collection card should show ONLY Collection status,
       // clicking Sales should show ONLY Sales, clicking Service should show ONLY Service.
-      // Broader views (All Branches, Findings, Accounts) still show all three for context.
-      const showCollection = (type === 'collection' || type === 'all' || type === 'accounts');
-      const showSales = (type === 'sales' || type === 'all' || type === 'accounts');
-      const showService = (type === 'service' || type === 'all' || type === 'accounts');
+      // The broader "All Branches" view still shows all three for context.
+      // The Total Accounts breakdown ("accounts") shows the 3-month repo
+      // trend instead (see detailHeaders below) rather than these statuses.
+      const showCollection = (type === 'collection' || type === 'all');
+      const showSales = (type === 'sales' || type === 'all');
+      const showService = (type === 'service' || type === 'all');
       // Audit Findings breakdowns are audit-data-only: no Collection/Sales/Service
       // status noise, and no Auditor column — just what's sourced from the
       // AUDIT FINDINGS sheet for that branch.
@@ -6032,6 +6053,18 @@ body.bg-coolDark{
           <th class="p-2 bg-gray-50 text-center whitespace-nowrap">Audit Status</th>
           <th class="p-2 bg-gray-50 text-center whitespace-nowrap" title="Findings by year — from AUDIT FINDINGS sheet">Findings ('24 · '25 · '26)</th>`;
         showEffRepo = false;
+      } else if (type === 'accounts') {
+        // Repo count trend across the last 3 months, in place of the
+        // Collection/Sales/Service status columns — lets you see at a
+        // glance which branches are picking up repo accounts. Sorting is
+        // on the latest month only (see toggleAccountsRepoSort).
+        const sortState = window.accountsModalSort || null;
+        const sortIcon = sortState === 'desc' ? '↓' : (sortState === 'asc' ? '↑' : '↕');
+        detailHeaders = `
+          <th class="p-2 bg-gray-50 text-center border-l border-coolBorder whitespace-nowrap">Repo ${trendLbls[0]}</th>
+          <th class="p-2 bg-gray-50 text-center whitespace-nowrap">Repo ${trendLbls[1]}</th>
+          <th class="p-2 bg-gray-50 text-center border-r border-coolBorder whitespace-nowrap cursor-pointer select-none hover:text-accentIndigo transition-colors" onclick="toggleAccountsRepoSort()">Repo ${trendLbls[2]} <span class="inline-block ml-0.5">${sortIcon}</span></th>`;
+        showEffRepo = false;
       }
 
       let tableHtml = `
@@ -6059,7 +6092,7 @@ body.bg-coolDark{
             rowShowsFindingsToggle = true;
             extraColCell = `<td class="p-2 text-center font-bold text-accentCyan">${b[filterValue] || 0}</td>`;
           } else if (type === 'accounts') {
-            extraColCell = `<td class="p-2 text-center font-semibold ${(b.noOfRepo || 0) > 0 ? 'text-accentRose' : 'text-slate-400'}">${(b.noOfRepo || 0).toLocaleString()}</td><td class="p-2 text-center font-bold text-slate-900 bg-gray-50/50">${(b.accountsMay || 0).toLocaleString()}</td>`;
+            extraColCell = `<td class="p-2 text-center font-bold text-slate-900 bg-gray-50/50">${(b.accountsMay || 0).toLocaleString()}</td>`;
           }
 
           const auditorBadge = b.auditor === 'UNASSIGNED' 
@@ -6151,6 +6184,20 @@ body.bg-coolDark{
                 <span class="inline-flex items-center gap-1 text-[11px] font-bold tabular-nums">
                   <span class="text-slate-400">${b.findings2024}</span>·<span class="text-slate-400">${b.findings2025}</span>·<span class="text-accentCyan">${b.findings2026}</span>
                 </span>
+              </td>`;
+          } else if (type === 'accounts') {
+            const repoMar = b.noOfRepoMar || 0, repoApr = b.noOfRepoApr || 0, repoLatest = b.noOfRepoLatest || 0;
+            const repoUp = repoLatest > repoMar, repoFlat = repoLatest === repoMar;
+            const repoIcon = repoFlat ? '→' : (repoUp ? '▲' : '▼');
+            const repoColor = repoFlat ? 'text-slate-400' : (repoUp ? 'text-accentRose' : 'text-accentEmerald');
+            detailCells = `
+              <td class="p-2 text-center text-slate-600 border-l border-coolBorder">${repoMar}</td>
+              <td class="p-2 text-center text-slate-600">${repoApr}</td>
+              <td class="p-2 text-center border-r border-coolBorder">
+                <div class="flex items-center justify-center gap-1.5">
+                  <span class="font-semibold text-slate-800">${repoLatest}</span>
+                  <span class="${repoColor} text-[10px]">${repoIcon}</span>
+                </div>
               </td>`;
           }
 
@@ -6319,10 +6366,8 @@ body.bg-coolDark{
       document.getElementById('stat-findings-2026').innerText = sum.findings2026 || 0;
       document.getElementById('stat-total-accounts').innerText = sum.totalAccounts || 0;
       const repoMonthLabel = (sum.trendLabels || ["MARCH", "APRIL", "MAY"])[2];
-      const repoAllEl = document.getElementById('stat-total-repo-all');
       const repoLatestEl = document.getElementById('stat-total-repo-latest');
-      if (repoAllEl) repoAllEl.innerText = `${(sum.totalRepoAll || 0).toLocaleString()} total repo`;
-      if (repoLatestEl) repoLatestEl.innerHTML = `${(sum.totalRepoLatest || 0).toLocaleString()} repo (<span id="span-repo-month">${repoMonthLabel}</span>)`;
+      if (repoLatestEl) repoLatestEl.innerHTML = `${(sum.totalRepoLatest || 0).toLocaleString()} total repo (<span id="span-repo-month">${repoMonthLabel}</span>)`;
 
       // Auditor Next Assignment card
       const queueCountEl = document.getElementById('stat-next-assignment-count');
