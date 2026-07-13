@@ -2934,15 +2934,14 @@ body.bg-coolDark{
         <p class="text-xs text-accentRose mt-3 text-center" id="stat-findings-2025-sub">+42% vs 2024</p>
       </div>
 
-      <div onclick="openAuditQueueModal()" class="bg-coolCard border border-coolBorder rounded-2xl p-4 sm:p-5 hover:border-accentAmber/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
+      <div onclick="openAuditQueueModal()" class="bg-coolCard border border-coolBorder rounded-2xl p-3.5 sm:p-4 hover:border-accentAmber/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
         <div class="flex items-center justify-between">
           <span class="text-xs font-semibold tracking-wider text-slate-500">AUDITOR NEXT ASSIGNMENT</span>
           <span class="p-1.5 bg-accentAmber/10 text-accentAmber rounded-lg group-hover:bg-accentAmber group-hover:text-white transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-clipboard-list w-4 h-4"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><path d="M12 11h4"></path><path d="M12 16h4"></path><path d="M8 11h.01"></path><path d="M8 16h.01"></path></svg></span>
         </div>
-        <div class="mt-4">
-          <h3 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-accentAmber" id="stat-next-assignment-count">0 <span class="text-sm font-medium text-slate-500">queued</span></h3>
-          <p class="text-xs text-slate-500 mt-1" id="stat-next-assignment-sub">No branches for audit</p>
-          <div class="mt-2 space-y-0.5 cursor-pointer hover:opacity-80 transition-opacity" id="stat-next-assignment-branch-list" onclick="event.stopPropagation(); openAuditQueueModal('upnext');" title="Open Assignment Branches Overview, sorted by Up Next Auditor"></div>
+        <div class="mt-3">
+          <h3 class="text-xl sm:text-2xl font-extrabold tracking-tight text-accentAmber" id="stat-next-assignment-count">0 <span class="text-xs font-medium text-slate-500">queued</span></h3>
+          <div class="mt-2.5 pt-2.5 border-t border-coolBorder space-y-1.5 cursor-pointer" id="stat-next-assignment-branch-list" onclick="event.stopPropagation(); openAuditQueueModal('upnext');" title="Open Assignment Branches Overview, sorted by Up Next Auditor"></div>
         </div>
       </div>
 
@@ -6312,15 +6311,8 @@ body.bg-coolDark{
 
       // Auditor Next Assignment card
       const queueCountEl = document.getElementById('stat-next-assignment-count');
-      const queueSubEl = document.getElementById('stat-next-assignment-sub');
       const queueBranchListEl = document.getElementById('stat-next-assignment-branch-list');
-      if (queueCountEl) queueCountEl.innerHTML = `${sum.forAuditCount || 0} <span class="text-sm font-medium text-slate-500">queued</span>`;
-      if (queueSubEl) {
-          const breakdown = sum.forAuditBreakdown || [];
-          queueSubEl.innerText = breakdown.length > 0
-              ? breakdown.map(a => `${a.count} ${a.name}`).join(' · ')
-              : 'No branches for audit';
-      }
+      if (queueCountEl) queueCountEl.innerHTML = `${sum.forAuditCount || 0} <span class="text-xs font-medium text-slate-500">queued</span>`;
       if (queueBranchListEl) {
           // Top 5 branches up next in the queue, oldest-waiting-first (same
           // order/source as the old single-line "Up next" branch). Auditor
@@ -6330,13 +6322,14 @@ body.bg-coolDark{
           // did the most recent past round. Clicking any row opens the
           // Assignment Branches Overview popup sorted by Up Next Auditor
           // (see openAuditQueueModal('upnext') on the container itself).
-          // Kept compact (text-[10px], truncated) so the card doesn't have
-          // to grow to fit all 5 rows.
+          // Kept minimal (muted, no per-row color/underline) and compact
+          // (text-[10px], truncated) so the card stays close to its
+          // original footprint while fitting all 5 rows.
           const nextUpList = sum.nextUpBranches || [];
           queueBranchListEl.innerHTML = nextUpList.length
               ? nextUpList.map(b => `
                   <div class="flex items-center justify-between gap-2 text-[10px] leading-tight">
-                      <span class="font-semibold text-accentAmber truncate">${b.name}</span>
+                      <span class="font-medium text-slate-600 truncate">${b.name}</span>
                       <span class="text-slate-400 whitespace-nowrap truncate max-w-[45%]">${b.auditor}</span>
                   </div>`).join('')
               : '<p class="text-xs text-slate-500">Nothing queued right now</p>';
