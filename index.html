@@ -4729,13 +4729,21 @@ body.bg-coolDark{
 
     // Returns the last-completed round and the most-recently-completed round
     // for a branch, read straight from activeData.branchAuditSchedule (the
-    // full AUDIT ROTATION (FINAL) history), plus how many days apart they
-    // were. Falls back to the branch's own lastAuditDate/auditor (and its
-    // queued "assigned auditor") when no rotation-sheet rounds exist at all,
-    // so a never-audited branch still shows something useful.
+    // full AUDIT ROTATION (FINAL) history). Falls back to the branch's own
+    // lastAuditDate/auditor (and its queued "assigned auditor") when no
+    // rotation-sheet rounds exist at all, so a never-audited branch still
+    // shows something useful.
+    //
+    // intervalDays here is the "Audit Interval" shown in the Assignment
+    // Branches Overview table: days elapsed from the most recent audit
+    // round up to TODAY (real wall-clock date, recomputed every render) —
+    // not the gap between the last two rounds. That keeps the column
+    // reading as current staleness ("how overdue is this branch right
+    // now") rather than a historical, possibly stale, round-to-round gap.
     function getBranchAuditRoundInfo(b) {
       const schedule = (activeData.branchAuditSchedule || {})[b.name];
       const dated = schedule ? (schedule.rounds || []).filter(r => r.dateRaw !== null && r.dateRaw !== undefined) : [];
+      const today = Date.now();
 
       if (dated.length > 0) {
           const recent = dated[dated.length - 1];
@@ -4747,7 +4755,7 @@ body.bg-coolDark{
               lastDate: last ? last.date : null,
               lastDateRaw: last ? last.dateRaw : null,
               lastAuditor: last ? (last.auditor || 'Unassigned') : null,
-              intervalDays: (recent.intervalDays !== null && recent.intervalDays !== undefined) ? recent.intervalDays : null,
+              intervalDays: Math.round((today - recent.dateRaw) / 86400000),
               roundsCount: dated.length
           };
       }
@@ -4767,7 +4775,7 @@ body.bg-coolDark{
           lastDate: null,
           lastDateRaw: null,
           lastAuditor: null,
-          intervalDays: null,
+          intervalDays: (b.lastAuditDateRaw !== null && b.lastAuditDateRaw !== undefined) ? Math.round((today - b.lastAuditDateRaw) / 86400000) : null,
           roundsCount: b.lastAuditDate ? 1 : 0
       };
     }
@@ -4934,7 +4942,7 @@ body.bg-coolDark{
               ${sortHeader('name', 'Branch', 'left')}
               ${sortHeader('last', 'Last Audit Date / Auditor', 'center')}
               ${sortHeader('recent', 'Recent Audit Date / Auditor', 'center')}
-              ${sortHeader('interval', 'Audit Interval', 'center')}
+              ${sortHeader('interval', 'Audit Interval (to date)', 'center')}
             </tr>
           </thead>
           <tbody class="divide-y divide-coolBorder text-sm">
