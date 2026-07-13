@@ -293,15 +293,18 @@
         };
 
         // --- Auditor Next Assignment: who is queued up for a "FOR AUDIT" branch ---
-        // Uses assignedAuditorRaw (column AN, "Assigned Auditor") specifically
-        // — who's actually assigned to do the next audit — rather than
-        // b.auditor, which can reflect whoever did the most recent *past*
-        // round instead. Falls back to b.auditor only if AN is blank.
+        // Uses assignedAuditorRaw (column AN, "Assigned Auditor") ONLY — the
+        // auditor explicitly set via the Edit Assignment form's "Assigned
+        // Auditor" field. Deliberately does NOT fall back to b.auditor
+        // (whoever did the most recent *past* rotation round, shown on the
+        // Detailed Profile) — that field is a record of history, not a
+        // decision the person made about what's next, and mixing the two in
+        // made this card show the wrong name whenever AN was blank but a
+        // past round wasn't. A branch shows "Unassigned" here until an
+        // Assigned Auditor is actually saved for it.
         const forAuditList = tb.filter(b => (b.auditStatus || '').toUpperCase() === "FOR AUDIT");
         const assignedAuditorOf = (b) => {
-            if (b.assignedAuditorRaw && b.assignedAuditorRaw !== 'UNASSIGNED') return b.assignedAuditorRaw;
-            if (b.auditor && b.auditor !== 'UNASSIGNED') return b.auditor;
-            return 'Unassigned';
+            return (b.assignedAuditorRaw && b.assignedAuditorRaw !== 'UNASSIGNED') ? b.assignedAuditorRaw : 'Unassigned';
         };
         const auditorQueueCounts = {};
         forAuditList.forEach(b => {
@@ -3858,6 +3861,17 @@ body.bg-coolDark{
                   dated.sort((x, y) => y.dateRaw - x.dateRaw);
                   b.auditor = dated[0].auditor;
               }
+              // Optimistic status bump: Audit Status normally comes from a
+              // formula on the Sheet (driven by Expected Audit Date), which
+              // this client can't recompute exactly — but the person just
+              // told us this branch now has an Assigned Auditor, so treat
+              // it as FOR AUDIT immediately (unless it's already DONE) so
+              // the queue/"Up Next" card reflects the save right away
+              // instead of waiting ~2s for the authoritative server refetch
+              // below to correct it.
+              if (b.assignedAuditorRaw && b.assignedAuditorRaw !== 'UNASSIGNED' && (b.auditStatus || '').toUpperCase() !== 'DONE') {
+                  b.auditStatus = 'FOR AUDIT';
+              }
           }
           if (typeof updateCalculations === 'function') updateCalculations();
           if (typeof initDashboard === 'function') initDashboard();
@@ -4745,14 +4759,16 @@ body.bg-coolDark{
       const dated = schedule ? (schedule.rounds || []).filter(r => r.dateRaw !== null && r.dateRaw !== undefined) : [];
       const today = Date.now();
 
-      // Who's queued for the branch's NEXT audit round — always read from
-      // assignedAuditorRaw (column AN, "Assigned Auditor") specifically,
-      // never from whoever did a *past* round, so this stays correct even
-      // for branches with a long rotation history. Falls back to b.auditor
-      // only if AN is genuinely blank.
+      // Who's queued for the branch's NEXT audit round — read ONLY from
+      // assignedAuditorRaw (column AN, "Assigned Auditor"), the value the
+      // person explicitly sets and saves in the Edit Assignment form.
+      // Deliberately does NOT fall back to b.auditor (whoever did the most
+      // recent *past* round, as shown on the Detailed Profile) — that's a
+      // record of history, not a decision about what's next, and copying
+      // it in here was showing the wrong name whenever AN was blank.
       const queuedAuditor = (b.assignedAuditorRaw && b.assignedAuditorRaw !== 'UNASSIGNED')
           ? b.assignedAuditorRaw
-          : (b.auditor && b.auditor !== 'UNASSIGNED' ? b.auditor : 'Unassigned');
+          : 'Unassigned';
 
       // "Up Next Auditor" only applies once a branch has actually been set
       // for audit (Audit Status = FOR AUDIT, saved via Edit Assignment) —
