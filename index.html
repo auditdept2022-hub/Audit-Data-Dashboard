@@ -2834,17 +2834,6 @@ body.bg-coolDark{
         <p class="text-xs text-accentRose mt-3 text-center" id="stat-findings-2025-sub">+42% vs 2024</p>
       </div>
 
-      <div onclick="openModal('Total Active Accounts Breakdown', 'accounts', 'accountsMay')" class="bg-coolCard border border-coolBorder rounded-2xl p-4 sm:p-5 hover:border-accentBlue/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-semibold tracking-wider text-slate-500">TOTAL ACCOUNTS (<span id="span-accounts-month">LATEST</span>)</span>
-          <span class="p-1.5 bg-accentBlue/10 text-accentBlue rounded-lg group-hover:bg-accentBlue group-hover:text-white transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-users w-4 h-4"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><path d="M16 3.128a4 4 0 0 1 0 7.744"></path><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><circle cx="9" cy="7" r="4"></circle></svg></span>
-        </div>
-        <div class="mt-4">
-          <h3 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900" id="stat-total-accounts">12,924</h3>
-          <p class="text-xs text-slate-500 mt-1">Active collection portfolio</p>
-        </div>
-      </div>
-
       <div onclick="openAuditQueueModal()" class="bg-coolCard border border-coolBorder rounded-2xl p-4 sm:p-5 hover:border-accentAmber/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
         <div class="flex items-center justify-between">
           <span class="text-xs font-semibold tracking-wider text-slate-500">AUDITOR NEXT ASSIGNMENT</span>
@@ -2864,6 +2853,17 @@ body.bg-coolDark{
         </div>
         <div class="mt-4">
           <div class="flex flex-col gap-1" id="stat-recent-audited-list"></div>
+        </div>
+      </div>
+
+      <div onclick="openModal('Total Active Accounts Breakdown', 'accounts', 'accountsMay')" class="bg-coolCard border border-coolBorder rounded-2xl p-4 sm:p-5 hover:border-accentBlue/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold tracking-wider text-slate-500">TOTAL ACCOUNTS (<span id="span-accounts-month">LATEST</span>)</span>
+          <span class="p-1.5 bg-accentBlue/10 text-accentBlue rounded-lg group-hover:bg-accentBlue group-hover:text-white transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-users w-4 h-4"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><path d="M16 3.128a4 4 0 0 1 0 7.744"></path><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><circle cx="9" cy="7" r="4"></circle></svg></span>
+        </div>
+        <div class="mt-4">
+          <h3 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900" id="stat-total-accounts">12,924</h3>
+          <p class="text-xs text-slate-500 mt-1">Active collection portfolio</p>
         </div>
       </div>
     </div>
@@ -3562,8 +3562,7 @@ body.bg-coolDark{
           (currentAssigned && !assignedKnownUpper.includes(currentAssignedUpper)
               ? `<option value="${escapeHTML(currentAssigned)}" selected>${escapeHTML(currentAssigned)}</option>`
               : '') +
-          AUDITOR_NAMES.map(name => `<option value="${name}" ${name.toUpperCase() === currentAssignedUpper ? 'selected' : ''}>${name}</option>`).join('') +
-          `<option value="__add_new__">+ Add New Auditor…</option>`;
+          AUDITOR_NAMES.map(name => `<option value="${name}" ${name.toUpperCase() === currentAssignedUpper ? 'selected' : ''}>${name}</option>`).join('');
 
       // "current" auditor names aren't always one of the 4 standing
       // AUDITOR_NAMES (e.g. a one-off / external auditor typed in before) —
@@ -3611,11 +3610,9 @@ body.bg-coolDark{
                  class="w-full mb-5 px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
 
           <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Assigned Auditor <span class="normal-case font-normal text-slate-400">(col AN — who's up next, shown on the Auditor Next Assignment card)</span></label>
-          <select id="editAssign-assignedAuditor" onchange="handleAssignedAuditorChange(this)" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+          <select id="editAssign-assignedAuditor" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
             ${assignedAuditorOptions}
           </select>
-          <input id="editAssign-assignedAuditor-custom" type="text" placeholder="Type new auditor name"
-                 class="hidden mt-1.5 w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
 
           <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 mt-5 border-t border-coolBorder pt-4">Audit Rotation Schedule</div>
           ${rotationRowHtml(1, '1st Rotation')}
@@ -3634,23 +3631,6 @@ body.bg-coolDark{
       `;
     }
 
-    // Toggles the inline "type a name" field for a rotation round's auditor
-    // dropdown when "+ Add New Auditor…" is picked, and hides/clears it
-    // Toggles the inline "type a name" field under the Assigned Auditor
-    // dropdown when "+ Add New Auditor…" is picked, and hides/clears it
-    // again if the person switches back to a normal name.
-    function handleAssignedAuditorChange(selectEl) {
-      const customInput = document.getElementById('editAssign-assignedAuditor-custom');
-      if (!customInput) return;
-      if (selectEl.value === '__add_new__') {
-          customInput.classList.remove('hidden');
-          customInput.focus();
-      } else {
-          customInput.classList.add('hidden');
-          customInput.value = '';
-      }
-    }
-
     // Step 1: person presses "Save Assignment" -> just collects the form
     // fields and opens the password gate. Nothing is written to the Sheet
     // yet — that only happens once the password is verified below, so any
@@ -3660,19 +3640,7 @@ body.bg-coolDark{
 
     function submitEditAssignment(branchName) {
       const val = id => (document.getElementById(id) || {}).value || '';
-      // If "+ Add New Auditor…" was picked for the Assigned Auditor field,
-      // use whatever name was typed into its inline text field instead of
-      // the sentinel select value. A brand-new name typed here is also
-      // added to AUDITOR_NAMES so it shows up as a normal option (no
-      // retyping needed) in every auditor dropdown for the rest of this session.
-      let assignedAuditorVal = val('editAssign-assignedAuditor');
-      if (assignedAuditorVal === '__add_new__') {
-          const typed = val('editAssign-assignedAuditor-custom').trim();
-          if (typed && !AUDITOR_NAMES.some(name => name.toUpperCase() === typed.toUpperCase())) {
-              AUDITOR_NAMES.push(typed);
-          }
-          assignedAuditorVal = typed;
-      }
+      const assignedAuditorVal = val('editAssign-assignedAuditor');
       const fields = {
           expectedDate: val('editAssign-expectedDate'),
           assignedAuditor: assignedAuditorVal,
@@ -7502,33 +7470,59 @@ body.bg-coolDark{
     // open on a shared/public computer doesn't stay unlocked forever.
     // Only runs while someone is actually signed in (started/stopped from
     // the onAuthStateChanged handler below) and resets on any real activity.
+    //
+    // Implementation note: this is deliberately timestamp-based (Date.now())
+    // and re-checked on an interval + on visibilitychange, rather than a
+    // single chained setTimeout(). A lone ~1 hour setTimeout gets heavily
+    // throttled (or paused entirely on some mobile browsers) once the tab
+    // is backgrounded/minimized — which is exactly when someone is "away" —
+    // so that approach could silently fail to fire. Re-deriving idle time
+    // from a real wall-clock timestamp every check is reliable regardless
+    // of how long timers were throttled while hidden.
     const IDLE_TIMEOUT_MS = 60 * 60 * 1000;
-    let idleTimer = null;
+    const IDLE_CHECK_INTERVAL_MS = 15 * 1000; // re-check every 15s
+    let idleTrackingActive = false;
+    let lastActivityAt = 0;
+    let idleCheckInterval = null;
+
     function handleIdleTimeout() {
+      stopIdleTracking();
       signOut(auth).catch(function(err) {
         console.warn('Idle auto sign-out failed:', err);
       });
     }
+    function checkIdleElapsed() {
+      if (!idleTrackingActive) return;
+      if (Date.now() - lastActivityAt >= IDLE_TIMEOUT_MS) {
+        handleIdleTimeout();
+      }
+    }
     function resetIdleTimer() {
-      if (!idleTimer) return; // idle tracking isn't active (signed out)
-      clearTimeout(idleTimer);
-      idleTimer = setTimeout(handleIdleTimeout, IDLE_TIMEOUT_MS);
+      if (!idleTrackingActive) return; // idle tracking isn't active (signed out)
+      lastActivityAt = Date.now();
     }
     const IDLE_ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'wheel'];
     function startIdleTracking() {
-      if (idleTimer) return; // already tracking
-      idleTimer = setTimeout(handleIdleTimeout, IDLE_TIMEOUT_MS);
+      if (idleTrackingActive) return; // already tracking
+      idleTrackingActive = true;
+      lastActivityAt = Date.now();
       IDLE_ACTIVITY_EVENTS.forEach(function(evt) {
         document.addEventListener(evt, resetIdleTimer, { passive: true });
       });
+      document.addEventListener('visibilitychange', checkIdleElapsed);
+      idleCheckInterval = setInterval(checkIdleElapsed, IDLE_CHECK_INTERVAL_MS);
     }
     function stopIdleTracking() {
-      if (!idleTimer) return;
-      clearTimeout(idleTimer);
-      idleTimer = null;
+      if (!idleTrackingActive) return;
+      idleTrackingActive = false;
+      if (idleCheckInterval) {
+        clearInterval(idleCheckInterval);
+        idleCheckInterval = null;
+      }
       IDLE_ACTIVITY_EVENTS.forEach(function(evt) {
         document.removeEventListener(evt, resetIdleTimer);
       });
+      document.removeEventListener('visibilitychange', checkIdleElapsed);
     }
 
     // ================= SILENT BACKGROUND AUTO-REFRESH =================
