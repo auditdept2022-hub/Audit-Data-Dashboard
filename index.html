@@ -2945,14 +2945,12 @@ body.bg-coolDark{
         </div>
       </div>
 
-      <div onclick="openBranchAuditScheduleModal()" class="bg-coolCard border border-coolBorder rounded-2xl p-4 sm:p-5 hover:border-accentEmerald/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
+      <div onclick="openBranchAuditScheduleModal()" class="bg-coolCard border border-coolBorder rounded-2xl p-3.5 sm:p-4 hover:border-accentEmerald/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
         <div class="flex items-center justify-between">
           <span class="text-xs font-semibold tracking-wider text-slate-500">BRANCH AUDIT INTERVAL</span>
           <span class="p-1.5 bg-accentEmerald/10 text-accentEmerald rounded-lg group-hover:bg-accentEmerald group-hover:text-white transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-badge-check w-4 h-4"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"></path><path d="m9 12 2 2 4-4"></path></svg></span>
         </div>
-        <div class="mt-4">
-          <div class="flex flex-col gap-1" id="stat-recent-audited-list"></div>
-        </div>
+        <div class="mt-3 pt-2.5 border-t border-coolBorder space-y-1.5" id="stat-recent-audited-list"></div>
       </div>
 
       <div onclick="openModal('Total Active Accounts Breakdown', 'accounts', 'accountsMay')" class="bg-coolCard border border-coolBorder rounded-2xl p-4 sm:p-5 hover:border-accentBlue/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
@@ -6344,9 +6342,9 @@ body.bg-coolDark{
           const recent = sum.recentlyAuditedBranches || [];
           recentListEl.innerHTML = recent.length
               ? recent.map(b => `
-                  <div class="flex items-center justify-between gap-2 text-[11px]">
-                      <span class="font-semibold text-slate-700 truncate">${b.name}</span>
-                      <span class="text-slate-400 whitespace-nowrap">${b.lastAuditDate || '—'}</span>
+                  <div class="flex items-center justify-between gap-2 text-[10px] leading-tight">
+                      <span class="font-medium text-slate-600 truncate">${b.name}</span>
+                      <span class="text-slate-400 whitespace-nowrap truncate max-w-[45%]">${b.lastAuditDate || '—'}</span>
                   </div>`).join('')
               : '<p class="text-xs text-slate-500">No completed audits on record</p>';
       }
