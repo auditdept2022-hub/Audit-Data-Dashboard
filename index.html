@@ -62,7 +62,12 @@
        generated the flex-1/min-h-0 utility classes yet. */
     #modalDialog { overflow: hidden; }
     #modalBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
-    #auditScheduleWrap { display: flex; flex-direction: column; height: 100%; }
+    /* Branch Audit Interval modal: the outer #modalBody must NOT scroll
+       itself here (that created a double scroll region — the toolbar/
+       search bar and stat pills would drift up with the outer scroll
+       instead of staying put). Only the cards grid below scrolls. */
+    #modalBody.audit-schedule-mode { overflow: hidden !important; display: flex; flex-direction: column; }
+    #auditScheduleWrap { display: flex; flex-direction: column; height: 100%; min-height: 0; }
     #auditScheduleCards { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 
     #scorecardScrollWrap { -webkit-overflow-scrolling: touch; }
@@ -3359,6 +3364,10 @@ body.bg-coolDark{
       const modalBody = document.getElementById('modalBody');
       modalTitle.innerHTML = title;
       modalBody.innerHTML = ''; 
+      // Only the Branch Audit Interval modal uses the fixed-toolbar /
+      // scrolling-cards-only layout; every other modal keeps the normal
+      // whole-body scroll, so make sure this doesn't leak between opens.
+      modalBody.classList.remove('audit-schedule-mode');
       // Default the header Edit button off; the 'all' branches-overview
       // path (renderModalFilteredView, below) turns it back on for its
       // own list right after this.
@@ -3372,6 +3381,7 @@ body.bg-coolDark{
           // point it at this specific branch so it's consistent everywhere.
           updateModalEditAssignButton([filterValue]);
       } else if (type === 'auditSchedule') {
+          modalBody.classList.add('audit-schedule-mode');
           renderAuditScheduleModal(modalBody);
       } else if (type === 'editAssignment') {
           renderEditAssignmentModal(filterValue, modalBody);
