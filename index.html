@@ -293,15 +293,16 @@
         };
 
         // --- Auditor Next Assignment: who is queued up for a "FOR AUDIT" branch ---
-        // Uses assignedAuditorRaw (column AN, "Assigned Auditor") ONLY — the
-        // auditor explicitly set via the Edit Assignment form's "Assigned
-        // Auditor" field. Deliberately does NOT fall back to b.auditor
-        // (whoever did the most recent *past* rotation round, shown on the
-        // Detailed Profile) — that field is a record of history, not a
-        // decision the person made about what's next, and mixing the two in
-        // made this card show the wrong name whenever AN was blank but a
-        // past round wasn't. A branch shows "Unassigned" here until an
-        // Assigned Auditor is actually saved for it.
+        // Uses assignedAuditorRaw (AUDIT DATA (FINAL) column AW, "Up Next
+        // Auditor") ONLY — the auditor explicitly set via the Edit
+        // Assignment form's "Up Next Auditor" field. Deliberately does NOT
+        // fall back to b.auditor (whoever did the most recent *past*
+        // rotation round, shown on the Detailed Profile) — that field is a
+        // record of history, not a decision the person made about what's
+        // next, and mixing the two in made this card show the wrong name
+        // whenever AW was blank but a past round wasn't. A branch shows
+        // "Unassigned" here until an Up Next Auditor is actually saved for
+        // it.
         const forAuditList = tb.filter(b => (b.auditStatus || '').toUpperCase() === "FOR AUDIT");
         const assignedAuditorOf = (b) => {
             return (b.assignedAuditorRaw && b.assignedAuditorRaw !== 'UNASSIGNED') ? b.assignedAuditorRaw : 'Unassigned';
@@ -2933,7 +2934,7 @@ body.bg-coolDark{
         <div class="mt-4">
           <h3 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-accentAmber" id="stat-next-assignment-count">0 <span class="text-sm font-medium text-slate-500">queued</span></h3>
           <p class="text-xs text-slate-500 mt-1" id="stat-next-assignment-sub">No branches for audit</p>
-          <p class="text-xs font-semibold text-slate-700 mt-2 truncate" id="stat-next-assignment-branch">—</p>
+          <p class="text-xs font-semibold text-accentAmber mt-2 truncate underline decoration-dotted underline-offset-2 hover:text-accentAmber/80" id="stat-next-assignment-branch" onclick="event.stopPropagation(); openAuditQueueModal('upnext');" title="Open Assignment Branches Overview, sorted by Up Next Auditor">—</p>
         </div>
       </div>
 
@@ -3652,11 +3653,12 @@ body.bg-coolDark{
           .map(x => `<option value="${escapeHTML(x.name)}" ${x.name === resolvedName ? 'selected' : ''}>${escapeHTML(x.name)}</option>`)
           .join('');
 
-      // "Assigned Auditor" reflects column AN specifically (assignedAuditorRaw)
-      // — who's assigned to do the branch's NEXT audit — as opposed to
-      // b.auditor, which can get overwritten elsewhere with whoever did the
-      // most recent *past* round. Keeping this its own field is what lets
-      // it drive the Auditor Next Assignment card correctly.
+      // "Up Next Auditor" reflects AUDIT DATA (FINAL) column AW specifically
+      // (assignedAuditorRaw) — who's assigned to do the branch's NEXT audit
+      // — as opposed to b.auditor, which can get overwritten elsewhere with
+      // whoever did the most recent *past* round. Keeping this its own
+      // field is what lets it drive the Auditor Next Assignment card
+      // correctly.
       const currentAssigned = (b && b.assignedAuditorRaw && b.assignedAuditorRaw !== 'UNASSIGNED') ? b.assignedAuditorRaw : '';
       const currentAssignedUpper = currentAssigned.toUpperCase();
       const assignedKnownUpper = AUDITOR_NAMES.map(n => n.toUpperCase());
@@ -3700,7 +3702,7 @@ body.bg-coolDark{
 
       modalBody.innerHTML = `
         <div class="bg-white border border-coolBorder rounded-xl p-5 shadow-sm max-w-lg mx-auto">
-          <p class="text-xs text-slate-500 mb-4">Rotation fields save straight to <strong>AUDIT DATA (FINAL)</strong> (auditor names in columns AO/AQ/AS/AU, dates in AP/AR/AT/AV) — no need to open the Sheet. Status updates automatically from the Expected Audit Date formula, so it isn't set here.</p>
+          <p class="text-xs text-slate-500 mb-4">Rotation fields and Up Next Auditor all save straight to <strong>AUDIT DATA (FINAL)</strong> (auditor names in columns AO/AQ/AS/AU, dates in AP/AR/AT/AV, Up Next Auditor in AW) — no need to open the Sheet. Status updates automatically from the Expected Audit Date formula, so it isn't set here.</p>
 
           <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Branch</label>
           <select id="editAssign-branch" onchange="openEditAssignmentModal(this.value)"
@@ -3712,8 +3714,8 @@ body.bg-coolDark{
           <input id="editAssign-expectedDate" type="date" value="${(b && b.expectedAuditDateInput) || ''}"
                  class="w-full mb-5 px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
 
-          <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Assigned Auditor <span class="normal-case font-normal text-slate-400">(col AN — who's up next, shown on the Auditor Next Assignment card)</span></label>
-          <select id="editAssign-assignedAuditor" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+          <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Up Next Auditor <span class="normal-case font-normal text-slate-400">(AUDIT DATA (FINAL) col AW — who's up next, shown on the Auditor Next Assignment card)</span></label>
+          <select id="editAssign-upNextAuditor" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
             ${assignedAuditorOptions}
           </select>
 
@@ -3743,10 +3745,10 @@ body.bg-coolDark{
 
     function submitEditAssignment(branchName) {
       const val = id => (document.getElementById(id) || {}).value || '';
-      const assignedAuditorVal = val('editAssign-assignedAuditor');
+      const upNextAuditorVal = val('editAssign-upNextAuditor');
       const fields = {
           expectedDate: val('editAssign-expectedDate'),
-          assignedAuditor: assignedAuditorVal,
+          upNextAuditor: upNextAuditorVal,
           rotations: [1, 2, 3, 4].map(n => ({
               round: n,
               auditor: val(`editAssign-auditor${n}`),
@@ -3842,10 +3844,10 @@ body.bg-coolDark{
           const b = (activeData.branches || []).find(x => x.name === branchName);
           if (b) {
               b.expectedAuditDateInput = fields.expectedDate || '';
-              // Assigned Auditor (column AN) drives the Auditor Next
-              // Assignment card directly — update it independently of the
-              // rotation-round-derived b.auditor below.
-              b.assignedAuditorRaw = fields.assignedAuditor || 'UNASSIGNED';
+              // Up Next Auditor (AUDIT DATA (FINAL) column AW) drives the Auditor
+              // Next Assignment card directly — update it independently of
+              // the rotation-round-derived b.auditor below.
+              b.assignedAuditorRaw = fields.upNextAuditor || 'UNASSIGNED';
               const newRounds = {};
               (fields.rotations || []).forEach(r => {
                   newRounds[r.round] = {
@@ -3890,19 +3892,19 @@ body.bg-coolDark{
     }
 
     // Sends the assignment fields to the Apps Script backend, which writes
-    // them into AUDIT DATA (FINAL) for the matching branch row:
-    // expectedDate -> column AM (drives the status formula), assignedAuditor
-    // -> column AN ("Assigned Auditor" — feeds the Auditor Next Assignment
-    // card), and each rotation round's auditor/date -> columns AO/AP,
-    // AQ/AR, AS/AT, AU/AV respectively.
+    // them to the matching branch row, all within AUDIT DATA (FINAL):
+    // expectedDate -> column AM (drives the status formula), each rotation
+    // round's auditor/date -> columns AO/AP, AQ/AR, AS/AT, AU/AV, and
+    // upNextAuditor -> column AW ("Up Next Auditor" — feeds the Auditor
+    // Next Assignment card).
     //
-    // NOTE: the assignedAuditor param requires the Apps Script doGet/
-    // saveAssignment handler to actually read it and write it to column AN.
-    // That backend script isn't part of this HTML file, so if it doesn't
-    // already accept this param it'll need a matching update there too —
-    // otherwise this field will save fine for the current browser session
-    // (the dashboard updates immediately) but won't persist to the Sheet
-    // across a refresh.
+    // NOTE: the upNextAuditor param requires the Apps Script doGet/
+    // saveAssignment handler to actually read it and write it to
+    // AUDIT DATA (FINAL) column AW. That backend script isn't part of this HTML
+    // file, so if it doesn't already accept this param it'll need a
+    // matching update there too — otherwise this field will save fine for
+    // the current browser session (the dashboard updates immediately) but
+    // won't persist to the Sheet across a refresh.
     //
     // NOTE: this used to POST a JSON body to doPost(). That silently never
     // reached the sheet: Apps Script /exec URLs respond with a redirect,
@@ -3928,7 +3930,7 @@ body.bg-coolDark{
           idToken: idToken,
           branchName: branchName,
           expectedDate: fields.expectedDate || '',
-          assignedAuditor: fields.assignedAuditor || '',
+          upNextAuditor: fields.upNextAuditor || '',
           rotations: JSON.stringify(fields.rotations)
       });
       const url = defaultAppsScriptUrl + '?' + params.toString();
@@ -3949,8 +3951,10 @@ body.bg-coolDark{
     // but its table is scoped to audit scheduling only: last audit round,
     // most recent audit round, and the day-interval between them — every
     // column fully sortable (see renderAssignmentModalView / setAssignmentSort).
-    function openAuditQueueModal() {
+    function openAuditQueueModal(sortField) {
       window.assignmentFilterState = defaultAssignmentFilterState();
+      assignmentSortField = sortField || 'recent';
+      assignmentSortDir = (assignmentSortField === 'name') ? 'asc' : 'desc';
       openModal('Assignment Branches Overview', 'assignment', null);
     }
 
@@ -4760,12 +4764,13 @@ body.bg-coolDark{
       const today = Date.now();
 
       // Who's queued for the branch's NEXT audit round — read ONLY from
-      // assignedAuditorRaw (column AN, "Assigned Auditor"), the value the
-      // person explicitly sets and saves in the Edit Assignment form.
-      // Deliberately does NOT fall back to b.auditor (whoever did the most
-      // recent *past* round, as shown on the Detailed Profile) — that's a
-      // record of history, not a decision about what's next, and copying
-      // it in here was showing the wrong name whenever AN was blank.
+      // assignedAuditorRaw (AUDIT DATA (FINAL) column AW, "Up Next Auditor"),
+      // the value the person explicitly sets and saves in the Edit
+      // Assignment form. Deliberately does NOT fall back to b.auditor
+      // (whoever did the most recent *past* round, as shown on the
+      // Detailed Profile) — that's a record of history, not a decision
+      // about what's next, and copying it in here was showing the wrong
+      // name whenever AW was blank.
       const queuedAuditor = (b.assignedAuditorRaw && b.assignedAuditorRaw !== 'UNASSIGNED')
           ? b.assignedAuditorRaw
           : 'Unassigned';
@@ -4775,7 +4780,7 @@ body.bg-coolDark{
       // this is the exact same filter the AUDITOR NEXT ASSIGNMENT dashboard
       // tile uses for its "queued" count/breakdown, so the table column and
       // that tile always agree on who's really up next. A DONE or PENDING
-      // branch shows nothing here even if column AN has a leftover name.
+      // branch shows nothing here even if column AW has a leftover name.
       const isForAudit = (b.auditStatus || '').toUpperCase() === 'FOR AUDIT';
       const upNextAuditor = isForAudit ? queuedAuditor : null;
 
@@ -4797,8 +4802,8 @@ body.bg-coolDark{
 
       // No rotation-sheet history — fall back to whatever the branch record
       // itself carries (b.lastAuditDate/b.auditor), and surface the queued
-      // "assigned auditor" (column AN) so a not-yet-audited branch still
-      // shows who's up next instead of a blank cell.
+      // "up next auditor" (AUDIT DATA (FINAL) column AW) so a not-yet-audited
+      // branch still shows who's up next instead of a blank cell.
       return {
           recentDate: b.lastAuditDate || null,
           recentDateRaw: b.lastAuditDateRaw || null,
@@ -4973,8 +4978,8 @@ body.bg-coolDark{
             <tr>
               <th class="p-2.5 bg-gray-50 text-center w-8 whitespace-nowrap">#</th>
               ${sortHeader('name', 'Branch', 'left')}
-              ${sortHeader('last', 'Last Audit Date / Auditor', 'center')}
               ${sortHeader('upnext', 'Up Next Auditor', 'center')}
+              ${sortHeader('last', 'Last Audit Date / Auditor', 'center')}
               ${sortHeader('recent', 'Recent Audit Date / Auditor', 'center')}
               ${sortHeader('interval', 'Audit Interval (to date)', 'center')}
             </tr>
@@ -4996,11 +5001,11 @@ body.bg-coolDark{
               : `<div class="flex flex-col items-center gap-1"><span class="text-xs text-slate-400 italic">Not yet audited</span>${auditorPill(info.recentAuditor)}</div>`;
 
           // "Up Next Auditor" — who's queued for the branch's NEXT round
-          // (column AN, assignedAuditorRaw), but ONLY once the branch has
-          // actually been set for audit and saved (info.upNextAuditor is
-          // null otherwise). Styled amber/queued rather than the neutral
-          // slate pill used for past rounds, so it's visually distinct as
-          // "not done yet" at a glance.
+          // (AUDIT DATA (FINAL) column AW, assignedAuditorRaw), but ONLY once
+          // the branch has actually been set for audit and saved
+          // (info.upNextAuditor is null otherwise). Styled amber/queued
+          // rather than the neutral slate pill used for past rounds, so
+          // it's visually distinct as "not done yet" at a glance.
           const upNextCell = info.upNextAuditor === null
               ? `<span class="text-xs text-slate-300">—</span>`
               : (info.upNextAuditor !== 'Unassigned'
@@ -5016,8 +5021,8 @@ body.bg-coolDark{
               <tr class="${index % 2 === 1 ? 'bg-gray-50/50' : ''} hover:bg-accentCyan/10 cursor-pointer active:scale-[0.99] transition-colors" onclick="openModalDetail('${escapeFindingHTML(b.name)}')">
                   <td class="p-2 text-center text-xs font-bold text-slate-400">${index + 1}</td>
                   <td class="p-2 font-bold text-slate-800 text-sm break-words">${escapeHTML(b.name)}</td>
-                  <td class="p-2 text-center">${lastCell}</td>
                   <td class="p-2 text-center">${upNextCell}</td>
+                  <td class="p-2 text-center">${lastCell}</td>
                   <td class="p-2 text-center">${recentCell}</td>
                   <td class="p-2 text-center">${intervalCell}</td>
               </tr>
@@ -6310,13 +6315,15 @@ body.bg-coolDark{
       }
       if (queueBranchEl) {
           const nextUp = sum.nextUpBranch;
-          // nextUp.auditor is sourced from assignedAuditorRaw (column AN,
-          // "Assigned Auditor") via assignedAuditorOf() above — the auditor
-          // actually set/queued for this branch's NEXT round — not whoever
-          // did the most recent *past* round. Labeled explicitly as
-          // "Assigned" here so that distinction is clear at a glance.
+          // nextUp.auditor is sourced from assignedAuditorRaw (DASHBOARDDATA
+          // column AW, "Up Next Auditor") via assignedAuditorOf() above —
+          // the auditor actually set/queued for this branch's NEXT round —
+          // not whoever did the most recent *past* round. Clicking this
+          // line opens the Assignment Branches Overview popup sorted by
+          // Up Next Auditor (see openAuditQueueModal('upnext') on the <p>
+          // itself).
           queueBranchEl.innerText = nextUp
-              ? `Up next: ${nextUp.name} — Assigned: ${nextUp.auditor}`
+              ? `Up next: ${nextUp.name} — Up Next Auditor: ${nextUp.auditor}`
               : 'Nothing queued right now';
       }
 
@@ -6946,7 +6953,13 @@ body.bg-coolDark{
             if(auditStatRaw.includes("DONE")) finalAuditStat = "DONE";
             else if(auditStatRaw.includes("FOR AUDIT")) finalAuditStat = "FOR AUDIT";
             
-            const assignedAuditor = String(row[39] || "UNASSIGNED").trim();
+            // "Up Next Auditor" — the Edit Assignment form saves this
+            // straight into AUDIT DATA (FINAL) column AW (see
+            // saveAuditorAssignmentRemote). This sheet (DASHBOARDDATA)
+            // mirrors AUDIT DATA (FINAL) column-for-column, so its own
+            // column AW (index 48) carries the same value — that's what's
+            // read here.
+            const upNextAuditor = String(row[48] || "UNASSIGNED").trim();
 
             // Expected Audit Date (column AM, index 38) and the 4 rotation
             // round auditor/date pairs (AO/AP, AQ/AR, AS/AT, AU/AV — indices
@@ -7017,13 +7030,14 @@ body.bg-coolDark{
               findings2025: parseInt(row[34]) || 0,
               findings2026: parseInt(row[35]) || 0,
               auditStatus: finalAuditStat,
-              auditor: assignedAuditor,
-              // Untouched copy of column AN ("Assigned Auditor") — b.auditor
-              // above gets overwritten further down with whoever did the most
-              // recent *past* rotation round, but this field always stays
-              // exactly what's in AN, so the Edit Assignment form and the
-              // Auditor Next Assignment card can rely on it specifically.
-              assignedAuditorRaw: assignedAuditor,
+              auditor: upNextAuditor,
+              // Untouched copy of AUDIT DATA (FINAL) column AW ("Up Next
+              // Auditor") — b.auditor above gets overwritten further down
+              // with whoever did the most recent *past* rotation round, but
+              // this field always stays exactly what's in AW, so the Edit
+              // Assignment form and the Auditor Next Assignment card can
+              // rely on it specifically.
+              assignedAuditorRaw: upNextAuditor,
               salesMar: { ins: parseInt(row[17])||0, cod: parseInt(row[18])||0, ca: parseInt(row[19])||0 }, 
               salesApr: { ins: parseInt(row[20])||0, cod: parseInt(row[21])||0, ca: parseInt(row[22])||0 }, 
               salesMay: { ins: parseInt(row[23])||0, cod: parseInt(row[24])||0, ca: parseInt(row[25])||0 },
