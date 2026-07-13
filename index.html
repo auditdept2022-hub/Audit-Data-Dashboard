@@ -4754,6 +4754,15 @@ body.bg-coolDark{
           ? b.assignedAuditorRaw
           : (b.auditor && b.auditor !== 'UNASSIGNED' ? b.auditor : 'Unassigned');
 
+      // "Up Next Auditor" only applies once a branch has actually been set
+      // for audit (Audit Status = FOR AUDIT, saved via Edit Assignment) —
+      // this is the exact same filter the AUDITOR NEXT ASSIGNMENT dashboard
+      // tile uses for its "queued" count/breakdown, so the table column and
+      // that tile always agree on who's really up next. A DONE or PENDING
+      // branch shows nothing here even if column AN has a leftover name.
+      const isForAudit = (b.auditStatus || '').toUpperCase() === 'FOR AUDIT';
+      const upNextAuditor = isForAudit ? queuedAuditor : null;
+
       if (dated.length > 0) {
           const recent = dated[dated.length - 1];
           const last = dated.length > 1 ? dated[dated.length - 2] : null;
@@ -4766,7 +4775,7 @@ body.bg-coolDark{
               lastAuditor: last ? (last.auditor || 'Unassigned') : null,
               intervalDays: Math.round((today - recent.dateRaw) / 86400000),
               roundsCount: dated.length,
-              upNextAuditor: queuedAuditor
+              upNextAuditor: upNextAuditor
           };
       }
 
@@ -4783,7 +4792,7 @@ body.bg-coolDark{
           lastAuditor: null,
           intervalDays: (b.lastAuditDateRaw !== null && b.lastAuditDateRaw !== undefined) ? Math.round((today - b.lastAuditDateRaw) / 86400000) : null,
           roundsCount: b.lastAuditDate ? 1 : 0,
-          upNextAuditor: queuedAuditor
+          upNextAuditor: upNextAuditor
       };
     }
 
@@ -4971,12 +4980,16 @@ body.bg-coolDark{
               : `<div class="flex flex-col items-center gap-1"><span class="text-xs text-slate-400 italic">Not yet audited</span>${auditorPill(info.recentAuditor)}</div>`;
 
           // "Up Next Auditor" — who's queued for the branch's NEXT round
-          // (column AN, assignedAuditorRaw), styled amber/queued rather than
-          // the neutral slate pill used for past rounds, so it's visually
-          // distinct as "not done yet" at a glance.
-          const upNextCell = (info.upNextAuditor && info.upNextAuditor !== 'Unassigned')
-              ? `<span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-accentAmber/10 text-accentAmber rounded-md border border-accentAmber/20">${escapeHTML(info.upNextAuditor)}</span>`
-              : `<span class="text-xs text-slate-400 italic">Unassigned</span>`;
+          // (column AN, assignedAuditorRaw), but ONLY once the branch has
+          // actually been set for audit and saved (info.upNextAuditor is
+          // null otherwise). Styled amber/queued rather than the neutral
+          // slate pill used for past rounds, so it's visually distinct as
+          // "not done yet" at a glance.
+          const upNextCell = info.upNextAuditor === null
+              ? `<span class="text-xs text-slate-300">—</span>`
+              : (info.upNextAuditor !== 'Unassigned'
+                  ? `<span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-accentAmber/10 text-accentAmber rounded-md border border-accentAmber/20">${escapeHTML(info.upNextAuditor)}</span>`
+                  : `<span class="text-xs text-slate-400 italic">Unassigned</span>`);
 
           const intervalLabel = formatIntervalMonthsDays(info.intervalDays);
           const intervalCell = intervalLabel !== null
