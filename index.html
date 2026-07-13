@@ -245,6 +245,11 @@
     let currentBranchSort = null;
     let scorecardSortField = 'name';
     let scorecardSortDir = 'asc';
+    // Sort state for the "Assignment Branches Overview" popup (opened from
+    // the AUDITOR NEXT ASSIGNMENT stock card) — mirrors the Branch Scorecard's
+    // sortField/sortDir pattern so every column there is fully sortable too.
+    let assignmentSortField = 'recent';
+    let assignmentSortDir = 'desc';
     const DASH_CACHE_KEY = 'auditDashboard_v1_cachedData';
     const DASH_CACHE_TS_KEY = 'auditDashboard_v1_lastSyncedAt';
 
@@ -3445,6 +3450,9 @@ body.bg-coolDark{
       } else if (type === 'auditSchedule') {
           modalBody.classList.add('audit-schedule-mode');
           renderAuditScheduleModal(modalBody);
+      } else if (type === 'assignment') {
+          if (!window.assignmentFilterState) window.assignmentFilterState = { auditStatus: 'ALL' };
+          renderAssignmentModalView();
       } else if (type === 'editAssignment') {
           renderEditAssignmentModal(filterValue, modalBody);
       } else if (type === 'auditor') {
@@ -3921,12 +3929,15 @@ body.bg-coolDark{
       if(b) openModal(`${b.name} — Detailed Profile`, 'branchDetail', b);
     }
 
-    // Opens the "All Branches" modal pre-filtered to the FOR AUDIT queue —
-    // used by the Auditor Next Assignment stack card.
-    // Opens the "All Branches" modal showing every branch (not pre-filtered
-    // to the FOR AUDIT queue) — used by the Auditor Next Assignment stack card.
+    // Opens the "Assignment Branches Overview" popup — used by the Auditor
+    // Next Assignment stack card. Shows the same total/done/for-audit/pending
+    // stock card and audit-status filter as the general All Branches popup,
+    // but its table is scoped to audit scheduling only: last audit round,
+    // most recent audit round, and the day-interval between them — every
+    // column fully sortable (see renderAssignmentModalView / setAssignmentSort).
     function openAuditQueueModal() {
-      openModal('All Branches Overview', 'all', null);
+      window.assignmentFilterState = { auditStatus: 'ALL' };
+      openModal('Assignment Branches Overview', 'assignment', null);
     }
 
     // Opens the full per-branch audit schedule (every round found in AUDIT
@@ -4714,6 +4725,197 @@ body.bg-coolDark{
           return `<button onclick="setModalAuditFilter('${opt}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all active:scale-95 ${activeClass}">${opt}</button>`;
       }).join('');
       return `<div class="flex flex-wrap items-center gap-2 mb-4"><span class="text-xs font-semibold text-slate-500 mr-1">Filter by audit status:</span>${buttonsHtml}</div>`;
+    }
+
+    // Returns the last-completed round and the most-recently-completed round
+    // for a branch, read straight from activeData.branchAuditSchedule (the
+    // full AUDIT ROTATION (FINAL) history), plus how many days apart they
+    // were. Falls back to the branch's own lastAuditDate/auditor (and its
+    // queued "assigned auditor") when no rotation-sheet rounds exist at all,
+    // so a never-audited branch still shows something useful.
+    function getBranchAuditRoundInfo(b) {
+      const schedule = (activeData.branchAuditSchedule || {})[b.name];
+      const dated = schedule ? (schedule.rounds || []).filter(r => r.dateRaw !== null && r.dateRaw !== undefined) : [];
+
+      if (dated.length > 0) {
+          const recent = dated[dated.length - 1];
+          const last = dated.length > 1 ? dated[dated.length - 2] : null;
+          return {
+              recentDate: recent.date,
+              recentDateRaw: recent.dateRaw,
+              recentAuditor: recent.auditor || 'Unassigned',
+              lastDate: last ? last.date : null,
+              lastDateRaw: last ? last.dateRaw : null,
+              lastAuditor: last ? (last.auditor || 'Unassigned') : null,
+              intervalDays: (recent.intervalDays !== null && recent.intervalDays !== undefined) ? recent.intervalDays : null,
+              roundsCount: dated.length
+          };
+      }
+
+      // No rotation-sheet history — fall back to whatever the branch record
+      // itself carries (b.lastAuditDate/b.auditor), and surface the queued
+      // "assigned auditor" (column AN) so a not-yet-audited branch still
+      // shows who's up next instead of a blank cell.
+      const queuedAuditor = (b.assignedAuditorRaw && b.assignedAuditorRaw !== 'UNASSIGNED')
+          ? b.assignedAuditorRaw
+          : (b.auditor && b.auditor !== 'UNASSIGNED' ? b.auditor : 'Unassigned');
+
+      return {
+          recentDate: b.lastAuditDate || null,
+          recentDateRaw: b.lastAuditDateRaw || null,
+          recentAuditor: b.lastAuditDate ? (b.auditor || 'Unassigned') : queuedAuditor,
+          lastDate: null,
+          lastDateRaw: null,
+          lastAuditor: null,
+          intervalDays: null,
+          roundsCount: b.lastAuditDate ? 1 : 0
+      };
+    }
+
+    function setAssignmentAuditFilter(value) {
+      if (!window.assignmentFilterState) window.assignmentFilterState = { auditStatus: 'ALL' };
+      window.assignmentFilterState.auditStatus = value;
+      renderAssignmentModalView();
+    }
+
+    function setAssignmentSort(field) {
+      if (assignmentSortField === field) {
+          assignmentSortDir = assignmentSortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+          assignmentSortField = field;
+          // Text column defaults A-Z; every date/interval column defaults to
+          // newest-first / largest-first, same "first click" convention as
+          // the Branch Scorecard's setScorecardSort.
+          assignmentSortDir = (field === 'name') ? 'asc' : 'desc';
+      }
+      renderAssignmentModalView();
+    }
+
+    function assignmentSortIcon(field) {
+      const isActive = assignmentSortField === field;
+      const dir = isActive ? assignmentSortDir : null;
+      const colorClass = isActive ? 'text-accentCyan' : 'text-slate-400 group-hover:text-slate-700';
+      const arrow = dir === 'asc'
+          ? '<path d="m18 15-6-6-6 6"></path>'
+          : dir === 'desc'
+          ? '<path d="m6 9 6 6 6-6"></path>'
+          : '<path d="M7 15l5 5 5-5M7 9l5-5 5 5"></path>';
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block ${colorClass}">${arrow}</svg>`;
+    }
+
+    // Same buttons/behavior as buildAuditStatusFilterBar, just wired to the
+    // Assignment popup's own filter state/setter instead of modalFilterState.
+    function buildAssignmentAuditStatusFilterBar(activeAudit) {
+      const options = ['ALL', ...AUDIT_STATUS_OPTIONS];
+      const buttonsHtml = options.map(opt => {
+          const isActive = opt === (activeAudit || 'ALL');
+          const activeClass = isActive
+              ? 'bg-slate-800 text-white border-slate-800 shadow-sm'
+              : 'bg-white text-slate-600 border-coolBorder hover:border-slate-400 hover:bg-slate-50';
+          return `<button onclick="setAssignmentAuditFilter('${opt}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all active:scale-95 ${activeClass}">${opt}</button>`;
+      }).join('');
+      return `<div class="flex flex-wrap items-center gap-2 mb-4"><span class="text-xs font-semibold text-slate-500 mr-1">Filter by audit status:</span>${buttonsHtml}</div>`;
+    }
+
+    function buildAssignmentTable(list) {
+      const escapeHTML = str => {
+          if (!str) return '';
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+      };
+
+      const rows = list.map(b => ({ b, info: getBranchAuditRoundInfo(b) }));
+
+      const dir = assignmentSortDir === 'asc' ? 1 : -1;
+      const sorters = {
+          name: (x, y) => x.b.name.localeCompare(y.b.name) * dir,
+          last: (x, y) => ((x.info.lastDateRaw ?? -Infinity) - (y.info.lastDateRaw ?? -Infinity)) * dir,
+          recent: (x, y) => ((x.info.recentDateRaw ?? -Infinity) - (y.info.recentDateRaw ?? -Infinity)) * dir,
+          interval: (x, y) => ((x.info.intervalDays ?? -Infinity) - (y.info.intervalDays ?? -Infinity)) * dir
+      };
+      rows.sort(sorters[assignmentSortField] || sorters.recent);
+
+      const sortHeader = (field, label, align) => `
+        <th class="p-2.5 bg-gray-50 ${align === 'center' ? 'text-center' : 'text-left'} cursor-pointer hover:bg-gray-200 active:scale-95 transition-all group select-none whitespace-nowrap" onclick="setAssignmentSort('${field}')">
+          <div class="flex items-center ${align === 'center' ? 'justify-center' : ''} gap-1.5">${label} ${assignmentSortIcon(field)}</div>
+        </th>`;
+
+      let html = `
+      <div class="rounded-xl border border-coolBorder max-h-[60vh] overflow-auto custom-scrollbar">
+        <table class="w-full min-w-[720px] text-left border-collapse bg-white relative">
+          <thead class="bg-gray-50 border-b border-coolBorder text-xs text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-10 shadow-sm">
+            <tr>
+              <th class="p-2.5 bg-gray-50 text-center w-8 whitespace-nowrap">#</th>
+              ${sortHeader('name', 'Branch', 'left')}
+              ${sortHeader('last', 'Last Audit Date / Auditor', 'center')}
+              ${sortHeader('recent', 'Recent Audit Date / Auditor', 'center')}
+              ${sortHeader('interval', 'Audit Interval (Days)', 'center')}
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-coolBorder text-sm">
+      `;
+
+      rows.forEach(({ b, info }, index) => {
+          const auditorPill = (name) => name && name !== 'Unassigned'
+              ? `<span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 rounded-md border border-slate-200">${escapeHTML(name)}</span>`
+              : `<span class="text-xs text-slate-400 italic">Unassigned</span>`;
+
+          const lastCell = info.lastDate
+              ? `<div class="flex flex-col items-center gap-1"><span class="text-xs font-semibold text-slate-700">${escapeHTML(info.lastDate)}</span>${auditorPill(info.lastAuditor)}</div>`
+              : `<span class="text-xs text-slate-400 italic">No prior round</span>`;
+
+          const recentCell = info.recentDate
+              ? `<div class="flex flex-col items-center gap-1"><span class="text-xs font-semibold text-slate-700">${escapeHTML(info.recentDate)}</span>${auditorPill(info.recentAuditor)}</div>`
+              : `<div class="flex flex-col items-center gap-1"><span class="text-xs text-slate-400 italic">Not yet audited</span>${auditorPill(info.recentAuditor)}</div>`;
+
+          const intervalCell = (info.intervalDays !== null && info.intervalDays !== undefined)
+              ? `<span class="px-2 py-0.5 text-[11px] font-bold bg-accentEmerald/10 text-accentEmerald border border-accentEmerald/20 rounded-lg">${info.intervalDays}d</span>`
+              : `<span class="text-xs text-slate-400 italic">—</span>`;
+
+          html += `
+              <tr class="${index % 2 === 1 ? 'bg-gray-50/50' : ''} hover:bg-accentCyan/10 cursor-pointer active:scale-[0.99] transition-colors" onclick="openModalDetail('${escapeFindingHTML(b.name)}')">
+                  <td class="p-2 text-center text-xs font-bold text-slate-400">${index + 1}</td>
+                  <td class="p-2 font-bold text-slate-800 text-sm break-words">${escapeHTML(b.name)}</td>
+                  <td class="p-2 text-center">${lastCell}</td>
+                  <td class="p-2 text-center">${recentCell}</td>
+                  <td class="p-2 text-center">${intervalCell}</td>
+              </tr>
+          `;
+      });
+
+      html += `</tbody></table></div>`;
+      return html;
+    }
+
+    // Popup opened from the AUDITOR NEXT ASSIGNMENT stock card. Reuses the
+    // same "total/done/for audit/pending" stock card and audit-status filter
+    // bar as the general All Branches popup, but the table itself is scoped
+    // to audit scheduling: branch, last completed round, most recent
+    // completed round, and the day-interval between them — every column
+    // sortable (setAssignmentSort), same convention as the Branch Scorecard.
+    function renderAssignmentModalView() {
+      const state = window.assignmentFilterState || { auditStatus: 'ALL' };
+
+      let list = activeData.branches;
+      if (state.auditStatus && state.auditStatus !== 'ALL') {
+          list = list.filter(b => (b.auditStatus || '').toUpperCase() === state.auditStatus);
+      }
+
+      const modalTitle = document.getElementById('modalTitle');
+      modalTitle.innerHTML = (state.auditStatus === 'ALL' || !state.auditStatus)
+          ? 'Assignment Branches Overview'
+          : `Assignment Branches Overview — ${state.auditStatus}`;
+
+      updateModalEditAssignButton(list);
+
+      const barsHtml = buildAllBranchesSummaryBar(list) + buildAssignmentAuditStatusFilterBar(state.auditStatus);
+
+      const modalBody = document.getElementById('modalBody');
+      modalBody.innerHTML = `${barsHtml}<div id="modalTableContainer"></div>`;
+      const tableContainer = document.getElementById('modalTableContainer');
+
+      tableContainer.innerHTML = list.length > 0
+          ? buildAssignmentTable(list)
+          : '<div class="p-8 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No targeted branch parameters found.</div>';
     }
 
     function renderModalFilteredView() {
