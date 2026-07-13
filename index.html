@@ -2976,8 +2976,9 @@ body.bg-coolDark{
         </div>
         <div class="mt-4">
           <h3 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900" id="stat-total-accounts">12,924</h3>
-          <p class="text-xs text-slate-400 mt-1" id="stat-total-repo-latest">— total repo (<span id="span-repo-month">LATEST</span>)</p>
           <p class="text-xs text-slate-400 mt-1" id="stat-total-accounts-prev">— total accounts (<span id="span-accounts-prev-month">PREV</span>)</p>
+          <p class="text-xs text-slate-400 mt-2" id="stat-total-repo-latest">— total repo (<span id="span-repo-month">LATEST</span>)</p>
+          <p class="text-xs text-slate-400" id="stat-total-repo-prev">— total repo (<span id="span-repo-prev-month">PREV</span>)</p>
         </div>
       </div>
     </div>
@@ -6373,16 +6374,19 @@ body.bg-coolDark{
       document.getElementById('stat-findings-2026').innerText = sum.findings2026 || 0;
       document.getElementById('stat-total-accounts').innerText = sum.totalAccounts || 0;
       const repoMonthLabel = (sum.trendLabels || ["MARCH", "APRIL", "MAY"])[2];
+      const repoPrevMonthLabel = (sum.trendLabels || ["MARCH", "APRIL", "MAY"])[1];
       const repoLatestEl = document.getElementById('stat-total-repo-latest');
-      if (repoLatestEl) {
-          const repoLatest = sum.totalRepoLatest || 0;
-          const repoPrev = sum.totalRepoPrevRaw || 0;
+      const repoPrevEl = document.getElementById('stat-total-repo-prev');
+      const repoLatest = sum.totalRepoLatest || 0;
+      const repoPrev = sum.totalRepoPrevRaw || 0;
+      if (repoLatestEl) repoLatestEl.innerHTML = `${repoLatest.toLocaleString()} total repo (<span id="span-repo-month">${repoMonthLabel}</span>)`;
+      if (repoPrevEl) {
           const repoDiff = repoLatest - repoPrev;
-          // Flipped vs the accounts indicator: a repo *increase* is the bad
-          // direction (more repossessions), so it's rose, not emerald.
+          // A repo *increase* is the bad direction (more repossessions), so
+          // it's rose, not emerald — flipped vs the accounts indicator.
           const repoTrendColor = repoDiff > 0 ? 'text-accentRose' : (repoDiff < 0 ? 'text-accentEmerald' : 'text-slate-400');
           const repoTrendIcon = repoDiff > 0 ? '▲' : (repoDiff < 0 ? '▼' : '→');
-          repoLatestEl.innerHTML = `${repoLatest.toLocaleString()} total repo (<span id="span-repo-month">${repoMonthLabel}</span>) <span class="${repoTrendColor} font-semibold">${repoTrendIcon}</span>`;
+          repoPrevEl.innerHTML = `${repoPrev.toLocaleString()} total repo (<span id="span-repo-prev-month">${repoPrevMonthLabel}</span>) <span class="${repoTrendColor} font-semibold">${repoTrendIcon}</span>`;
       }
 
       // Previous-month total accounts, with an up/down indicator comparing
