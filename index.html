@@ -2359,7 +2359,7 @@ body.bg-coolDark{
             </button>
           </div>
         </div>
-        <div class="p-4 sm:p-6 overflow-y-auto custom-scrollbar" id="modalBody"></div>
+        <div class="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1 min-h-0" id="modalBody"></div>
       </div>
     </div>
   </div>
@@ -3985,7 +3985,6 @@ body.bg-coolDark{
       const cardsHtml = branchNames.map((branchName, idx) => {
           const entry = schedule[branchName];
           const rounds = entry.rounds || [];
-          const initials = branchName.replace(/[^A-Za-z0-9 ]/g, '').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
 
           const roundsHtml = rounds.map((rnd, rIdx) => {
               const palette = AUDIT_ROUND_COLORS[(rnd.round - 1) % AUDIT_ROUND_COLORS.length] || AUDIT_ROUND_COLORS[0];
@@ -4010,7 +4009,6 @@ body.bg-coolDark{
               <div class="bg-white border border-coolBorder rounded-xl px-3 py-2 shadow-sm hover:shadow-md hover:border-accentIndigo/40 transition-all">
                   <div class="flex items-center justify-between gap-2 mb-1.5">
                       <div class="flex items-center gap-2 min-w-0">
-                          <span class="w-6 h-6 rounded-lg bg-accentIndigo/10 text-accentIndigo flex items-center justify-center font-extrabold text-[10px] flex-shrink-0">${escapeHTML(initials)}</span>
                           <span class="text-xs font-extrabold text-slate-800 cursor-pointer hover:text-accentIndigo truncate" onclick="openModalDetail('${escapeHTML(branchName)}')">${idx + 1}. ${escapeHTML(branchName)}</span>
                       </div>
                       <span class="flex-shrink-0 text-[10px] font-bold bg-accentIndigo/10 text-accentIndigo rounded-full px-2 py-0.5">${rounds.length}</span>
@@ -4030,7 +4028,7 @@ body.bg-coolDark{
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentEmerald flex-shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
               <span>Numbered badge = audit round. Green "+Nd" = days since the previous round.</span>
           </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[70vh] overflow-auto custom-scrollbar pr-1">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pr-1">
               ${cardsHtml}
           </div>
       `;
