@@ -55,6 +55,14 @@
     .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 
+    /* Guarantee the schedule/report modal scrolls internally (not the
+       whole page) so its sticky toolbar (search + date filters) tracks
+       the scroll correctly. Written as plain CSS with an ID selector so
+       it always wins, regardless of whether the Tailwind CDN JIT has
+       generated the flex-1/min-h-0 utility classes yet. */
+    #modalDialog { overflow: hidden; }
+    #modalBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+
     #scorecardScrollWrap { -webkit-overflow-scrolling: touch; }
     @media (max-width: 767px) {
       #scorecardScrollWrap { scroll-snap-type: x proximity; }
@@ -4022,14 +4030,12 @@ body.bg-coolDark{
       }).join('');
 
       modalBody.innerHTML = `
-          ${toolbarHtml}
-          ${statsHtml}
-          <div class="flex items-start gap-1.5 px-2.5 py-1.5 bg-accentEmerald/10 border border-accentEmerald/20 rounded-lg mb-2 text-[10px] text-slate-600 leading-snug">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentEmerald flex-shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
-              <span>Numbered badge = audit round. Green "+Nd" = days since the previous round.</span>
-          </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pr-1">
-              ${cardsHtml}
+          <div class="flex flex-col h-full">
+              ${toolbarHtml}
+              ${statsHtml}
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pr-1 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+                  ${cardsHtml}
+              </div>
           </div>
       `;
     }
