@@ -373,6 +373,14 @@
             auditor: assignedAuditorOf(nextUpBranch),
             lastAuditDate: nextUpBranch.lastAuditDate || null
         } : null;
+        // Top 5 branches up next in the FOR AUDIT queue (same oldest-waiting-first
+        // order as nextUpBranch above), so the Auditor Next Assignment stack card
+        // can show a short list instead of just the single soonest branch.
+        activeData.summary.nextUpBranches = sortedQueue.slice(0, 5).map(b => ({
+            name: b.name,
+            auditor: assignedAuditorOf(b),
+            lastAuditDate: b.lastAuditDate || null
+        }));
         activeData.summary.lastAuditedBranch = lastAuditedBranch ? {
             name: lastAuditedBranch.name,
             auditor: lastAuditedBranch.auditor || 'Unassigned',
@@ -2934,7 +2942,7 @@ body.bg-coolDark{
         <div class="mt-4">
           <h3 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-accentAmber" id="stat-next-assignment-count">0 <span class="text-sm font-medium text-slate-500">queued</span></h3>
           <p class="text-xs text-slate-500 mt-1" id="stat-next-assignment-sub">No branches for audit</p>
-          <p class="text-xs font-semibold text-accentAmber mt-2 truncate underline decoration-dotted underline-offset-2 hover:text-accentAmber/80" id="stat-next-assignment-branch" onclick="event.stopPropagation(); openAuditQueueModal('upnext');" title="Open Assignment Branches Overview, sorted by Up Next Auditor">—</p>
+          <div class="mt-2 space-y-0.5 cursor-pointer hover:opacity-80 transition-opacity" id="stat-next-assignment-branch-list" onclick="event.stopPropagation(); openAuditQueueModal('upnext');" title="Open Assignment Branches Overview, sorted by Up Next Auditor"></div>
         </div>
       </div>
 
@@ -6305,7 +6313,7 @@ body.bg-coolDark{
       // Auditor Next Assignment card
       const queueCountEl = document.getElementById('stat-next-assignment-count');
       const queueSubEl = document.getElementById('stat-next-assignment-sub');
-      const queueBranchEl = document.getElementById('stat-next-assignment-branch');
+      const queueBranchListEl = document.getElementById('stat-next-assignment-branch-list');
       if (queueCountEl) queueCountEl.innerHTML = `${sum.forAuditCount || 0} <span class="text-sm font-medium text-slate-500">queued</span>`;
       if (queueSubEl) {
           const breakdown = sum.forAuditBreakdown || [];
@@ -6313,18 +6321,25 @@ body.bg-coolDark{
               ? breakdown.map(a => `${a.count} ${a.name}`).join(' · ')
               : 'No branches for audit';
       }
-      if (queueBranchEl) {
-          const nextUp = sum.nextUpBranch;
-          // nextUp.auditor is sourced from assignedAuditorRaw (DASHBOARDDATA
-          // column AW, "Up Next Auditor") via assignedAuditorOf() above —
-          // the auditor actually set/queued for this branch's NEXT round —
-          // not whoever did the most recent *past* round. Clicking this
-          // line opens the Assignment Branches Overview popup sorted by
-          // Up Next Auditor (see openAuditQueueModal('upnext') on the <p>
-          // itself).
-          queueBranchEl.innerText = nextUp
-              ? `Up next: ${nextUp.name} — Up Next Auditor: ${nextUp.auditor}`
-              : 'Nothing queued right now';
+      if (queueBranchListEl) {
+          // Top 5 branches up next in the queue, oldest-waiting-first (same
+          // order/source as the old single-line "Up next" branch). Auditor
+          // is sourced from assignedAuditorRaw (DASHBOARDDATA column AW,
+          // "Up Next Auditor") via assignedAuditorOf() — the auditor
+          // actually set/queued for that branch's NEXT round, not whoever
+          // did the most recent past round. Clicking any row opens the
+          // Assignment Branches Overview popup sorted by Up Next Auditor
+          // (see openAuditQueueModal('upnext') on the container itself).
+          // Kept compact (text-[10px], truncated) so the card doesn't have
+          // to grow to fit all 5 rows.
+          const nextUpList = sum.nextUpBranches || [];
+          queueBranchListEl.innerHTML = nextUpList.length
+              ? nextUpList.map(b => `
+                  <div class="flex items-center justify-between gap-2 text-[10px] leading-tight">
+                      <span class="font-semibold text-accentAmber truncate">${b.name}</span>
+                      <span class="text-slate-400 whitespace-nowrap truncate max-w-[45%]">${b.auditor}</span>
+                  </div>`).join('')
+              : '<p class="text-xs text-slate-500">Nothing queued right now</p>';
       }
 
       // Branch Audit Interval card — shows up to 5 of the most recently
@@ -7797,7 +7812,7 @@ body.bg-coolDark{
             findings2024: 0, findings2025: 0, findings2026: 0,
             totalAccounts: 0, emergencyAuditor: "", recentEmergencyD: "", recentEmergencyE: "", recentEmergencyF: "",
             trendLabels: ["MARCH", "APRIL", "MAY"],
-            forAuditBreakdown: [], nextUpBranch: null, lastAuditedBranch: null, recentlyAuditedBranches: []
+            forAuditBreakdown: [], nextUpBranch: null, nextUpBranches: [], lastAuditedBranch: null, recentlyAuditedBranches: []
         }, 
         branches: [], lowestEfficiency: [], highestRepo: [], highestNoRepo: [], topFindings26: [], topDecliningCollection: [], topDecliningSales: [], topDecliningService: [], auditors: [], dataAudit: {}, branchAuditSchedule: {}, emergencyHistory: [] 
       };
