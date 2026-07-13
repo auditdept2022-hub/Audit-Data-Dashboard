@@ -3451,7 +3451,7 @@ body.bg-coolDark{
           modalBody.classList.add('audit-schedule-mode');
           renderAuditScheduleModal(modalBody);
       } else if (type === 'assignment') {
-          if (!window.assignmentFilterState) window.assignmentFilterState = { auditStatus: 'ALL' };
+          if (!window.assignmentFilterState) window.assignmentFilterState = defaultAssignmentFilterState();
           renderAssignmentModalView();
       } else if (type === 'editAssignment') {
           renderEditAssignmentModal(filterValue, modalBody);
@@ -3936,7 +3936,7 @@ body.bg-coolDark{
     // most recent audit round, and the day-interval between them — every
     // column fully sortable (see renderAssignmentModalView / setAssignmentSort).
     function openAuditQueueModal() {
-      window.assignmentFilterState = { auditStatus: 'ALL' };
+      window.assignmentFilterState = defaultAssignmentFilterState();
       openModal('Assignment Branches Overview', 'assignment', null);
     }
 
@@ -4773,8 +4773,42 @@ body.bg-coolDark{
     }
 
     function setAssignmentAuditFilter(value) {
-      if (!window.assignmentFilterState) window.assignmentFilterState = { auditStatus: 'ALL' };
+      if (!window.assignmentFilterState) window.assignmentFilterState = defaultAssignmentFilterState();
       window.assignmentFilterState.auditStatus = value;
+      renderAssignmentModalView();
+    }
+
+    // Default shape for the Assignment popup's filter state — mirrors every
+    // filter available on the Branch Scorecard (search + collection/sales/
+    // service/audit-status/risk) so the two tables behave the same way.
+    function defaultAssignmentFilterState() {
+      return { auditStatus: 'ALL', collection: 'ALL', sales: 'ALL', service: 'ALL', risk: 'ALL', search: '' };
+    }
+
+    function setAssignmentFilter(key, value) {
+      if (!window.assignmentFilterState) window.assignmentFilterState = defaultAssignmentFilterState();
+      window.assignmentFilterState[key] = value;
+      renderAssignmentModalView();
+    }
+
+    // Free-text branch-name search, same debounce-free live-filter as the
+    // scorecard's tableSearch — preserves focus/caret across re-render since
+    // typing itself drives it (same pattern as setAuditScheduleSearchQuery).
+    function setAssignmentSearch(value) {
+      if (!window.assignmentFilterState) window.assignmentFilterState = defaultAssignmentFilterState();
+      window.assignmentFilterState.search = value || '';
+      const activeId = document.activeElement && document.activeElement.id;
+      renderAssignmentModalView();
+      if (activeId === 'assignmentSearchInput') {
+          const input = document.getElementById('assignmentSearchInput');
+          if (input) { input.focus(); const v = input.value; input.value = ''; input.value = v; }
+      }
+    }
+
+    function resetAssignmentFilters() {
+      window.assignmentFilterState = defaultAssignmentFilterState();
+      assignmentSortField = 'recent';
+      assignmentSortDir = 'desc';
       renderAssignmentModalView();
     }
 
@@ -4803,18 +4837,82 @@ body.bg-coolDark{
       return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block ${colorClass}">${arrow}</svg>`;
     }
 
-    // Same buttons/behavior as buildAuditStatusFilterBar, just wired to the
-    // Assignment popup's own filter state/setter instead of modalFilterState.
-    function buildAssignmentAuditStatusFilterBar(activeAudit) {
-      const options = ['ALL', ...AUDIT_STATUS_OPTIONS];
-      const buttonsHtml = options.map(opt => {
-          const isActive = opt === (activeAudit || 'ALL');
-          const activeClass = isActive
-              ? 'bg-slate-800 text-white border-slate-800 shadow-sm'
-              : 'bg-white text-slate-600 border-coolBorder hover:border-slate-400 hover:bg-slate-50';
-          return `<button onclick="setAssignmentAuditFilter('${opt}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all active:scale-95 ${activeClass}">${opt}</button>`;
-      }).join('');
-      return `<div class="flex flex-wrap items-center gap-2 mb-4"><span class="text-xs font-semibold text-slate-500 mr-1">Filter by audit status:</span>${buttonsHtml}</div>`;
+    // Full filter row for the Assignment popup — search box + Collection/
+    // Sales/Service/Audit Status/Risk dropdowns + Reset button, styled and
+    // laid out exactly like the Branch Scorecard's filter row (see
+    // #tableSearch/#filterCollection/etc. above), just wired to
+    // window.assignmentFilterState instead of the scorecard's own DOM state.
+    function buildAssignmentFilterBar(state) {
+      const escapeAttr = str => String(str || '').replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const opt = (value, label, current) => `<option value="${value}" ${value === current ? 'selected' : ''}>${label}</option>`;
+
+      return `
+      <div class="flex flex-col lg:flex-row lg:items-center gap-3 mb-4">
+        <div class="relative flex-1 min-w-[200px]">
+          <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-slate-400"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
+          </span>
+          <input type="text" id="assignmentSearchInput" value="${escapeAttr(state.search)}" oninput="setAssignmentSearch(this.value)" placeholder="Search branch..." class="w-full pl-9 pr-4 py-2 bg-white border border-coolBorder rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all">
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-2">
+          <select onchange="setAssignmentFilter('collection', this.value)" class="w-full sm:w-auto px-3 py-2 bg-white border border-coolBorder rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
+            ${opt('ALL', 'All Collection', state.collection)}
+            ${opt('Improving', 'Improving', state.collection)}
+            ${opt('Recovering', 'Recovering', state.collection)}
+            ${opt('Declining', 'Declining', state.collection)}
+            ${opt('Stable', 'Stable', state.collection)}
+          </select>
+
+          <select onchange="setAssignmentFilter('sales', this.value)" class="w-full sm:w-auto px-3 py-2 bg-white border border-coolBorder rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
+            ${opt('ALL', 'All Sales', state.sales)}
+            ${opt('Improving', 'Improving', state.sales)}
+            ${opt('Declining', 'Declining', state.sales)}
+            ${opt('Stable', 'Stable', state.sales)}
+          </select>
+
+          <select onchange="setAssignmentFilter('service', this.value)" class="w-full sm:w-auto px-3 py-2 bg-white border border-coolBorder rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
+            ${opt('ALL', 'All Service', state.service)}
+            ${opt('Target', 'Target', state.service)}
+            ${opt('Declining', 'Declining', state.service)}
+          </select>
+
+          <select onchange="setAssignmentFilter('auditStatus', this.value)" class="w-full sm:w-auto px-3 py-2 bg-white border border-coolBorder rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
+            ${opt('ALL', 'All Audit Status', state.auditStatus)}
+            ${opt('PENDING', 'Pending', state.auditStatus)}
+            ${opt('FOR AUDIT', 'For Audit', state.auditStatus)}
+            ${opt('DONE', 'Done', state.auditStatus)}
+          </select>
+
+          <select onchange="setAssignmentFilter('risk', this.value)" class="w-full sm:w-auto px-3 py-2 bg-white border border-coolBorder rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
+            ${opt('ALL', 'All Risk Levels', state.risk)}
+            ${opt('High Risk', 'High Risk', state.risk)}
+            ${opt('Medium Risk', 'Medium Risk', state.risk)}
+            ${opt('Low Risk', 'Low Risk', state.risk)}
+          </select>
+
+          <button type="button" onclick="resetAssignmentFilters()" class="col-span-2 sm:col-span-1 flex items-center justify-center sm:justify-start gap-1.5 px-3 py-2 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-xl text-xs font-semibold text-slate-600 transition-all cursor-pointer active:scale-95">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+            Reset
+          </button>
+        </div>
+      </div>`;
+    }
+
+    // Formats an interval given in days as whole months + leftover days —
+    // e.g. 65 days -> "2 months and 5 days" — using a flat 30-day month so
+    // the "and N days" remainder stays intuitive. Kept as a separate display
+    // step from the raw intervalDays value so sorting still uses the precise
+    // day count underneath.
+    function formatIntervalMonthsDays(days) {
+      if (days === null || days === undefined) return null;
+      const total = Math.max(0, Math.round(days));
+      const months = Math.floor(total / 30);
+      const remDays = total % 30;
+
+      if (months === 0) return `${remDays} day${remDays === 1 ? '' : 's'}`;
+      if (remDays === 0) return `${months} month${months === 1 ? '' : 's'}`;
+      return `${months} month${months === 1 ? '' : 's'} and ${remDays} day${remDays === 1 ? '' : 's'}`;
     }
 
     function buildAssignmentTable(list) {
@@ -4830,6 +4928,9 @@ body.bg-coolDark{
           name: (x, y) => x.b.name.localeCompare(y.b.name) * dir,
           last: (x, y) => ((x.info.lastDateRaw ?? -Infinity) - (y.info.lastDateRaw ?? -Infinity)) * dir,
           recent: (x, y) => ((x.info.recentDateRaw ?? -Infinity) - (y.info.recentDateRaw ?? -Infinity)) * dir,
+          // Sorts on the precise day count underneath the "N months and M
+          // days" label, so it orders correctly even though the label
+          // itself is rounded to whole days.
           interval: (x, y) => ((x.info.intervalDays ?? -Infinity) - (y.info.intervalDays ?? -Infinity)) * dir
       };
       rows.sort(sorters[assignmentSortField] || sorters.recent);
@@ -4848,7 +4949,7 @@ body.bg-coolDark{
               ${sortHeader('name', 'Branch', 'left')}
               ${sortHeader('last', 'Last Audit Date / Auditor', 'center')}
               ${sortHeader('recent', 'Recent Audit Date / Auditor', 'center')}
-              ${sortHeader('interval', 'Audit Interval (Days)', 'center')}
+              ${sortHeader('interval', 'Audit Interval', 'center')}
             </tr>
           </thead>
           <tbody class="divide-y divide-coolBorder text-sm">
@@ -4867,8 +4968,9 @@ body.bg-coolDark{
               ? `<div class="flex flex-col items-center gap-1"><span class="text-xs font-semibold text-slate-700">${escapeHTML(info.recentDate)}</span>${auditorPill(info.recentAuditor)}</div>`
               : `<div class="flex flex-col items-center gap-1"><span class="text-xs text-slate-400 italic">Not yet audited</span>${auditorPill(info.recentAuditor)}</div>`;
 
-          const intervalCell = (info.intervalDays !== null && info.intervalDays !== undefined)
-              ? `<span class="px-2 py-0.5 text-[11px] font-bold bg-accentEmerald/10 text-accentEmerald border border-accentEmerald/20 rounded-lg">${info.intervalDays}d</span>`
+          const intervalLabel = formatIntervalMonthsDays(info.intervalDays);
+          const intervalCell = intervalLabel !== null
+              ? `<span class="px-2 py-0.5 text-[11px] font-bold bg-accentEmerald/10 text-accentEmerald border border-accentEmerald/20 rounded-lg whitespace-nowrap">${intervalLabel}</span>`
               : `<span class="text-xs text-slate-400 italic">—</span>`;
 
           html += `
@@ -4887,17 +4989,34 @@ body.bg-coolDark{
     }
 
     // Popup opened from the AUDITOR NEXT ASSIGNMENT stock card. Reuses the
-    // same "total/done/for audit/pending" stock card and audit-status filter
-    // bar as the general All Branches popup, but the table itself is scoped
-    // to audit scheduling: branch, last completed round, most recent
-    // completed round, and the day-interval between them — every column
-    // sortable (setAssignmentSort), same convention as the Branch Scorecard.
+    // same "total/done/for audit/pending" stock card as the general All
+    // Branches popup, plus the exact same filter set as the Branch Scorecard
+    // (search + collection/sales/service/audit-status/risk + reset). The
+    // table itself is scoped to audit scheduling: branch, last completed
+    // round, most recent completed round, and the interval between them in
+    // months — every column sortable (setAssignmentSort).
     function renderAssignmentModalView() {
-      const state = window.assignmentFilterState || { auditStatus: 'ALL' };
+      const state = window.assignmentFilterState || (window.assignmentFilterState = defaultAssignmentFilterState());
 
       let list = activeData.branches;
       if (state.auditStatus && state.auditStatus !== 'ALL') {
           list = list.filter(b => (b.auditStatus || '').toUpperCase() === state.auditStatus);
+      }
+      if (state.collection && state.collection !== 'ALL') {
+          list = list.filter(b => b.collection === state.collection);
+      }
+      if (state.sales && state.sales !== 'ALL') {
+          list = list.filter(b => b.sales === state.sales);
+      }
+      if (state.service && state.service !== 'ALL') {
+          list = list.filter(b => b.service === state.service);
+      }
+      if (state.risk && state.risk !== 'ALL') {
+          list = list.filter(b => computeRiskProfile(b).level === state.risk);
+      }
+      if (state.search) {
+          const q = state.search.toLowerCase();
+          list = list.filter(b => b.name.toLowerCase().includes(q));
       }
 
       const modalTitle = document.getElementById('modalTitle');
@@ -4907,7 +5026,7 @@ body.bg-coolDark{
 
       updateModalEditAssignButton(list);
 
-      const barsHtml = buildAllBranchesSummaryBar(list) + buildAssignmentAuditStatusFilterBar(state.auditStatus);
+      const barsHtml = buildAllBranchesSummaryBar(list) + buildAssignmentFilterBar(state);
 
       const modalBody = document.getElementById('modalBody');
       modalBody.innerHTML = `${barsHtml}<div id="modalTableContainer"></div>`;
