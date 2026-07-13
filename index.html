@@ -2572,12 +2572,6 @@ body.bg-coolDark{
           </span>
         </button>
 
-        <label id="uploadFileLabel" title="Upload a spreadsheet" class="group flex items-center gap-2 px-2.5 sm:px-3 py-2 rounded-lg hover:bg-white/10 active:bg-white/15 cursor-pointer text-sm font-medium transition-colors duration-150 text-white/90 hover:text-white whitespace-nowrap aria-disabled:opacity-40 aria-disabled:cursor-not-allowed">
-          <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-spreadsheet shrink-0 transition-transform duration-200 group-active:scale-90"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M8 13h2"></path><path d="M14 13h2"></path><path d="M8 17h2"></path><path d="M14 17h2"></path></svg>
-          <span id="uploadFileLabelText" class="hidden sm:inline">Upload File</span>
-          <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" class="hidden">
-        </label>
-
         <button id="authLogoutBtn" type="button" title="Log out" aria-label="Log out" class="hidden items-center gap-1.5 ml-1 pl-3 py-2 pr-2.5 border-l border-white/15 text-white/60 hover:text-white active:scale-95 cursor-pointer transition-colors duration-150 text-sm font-medium whitespace-nowrap">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" x2="12" y1="2" y2="12"></line></svg>
           <span id="authLogoutEmail" class="hidden"></span>
@@ -2644,7 +2638,7 @@ body.bg-coolDark{
       <details class="side-menu-group-details">
         <summary class="side-menu-group-summary">
           <span class="side-menu-group-title">Quick actions</span>
-          <span class="side-menu-group-count">7</span>
+          <span class="side-menu-group-count">6</span>
           <svg class="side-menu-group-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
         </summary>
 
@@ -2684,11 +2678,6 @@ body.bg-coolDark{
         <svg class="side-menu-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
       </div>
 
-      <div role="button" tabindex="0" onclick="triggerFileUploadFromMenu()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();triggerFileUploadFromMenu();}" class="side-menu-link cursor-pointer select-none">
-        <span class="side-menu-icon"><svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue shrink-0"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M8 13h2"></path><path d="M14 13h2"></path><path d="M8 17h2"></path><path d="M14 17h2"></path></svg></span>
-        <span>Upload File</span>
-        <svg class="side-menu-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-      </div>
       </details>
 
       <details class="side-menu-group-details">
@@ -4071,14 +4060,6 @@ body.bg-coolDark{
         const top = el.getBoundingClientRect().top + window.pageYOffset - headerOffset;
         window.scrollTo({ top: top, behavior: 'smooth' });
       }
-      if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
-    }
-
-    // Fired from the shortcuts menu's "Upload File" item — reuses the same
-    // hidden file input the header button already wires up.
-    function triggerFileUploadFromMenu() {
-      const fileInput = document.getElementById('excelFile');
-      if (fileInput) fileInput.click();
       if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
     }
 
@@ -6911,50 +6892,6 @@ body.bg-coolDark{
         }
     }
 
-    // Guards against picking a second file while the first is still being
-    // read/parsed, and gives Upload its own wording/busy state so it's never
-    // confused with the separate "Update data" server refresh above.
-    let isProcessingUpload = false;
-
-    function handleExcel(file) {
-      if (isProcessingUpload) {
-        showToast("Still processing the previous file\u2026 hang tight.");
-        return;
-      }
-      isProcessingUpload = true;
-      const uploadLabel = document.getElementById('uploadFileLabel');
-      const uploadLabelText = document.getElementById('uploadFileLabelText');
-      const originalLabelText = uploadLabelText ? uploadLabelText.textContent : '';
-      if (uploadLabel) uploadLabel.setAttribute('aria-disabled', 'true');
-      if (uploadLabelText) uploadLabelText.textContent = 'Reading file\u2026';
-      showToast("Reading " + file.name + "\u2026");
-
-      function finish() {
-        isProcessingUpload = false;
-        if (uploadLabel) uploadLabel.removeAttribute('aria-disabled');
-        if (uploadLabelText) uploadLabelText.textContent = originalLabelText;
-      }
-
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        try {
-          processExcelData(e.target.result);
-          showToast("\u201c" + file.name + "\u201d loaded successfully!");
-        } catch (err) {
-          console.error('Local file processing failed:', err);
-          showToast("Couldn't read that file \u2014 check it's a valid Excel/CSV export.");
-        } finally {
-          finish();
-        }
-      };
-      reader.onerror = function() {
-        console.error('FileReader failed:', reader.error);
-        showToast("Couldn't read \u201c" + file.name + "\u201d from disk. Try again.");
-        finish();
-      };
-      reader.readAsArrayBuffer(file);
-    }
-
     // JSONP loader: bypasses CORS entirely by loading the Apps Script
     // response as a <script> tag (like Google Maps/other JSONP APIs do)
     // instead of fetch(). This works reliably across every device/network.
@@ -7511,13 +7448,6 @@ body.bg-coolDark{
       document.getElementById('filterService').addEventListener('change', renderScorecardTable);
       document.getElementById('filterAuditStatus').addEventListener('change', renderScorecardTable);
       document.getElementById('filterRisk').addEventListener('change', renderScorecardTable);
-      
-      const fileInput = document.getElementById('excelFile');
-      if (fileInput) {
-        fileInput.addEventListener('change', function(e) {
-          if (e.target.files.length > 0) handleExcel(e.target.files[0]);
-        });
-      }
 
       // ---------- hamburger side menu ----------
       const hamburgerBtn = document.getElementById('hamburgerBtn');
