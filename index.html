@@ -4745,6 +4745,15 @@ body.bg-coolDark{
       const dated = schedule ? (schedule.rounds || []).filter(r => r.dateRaw !== null && r.dateRaw !== undefined) : [];
       const today = Date.now();
 
+      // Who's queued for the branch's NEXT audit round — always read from
+      // assignedAuditorRaw (column AN, "Assigned Auditor") specifically,
+      // never from whoever did a *past* round, so this stays correct even
+      // for branches with a long rotation history. Falls back to b.auditor
+      // only if AN is genuinely blank.
+      const queuedAuditor = (b.assignedAuditorRaw && b.assignedAuditorRaw !== 'UNASSIGNED')
+          ? b.assignedAuditorRaw
+          : (b.auditor && b.auditor !== 'UNASSIGNED' ? b.auditor : 'Unassigned');
+
       if (dated.length > 0) {
           const recent = dated[dated.length - 1];
           const last = dated.length > 1 ? dated[dated.length - 2] : null;
@@ -4756,7 +4765,8 @@ body.bg-coolDark{
               lastDateRaw: last ? last.dateRaw : null,
               lastAuditor: last ? (last.auditor || 'Unassigned') : null,
               intervalDays: Math.round((today - recent.dateRaw) / 86400000),
-              roundsCount: dated.length
+              roundsCount: dated.length,
+              upNextAuditor: queuedAuditor
           };
       }
 
@@ -4764,10 +4774,6 @@ body.bg-coolDark{
       // itself carries (b.lastAuditDate/b.auditor), and surface the queued
       // "assigned auditor" (column AN) so a not-yet-audited branch still
       // shows who's up next instead of a blank cell.
-      const queuedAuditor = (b.assignedAuditorRaw && b.assignedAuditorRaw !== 'UNASSIGNED')
-          ? b.assignedAuditorRaw
-          : (b.auditor && b.auditor !== 'UNASSIGNED' ? b.auditor : 'Unassigned');
-
       return {
           recentDate: b.lastAuditDate || null,
           recentDateRaw: b.lastAuditDateRaw || null,
@@ -4776,7 +4782,8 @@ body.bg-coolDark{
           lastDateRaw: null,
           lastAuditor: null,
           intervalDays: (b.lastAuditDateRaw !== null && b.lastAuditDateRaw !== undefined) ? Math.round((today - b.lastAuditDateRaw) / 86400000) : null,
-          roundsCount: b.lastAuditDate ? 1 : 0
+          roundsCount: b.lastAuditDate ? 1 : 0,
+          upNextAuditor: queuedAuditor
       };
     }
 
@@ -4921,6 +4928,7 @@ body.bg-coolDark{
           name: (x, y) => x.b.name.localeCompare(y.b.name) * dir,
           last: (x, y) => ((x.info.lastDateRaw ?? -Infinity) - (y.info.lastDateRaw ?? -Infinity)) * dir,
           recent: (x, y) => ((x.info.recentDateRaw ?? -Infinity) - (y.info.recentDateRaw ?? -Infinity)) * dir,
+          upnext: (x, y) => String(x.info.upNextAuditor || '').localeCompare(String(y.info.upNextAuditor || '')) * dir,
           // Sorts on the precise day count underneath the "N months and M
           // days" label, so it orders correctly even though the label
           // itself is rounded to whole days.
@@ -4941,6 +4949,7 @@ body.bg-coolDark{
               <th class="p-2.5 bg-gray-50 text-center w-8 whitespace-nowrap">#</th>
               ${sortHeader('name', 'Branch', 'left')}
               ${sortHeader('last', 'Last Audit Date / Auditor', 'center')}
+              ${sortHeader('upnext', 'Up Next Auditor', 'center')}
               ${sortHeader('recent', 'Recent Audit Date / Auditor', 'center')}
               ${sortHeader('interval', 'Audit Interval (to date)', 'center')}
             </tr>
@@ -4961,6 +4970,14 @@ body.bg-coolDark{
               ? `<div class="flex flex-col items-center gap-1"><span class="text-xs font-semibold text-slate-700">${escapeHTML(info.recentDate)}</span>${auditorPill(info.recentAuditor)}</div>`
               : `<div class="flex flex-col items-center gap-1"><span class="text-xs text-slate-400 italic">Not yet audited</span>${auditorPill(info.recentAuditor)}</div>`;
 
+          // "Up Next Auditor" — who's queued for the branch's NEXT round
+          // (column AN, assignedAuditorRaw), styled amber/queued rather than
+          // the neutral slate pill used for past rounds, so it's visually
+          // distinct as "not done yet" at a glance.
+          const upNextCell = (info.upNextAuditor && info.upNextAuditor !== 'Unassigned')
+              ? `<span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-accentAmber/10 text-accentAmber rounded-md border border-accentAmber/20">${escapeHTML(info.upNextAuditor)}</span>`
+              : `<span class="text-xs text-slate-400 italic">Unassigned</span>`;
+
           const intervalLabel = formatIntervalMonthsDays(info.intervalDays);
           const intervalCell = intervalLabel !== null
               ? `<span class="px-2 py-0.5 text-[11px] font-bold bg-accentEmerald/10 text-accentEmerald border border-accentEmerald/20 rounded-lg whitespace-nowrap">${intervalLabel}</span>`
@@ -4971,6 +4988,7 @@ body.bg-coolDark{
                   <td class="p-2 text-center text-xs font-bold text-slate-400">${index + 1}</td>
                   <td class="p-2 font-bold text-slate-800 text-sm break-words">${escapeHTML(b.name)}</td>
                   <td class="p-2 text-center">${lastCell}</td>
+                  <td class="p-2 text-center">${upNextCell}</td>
                   <td class="p-2 text-center">${recentCell}</td>
                   <td class="p-2 text-center">${intervalCell}</td>
               </tr>
@@ -5010,7 +5028,7 @@ body.bg-coolDark{
 
       updateModalEditAssignButton(list);
 
-      const barsHtml = buildAllBranchesSummaryBar(list) + buildAssignmentFilterBar(state);
+      const barsHtml = buildAllBranchesSummaryBar(list, 'setAssignmentAuditFilter', state.auditStatus) + buildAssignmentFilterBar(state);
 
       const modalBody = document.getElementById('modalBody');
       modalBody.innerHTML = `${barsHtml}<div id="modalTableContainer"></div>`;
@@ -5071,7 +5089,7 @@ body.bg-coolDark{
       } else if (state.type === 'service') {
           barsHtml += buildServiceSummaryBar(list);
       } else if (state.type === 'all') {
-          barsHtml += buildAllBranchesSummaryBar(list);
+          barsHtml += buildAllBranchesSummaryBar(list, 'setModalAuditFilter', state.auditStatus);
       }
       if (state.type === 'collection' || state.type === 'sales' || state.type === 'service') {
           barsHtml += buildStatusFilterBar(state.type, state.statusValue);
@@ -5838,26 +5856,38 @@ body.bg-coolDark{
       ${top ? `<div class="text-[11px] text-slate-500 mb-3 px-1">Top performer: <strong class="text-slate-700">${top.name}</strong> <span class="text-accentCyan font-bold">(₱${Number(top.serviceMay).toLocaleString()})</span></div>` : ''}`;
     }
 
-    function buildAllBranchesSummaryBar(list) {
+    // filterSetter is the name of the JS function to call when a pill is
+    // clicked (each modal that shows this bar tracks its own audit-status
+    // filter state under a different key, so the caller passes in whichever
+    // setter matches — setAssignmentAuditFilter for the Assignment Branches
+    // Overview popup, setModalAuditFilter for the general All Branches
+    // popup). activeValue highlights whichever pill is currently applied,
+    // same visual language as buildAuditStatusFilterBar's own buttons.
+    function buildAllBranchesSummaryBar(list, filterSetter, activeValue) {
       const done = list.filter(b => (b.auditStatus || '').toUpperCase() === 'DONE').length;
       const pending = list.filter(b => (b.auditStatus || '').toUpperCase() === 'PENDING').length;
       const forAudit = list.filter(b => (b.auditStatus || '').toUpperCase() === 'FOR AUDIT').length;
 
+      const clickable = !!filterSetter;
+      const active = activeValue || 'ALL';
+      const pillClass = (isActive) => `${clickable ? 'cursor-pointer active:scale-95 transition-all' : ''} ${isActive ? 'ring-2 ring-offset-1' : ''}`;
+      const pillAttrs = (value) => clickable ? `onclick="${filterSetter}('${value}')" role="button" tabindex="0"` : '';
+
       return `
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-        <div class="p-3 bg-slate-100 border border-coolBorder rounded-xl text-center">
+        <div ${pillAttrs('ALL')} class="p-3 bg-slate-100 border border-coolBorder rounded-xl text-center ${pillClass(active === 'ALL')} ${clickable ? 'ring-slate-400 hover:bg-slate-200' : ''}">
           <div class="text-2xl font-extrabold text-slate-700">${list.length}</div>
           <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Branches</div>
         </div>
-        <div class="p-3 bg-accentBlue/10 border border-accentBlue/20 rounded-xl text-center">
+        <div ${pillAttrs('DONE')} class="p-3 bg-accentBlue/10 border border-accentBlue/20 rounded-xl text-center ${pillClass(active === 'DONE')} ${clickable ? 'ring-accentBlue hover:bg-accentBlue/20' : ''}">
           <div class="text-2xl font-extrabold text-accentBlue">${done}</div>
           <div class="text-[10px] font-bold text-accentBlue/80 uppercase tracking-wider">Done</div>
         </div>
-        <div class="p-3 bg-accentAmber/10 border border-accentAmber/20 rounded-xl text-center">
+        <div ${pillAttrs('FOR AUDIT')} class="p-3 bg-accentAmber/10 border border-accentAmber/20 rounded-xl text-center ${pillClass(active === 'FOR AUDIT')} ${clickable ? 'ring-accentAmber hover:bg-accentAmber/20' : ''}">
           <div class="text-2xl font-extrabold text-accentAmber">${forAudit}</div>
           <div class="text-[10px] font-bold text-accentAmber/80 uppercase tracking-wider">For Audit</div>
         </div>
-        <div class="p-3 bg-slate-50 border border-coolBorder rounded-xl text-center">
+        <div ${pillAttrs('PENDING')} class="p-3 bg-slate-50 border border-coolBorder rounded-xl text-center ${pillClass(active === 'PENDING')} ${clickable ? 'ring-slate-400 hover:bg-slate-100' : ''}">
           <div class="text-2xl font-extrabold text-slate-500">${pending}</div>
           <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pending</div>
         </div>
@@ -6251,8 +6281,13 @@ body.bg-coolDark{
       }
       if (queueBranchEl) {
           const nextUp = sum.nextUpBranch;
+          // nextUp.auditor is sourced from assignedAuditorRaw (column AN,
+          // "Assigned Auditor") via assignedAuditorOf() above — the auditor
+          // actually set/queued for this branch's NEXT round — not whoever
+          // did the most recent *past* round. Labeled explicitly as
+          // "Assigned" here so that distinction is clear at a glance.
           queueBranchEl.innerText = nextUp
-              ? `Up next: ${nextUp.name} — ${nextUp.auditor}`
+              ? `Up next: ${nextUp.name} — Assigned: ${nextUp.auditor}`
               : 'Nothing queued right now';
       }
 
