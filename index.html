@@ -288,6 +288,13 @@
             findings2025: tb.reduce((sum, b) => sum + b.findings2025, 0),
             findings2026: tb.reduce((sum, b) => sum + b.findings2026, 0),
             totalAccounts: tb.reduce((sum, b) => sum + b.accountsMay, 0).toLocaleString(),
+            // Repo counts for the Total Accounts stack card's small subtext:
+            // totalRepoLatest = sum of "No. of Repo" for the latest month only
+            // (the same month shown in the card's "(JUNE)" label, via
+            // trendLabels[2]/noOfRepoLatest); totalRepoAll = that same figure
+            // summed across all three months on record (Mar + Apr + Latest).
+            totalRepoLatest: tb.reduce((sum, b) => sum + (b.noOfRepoLatest || 0), 0),
+            totalRepoAll: tb.reduce((sum, b) => sum + (b.noOfRepoMar || 0) + (b.noOfRepoApr || 0) + (b.noOfRepoLatest || 0), 0),
             emergencyAuditor: activeData.summary?.emergencyAuditor || "PENDING",
             trendLabels: activeData.summary?.trendLabels || ["MARCH", "APRIL", "MAY"]
         };
@@ -2964,6 +2971,8 @@ body.bg-coolDark{
         <div class="mt-4">
           <h3 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900" id="stat-total-accounts">12,924</h3>
           <p class="text-xs text-slate-500 mt-1">Active collection portfolio</p>
+          <p class="text-[11px] text-slate-400 mt-2" id="stat-total-repo-all">— total repo</p>
+          <p class="text-[11px] text-slate-400" id="stat-total-repo-latest">— repo (<span id="span-repo-month">LATEST</span>)</p>
         </div>
       </div>
     </div>
@@ -5942,7 +5951,7 @@ body.bg-coolDark{
         let year = filterValue.replace('findings', '');
         extraColHeader = `<th class="p-2 bg-gray-50 text-center font-bold text-accentCyan whitespace-nowrap">Findings ${year}</th>`;
       } else if (type === 'accounts') {
-        extraColHeader = `<th class="p-2 bg-gray-50 text-center font-bold text-accentCyan">Total Accounts</th>`;
+        extraColHeader = `<th class="p-2 bg-gray-50 text-center font-bold text-accentRose whitespace-nowrap">No. of Repo</th><th class="p-2 bg-gray-50 text-center font-bold text-accentCyan">Total Accounts</th>`;
       }
 
       // Only show the status column(s) relevant to what was clicked.
@@ -6050,7 +6059,7 @@ body.bg-coolDark{
             rowShowsFindingsToggle = true;
             extraColCell = `<td class="p-2 text-center font-bold text-accentCyan">${b[filterValue] || 0}</td>`;
           } else if (type === 'accounts') {
-            extraColCell = `<td class="p-2 text-center font-bold text-slate-900 bg-gray-50/50">${(b.accountsMay || 0).toLocaleString()}</td>`;
+            extraColCell = `<td class="p-2 text-center font-semibold ${(b.noOfRepo || 0) > 0 ? 'text-accentRose' : 'text-slate-400'}">${(b.noOfRepo || 0).toLocaleString()}</td><td class="p-2 text-center font-bold text-slate-900 bg-gray-50/50">${(b.accountsMay || 0).toLocaleString()}</td>`;
           }
 
           const auditorBadge = b.auditor === 'UNASSIGNED' 
@@ -6309,6 +6318,11 @@ body.bg-coolDark{
       
       document.getElementById('stat-findings-2026').innerText = sum.findings2026 || 0;
       document.getElementById('stat-total-accounts').innerText = sum.totalAccounts || 0;
+      const repoMonthLabel = (sum.trendLabels || ["MARCH", "APRIL", "MAY"])[2];
+      const repoAllEl = document.getElementById('stat-total-repo-all');
+      const repoLatestEl = document.getElementById('stat-total-repo-latest');
+      if (repoAllEl) repoAllEl.innerText = `${(sum.totalRepoAll || 0).toLocaleString()} total repo`;
+      if (repoLatestEl) repoLatestEl.innerHTML = `${(sum.totalRepoLatest || 0).toLocaleString()} repo (<span id="span-repo-month">${repoMonthLabel}</span>)`;
 
       // Auditor Next Assignment card
       const queueCountEl = document.getElementById('stat-next-assignment-count');
@@ -7809,7 +7823,7 @@ body.bg-coolDark{
             salesImproving: 0, salesDeclining: 0, salesStable: 0,
             serviceTarget: 0, serviceDeclining: 0,
             findings2024: 0, findings2025: 0, findings2026: 0,
-            totalAccounts: 0, emergencyAuditor: "", recentEmergencyD: "", recentEmergencyE: "", recentEmergencyF: "",
+            totalAccounts: 0, totalRepoLatest: 0, totalRepoAll: 0, emergencyAuditor: "", recentEmergencyD: "", recentEmergencyE: "", recentEmergencyF: "",
             trendLabels: ["MARCH", "APRIL", "MAY"],
             forAuditBreakdown: [], nextUpBranch: null, nextUpBranches: [], lastAuditedBranch: null, recentlyAuditedBranches: []
         }, 
