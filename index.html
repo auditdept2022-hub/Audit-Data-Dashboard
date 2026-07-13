@@ -288,12 +288,18 @@
             findings2025: tb.reduce((sum, b) => sum + b.findings2025, 0),
             findings2026: tb.reduce((sum, b) => sum + b.findings2026, 0),
             totalAccounts: tb.reduce((sum, b) => sum + b.accountsMay, 0).toLocaleString(),
+            // Raw (non-formatted) latest and previous-month account totals,
+            // used by the Total Accounts stack card to show a small
+            // "previous month" line with an up/down indicator.
+            totalAccountsLatestRaw: tb.reduce((sum, b) => sum + (b.accountsMay || 0), 0),
+            totalAccountsPrevRaw: tb.reduce((sum, b) => sum + (b.accountsApr || 0), 0),
             // Repo counts for the Total Accounts stack card's small subtext:
             // totalRepoLatest = sum of "No. of Repo" for the latest month only
             // (the same month shown in the card's "(JUNE)" label, via
             // trendLabels[2]/noOfRepoLatest); totalRepoAll = that same figure
             // summed across all three months on record (Mar + Apr + Latest).
             totalRepoLatest: tb.reduce((sum, b) => sum + (b.noOfRepoLatest || 0), 0),
+            totalRepoPrevRaw: tb.reduce((sum, b) => sum + (b.noOfRepoApr || 0), 0),
             totalRepoAll: tb.reduce((sum, b) => sum + (b.noOfRepoMar || 0) + (b.noOfRepoApr || 0) + (b.noOfRepoLatest || 0), 0),
             emergencyAuditor: activeData.summary?.emergencyAuditor || "PENDING",
             trendLabels: activeData.summary?.trendLabels || ["MARCH", "APRIL", "MAY"]
@@ -2971,6 +2977,7 @@ body.bg-coolDark{
         <div class="mt-4">
           <h3 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900" id="stat-total-accounts">12,924</h3>
           <p class="text-xs text-slate-400 mt-1" id="stat-total-repo-latest">— total repo (<span id="span-repo-month">LATEST</span>)</p>
+          <p class="text-xs text-slate-400 mt-1" id="stat-total-accounts-prev">— total accounts (<span id="span-accounts-prev-month">PREV</span>)</p>
         </div>
       </div>
     </div>
@@ -6367,7 +6374,30 @@ body.bg-coolDark{
       document.getElementById('stat-total-accounts').innerText = sum.totalAccounts || 0;
       const repoMonthLabel = (sum.trendLabels || ["MARCH", "APRIL", "MAY"])[2];
       const repoLatestEl = document.getElementById('stat-total-repo-latest');
-      if (repoLatestEl) repoLatestEl.innerHTML = `${(sum.totalRepoLatest || 0).toLocaleString()} total repo (<span id="span-repo-month">${repoMonthLabel}</span>)`;
+      if (repoLatestEl) {
+          const repoLatest = sum.totalRepoLatest || 0;
+          const repoPrev = sum.totalRepoPrevRaw || 0;
+          const repoDiff = repoLatest - repoPrev;
+          // Flipped vs the accounts indicator: a repo *increase* is the bad
+          // direction (more repossessions), so it's rose, not emerald.
+          const repoTrendColor = repoDiff > 0 ? 'text-accentRose' : (repoDiff < 0 ? 'text-accentEmerald' : 'text-slate-400');
+          const repoTrendIcon = repoDiff > 0 ? '▲' : (repoDiff < 0 ? '▼' : '→');
+          repoLatestEl.innerHTML = `${repoLatest.toLocaleString()} total repo (<span id="span-repo-month">${repoMonthLabel}</span>) <span class="${repoTrendColor} font-semibold">${repoTrendIcon}</span>`;
+      }
+
+      // Previous-month total accounts, with an up/down indicator comparing
+      // it to the latest month shown in the big number above — a quick
+      // read on whether the active account base is growing or shrinking.
+      const prevAccountsMonthLabel = (sum.trendLabels || ["MARCH", "APRIL", "MAY"])[1];
+      const prevAccountsEl = document.getElementById('stat-total-accounts-prev');
+      if (prevAccountsEl) {
+          const latest = sum.totalAccountsLatestRaw || 0;
+          const prev = sum.totalAccountsPrevRaw || 0;
+          const diff = latest - prev;
+          const trendColor = diff > 0 ? 'text-accentEmerald' : (diff < 0 ? 'text-accentRose' : 'text-slate-400');
+          const trendIcon = diff > 0 ? '▲' : (diff < 0 ? '▼' : '→');
+          prevAccountsEl.innerHTML = `${prev.toLocaleString()} total accounts (<span id="span-accounts-prev-month">${prevAccountsMonthLabel}</span>) <span class="${trendColor} font-semibold">${trendIcon}</span>`;
+      }
 
       // Auditor Next Assignment card
       const queueCountEl = document.getElementById('stat-next-assignment-count');
@@ -7868,7 +7898,7 @@ body.bg-coolDark{
             salesImproving: 0, salesDeclining: 0, salesStable: 0,
             serviceTarget: 0, serviceDeclining: 0,
             findings2024: 0, findings2025: 0, findings2026: 0,
-            totalAccounts: 0, totalRepoLatest: 0, totalRepoAll: 0, emergencyAuditor: "", recentEmergencyD: "", recentEmergencyE: "", recentEmergencyF: "",
+            totalAccounts: 0, totalAccountsLatestRaw: 0, totalAccountsPrevRaw: 0, totalRepoLatest: 0, totalRepoPrevRaw: 0, totalRepoAll: 0, emergencyAuditor: "", recentEmergencyD: "", recentEmergencyE: "", recentEmergencyF: "",
             trendLabels: ["MARCH", "APRIL", "MAY"],
             forAuditBreakdown: [], nextUpBranch: null, nextUpBranches: [], lastAuditedBranch: null, recentlyAuditedBranches: []
         }, 
