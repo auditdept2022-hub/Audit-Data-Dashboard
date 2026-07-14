@@ -6459,7 +6459,8 @@ body.bg-coolDark{
           // it's rose, not emerald — flipped vs the accounts indicator.
           const repoTrendColor = repoDiff > 0 ? 'text-accentRose' : (repoDiff < 0 ? 'text-accentEmerald' : 'text-slate-400');
           const repoTrendIcon = repoDiff > 0 ? '▲' : (repoDiff < 0 ? '▼' : '→');
-          repoPrevEl.innerHTML = `${repoPrev.toLocaleString()} total repo (<span id="span-repo-prev-month">${repoPrevMonthLabel}</span>) <span class="${repoTrendColor} font-semibold">${repoTrendIcon}</span>`;
+          const repoTrendDiffLabel = repoDiff > 0 ? `+${repoDiff.toLocaleString()}` : (repoDiff < 0 ? `\u2212${Math.abs(repoDiff).toLocaleString()}` : '0');
+          repoPrevEl.innerHTML = `${repoPrev.toLocaleString()} total repo (<span id="span-repo-prev-month">${repoPrevMonthLabel}</span>) <span class="${repoTrendColor} font-semibold">${repoTrendIcon} <span class="text-[10px]">${repoTrendDiffLabel}</span></span>`;
       }
 
       // Previous-month total accounts, with an up/down indicator comparing
