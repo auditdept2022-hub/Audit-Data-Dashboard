@@ -4454,10 +4454,13 @@ body.bg-coolDark{
     function buildBranchProfileRows(b) {
       const rows = [];
       function add(label, val) { if (val !== undefined && val !== null && val !== '') rows.push([label, val]); }
+      const info = getBranchAuditRoundInfo(b);
       add('Branch', b.name);
       add('Audit Status', b.auditStatus);
       add('Assigned Auditor', b.auditor);
       add('Last Audit Date', b.lastAuditDate);
+      add('Up Next Auditor', info.upNextAuditor === null ? '' : info.upNextAuditor);
+      add('Expected Audit Date', info.expectedAuditDate);
       add('Collection Status', b.collection);
       add('Sales Status', b.sales);
       add('Service Status', b.service);
@@ -4576,8 +4579,11 @@ body.bg-coolDark{
       ].filter(function(r) { return r[1] !== undefined && r[1] !== null; });
 
       const branchRows = (activeData.branches || []).map(function(b, i) {
+          const info = getBranchAuditRoundInfo(b);
           return [
               i + 1, b.name, b.auditStatus, b.auditor, b.lastAuditDate || '',
+              info.upNextAuditor === null ? '' : info.upNextAuditor,
+              info.expectedAuditDate || '',
               b.collection, b.sales, b.service,
               b.effMar, b.effApr, b.effLatest,
               b.repoRateLatest, b.noOfRepoLatest,
@@ -4585,6 +4591,25 @@ body.bg-coolDark{
               b.findings2024, b.findings2025, b.findings2026
           ];
       });
+
+      // Assignment Queue — every FOR AUDIT branch with who's up next, the
+      // expected audit date (AUDIT DATA (FINAL) column AM), and the same
+      // last/recent/interval figures shown in the Assignment Branches
+      // Overview popup, so the consolidated report carries that view too
+      // instead of only the flat branch list above.
+      const assignmentQueueRows = (activeData.branches || [])
+          .filter(function(b) { return (b.auditStatus || '').toUpperCase() === 'FOR AUDIT'; })
+          .map(function(b) {
+              const info = getBranchAuditRoundInfo(b);
+              return [
+                  b.name,
+                  info.upNextAuditor === null ? '' : info.upNextAuditor,
+                  info.expectedAuditDate || '',
+                  info.lastDate || '', info.lastAuditor || '',
+                  info.recentDate || '', info.recentAuditor || '',
+                  formatIntervalMonthsDays(info.intervalDays) || ''
+              ];
+          });
 
       // Every branch's individual "Data Audit" remarks (auditor + note),
       // flattened into one sheet with the branch name repeated per row so
@@ -4607,7 +4632,8 @@ body.bg-coolDark{
 
       const sheets = [
           { name: 'Summary', headers: ['Metric', 'Value'], rows: summaryRows },
-          { name: 'Branches', headers: ['#', 'Branch', 'Audit Status', 'Auditor', 'Last Audit Date', 'Collection', 'Sales', 'Service', 'Eff Mar %', 'Eff Apr %', 'Eff Latest %', 'Repo Rate Latest %', 'No. of Repo Latest', 'Accounts (May)', 'Findings 2024', 'Findings 2025', 'Findings 2026'], rows: branchRows },
+          { name: 'Branches', headers: ['#', 'Branch', 'Audit Status', 'Auditor', 'Last Audit Date', 'Up Next Auditor', 'Expected Audit Date', 'Collection', 'Sales', 'Service', 'Eff Mar %', 'Eff Apr %', 'Eff Latest %', 'Repo Rate Latest %', 'No. of Repo Latest', 'Accounts (May)', 'Findings 2024', 'Findings 2025', 'Findings 2026'], rows: branchRows },
+          { name: 'Assignment Queue', headers: ['Branch', 'Up Next Auditor', 'Expected Audit Date', 'Last Audit Date', 'Last Auditor', 'Recent Audit Date', 'Recent Auditor', 'Audit Interval (to date)'], rows: assignmentQueueRows },
           { name: 'Lowest Efficiency', headers: ['Branch', 'Efficiency %'], rows: (activeData.lowestEfficiency || []).map(function(x) { return [x.branch, x.rate]; }) },
           { name: 'Highest Repo Rate', headers: ['Branch', 'Repo Rate %'], rows: (activeData.highestRepo || []).map(function(x) { return [x.branch, x.rate]; }) },
           { name: 'Highest No. of Repo', headers: ['Branch', 'No. of Repo'], rows: (activeData.highestNoRepo || []).map(function(x) { return [x.branch, x.count]; }) },
@@ -6447,7 +6473,8 @@ body.bg-coolDark{
           const diff = latest - prev;
           const trendColor = diff > 0 ? 'text-accentEmerald' : (diff < 0 ? 'text-accentRose' : 'text-slate-400');
           const trendIcon = diff > 0 ? '▲' : (diff < 0 ? '▼' : '→');
-          prevAccountsEl.innerHTML = `${prev.toLocaleString()} total accounts (<span id="span-accounts-prev-month">${prevAccountsMonthLabel}</span>) <span class="${trendColor} font-semibold">${trendIcon}</span>`;
+          const trendDiffLabel = diff > 0 ? `+${diff.toLocaleString()}` : (diff < 0 ? `\u2212${Math.abs(diff).toLocaleString()}` : '0');
+          prevAccountsEl.innerHTML = `${prev.toLocaleString()} total accounts (<span id="span-accounts-prev-month">${prevAccountsMonthLabel}</span>) <span class="${trendColor} font-semibold">${trendIcon} <span class="text-[10px]">${trendDiffLabel}</span></span>`;
       }
 
       // Auditor Next Assignment card
