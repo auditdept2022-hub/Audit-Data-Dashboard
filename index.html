@@ -336,9 +336,16 @@
         // dashboard card below and that table keeps every place that shows
         // "expected audit date" pointed at exactly column AM, so they can
         // never drift out of sync with each other.
+        //
+        // Deliberately NOT gated on auditStatus === 'FOR AUDIT': Audit
+        // Status is itself computed FROM this date by a formula in the
+        // sheet (see the Edit Assignment form's note), so a branch whose
+        // expected date hasn't arrived yet may still show PENDING. Gating
+        // on FOR AUDIT here made the date vanish the moment a refresh
+        // pulled that not-yet-triggered status back in — this always
+        // reflects column AM regardless of status.
         const formatExpectedAuditDate = (b) => {
-            if (!b || (b.auditStatus || '').toUpperCase() !== 'FOR AUDIT') return null;
-            if (!b.expectedAuditDateInput) return null;
+            if (!b || !b.expectedAuditDateInput) return null;
             const d = new Date(b.expectedAuditDateInput + 'T00:00:00');
             return isNaN(d.getTime()) ? null : d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
         };
@@ -6465,10 +6472,7 @@ body.bg-coolDark{
               ? nextUpList.map(b => `
                   <div class="flex items-center justify-between gap-2 text-[10px] leading-tight">
                       <span class="font-medium text-slate-600 truncate">${b.name}</span>
-                      <span class="flex items-center gap-1.5 whitespace-nowrap">
-                          ${b.expectedAuditDate ? `<span class="text-slate-400 truncate max-w-[90px]">${b.expectedAuditDate}</span>` : ''}
-                          <span class="text-slate-400 truncate max-w-[45%]">${b.auditor}</span>
-                      </span>
+                      <span class="text-slate-400 whitespace-nowrap truncate max-w-[45%]">${b.auditor}</span>
                   </div>`).join('')
               : '<p class="text-xs text-slate-500">Nothing queued right now</p>';
       }
