@@ -3382,7 +3382,7 @@ body.bg-coolDark{
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="m9 18 6-6-6-6"></path></svg>
         Swipe sideways to see all columns
       </p>
-      <div id="scorecardScrollWrap" class="overflow-x-auto rounded-xl border border-coolBorder max-h-[600px] overflow-y-auto custom-scrollbar">
+      <div id="scorecardScrollWrap" class="overflow-x-auto rounded-xl border border-coolBorder h-[600px] overflow-y-auto custom-scrollbar">
         <table class="w-full text-left border-collapse bg-white relative" style="table-layout:fixed">
           <colgroup>
             <col style="width:40px">
@@ -7075,11 +7075,15 @@ body.bg-coolDark{
       if (filteredBranches.length === 0) {
         const emptyRow = document.createElement('tr');
         emptyRow.innerHTML = `
-          <td colspan="11" class="p-6 text-center text-xs text-slate-400 italic">
-            No branches match the current filters.
-            ${scorecardBranchFilterActive && scorecardSelectedBranches.size === 0
-              ? ' You cleared the branch selection — <button type="button" onclick="selectAllBranchFilter()" class="text-accentCyan font-semibold not-italic hover:underline cursor-pointer">show all branches</button> or pick some from the Branch filter.'
-              : ' Try adjusting or <button type="button" onclick="resetScorecardFilters()" class="text-accentCyan font-semibold not-italic hover:underline cursor-pointer">resetting the filters</button>.'}
+          <td colspan="11" class="p-0">
+            <div class="h-[520px] flex items-center justify-center text-center text-xs text-slate-400 italic px-6">
+              <span>
+                No branches match the current filters.
+                ${scorecardBranchFilterActive && scorecardSelectedBranches.size === 0
+                  ? ' You cleared the branch selection — <button type="button" onclick="selectAllBranchFilter()" class="text-accentCyan font-semibold not-italic hover:underline cursor-pointer">show all branches</button> or pick some from the Branch filter.'
+                  : ' Try adjusting or <button type="button" onclick="resetScorecardFilters()" class="text-accentCyan font-semibold not-italic hover:underline cursor-pointer">resetting the filters</button>.'}
+              </span>
+            </div>
           </td>`;
         tableBody.appendChild(emptyRow);
       }
