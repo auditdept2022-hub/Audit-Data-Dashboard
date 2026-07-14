@@ -3383,46 +3383,46 @@ body.bg-coolDark{
         Swipe sideways to see all columns
       </p>
       <div id="scorecardScrollWrap" class="overflow-x-auto rounded-xl border border-coolBorder max-h-[600px] overflow-y-auto custom-scrollbar">
-        <table class="w-full text-left border-collapse bg-white relative">
+        <table class="w-full text-left border-collapse bg-white relative" style="table-layout:fixed">
           <colgroup>
-            <col style="width:36px">
-            <col style="width:160px">
+            <col style="width:40px">
+            <col style="width:170px">
             <col style="width:130px">
-            <col style="width:90px">
+            <col style="width:110px">
             <col style="width:110px">
             <col style="width:120px">
             <col style="width:110px">
             <col style="width:110px">
-            <col style="width:100px">
-            <col style="width:100px">
+            <col style="width:120px">
+            <col style="width:110px">
             <col style="width:110px">
           </colgroup>
           <thead class="sticky top-0 bg-gray-50 z-10 shadow-sm border-b border-coolBorder text-xs text-slate-500 tracking-wider font-semibold uppercase">
             <tr>
-              <th class="p-2.5 bg-gray-50 text-center">#</th>
-              <th class="p-2.5 bg-gray-50 cursor-pointer hover:bg-gray-200 active:scale-95 transition-all group select-none" onclick="setScorecardSort('name')">
+              <th class="p-2.5 bg-gray-50 text-center whitespace-nowrap">#</th>
+              <th class="p-2.5 bg-gray-50 cursor-pointer hover:bg-gray-200 active:scale-95 transition-all group select-none whitespace-nowrap" onclick="setScorecardSort('name')">
                 <div class="flex items-center gap-1.5">
                   Branch
                   <span id="sort-ico-name" class="sort-ico"></span>
                 </div>
               </th>
-              <th class="p-2.5 bg-gray-50 text-center">Last Auditor</th>
-              <th class="p-2.5 bg-gray-50 text-center cursor-pointer hover:bg-gray-200 active:scale-95 transition-all group select-none" onclick="setScorecardSort('eff')">
+              <th class="p-2.5 bg-gray-50 text-center whitespace-nowrap">Last Auditor</th>
+              <th class="p-2.5 bg-gray-50 text-center cursor-pointer hover:bg-gray-200 active:scale-95 transition-all group select-none whitespace-nowrap" onclick="setScorecardSort('eff')">
                 <div class="flex items-center justify-center gap-1">Eff <span id="th-eff-month">LATEST</span> <span id="sort-ico-eff" class="sort-ico"></span></div>
               </th>
-              <th class="p-2.5 bg-gray-50 text-center cursor-pointer hover:bg-gray-200 active:scale-95 transition-all group select-none" onclick="setScorecardSort('risk')">
+              <th class="p-2.5 bg-gray-50 text-center cursor-pointer hover:bg-gray-200 active:scale-95 transition-all group select-none whitespace-nowrap" onclick="setScorecardSort('risk')">
                 <div class="flex items-center justify-center gap-1">Risk <span id="sort-ico-risk" class="sort-ico"></span></div>
               </th>
-              <th class="p-2.5 bg-gray-50 text-center">Collection</th>
-              <th class="p-2.5 bg-gray-50 text-center">Sales</th>
-              <th class="p-2.5 bg-gray-50 text-center">Service</th>
-              <th class="p-2.5 bg-gray-50 text-center cursor-pointer hover:bg-gray-200 active:scale-95 transition-all group select-none" onclick="setScorecardSort('findings')">
+              <th class="p-2.5 bg-gray-50 text-center whitespace-nowrap">Collection</th>
+              <th class="p-2.5 bg-gray-50 text-center whitespace-nowrap">Sales</th>
+              <th class="p-2.5 bg-gray-50 text-center whitespace-nowrap">Service</th>
+              <th class="p-2.5 bg-gray-50 text-center cursor-pointer hover:bg-gray-200 active:scale-95 transition-all group select-none whitespace-nowrap" onclick="setScorecardSort('findings')">
                 <div class="flex items-center justify-center gap-1">Findings '26 <span id="sort-ico-findings" class="sort-ico"></span></div>
               </th>
-              <th class="p-2.5 bg-gray-50 text-right cursor-pointer hover:bg-gray-200 active:scale-95 transition-all group select-none" onclick="setScorecardSort('repo')">
+              <th class="p-2.5 bg-gray-50 text-right cursor-pointer hover:bg-gray-200 active:scale-95 transition-all group select-none whitespace-nowrap" onclick="setScorecardSort('repo')">
                 <div class="flex items-center justify-end gap-1">Repo Rate <span id="sort-ico-repo" class="sort-ico"></span></div>
               </th>
-              <th class="p-2.5 bg-gray-50 text-center cursor-pointer hover:bg-gray-200 active:scale-95 transition-all group select-none" onclick="setScorecardSort('audit')">
+              <th class="p-2.5 bg-gray-50 text-center cursor-pointer hover:bg-gray-200 active:scale-95 transition-all group select-none whitespace-nowrap" onclick="setScorecardSort('audit')">
                 <div class="flex items-center justify-center gap-1">Audit <span id="sort-ico-audit" class="sort-ico"></span></div>
               </th>
             </tr>
@@ -7118,8 +7118,8 @@ body.bg-coolDark{
 
         row.innerHTML = `
           <td class="p-2 text-center text-xs font-bold text-slate-400">${index + 1}</td>
-          <td class="p-2 pr-3 font-bold text-slate-800 tracking-tight whitespace-nowrap text-sm">${branch.name}</td>
-          <td class="p-2 text-center">${auditorBadge}</td>
+          <td class="p-2 pr-3 font-bold text-slate-800 tracking-tight whitespace-nowrap overflow-hidden text-ellipsis text-sm" title="${branch.name}">${branch.name}</td>
+          <td class="p-2 text-center overflow-hidden">${auditorBadge}</td>
           <td class="p-2 text-center font-semibold text-slate-600 text-xs">${branch.effLatest}%</td>
           <td class="p-2 text-center">${riskBadge}</td>
           <td class="p-2 text-center">${colBadge}</td>
@@ -7127,7 +7127,7 @@ body.bg-coolDark{
           <td class="p-2 text-center">${servBadge}</td>
           <td class="p-2 text-center"><span class="px-1.5 py-0.5 text-[11px] font-bold bg-slate-200 rounded-md text-slate-600">${branch.findings2026}</span></td>
           <td class="p-2 text-right text-xs ${repoColor}">${branch.repoRate.toFixed(2)}%</td>
-          <td class="p-2 text-center whitespace-nowrap">${doneBadge}</td>
+          <td class="p-2 text-center whitespace-nowrap overflow-hidden">${doneBadge}</td>
         `;
         tableBody.appendChild(row);
       });
