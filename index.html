@@ -329,6 +329,21 @@
             .map(name => ({ name, count: auditorQueueCounts[name] }))
             .sort((a, b) => b.count - a.count);
 
+        // Expected Audit Date (AUDIT DATA (FINAL) column AM) — same value the
+        // Edit Assignment form reads/writes as b.expectedAuditDateInput, and
+        // the same field getBranchAuditRoundInfo() renders in the Assignment
+        // Branches Overview table. Reusing this one helper for both the
+        // dashboard card below and that table keeps every place that shows
+        // "expected audit date" pointed at exactly column AM, so they can
+        // never drift out of sync with each other.
+        const formatExpectedAuditDate = (b) => {
+            if (!b || (b.auditStatus || '').toUpperCase() !== 'FOR AUDIT') return null;
+            if (!b.expectedAuditDateInput) return null;
+            const d = new Date(b.expectedAuditDateInput + 'T00:00:00');
+            return isNaN(d.getTime()) ? null : d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        };
+        window.formatExpectedAuditDate = formatExpectedAuditDate;
+
         // Branch that's been waiting longest since its last audit gets shown
         // as the "up next" branch in the queue (falls back to the first
         // unaudited branch on record if no prior audit date exists).
@@ -384,7 +399,8 @@
         activeData.summary.nextUpBranch = nextUpBranch ? {
             name: nextUpBranch.name,
             auditor: assignedAuditorOf(nextUpBranch),
-            lastAuditDate: nextUpBranch.lastAuditDate || null
+            lastAuditDate: nextUpBranch.lastAuditDate || null,
+            expectedAuditDate: formatExpectedAuditDate(nextUpBranch)
         } : null;
         // Top 5 branches up next in the FOR AUDIT queue (same oldest-waiting-first
         // order as nextUpBranch above), so the Auditor Next Assignment stack card
@@ -392,7 +408,8 @@
         activeData.summary.nextUpBranches = sortedQueue.slice(0, 5).map(b => ({
             name: b.name,
             auditor: assignedAuditorOf(b),
-            lastAuditDate: b.lastAuditDate || null
+            lastAuditDate: b.lastAuditDate || null,
+            expectedAuditDate: formatExpectedAuditDate(b)
         }));
         activeData.summary.lastAuditedBranch = lastAuditedBranch ? {
             name: lastAuditedBranch.name,
@@ -4805,6 +4822,15 @@ body.bg-coolDark{
       const isForAudit = (b.auditStatus || '').toUpperCase() === 'FOR AUDIT';
       const upNextAuditor = isForAudit ? queuedAuditor : null;
 
+      // Expected Audit Date (AUDIT DATA (FINAL) column AM) — shown right next
+      // to Up Next Auditor in the Assignment Branches Overview table. Uses
+      // the same window.formatExpectedAuditDate helper as the AUDITOR NEXT
+      // ASSIGNMENT dashboard card, so both places always read column AM the
+      // same way and can never drift out of sync with each other.
+      const expectedAuditDate = window.formatExpectedAuditDate ? window.formatExpectedAuditDate(b) : null;
+      const expectedDateRaw = b.expectedAuditDateInput ? new Date(b.expectedAuditDateInput + 'T00:00:00') : null;
+      const expectedAuditDateRawMs = (expectedAuditDate && expectedDateRaw && !isNaN(expectedDateRaw.getTime())) ? expectedDateRaw.getTime() : null;
+
       if (dated.length > 0) {
           const recent = dated[dated.length - 1];
           const last = dated.length > 1 ? dated[dated.length - 2] : null;
@@ -4817,7 +4843,9 @@ body.bg-coolDark{
               lastAuditor: last ? (last.auditor || 'Unassigned') : null,
               intervalDays: Math.round((today - recent.dateRaw) / 86400000),
               roundsCount: dated.length,
-              upNextAuditor: upNextAuditor
+              upNextAuditor: upNextAuditor,
+              expectedAuditDate: expectedAuditDate,
+              expectedAuditDateRaw: expectedAuditDateRawMs
           };
       }
 
@@ -4834,7 +4862,9 @@ body.bg-coolDark{
           lastAuditor: null,
           intervalDays: (b.lastAuditDateRaw !== null && b.lastAuditDateRaw !== undefined) ? Math.round((today - b.lastAuditDateRaw) / 86400000) : null,
           roundsCount: b.lastAuditDate ? 1 : 0,
-          upNextAuditor: upNextAuditor
+          upNextAuditor: upNextAuditor,
+          expectedAuditDate: expectedAuditDate,
+          expectedAuditDateRaw: expectedAuditDateRawMs
       };
     }
 
@@ -4980,6 +5010,7 @@ body.bg-coolDark{
           last: (x, y) => ((x.info.lastDateRaw ?? -Infinity) - (y.info.lastDateRaw ?? -Infinity)) * dir,
           recent: (x, y) => ((x.info.recentDateRaw ?? -Infinity) - (y.info.recentDateRaw ?? -Infinity)) * dir,
           upnext: (x, y) => String(x.info.upNextAuditor || '').localeCompare(String(y.info.upNextAuditor || '')) * dir,
+          expected: (x, y) => ((x.info.expectedAuditDateRaw ?? -Infinity) - (y.info.expectedAuditDateRaw ?? -Infinity)) * dir,
           // Sorts on the precise day count underneath the "N months and M
           // days" label, so it orders correctly even though the label
           // itself is rounded to whole days.
@@ -4988,38 +5019,39 @@ body.bg-coolDark{
       rows.sort(sorters[assignmentSortField] || sorters.recent);
 
       const sortHeader = (field, label, align) => `
-        <th class="p-2.5 bg-gray-50 ${align === 'center' ? 'text-center' : 'text-left'} cursor-pointer hover:bg-gray-200 active:scale-95 transition-all group select-none whitespace-nowrap" onclick="setAssignmentSort('${field}')">
-          <div class="flex items-center ${align === 'center' ? 'justify-center' : ''} gap-1.5">${label} ${assignmentSortIcon(field)}</div>
+        <th class="p-1.5 bg-gray-50 ${align === 'center' ? 'text-center' : 'text-left'} cursor-pointer hover:bg-gray-200 active:scale-95 transition-all group select-none whitespace-nowrap leading-tight" onclick="setAssignmentSort('${field}')">
+          <div class="flex items-center ${align === 'center' ? 'justify-center' : ''} gap-1">${label} ${assignmentSortIcon(field)}</div>
         </th>`;
 
       let html = `
-      <div class="rounded-xl border border-coolBorder max-h-[60vh] overflow-auto custom-scrollbar">
-        <table class="w-full min-w-[720px] text-left border-collapse bg-white relative">
-          <thead class="bg-gray-50 border-b border-coolBorder text-xs text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-10 shadow-sm">
+      <div class="rounded-xl border border-coolBorder max-h-[72vh] overflow-auto custom-scrollbar">
+        <table class="w-full min-w-[820px] text-left border-collapse bg-white relative">
+          <thead class="bg-gray-50 border-b border-coolBorder text-[10px] text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-10 shadow-sm">
             <tr>
-              <th class="p-2.5 bg-gray-50 text-center w-8 whitespace-nowrap">#</th>
+              <th class="p-1.5 bg-gray-50 text-center w-8 whitespace-nowrap">#</th>
               ${sortHeader('name', 'Branch', 'left')}
               ${sortHeader('upnext', 'Up Next Auditor', 'center')}
+              ${sortHeader('expected', 'Expected Audit Date', 'center')}
               ${sortHeader('last', 'Last Audit Date / Auditor', 'center')}
               ${sortHeader('recent', 'Recent Audit Date / Auditor', 'center')}
               ${sortHeader('interval', 'Audit Interval (to date)', 'center')}
             </tr>
           </thead>
-          <tbody class="divide-y divide-coolBorder text-sm">
+          <tbody class="divide-y divide-coolBorder text-xs">
       `;
 
       rows.forEach(({ b, info }, index) => {
           const auditorPill = (name) => name && name !== 'Unassigned'
-              ? `<span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 rounded-md border border-slate-200">${escapeHTML(name)}</span>`
-              : `<span class="text-xs text-slate-400 italic">Unassigned</span>`;
+              ? `<span class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 rounded-md border border-slate-200 leading-tight">${escapeHTML(name)}</span>`
+              : `<span class="text-[10px] text-slate-400 italic">Unassigned</span>`;
 
           const lastCell = info.lastDate
-              ? `<div class="flex flex-col items-center gap-1"><span class="text-xs font-semibold text-slate-700">${escapeHTML(info.lastDate)}</span>${auditorPill(info.lastAuditor)}</div>`
-              : `<span class="text-xs text-slate-400 italic">No prior round</span>`;
+              ? `<div class="flex flex-col items-center gap-0.5"><span class="text-[10px] font-semibold text-slate-700 leading-tight">${escapeHTML(info.lastDate)}</span>${auditorPill(info.lastAuditor)}</div>`
+              : `<span class="text-[10px] text-slate-400 italic">No prior round</span>`;
 
           const recentCell = info.recentDate
-              ? `<div class="flex flex-col items-center gap-1"><span class="text-xs font-semibold text-slate-700">${escapeHTML(info.recentDate)}</span>${auditorPill(info.recentAuditor)}</div>`
-              : `<div class="flex flex-col items-center gap-1"><span class="text-xs text-slate-400 italic">Not yet audited</span>${auditorPill(info.recentAuditor)}</div>`;
+              ? `<div class="flex flex-col items-center gap-0.5"><span class="text-[10px] font-semibold text-slate-700 leading-tight">${escapeHTML(info.recentDate)}</span>${auditorPill(info.recentAuditor)}</div>`
+              : `<div class="flex flex-col items-center gap-0.5"><span class="text-[10px] text-slate-400 italic">Not yet audited</span>${auditorPill(info.recentAuditor)}</div>`;
 
           // "Up Next Auditor" — who's queued for the branch's NEXT round
           // (AUDIT DATA (FINAL) column AW, assignedAuditorRaw), but ONLY once
@@ -5028,24 +5060,33 @@ body.bg-coolDark{
           // rather than the neutral slate pill used for past rounds, so
           // it's visually distinct as "not done yet" at a glance.
           const upNextCell = info.upNextAuditor === null
-              ? `<span class="text-xs text-slate-300">—</span>`
+              ? `<span class="text-[10px] text-slate-300">—</span>`
               : (info.upNextAuditor !== 'Unassigned'
-                  ? `<span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-accentAmber/10 text-accentAmber rounded-md border border-accentAmber/20">${escapeHTML(info.upNextAuditor)}</span>`
-                  : `<span class="text-xs text-slate-400 italic">Unassigned</span>`);
+                  ? `<span class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-accentAmber/10 text-accentAmber rounded-md border border-accentAmber/20 leading-tight">${escapeHTML(info.upNextAuditor)}</span>`
+                  : `<span class="text-[10px] text-slate-400 italic">Unassigned</span>`);
+
+          // Expected Audit Date — AUDIT DATA (FINAL) column AM, via the same
+          // window.formatExpectedAuditDate helper the dashboard card uses, so
+          // this cell always reflects exactly what's saved in the Edit
+          // Assignment form's Expected Audit Date field.
+          const expectedCell = info.expectedAuditDate
+              ? `<span class="text-[10px] font-semibold text-slate-700 leading-tight">${escapeHTML(info.expectedAuditDate)}</span>`
+              : `<span class="text-[10px] text-slate-300">—</span>`;
 
           const intervalLabel = formatIntervalMonthsDays(info.intervalDays);
           const intervalCell = intervalLabel !== null
-              ? `<span class="px-2 py-0.5 text-[11px] font-bold bg-accentEmerald/10 text-accentEmerald border border-accentEmerald/20 rounded-lg whitespace-nowrap">${intervalLabel}</span>`
-              : `<span class="text-xs text-slate-400 italic">—</span>`;
+              ? `<span class="px-1.5 py-0.5 text-[10px] font-bold bg-accentEmerald/10 text-accentEmerald border border-accentEmerald/20 rounded-lg whitespace-nowrap leading-tight">${intervalLabel}</span>`
+              : `<span class="text-[10px] text-slate-400 italic">—</span>`;
 
           html += `
               <tr class="${index % 2 === 1 ? 'bg-gray-50/50' : ''} hover:bg-accentCyan/10 cursor-pointer active:scale-[0.99] transition-colors" onclick="openModalDetail('${escapeFindingHTML(b.name)}')">
-                  <td class="p-2 text-center text-xs font-bold text-slate-400">${index + 1}</td>
-                  <td class="p-2 font-bold text-slate-800 text-sm break-words">${escapeHTML(b.name)}</td>
-                  <td class="p-2 text-center">${upNextCell}</td>
-                  <td class="p-2 text-center">${lastCell}</td>
-                  <td class="p-2 text-center">${recentCell}</td>
-                  <td class="p-2 text-center">${intervalCell}</td>
+                  <td class="p-1.5 text-center text-[10px] font-bold text-slate-400">${index + 1}</td>
+                  <td class="p-1.5 font-bold text-slate-800 text-xs break-words leading-tight">${escapeHTML(b.name)}</td>
+                  <td class="p-1.5 text-center">${upNextCell}</td>
+                  <td class="p-1.5 text-center">${expectedCell}</td>
+                  <td class="p-1.5 text-center">${lastCell}</td>
+                  <td class="p-1.5 text-center">${recentCell}</td>
+                  <td class="p-1.5 text-center">${intervalCell}</td>
               </tr>
           `;
       });
@@ -6424,7 +6465,10 @@ body.bg-coolDark{
               ? nextUpList.map(b => `
                   <div class="flex items-center justify-between gap-2 text-[10px] leading-tight">
                       <span class="font-medium text-slate-600 truncate">${b.name}</span>
-                      <span class="text-slate-400 whitespace-nowrap truncate max-w-[45%]">${b.auditor}</span>
+                      <span class="flex items-center gap-1.5 whitespace-nowrap">
+                          ${b.expectedAuditDate ? `<span class="text-slate-400 truncate max-w-[90px]">${b.expectedAuditDate}</span>` : ''}
+                          <span class="text-slate-400 truncate max-w-[45%]">${b.auditor}</span>
+                      </span>
                   </div>`).join('')
               : '<p class="text-xs text-slate-500">Nothing queued right now</p>';
       }
