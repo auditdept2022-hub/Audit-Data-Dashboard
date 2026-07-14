@@ -351,10 +351,9 @@
         };
         window.formatExpectedAuditDate = formatExpectedAuditDate;
 
-        // Branch that's been waiting longest since its last audit gets shown
-        // as the "up next" branch in the queue (falls back to the first
-        // unaudited branch on record if no prior audit date exists).
-        const sortedQueue = [...forAuditList].sort((a, b) => (a.lastAuditDateRaw || 0) - (b.lastAuditDateRaw || 0));
+        // Branch queue for the AUDITOR NEXT ASSIGNMENT card, sorted by last
+        // audit date Z-A (most recent last-audit date first, descending).
+        const sortedQueue = [...forAuditList].sort((a, b) => (b.lastAuditDateRaw || 0) - (a.lastAuditDateRaw || 0));
         const nextUpBranch = sortedQueue[0] || null;
 
         // --- Branch Last Audited: most recently completed audit(s) across the whole portfolio ---
