@@ -7815,20 +7815,19 @@ body.bg-coolDark{
     const appsScriptSecret = "OjJVzkvsH8v2LoJWAHNYU4jU_CUNQ8dTexrgyURVKCA";
 
     /* ================= QUICK LINKS (password-gated) =================
-       These use a SEPARATE, small Apps Script web app (not the one above)
-       whose only job is: given a valid, freshly re-confirmed Firebase ID
+       Quick Links now lives in the SAME Apps Script project/deployment as
+       everything else (see Code.gs) — it's no longer a separate web app,
+       so there's only one /exec URL and one auth check to keep in sync.
+       Its job is still: given a valid, freshly re-confirmed Firebase ID
        token for an allow-listed user, redirect to one specific Google
        Sheet. The real spreadsheet URLs never appear anywhere in this
-       HTML file — only Quick_Links.gs (deployed separately) knows them.
-       See the matching Apps Script file for the server-side half of this. */
+       HTML file — only Code.gs (server-side) knows them. */
 
-    // TODO: after deploying the Quick_Links.gs Apps Script as a web app,
-    // paste its /exec URL here.
-    const quickLinksAppsScriptUrl = "https://script.google.com/macros/s/AKfycbxHO5MkF8JQjnzJni6yF1EWwwCJQykIC8VsXXKlD-wd1eY9gf4VDku-tlbkbjDPdNsaxA/exec";
+    const quickLinksAppsScriptUrl = defaultAppsScriptUrl;
 
-    // Optional extra layer, must match API_SHARED_SECRET in Quick_Links.gs.
-    // Leave both blank ("") if you don't want this extra check.
-    const quickLinksAppsScriptSecret = "";
+    // Must match API_SHARED_SECRET in Script Properties — same secret the
+    // rest of the dashboard already sends as `secret` on every request.
+    const quickLinksAppsScriptSecret = appsScriptSecret;
 
     let pendingQuickLink = null; // { id, label } for the link currently being confirmed
 
@@ -7908,7 +7907,7 @@ body.bg-coolDark{
         if (!idToken) throw new Error('No ID token available.');
         let openUrl = quickLinksAppsScriptUrl +
           '?action=open&id=' + encodeURIComponent(pending.id) +
-          '&token=' + encodeURIComponent(idToken);
+          '&idToken=' + encodeURIComponent(idToken);
         if (quickLinksAppsScriptSecret) {
           openUrl += '&secret=' + encodeURIComponent(quickLinksAppsScriptSecret);
         }
