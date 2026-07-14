@@ -7056,6 +7056,36 @@ body.bg-coolDark{
           }
           activeData.summary.trendLabels = monthLabels;
 
+          // Expected Audit Date (AUDIT DATA (FINAL) column AM) — read
+          // straight from the AUDIT DATA (FINAL) sheet itself rather than
+          // relying on DASHBOARDDATA's supposed mirror of that column,
+          // which is where this value was going missing: DASHBOARDDATA's
+          // own column AM doesn't reliably carry it even when it's plainly
+          // present on AUDIT DATA (FINAL). Built once here as a
+          // branch-name -> raw cell lookup, then consulted per-branch
+          // below (falling back to DASHBOARDDATA's row[38] only if this
+          // sheet isn't present at all, e.g. an older export).
+          const auditDataFinalExpectedMap = {};
+          const auditDataFinalSheetName = workbook.SheetNames.find(n => n.toUpperCase().replace(/[\s_]/g, '').includes("AUDITDATA"));
+          if (auditDataFinalSheetName) {
+              const auditDataFinalSheet = workbook.Sheets[auditDataFinalSheetName];
+              const auditDataFinalRows = XLSX.utils.sheet_to_json(auditDataFinalSheet, { header: 1 });
+              let adfHeaderRowIndex = 0;
+              for (let i = 0; i < Math.min(20, auditDataFinalRows.length); i++) {
+                  if (auditDataFinalRows[i] && auditDataFinalRows[i].some(cell => String(cell).toUpperCase().trim() === 'BRANCHES')) {
+                      adfHeaderRowIndex = i;
+                      break;
+                  }
+              }
+              for (let i = adfHeaderRowIndex + 1; i < auditDataFinalRows.length; i++) {
+                  const r = auditDataFinalRows[i];
+                  if (!r || r.length === 0) continue;
+                  const rawBranch = String(r[1] || r[0] || "").trim();
+                  if (!rawBranch) continue;
+                  auditDataFinalExpectedMap[normalizeName(rawBranch)] = r[38];
+              }
+          }
+
           for (let i = startIdx; i < rawRows.length; i++) {
             const row = rawRows[i];
             if (!row || row.length === 0) continue;
@@ -7124,7 +7154,16 @@ body.bg-coolDark{
             // truly blank auditor AND blank date is left blank here (not
             // carried over from any other sheet), so clearing a round in
             // the sheet clears it in the form too.
-            const expectedDateParsed = parseSheetDate(row[38]);
+            //
+            // Expected Audit Date specifically prefers the value looked up
+            // directly from the AUDIT DATA (FINAL) sheet (built above),
+            // since DASHBOARDDATA's own column AM doesn't reliably carry
+            // it. Falls back to this row's own column AM only if that
+            // sheet wasn't present in the file at all.
+            const expectedDateRawCell = Object.prototype.hasOwnProperty.call(auditDataFinalExpectedMap, normalizedInput)
+                ? auditDataFinalExpectedMap[normalizedInput]
+                : row[38];
+            const expectedDateParsed = parseSheetDate(expectedDateRawCell);
             const assignmentRoundDefs = [
                 { round: 1, auditor: row[40], date: row[41] },
                 { round: 2, auditor: row[42], date: row[43] },
