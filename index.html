@@ -2922,7 +2922,7 @@ body.bg-coolDark{
         </div>
       </div>
 
-      <div onclick="openModal('Improving Collection Overview', 'collection', 'Improving')" class="bg-coolCard border border-coolBorder rounded-2xl p-4 sm:p-5 hover:border-accentEmerald/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
+      <div onclick="openModal('Collection Status Overview', 'collection', 'ALL')" class="bg-coolCard border border-coolBorder rounded-2xl p-4 sm:p-5 hover:border-accentEmerald/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
         <div class="flex items-center justify-between">
           <span class="text-xs font-semibold tracking-wider text-slate-500">COLLECTION STATUS</span>
           <span class="p-1.5 bg-accentEmerald/10 text-accentEmerald rounded-lg group-hover:bg-accentEmerald group-hover:text-white transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trending-up w-4 h-4"><path d="M16 7h6v6"></path><path d="m22 7-8.5 8.5-5-5L2 17"></path></svg></span>
@@ -2933,7 +2933,7 @@ body.bg-coolDark{
         </div>
       </div>
 
-      <div onclick="openModal('Improving Sales Overview', 'sales', 'Improving')" class="bg-coolCard border border-coolBorder rounded-2xl p-4 sm:p-5 hover:border-accentIndigo/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
+      <div onclick="openModal('Sales Status Overview', 'sales', 'ALL')" class="bg-coolCard border border-coolBorder rounded-2xl p-4 sm:p-5 hover:border-accentIndigo/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
         <div class="flex items-center justify-between">
           <span class="text-xs font-semibold tracking-wider text-slate-500">SALES STATUS</span>
           <span class="p-1.5 bg-accentIndigo/10 text-accentIndigo rounded-lg group-hover:bg-accentIndigo group-hover:text-white transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-shopping-cart w-4 h-4"><circle cx="8" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"></path></svg></span>
@@ -2944,7 +2944,7 @@ body.bg-coolDark{
         </div>
       </div>
 
-      <div onclick="openModal('Service Target Overview', 'service', 'Target')" class="bg-coolCard border border-coolBorder rounded-2xl p-4 sm:p-5 hover:border-accentCyan/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
+      <div onclick="openModal('Service Status Overview', 'service', 'ALL')" class="bg-coolCard border border-coolBorder rounded-2xl p-4 sm:p-5 hover:border-accentCyan/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
         <div class="flex items-center justify-between">
           <span class="text-xs font-semibold tracking-wider text-slate-500">SERVICE STATUS</span>
           <span class="p-1.5 bg-accentCyan/10 text-accentCyan rounded-lg group-hover:bg-accentCyan group-hover:text-white transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-target w-4 h-4"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg></span>
@@ -6076,8 +6076,8 @@ body.bg-coolDark{
     // accounts, same desc → asc → default cycle as the other sortable tables.
     function renderAccountsModalTable() {
       let list = [...activeData.branches];
-      if (window.accountsModalSort === 'desc') list.sort((a, b) => (b.noOfRepoLatest || 0) - (a.noOfRepoLatest || 0));
-      else if (window.accountsModalSort === 'asc') list.sort((a, b) => (a.noOfRepoLatest || 0) - (b.noOfRepoLatest || 0));
+      if (window.accountsModalSort === 'desc') list.sort((a, b) => (b.accountsMay || 0) - (a.accountsMay || 0));
+      else if (window.accountsModalSort === 'asc') list.sort((a, b) => (a.accountsMay || 0) - (b.accountsMay || 0));
       else list.sort((a, b) => b.accountsMay - a.accountsMay);
 
       const tableContainer = document.getElementById('modalTableContainer');
@@ -6233,7 +6233,10 @@ body.bg-coolDark{
         let year = filterValue.replace('findings', '');
         extraColHeader = `<th class="p-2 bg-gray-50 text-center font-bold text-accentCyan whitespace-nowrap">Findings ${year}</th>`;
       } else if (type === 'accounts') {
-        extraColHeader = `<th class="p-2 bg-gray-50 text-center font-bold text-accentCyan whitespace-nowrap">Total Accounts</th><th class="p-2 bg-gray-50 text-center font-bold text-accentBlue whitespace-nowrap">Total (3-Mo)</th>`;
+        const acctSortState = window.accountsModalSort || null;
+        const acctSortIcon = acctSortState === 'desc' ? '↓' : (acctSortState === 'asc' ? '↑' : '↕');
+        const acctTrendLbls = activeData.summary.trendLabels || ["MAR", "APR", "MAY"];
+        extraColHeader = `<th class="p-2 bg-gray-50 text-center font-bold text-accentCyan border-r border-coolBorder whitespace-nowrap cursor-pointer select-none hover:text-accentIndigo transition-colors" onclick="toggleAccountsRepoSort()">Total Accounts ${acctTrendLbls[2]} <span class="inline-block ml-0.5">${acctSortIcon}</span></th>`;
       }
 
       // Only show the status column(s) relevant to what was clicked.
@@ -6251,7 +6254,7 @@ body.bg-coolDark{
       // The Sales popup swaps the Auditor column out for an Expected Sales
       // (INS/COD) column, shown right next to the Sales status column --
       // Auditor isn't relevant when you're looking specifically at sales.
-      const showAuditorCol = (type !== 'findings' && type !== 'sales' && type !== 'accounts');
+      const showAuditorCol = (type !== 'findings' && type !== 'sales' && type !== 'accounts' && type !== 'collection');
       // Edit now lives as a single icon button in the modal's header, right
       // next to Download (see openHeaderEditAssignment) — not as a per-row
       // column. A per-row Edit button in a list of dozens of branches was
@@ -6279,7 +6282,10 @@ body.bg-coolDark{
         detailHeaders = `
           <th class="p-2 bg-gray-50 text-center">Eff ${trendLbls[0]}</th>
           <th class="p-2 bg-gray-50 text-center">Eff ${trendLbls[1]}</th>
-          <th class="p-2 bg-gray-50 text-center cursor-pointer select-none hover:text-accentIndigo transition-colors" onclick="toggleCollectionSort()">Eff ${trendLbls[2]} <span class="inline-block ml-0.5">${sortIcon}</span></th>`;
+          <th class="p-2 bg-gray-50 text-center cursor-pointer select-none hover:text-accentIndigo transition-colors" onclick="toggleCollectionSort()">Eff ${trendLbls[2]} <span class="inline-block ml-0.5">${sortIcon}</span></th>
+          <th class="p-2 bg-gray-50 text-center border-l border-coolBorder whitespace-nowrap">Repo ${trendLbls[0]}</th>
+          <th class="p-2 bg-gray-50 text-center whitespace-nowrap">Repo ${trendLbls[1]}</th>
+          <th class="p-2 bg-gray-50 text-center whitespace-nowrap">Repo ${trendLbls[2]}</th>`;
         showEffRepo = false;
       } else if (type === 'sales') {
         const sortState = (window.modalFilterState && window.modalFilterState.avgSort) || null;
@@ -6331,16 +6337,13 @@ body.bg-coolDark{
           <th class="p-2 bg-gray-50 text-center whitespace-nowrap" title="Findings by year — from AUDIT FINDINGS sheet">Findings ('24 · '25 · '26)</th>`;
         showEffRepo = false;
       } else if (type === 'accounts') {
-        // Repo count trend across the last 3 months, in place of the
-        // Collection/Sales/Service status columns — lets you see at a
-        // glance which branches are picking up repo accounts. Sorting is
-        // on the latest month only (see toggleAccountsRepoSort).
-        const sortState = window.accountsModalSort || null;
-        const sortIcon = sortState === 'desc' ? '↓' : (sortState === 'asc' ? '↑' : '↕');
+        // Monthly accounts trend across the first two trend months, with
+        // the latest month + trend indicator living in the sortable
+        // "Total Accounts" column (extraColHeader/extraColCell) — mirrors
+        // the layout used for the repo trend columns elsewhere.
         detailHeaders = `
-          <th class="p-2 bg-gray-50 text-center border-l border-coolBorder whitespace-nowrap">Repo ${trendLbls[0]}</th>
-          <th class="p-2 bg-gray-50 text-center whitespace-nowrap">Repo ${trendLbls[1]}</th>
-          <th class="p-2 bg-gray-50 text-center border-r border-coolBorder whitespace-nowrap cursor-pointer select-none hover:text-accentIndigo transition-colors" onclick="toggleAccountsRepoSort()">Repo ${trendLbls[2]} <span class="inline-block ml-0.5">${sortIcon}</span></th>`;
+          <th class="p-2 bg-gray-50 text-center border-l border-coolBorder whitespace-nowrap">${trendLbls[0]}</th>
+          <th class="p-2 bg-gray-50 text-center whitespace-nowrap">${trendLbls[1]}</th>`;
         showEffRepo = false;
       }
 
@@ -6373,15 +6376,13 @@ body.bg-coolDark{
             const acctUp = acctLatest > acctMar, acctFlat = acctLatest === acctMar;
             const acctIcon = acctFlat ? '→' : (acctUp ? '▲' : '▼');
             const acctColor = acctFlat ? 'text-slate-400' : (acctUp ? 'text-accentEmerald' : 'text-accentRose');
-            const acctTotal3Mo = (b.accountsMar || 0) + (b.accountsApr || 0) + (b.accountsMay || 0);
             extraColCell = `
-              <td class="p-2 text-center bg-gray-50/50">
+              <td class="p-2 text-center border-r border-coolBorder bg-gray-50/50">
                 <div class="flex items-center justify-center gap-1.5">
                   <span class="font-bold text-slate-900">${acctLatest.toLocaleString()}</span>
                   <span class="${acctColor} text-[10px]">${acctIcon}</span>
                 </div>
-              </td>
-              <td class="p-2 text-center font-bold text-accentBlue">${acctTotal3Mo.toLocaleString()}</td>`;
+              </td>`;
           }
 
           const auditorBadge = b.auditor === 'UNASSIGNED' 
@@ -6428,6 +6429,9 @@ body.bg-coolDark{
             const effUp = b.effLatest > b.effMar, effFlat = b.effLatest === b.effMar;
             const effIcon = effFlat ? '→' : (effUp ? '▲' : '▼');
             const effColor = effFlat ? 'text-slate-400' : (effUp ? 'text-accentEmerald' : 'text-accentRose');
+            const repoMarRate = Number(b.repoRateMar) || 0;
+            const repoAprRate = Number(b.repoRateApr) || 0;
+            const repoLatestRate = Number(b.repoRateLatest ?? b.repoRate) || 0;
             detailCells = `
               <td class="p-2 text-center text-slate-600">${b.effMar}%</td>
               <td class="p-2 text-center text-slate-600">${b.effApr}%</td>
@@ -6436,7 +6440,10 @@ body.bg-coolDark{
                   <span class="font-semibold text-slate-800">${b.effLatest}%</span>
                   <span class="${effColor} text-[10px]">${effIcon}</span>
                 </div>
-              </td>`;
+              </td>
+              <td class="p-2 text-center text-slate-600 border-l border-coolBorder">${repoMarRate.toFixed(2)}%</td>
+              <td class="p-2 text-center text-slate-600">${repoAprRate.toFixed(2)}%</td>
+              <td class="p-2 text-center ${repoLatestRate > 7 ? 'text-accentRose font-bold' : 'text-slate-600'}">${repoLatestRate.toFixed(2)}%</td>`;
           } else if (type === 'sales') {
             const avgSales = computeAvgSales(b);
             const fmtMonth = (m, border) => `
@@ -6502,19 +6509,9 @@ body.bg-coolDark{
                 </span>
               </td>`;
           } else if (type === 'accounts') {
-            const repoMar = b.noOfRepoMar || 0, repoApr = b.noOfRepoApr || 0, repoLatest = b.noOfRepoLatest || 0;
-            const repoUp = repoLatest > repoMar, repoFlat = repoLatest === repoMar;
-            const repoIcon = repoFlat ? '→' : (repoUp ? '▲' : '▼');
-            const repoColor = repoFlat ? 'text-slate-400' : (repoUp ? 'text-accentRose' : 'text-accentEmerald');
             detailCells = `
-              <td class="p-2 text-center text-slate-600 border-l border-coolBorder">${repoMar}</td>
-              <td class="p-2 text-center text-slate-600">${repoApr}</td>
-              <td class="p-2 text-center border-r border-coolBorder">
-                <div class="flex items-center justify-center gap-1.5">
-                  <span class="font-semibold text-slate-800">${repoLatest}</span>
-                  <span class="${repoColor} text-[10px]">${repoIcon}</span>
-                </div>
-              </td>`;
+              <td class="p-2 text-center text-slate-600 border-l border-coolBorder">${(b.accountsMar || 0).toLocaleString()}</td>
+              <td class="p-2 text-center text-slate-600">${(b.accountsApr || 0).toLocaleString()}</td>`;
           }
 
           // Findings-modal rows focus in on just that branch (instead of
