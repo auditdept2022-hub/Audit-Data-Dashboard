@@ -6119,7 +6119,7 @@ body.bg-coolDark{
         </div>
         <div class="p-2 bg-accentIndigo/10 border border-accentIndigo/20 rounded-xl text-center">
           <div class="text-xl font-extrabold text-accentIndigo">${meanAvg}</div>
-          <div class="text-[10px] font-bold text-accentIndigo/80 uppercase tracking-wider">3-Month Avg Sales (INS − CA)</div>
+          <div class="text-[8px] leading-tight font-bold text-accentIndigo/80 uppercase tracking-tight px-0.5">3-Mo Avg Sales (INS−CA)</div>
         </div>
       </div>
       ${top ? `<div class="flex justify-end mb-2 px-1 text-[11px] text-slate-500">Top performer: <strong class="text-slate-700 ml-1">${top.name}</strong> <span class="text-accentIndigo font-bold ml-1">(${computeAvgSales(top)})</span></div>` : ''}`;
@@ -6233,7 +6233,7 @@ body.bg-coolDark{
         let year = filterValue.replace('findings', '');
         extraColHeader = `<th class="p-2 bg-gray-50 text-center font-bold text-accentCyan whitespace-nowrap">Findings ${year}</th>`;
       } else if (type === 'accounts') {
-        extraColHeader = `<th class="p-2 bg-gray-50 text-center font-bold text-accentCyan">Total Accounts</th>`;
+        extraColHeader = `<th class="p-2 bg-gray-50 text-center font-bold text-accentCyan whitespace-nowrap">Total Accounts</th><th class="p-2 bg-gray-50 text-center font-bold text-accentBlue whitespace-nowrap">Total (3-Mo)</th>`;
       }
 
       // Only show the status column(s) relevant to what was clicked.
@@ -6251,7 +6251,7 @@ body.bg-coolDark{
       // The Sales popup swaps the Auditor column out for an Expected Sales
       // (INS/COD) column, shown right next to the Sales status column --
       // Auditor isn't relevant when you're looking specifically at sales.
-      const showAuditorCol = (type !== 'findings' && type !== 'sales');
+      const showAuditorCol = (type !== 'findings' && type !== 'sales' && type !== 'accounts');
       // Edit now lives as a single icon button in the modal's header, right
       // next to Download (see openHeaderEditAssignment) — not as a per-row
       // column. A per-row Edit button in a list of dozens of branches was
@@ -6285,25 +6285,33 @@ body.bg-coolDark{
         const sortState = (window.modalFilterState && window.modalFilterState.avgSort) || null;
         const sortIcon = sortState === 'desc' ? '↓' : (sortState === 'asc' ? '↑' : '↕');
         detailHeaders = `
-          <th class="p-2 bg-gray-50 text-center border-l border-coolBorder">
+          <th class="p-1.5 bg-gray-50 text-center border-l border-coolBorder whitespace-nowrap">
             ${trendLbls[0]}<br>
-            <span class="inline-flex gap-1.5 mt-0.5 text-[9px] font-bold normal-case">
+            <span class="inline-flex gap-1 mt-0.5 text-[9px] font-bold normal-case">
               <span class="text-accentEmerald">INS</span><span class="text-accentBlue">COD</span><span class="text-accentRose">CA</span>
             </span>
           </th>
-          <th class="p-2 bg-gray-50 text-center">
+          <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">
             ${trendLbls[1]}<br>
-            <span class="inline-flex gap-1.5 mt-0.5 text-[9px] font-bold normal-case">
+            <span class="inline-flex gap-1 mt-0.5 text-[9px] font-bold normal-case">
               <span class="text-accentEmerald">INS</span><span class="text-accentBlue">COD</span><span class="text-accentRose">CA</span>
             </span>
           </th>
-          <th class="p-2 bg-gray-50 text-center border-r border-coolBorder">
+          <th class="p-1.5 bg-gray-50 text-center border-r border-coolBorder whitespace-nowrap">
             ${trendLbls[2]}<br>
-            <span class="inline-flex gap-1.5 mt-0.5 text-[9px] font-bold normal-case">
+            <span class="inline-flex gap-1 mt-0.5 text-[9px] font-bold normal-case">
               <span class="text-accentEmerald">INS</span><span class="text-accentBlue">COD</span><span class="text-accentRose">CA</span>
             </span>
           </th>
-          <th class="p-2 bg-gray-50 text-center cursor-pointer select-none hover:text-accentIndigo transition-colors" onclick="toggleSalesSort()">3-Month Avg Sales (INS − CA) <span class="inline-block ml-0.5">${sortIcon}</span></th>`;
+          <th class="p-1.5 bg-gray-50 text-center border-r border-coolBorder whitespace-nowrap">
+            Total (3-Mo)<br>
+            <span class="inline-flex gap-1 mt-0.5 text-[9px] font-bold normal-case">
+              <span class="text-accentEmerald">INS</span><span class="text-accentBlue">COD</span><span class="text-accentRose">CA</span>
+            </span>
+          </th>
+          <th class="p-1.5 bg-gray-50 text-center cursor-pointer select-none hover:text-accentIndigo transition-colors whitespace-nowrap" onclick="toggleSalesSort()" title="3-Month Avg Sales (INS − CA)">
+            <span class="text-[9px] leading-tight normal-case font-bold inline-block align-middle">3-Mo Avg<br>Sales (INS−CA)</span> <span class="inline-block ml-0.5 align-middle">${sortIcon}</span>
+          </th>`;
         showEffRepo = false;
       } else if (type === 'service') {
         const sortState = (window.modalFilterState && window.modalFilterState.serviceSort) || null;
@@ -6361,7 +6369,19 @@ body.bg-coolDark{
             rowShowsFindingsToggle = true;
             extraColCell = `<td class="p-2 text-center font-bold text-accentCyan">${b[filterValue] || 0}</td>`;
           } else if (type === 'accounts') {
-            extraColCell = `<td class="p-2 text-center font-bold text-slate-900 bg-gray-50/50">${(b.accountsMay || 0).toLocaleString()}</td>`;
+            const acctMar = b.accountsMar || 0, acctLatest = b.accountsMay || 0;
+            const acctUp = acctLatest > acctMar, acctFlat = acctLatest === acctMar;
+            const acctIcon = acctFlat ? '→' : (acctUp ? '▲' : '▼');
+            const acctColor = acctFlat ? 'text-slate-400' : (acctUp ? 'text-accentEmerald' : 'text-accentRose');
+            const acctTotal3Mo = (b.accountsMar || 0) + (b.accountsApr || 0) + (b.accountsMay || 0);
+            extraColCell = `
+              <td class="p-2 text-center bg-gray-50/50">
+                <div class="flex items-center justify-center gap-1.5">
+                  <span class="font-bold text-slate-900">${acctLatest.toLocaleString()}</span>
+                  <span class="${acctColor} text-[10px]">${acctIcon}</span>
+                </div>
+              </td>
+              <td class="p-2 text-center font-bold text-accentBlue">${acctTotal3Mo.toLocaleString()}</td>`;
           }
 
           const auditorBadge = b.auditor === 'UNASSIGNED' 
@@ -6388,8 +6408,8 @@ body.bg-coolDark{
           if (showSales) {
             statusCells += `<td class="p-2 text-center">${getStatusBadge(b.sales)}</td>`;
             if (type === 'sales') statusCells += `
-              <td class="p-2 text-center">
-                <div class="flex items-center justify-center gap-3">
+              <td class="p-1.5 text-center">
+                <div class="flex items-center justify-center gap-2">
                   <span class="flex flex-col items-center leading-tight">
                     <span class="text-[9px] font-bold text-accentEmerald">INS</span>
                     <span class="text-xs font-bold text-slate-800 tabular-nums">${b.expectedIns || 0}</span>
@@ -6420,8 +6440,8 @@ body.bg-coolDark{
           } else if (type === 'sales') {
             const avgSales = computeAvgSales(b);
             const fmtMonth = (m, border) => `
-              <td class="p-2 text-center ${border || ''}">
-                <div class="flex items-center justify-center gap-1.5 font-semibold text-[11px] tabular-nums">
+              <td class="p-1.5 text-center ${border || ''}">
+                <div class="flex items-center justify-center gap-1 font-semibold text-[11px] tabular-nums">
                   <span class="text-accentEmerald">${m.ins}</span>
                   <span class="text-slate-300">·</span>
                   <span class="text-accentBlue">${m.cod}</span>
@@ -6429,14 +6449,26 @@ body.bg-coolDark{
                   <span class="text-accentRose">${m.ca}</span>
                 </div>
               </td>`;
+            const totalIns = b.salesMar.ins + b.salesApr.ins + b.salesMay.ins;
+            const totalCod = b.salesMar.cod + b.salesApr.cod + b.salesMay.cod;
+            const totalCa = b.salesMar.ca + b.salesApr.ca + b.salesMay.ca;
             const avgSalesColor = avgSales < 0 ? 'text-accentRose' : (avgSales > 0 ? 'text-accentEmerald' : 'text-slate-800');
             const avgSalesDisplay = avgSales > 0 ? `+${avgSales}` : `${avgSales}`;
             detailCells = `
               ${fmtMonth(b.salesMar, 'border-l border-coolBorder')}
               ${fmtMonth(b.salesApr)}
               ${fmtMonth(b.salesMay, 'border-r border-coolBorder')}
-              <td class="p-2 text-center">
-                <div class="flex items-center justify-center gap-1.5">
+              <td class="p-1.5 text-center border-r border-coolBorder bg-gray-50/60">
+                <div class="flex items-center justify-center gap-1 font-bold text-[11px] tabular-nums">
+                  <span class="text-accentEmerald">${totalIns}</span>
+                  <span class="text-slate-300">·</span>
+                  <span class="text-accentBlue">${totalCod}</span>
+                  <span class="text-slate-300">·</span>
+                  <span class="text-accentRose">${totalCa}</span>
+                </div>
+              </td>
+              <td class="p-1.5 text-center">
+                <div class="flex items-center justify-center gap-1">
                   <span class="font-bold ${avgSalesColor} text-sm">${avgSalesDisplay}</span>
                 </div>
               </td>`;
