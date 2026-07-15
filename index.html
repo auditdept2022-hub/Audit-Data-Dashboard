@@ -5635,14 +5635,6 @@ body.bg-coolDark{
               </div>
 
               <div class="bg-gray-50 rounded-xl p-3.5 border border-coolBorder shadow-sm">
-                  <h4 class="text-xs font-bold text-slate-500 uppercase mb-2.5 tracking-wider flex items-center gap-2">
-                      <svg class="w-4 h-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
-                      Audit Findings History
-                      <span class="normal-case font-medium text-slate-400 tracking-normal">— tap a year to see findings</span>
-                  </h4>
-                  <div class="flex flex-wrap gap-2 text-center mb-2.5">
-                      ${buildFindingsYearCards(b.name)}
-                  </div>
                   <div id="findingsYearDetail"></div>
               </div>
 
@@ -5663,7 +5655,7 @@ body.bg-coolDark{
           </div>
       `;
       const __defaultFindingsYears = getBranchFindingYears(b.name);
-      showFindingsYear(b.name, __defaultFindingsYears.length ? __defaultFindingsYears[__defaultFindingsYears.length - 1] : ALLOWED_FINDING_YEARS[ALLOWED_FINDING_YEARS.length - 1]);
+      renderProfileFindingsPanel(b.name, __defaultFindingsYears.length ? __defaultFindingsYears[__defaultFindingsYears.length - 1] : ALLOWED_FINDING_YEARS[ALLOWED_FINDING_YEARS.length - 1]);
     }
 
     // Returns the sorted list of distinct years that actually have logged
@@ -5686,26 +5678,6 @@ body.bg-coolDark{
         return Array.from(years).sort((a, b) => a - b);
     }
 
-    function buildFindingsYearCards(branchName) {
-        const years = ALLOWED_FINDING_YEARS.slice();
-        const latestYear = years[years.length - 1];
-        const currentYear = new Date().getFullYear();
-        const allDetail = (activeData.auditFindingsDetail && activeData.auditFindingsDetail[branchName]) || [];
-
-        return years.map((y, idx) => {
-            const count = allDetail.filter(r => getRecordYear(r) === y).length;
-            const prevCount = idx > 0 ? allDetail.filter(r => getRecordYear(r) === years[idx - 1]).length : null;
-            const isLatest = y === latestYear;
-            const label = y === currentYear ? `FY${y} (YTD)` : `FY${y}`;
-            const borderCls = isLatest ? 'border-accentCyan/30 hover:border-accentCyan/80' : 'border-coolBorder hover:border-slate-400';
-            const numberCls = isLatest ? 'text-accentCyan' : (prevCount !== null && count > prevCount ? 'text-accentRose' : 'text-slate-800');
-            return `
-                <div id="findingsYearCard-${y}" onclick="showFindingsYear('${escapeFindingHTML(branchName)}', ${y}, this)" class="p-2.5 bg-white rounded-xl border ${borderCls} shadow-sm transition-all cursor-pointer active:scale-95 flex-1 min-w-[90px]">
-                    <div class="text-xs text-slate-500 mb-0.5 font-semibold uppercase tracking-wider">${label}</div>
-                    <div class="text-xl font-bold ${numberCls}">${count}</div>
-                </div>`;
-        }).join('');
-    }
 
     function getRecordYear(r) {
         // The "original year" of a finding is now derived primarily from
@@ -5987,18 +5959,19 @@ body.bg-coolDark{
         return `<span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md border inline-block whitespace-nowrap ${cls}">${escapeFindingHTML(category || 'UNCATEGORIZED')}</span>`;
     }
 
-    function showFindingsYear(branchName, year, cardEl) {
-        document.querySelectorAll('[id^="findingsYearCard-"]').forEach(card => {
-            card.classList.remove('ring-2', 'ring-accentIndigo', 'bg-accentIndigo/5');
-            if (card.id === `findingsYearCard-${year}`) card.classList.add('ring-2', 'ring-accentIndigo', 'bg-accentIndigo/5');
-        });
-
+    function renderProfileFindingsPanel(branchName, year) {
         const container = document.getElementById('findingsYearDetail');
         if (!container) return;
 
         const allDetail = (activeData.auditFindingsDetail && activeData.auditFindingsDetail[branchName]) || [];
         const records = allDetail.filter(r => getRecordYear(r) === Number(year))
                                   .sort((a, b) => (a.date < b.date ? 1 : -1));
+
+        const yearTabs = ALLOWED_FINDING_YEARS.map(y => `
+            <button onclick="renderProfileFindingsPanel('${escapeFindingHTML(branchName)}', ${y})"
+                class="px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors ${Number(year) === y ? 'bg-accentIndigo text-white border-accentIndigo' : 'bg-white text-slate-500 border-coolBorder hover:border-accentIndigo/40'}">
+                ${y}
+            </button>`).join('');
 
         const rowsHtml = records.length === 0
             ? `<tr><td colspan="3" class="p-4 text-center text-xs text-slate-400 italic">No individual findings recorded for FY${year} (from AUDIT FINDINGS sheet).</td></tr>`
@@ -6012,7 +5985,8 @@ body.bg-coolDark{
         container.innerHTML = `
             <div class="bg-white rounded-lg border border-coolBorder overflow-hidden">
                 <div class="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-coolBorder">
-                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">${records.length} finding${records.length === 1 ? '' : 's'} logged in FY${year} (source: AUDIT FINDINGS sheet)</span>
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">${branchName} — Audit Findings (source: AUDIT FINDINGS sheet)</span>
+                    <div class="flex gap-1.5">${yearTabs}</div>
                 </div>
                 <div class="max-h-64 overflow-y-auto custom-scrollbar">
                     <table class="w-full text-left border-collapse">
