@@ -6076,8 +6076,9 @@ body.bg-coolDark{
     // accounts, same desc → asc → default cycle as the other sortable tables.
     function renderAccountsModalTable() {
       let list = [...activeData.branches];
-      if (window.accountsModalSort === 'desc') list.sort((a, b) => (b.accountsMay || 0) - (a.accountsMay || 0));
-      else if (window.accountsModalSort === 'asc') list.sort((a, b) => (a.accountsMay || 0) - (b.accountsMay || 0));
+      const acctDelta = (x) => (x.accountsMay || 0) - (x.accountsMar || 0);
+      if (window.accountsModalSort === 'desc') list.sort((a, b) => acctDelta(b) - acctDelta(a));
+      else if (window.accountsModalSort === 'asc') list.sort((a, b) => acctDelta(a) - acctDelta(b));
       else list.sort((a, b) => b.accountsMay - a.accountsMay);
 
       const tableContainer = document.getElementById('modalTableContainer');
@@ -6235,8 +6236,7 @@ body.bg-coolDark{
       } else if (type === 'accounts') {
         const acctSortState = window.accountsModalSort || null;
         const acctSortIcon = acctSortState === 'desc' ? '↓' : (acctSortState === 'asc' ? '↑' : '↕');
-        const acctTrendLbls = activeData.summary.trendLabels || ["MAR", "APR", "MAY"];
-        extraColHeader = `<th class="p-2 bg-gray-50 text-center font-bold text-accentCyan border-r border-coolBorder whitespace-nowrap cursor-pointer select-none hover:text-accentIndigo transition-colors" onclick="toggleAccountsRepoSort()">Total Accounts ${acctTrendLbls[2]} <span class="inline-block ml-0.5">${acctSortIcon}</span></th>`;
+        extraColHeader = `<th class="p-2 bg-gray-50 text-center font-bold text-accentIndigo border-l border-coolBorder whitespace-nowrap cursor-pointer select-none hover:text-accentIndigo transition-colors" onclick="toggleAccountsRepoSort()">Inc/Dec Accounts <span class="inline-block ml-0.5">${acctSortIcon}</span></th>`;
       }
 
       // Only show the status column(s) relevant to what was clicked.
@@ -6337,16 +6337,17 @@ body.bg-coolDark{
           <th class="p-2 bg-gray-50 text-center whitespace-nowrap" title="Findings by year — from AUDIT FINDINGS sheet">Findings ('24 · '25 · '26)</th>`;
         showEffRepo = false;
       } else if (type === 'accounts') {
-        // Repo count trend across the 3 trend months, followed by the
-        // Accounts trend for the first two months, with the latest
-        // month's Total Accounts + indicator living in the sortable
+        // Repo count trend across the 3 trend months (with a trend
+        // indicator on the latest), followed by the Accounts trend for
+        // all 3 months. The Inc/Dec change in accounts lives in the
         // final column (extraColHeader/extraColCell).
         detailHeaders = `
           <th class="p-2 bg-gray-50 text-center border-l border-coolBorder whitespace-nowrap">Repo ${trendLbls[0]}</th>
           <th class="p-2 bg-gray-50 text-center whitespace-nowrap">Repo ${trendLbls[1]}</th>
           <th class="p-2 bg-gray-50 text-center whitespace-nowrap">Repo ${trendLbls[2]}</th>
           <th class="p-2 bg-gray-50 text-center border-l border-coolBorder whitespace-nowrap">Accounts ${trendLbls[0]}</th>
-          <th class="p-2 bg-gray-50 text-center whitespace-nowrap">Accounts ${trendLbls[1]}</th>`;
+          <th class="p-2 bg-gray-50 text-center whitespace-nowrap">Accounts ${trendLbls[1]}</th>
+          <th class="p-2 bg-gray-50 text-center whitespace-nowrap">Accounts ${trendLbls[2]}</th>`;
         showEffRepo = false;
       }
 
@@ -6376,13 +6377,15 @@ body.bg-coolDark{
             extraColCell = `<td class="p-2 text-center font-bold text-accentCyan">${b[filterValue] || 0}</td>`;
           } else if (type === 'accounts') {
             const acctMar = b.accountsMar || 0, acctLatest = b.accountsMay || 0;
-            const acctUp = acctLatest > acctMar, acctFlat = acctLatest === acctMar;
+            const acctDelta = acctLatest - acctMar;
+            const acctUp = acctDelta > 0, acctFlat = acctDelta === 0;
             const acctIcon = acctFlat ? '→' : (acctUp ? '▲' : '▼');
             const acctColor = acctFlat ? 'text-slate-400' : (acctUp ? 'text-accentEmerald' : 'text-accentRose');
+            const acctDeltaDisplay = acctFlat ? '0' : (acctUp ? `+${acctDelta.toLocaleString()}` : acctDelta.toLocaleString());
             extraColCell = `
-              <td class="p-2 text-center border-r border-coolBorder bg-gray-50/50">
+              <td class="p-2 text-center border-l border-coolBorder bg-gray-50/50">
                 <div class="flex items-center justify-center gap-1.5">
-                  <span class="font-bold text-slate-900">${acctLatest.toLocaleString()}</span>
+                  <span class="font-bold ${acctColor}">${acctDeltaDisplay}</span>
                   <span class="${acctColor} text-[10px]">${acctIcon}</span>
                 </div>
               </td>`;
@@ -6520,12 +6523,22 @@ body.bg-coolDark{
                 </span>
               </td>`;
           } else if (type === 'accounts') {
+            const repoMarCount = b.noOfRepoMar || 0, repoLatestCount = b.noOfRepoLatest || 0;
+            const repoCountUp = repoLatestCount > repoMarCount, repoCountFlat = repoLatestCount === repoMarCount;
+            const repoCountIcon = repoCountFlat ? '→' : (repoCountUp ? '▲' : '▼');
+            const repoCountColor = repoCountFlat ? 'text-slate-400' : (repoCountUp ? 'text-accentRose' : 'text-accentEmerald');
             detailCells = `
               <td class="p-2 text-center text-slate-600 border-l border-coolBorder">${(b.noOfRepoMar || 0).toLocaleString()}</td>
               <td class="p-2 text-center text-slate-600">${(b.noOfRepoApr || 0).toLocaleString()}</td>
-              <td class="p-2 text-center text-slate-600">${(b.noOfRepoLatest || 0).toLocaleString()}</td>
+              <td class="p-2 text-center">
+                <div class="flex items-center justify-center gap-1.5">
+                  <span class="font-semibold text-slate-800">${repoLatestCount.toLocaleString()}</span>
+                  <span class="${repoCountColor} text-[10px]">${repoCountIcon}</span>
+                </div>
+              </td>
               <td class="p-2 text-center text-slate-600 border-l border-coolBorder">${(b.accountsMar || 0).toLocaleString()}</td>
-              <td class="p-2 text-center text-slate-600">${(b.accountsApr || 0).toLocaleString()}</td>`;
+              <td class="p-2 text-center text-slate-600">${(b.accountsApr || 0).toLocaleString()}</td>
+              <td class="p-2 text-center text-slate-600">${(b.accountsMay || 0).toLocaleString()}</td>`;
           }
 
           // Findings-modal rows focus in on just that branch (instead of
