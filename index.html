@@ -6000,27 +6000,27 @@ body.bg-coolDark{
         const records = allDetail.filter(r => getRecordYear(r) === Number(year))
                                   .sort((a, b) => (a.date < b.date ? 1 : -1));
 
-        if (records.length === 0) {
-            container.innerHTML = `
-              <div class="flex items-center justify-center p-6 bg-white rounded-xl border border-coolBorder border-dashed">
-                  <p class="text-sm text-slate-400 italic">No individual findings recorded for FY${year} (from AUDIT FINDINGS sheet).</p>
-              </div>`;
-            return;
-        }
-
-        const rowsHtml = records.map(r => `
-            <div class="p-3 bg-white rounded-lg border border-coolBorder shadow-sm flex flex-col sm:flex-row sm:items-center gap-2">
-                <span class="text-[11px] font-semibold text-slate-500 tabular-nums sm:w-24 flex-shrink-0">${formatFindingDate(r.date, r.year)}</span>
-                <span class="sm:w-40 flex-shrink-0">${getFindingCategoryBadge(r.category)}</span>
-                <span class="text-sm text-slate-800">${escapeFindingHTML(r.finding)}</span>
-            </div>
-        `).join('');
+        const rowsHtml = records.length === 0
+            ? `<tr><td colspan="3" class="p-4 text-center text-xs text-slate-400 italic">No individual findings recorded for FY${year} (from AUDIT FINDINGS sheet).</td></tr>`
+            : records.map(r => `
+                <tr class="border-t border-coolBorder">
+                    <td class="p-2 text-[11px] font-semibold text-slate-500 tabular-nums whitespace-nowrap align-top">${formatFindingDate(r.date, r.year)}</td>
+                    <td class="p-2 align-top whitespace-nowrap">${getFindingCategoryBadge(r.category)}</td>
+                    <td class="p-2 text-xs text-slate-800">${escapeFindingHTML(r.finding)}</td>
+                </tr>`).join('');
 
         container.innerHTML = `
-            <div class="bg-white rounded-xl border border-coolBorder p-3">
-                <p class="text-[10px] font-bold text-slate-400 uppercase mb-2 tracking-wider px-1">${records.length} finding${records.length === 1 ? '' : 's'} logged in FY${year} (source: AUDIT FINDINGS sheet)</p>
-                <div class="flex flex-col gap-2 max-h-72 overflow-y-auto custom-scrollbar pr-1">
-                    ${rowsHtml}
+            <div class="bg-white rounded-lg border border-coolBorder overflow-hidden">
+                <div class="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-coolBorder">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">${records.length} finding${records.length === 1 ? '' : 's'} logged in FY${year} (source: AUDIT FINDINGS sheet)</span>
+                </div>
+                <div class="max-h-64 overflow-y-auto custom-scrollbar">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-slate-50 text-[9px] uppercase tracking-wider text-slate-400 font-bold sticky top-0">
+                            <tr><th class="p-2 w-24">Date</th><th class="p-2 w-40">Category</th><th class="p-2">Remarks</th></tr>
+                        </thead>
+                        <tbody>${rowsHtml}</tbody>
+                    </table>
                 </div>
             </div>`;
     }
