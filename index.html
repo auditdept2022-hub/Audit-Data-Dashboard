@@ -3023,16 +3023,16 @@ body.bg-coolDark{
           COLLECTION, SALES, SERVICE &amp; AUDIT OVERVIEW
         </h3>
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 h-full items-center">
-          <div class="cursor-pointer active:scale-[0.98] transition-transform">
-            <span class="text-xs font-semibold text-slate-500 tracking-wider uppercase block mb-3 text-center">Collection Status Breakdown</span>
+          <div class="active:scale-[0.98] transition-transform">
+            <span onclick="openModal('Collection Status Overview', 'collection', 'ALL')" title="View all collection branches" class="text-xs font-semibold text-slate-500 tracking-wider uppercase block mb-3 text-center cursor-pointer hover:text-accentEmerald hover:underline underline-offset-2 decoration-dotted">Collection Status Breakdown</span>
             <div id="collectionDonutChart" style="min-height: 200px;"></div>
           </div>
-          <div class="cursor-pointer active:scale-[0.98] transition-transform">
-            <span class="text-xs font-semibold text-slate-500 tracking-wider uppercase block mb-3 text-center">Sales Status Breakdown</span>
+          <div class="active:scale-[0.98] transition-transform">
+            <span onclick="openModal('Sales Status Overview', 'sales', 'ALL')" title="View all sales branches" class="text-xs font-semibold text-slate-500 tracking-wider uppercase block mb-3 text-center cursor-pointer hover:text-accentIndigo hover:underline underline-offset-2 decoration-dotted">Sales Status Breakdown</span>
             <div id="salesDonutChart" style="min-height: 200px;"></div>
           </div>
-          <div class="cursor-pointer active:scale-[0.98] transition-transform">
-            <span class="text-xs font-semibold text-slate-500 tracking-wider uppercase block mb-3 text-center">Service Status Breakdown</span>
+          <div class="active:scale-[0.98] transition-transform">
+            <span onclick="openModal('Service Status Overview', 'service', 'ALL')" title="View all service branches" class="text-xs font-semibold text-slate-500 tracking-wider uppercase block mb-3 text-center cursor-pointer hover:text-accentCyan hover:underline underline-offset-2 decoration-dotted">Service Status Breakdown</span>
             <div id="serviceDonutChart" style="min-height: 200px;" class=""></div>
           </div>
           <div class="cursor-pointer active:scale-[0.98] transition-transform">
@@ -4956,7 +4956,7 @@ body.bg-coolDark{
           const label = opt === 'ALL' ? `All ${type.charAt(0).toUpperCase() + type.slice(1)}` : opt;
           return `<button onclick="setModalStatusFilter('${opt}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all active:scale-95 ${activeClass}">${label}</button>`;
       }).join('');
-      return `<div class="flex flex-wrap items-center gap-2 mb-3"><span class="text-xs font-semibold text-slate-500 mr-1">Filter by status:</span>${buttonsHtml}</div>`;
+      return `<div class="flex flex-wrap items-center gap-2 mb-2"><span class="text-xs font-semibold text-slate-500 mr-1">Filter by status:</span>${buttonsHtml}</div>`;
     }
 
     function buildAuditStatusFilterBar(activeAudit) {
@@ -6082,25 +6082,25 @@ body.bg-coolDark{
       const top = list.length ? list.reduce((a, b) => computeAvgSales(b) > computeAvgSales(a) ? b : a) : null;
 
       return `
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-        <div class="p-3 bg-accentEmerald/10 border border-accentEmerald/20 rounded-xl text-center">
-          <div class="text-2xl font-extrabold text-accentEmerald">${improving}</div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
+        <div class="p-2 bg-accentEmerald/10 border border-accentEmerald/20 rounded-xl text-center">
+          <div class="text-xl font-extrabold text-accentEmerald">${improving}</div>
           <div class="text-[10px] font-bold text-accentEmerald/80 uppercase tracking-wider">Improving</div>
         </div>
-        <div class="p-3 bg-accentRose/10 border border-accentRose/20 rounded-xl text-center">
-          <div class="text-2xl font-extrabold text-accentRose">${declining}</div>
+        <div class="p-2 bg-accentRose/10 border border-accentRose/20 rounded-xl text-center">
+          <div class="text-xl font-extrabold text-accentRose">${declining}</div>
           <div class="text-[10px] font-bold text-accentRose/80 uppercase tracking-wider">Declining</div>
         </div>
-        <div class="p-3 bg-slate-100 border border-coolBorder rounded-xl text-center">
-          <div class="text-2xl font-extrabold text-slate-600">${stable}</div>
+        <div class="p-2 bg-slate-100 border border-coolBorder rounded-xl text-center">
+          <div class="text-xl font-extrabold text-slate-600">${stable}</div>
           <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Stable</div>
         </div>
-        <div class="p-3 bg-accentIndigo/10 border border-accentIndigo/20 rounded-xl text-center">
-          <div class="text-2xl font-extrabold text-accentIndigo">${meanAvg}</div>
+        <div class="p-2 bg-accentIndigo/10 border border-accentIndigo/20 rounded-xl text-center">
+          <div class="text-xl font-extrabold text-accentIndigo">${meanAvg}</div>
           <div class="text-[10px] font-bold text-accentIndigo/80 uppercase tracking-wider">Avg Net Sales</div>
         </div>
       </div>
-      ${top ? `<div class="flex justify-end mb-3 px-1 text-[11px] text-slate-500">Top performer: <strong class="text-slate-700 ml-1">${top.name}</strong> <span class="text-accentIndigo font-bold ml-1">(${computeAvgSales(top)})</span></div>` : ''}`;
+      ${top ? `<div class="flex justify-end mb-2 px-1 text-[11px] text-slate-500">Top performer: <strong class="text-slate-700 ml-1">${top.name}</strong> <span class="text-accentIndigo font-bold ml-1">(${computeAvgSales(top)})</span></div>` : ''}`;
     }
 
     function buildCollectionSummaryBar(list) {
@@ -6113,29 +6113,29 @@ body.bg-coolDark{
       const top = list.length ? list.reduce((a, b) => b.effLatest > a.effLatest ? b : a) : null;
 
       return `
-      <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
-        <div class="p-3 bg-accentEmerald/10 border border-accentEmerald/20 rounded-xl text-center">
-          <div class="text-2xl font-extrabold text-accentEmerald">${improving}</div>
+      <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-2">
+        <div class="p-2 bg-accentEmerald/10 border border-accentEmerald/20 rounded-xl text-center">
+          <div class="text-xl font-extrabold text-accentEmerald">${improving}</div>
           <div class="text-[10px] font-bold text-accentEmerald/80 uppercase tracking-wider">Improving</div>
         </div>
-        <div class="p-3 bg-accentRose/10 border border-accentRose/20 rounded-xl text-center">
-          <div class="text-2xl font-extrabold text-accentRose">${declining}</div>
+        <div class="p-2 bg-accentRose/10 border border-accentRose/20 rounded-xl text-center">
+          <div class="text-xl font-extrabold text-accentRose">${declining}</div>
           <div class="text-[10px] font-bold text-accentRose/80 uppercase tracking-wider">Declining</div>
         </div>
-        <div class="p-3 bg-slate-100 border border-coolBorder rounded-xl text-center">
-          <div class="text-2xl font-extrabold text-slate-600">${stable}</div>
+        <div class="p-2 bg-slate-100 border border-coolBorder rounded-xl text-center">
+          <div class="text-xl font-extrabold text-slate-600">${stable}</div>
           <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Stable</div>
         </div>
-        <div class="p-3 bg-accentAmber/10 border border-accentAmber/20 rounded-xl text-center">
-          <div class="text-2xl font-extrabold text-accentAmber">${recovering}</div>
+        <div class="p-2 bg-accentAmber/10 border border-accentAmber/20 rounded-xl text-center">
+          <div class="text-xl font-extrabold text-accentAmber">${recovering}</div>
           <div class="text-[10px] font-bold text-accentAmber/80 uppercase tracking-wider">Recovering</div>
         </div>
-        <div class="p-3 bg-accentIndigo/10 border border-accentIndigo/20 rounded-xl text-center col-span-2 sm:col-span-1">
-          <div class="text-2xl font-extrabold text-accentIndigo">${meanEff}%</div>
+        <div class="p-2 bg-accentIndigo/10 border border-accentIndigo/20 rounded-xl text-center col-span-2 sm:col-span-1">
+          <div class="text-xl font-extrabold text-accentIndigo">${meanEff}%</div>
           <div class="text-[10px] font-bold text-accentIndigo/80 uppercase tracking-wider">Avg Eff Latest</div>
         </div>
       </div>
-      ${top ? `<div class="text-[11px] text-slate-500 mb-3 px-1">Top performer: <strong class="text-slate-700">${top.name}</strong> <span class="text-accentIndigo font-bold">(${top.effLatest}%)</span></div>` : ''}`;
+      ${top ? `<div class="text-[11px] text-slate-500 mb-2 px-1">Top performer: <strong class="text-slate-700">${top.name}</strong> <span class="text-accentIndigo font-bold">(${top.effLatest}%)</span></div>` : ''}`;
     }
 
     function buildServiceSummaryBar(list) {
@@ -6146,21 +6146,21 @@ body.bg-coolDark{
       const top = list.length ? list.reduce((a, b) => Number(b.serviceMay) > Number(a.serviceMay) ? b : a) : null;
 
       return `
-      <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-        <div class="p-3 bg-accentEmerald/10 border border-accentEmerald/20 rounded-xl text-center">
-          <div class="text-2xl font-extrabold text-accentEmerald">${onTarget}</div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-2">
+        <div class="p-2 bg-accentEmerald/10 border border-accentEmerald/20 rounded-xl text-center">
+          <div class="text-xl font-extrabold text-accentEmerald">${onTarget}</div>
           <div class="text-[10px] font-bold text-accentEmerald/80 uppercase tracking-wider">On Target</div>
         </div>
-        <div class="p-3 bg-accentRose/10 border border-accentRose/20 rounded-xl text-center">
-          <div class="text-2xl font-extrabold text-accentRose">${declining}</div>
+        <div class="p-2 bg-accentRose/10 border border-accentRose/20 rounded-xl text-center">
+          <div class="text-xl font-extrabold text-accentRose">${declining}</div>
           <div class="text-[10px] font-bold text-accentRose/80 uppercase tracking-wider">Declining</div>
         </div>
-        <div class="p-3 bg-accentCyan/10 border border-accentCyan/20 rounded-xl text-center col-span-2 sm:col-span-1">
-          <div class="text-2xl font-extrabold text-accentCyan">₱${totalMay.toLocaleString()}</div>
+        <div class="p-2 bg-accentCyan/10 border border-accentCyan/20 rounded-xl text-center col-span-2 sm:col-span-1">
+          <div class="text-xl font-extrabold text-accentCyan">₱${totalMay.toLocaleString()}</div>
           <div class="text-[10px] font-bold text-accentCyan/80 uppercase tracking-wider">Total (Latest Mo.)</div>
         </div>
       </div>
-      ${top ? `<div class="text-[11px] text-slate-500 mb-3 px-1">Top performer: <strong class="text-slate-700">${top.name}</strong> <span class="text-accentCyan font-bold">(₱${Number(top.serviceMay).toLocaleString()})</span></div>` : ''}`;
+      ${top ? `<div class="text-[11px] text-slate-500 mb-2 px-1">Top performer: <strong class="text-slate-700">${top.name}</strong> <span class="text-accentCyan font-bold">(₱${Number(top.serviceMay).toLocaleString()})</span></div>` : ''}`;
     }
 
     // filterSetter is the name of the JS function to call when a pill is
