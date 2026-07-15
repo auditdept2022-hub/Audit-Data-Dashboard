@@ -6080,18 +6080,20 @@ body.bg-coolDark{
       const avgVals = list.map(computeAvgSales);
       const meanAvg = avgVals.length ? Math.round(avgVals.reduce((s, v) => s + v, 0) / avgVals.length) : 0;
       const top = list.length ? list.reduce((a, b) => computeAvgSales(b) > computeAvgSales(a) ? b : a) : null;
+      const activeStatus = (window.modalFilterState && window.modalFilterState.statusValue) || 'ALL';
+      const ring = (v) => activeStatus === v ? 'ring-2 ring-offset-1' : '';
 
       return `
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
-        <div class="p-2 bg-accentEmerald/10 border border-accentEmerald/20 rounded-xl text-center">
+        <div onclick="setModalStatusFilter('Improving')" role="button" tabindex="0" class="p-2 bg-accentEmerald/10 border border-accentEmerald/20 rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-accentEmerald/20 ring-accentEmerald ${ring('Improving')}">
           <div class="text-xl font-extrabold text-accentEmerald">${improving}</div>
           <div class="text-[10px] font-bold text-accentEmerald/80 uppercase tracking-wider">Improving</div>
         </div>
-        <div class="p-2 bg-accentRose/10 border border-accentRose/20 rounded-xl text-center">
+        <div onclick="setModalStatusFilter('Declining')" role="button" tabindex="0" class="p-2 bg-accentRose/10 border border-accentRose/20 rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-accentRose/20 ring-accentRose ${ring('Declining')}">
           <div class="text-xl font-extrabold text-accentRose">${declining}</div>
           <div class="text-[10px] font-bold text-accentRose/80 uppercase tracking-wider">Declining</div>
         </div>
-        <div class="p-2 bg-slate-100 border border-coolBorder rounded-xl text-center">
+        <div onclick="setModalStatusFilter('Stable')" role="button" tabindex="0" class="p-2 bg-slate-100 border border-coolBorder rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-slate-200 ring-slate-400 ${ring('Stable')}">
           <div class="text-xl font-extrabold text-slate-600">${stable}</div>
           <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Stable</div>
         </div>
@@ -6111,22 +6113,24 @@ body.bg-coolDark{
       const effVals = list.map(b => b.effLatest);
       const meanEff = effVals.length ? Math.round(effVals.reduce((s, v) => s + v, 0) / effVals.length) : 0;
       const top = list.length ? list.reduce((a, b) => b.effLatest > a.effLatest ? b : a) : null;
+      const activeStatus = (window.modalFilterState && window.modalFilterState.statusValue) || 'ALL';
+      const ring = (v) => activeStatus === v ? 'ring-2 ring-offset-1' : '';
 
       return `
       <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-2">
-        <div class="p-2 bg-accentEmerald/10 border border-accentEmerald/20 rounded-xl text-center">
+        <div onclick="setModalStatusFilter('Improving')" role="button" tabindex="0" class="p-2 bg-accentEmerald/10 border border-accentEmerald/20 rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-accentEmerald/20 ring-accentEmerald ${ring('Improving')}">
           <div class="text-xl font-extrabold text-accentEmerald">${improving}</div>
           <div class="text-[10px] font-bold text-accentEmerald/80 uppercase tracking-wider">Improving</div>
         </div>
-        <div class="p-2 bg-accentRose/10 border border-accentRose/20 rounded-xl text-center">
+        <div onclick="setModalStatusFilter('Declining')" role="button" tabindex="0" class="p-2 bg-accentRose/10 border border-accentRose/20 rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-accentRose/20 ring-accentRose ${ring('Declining')}">
           <div class="text-xl font-extrabold text-accentRose">${declining}</div>
           <div class="text-[10px] font-bold text-accentRose/80 uppercase tracking-wider">Declining</div>
         </div>
-        <div class="p-2 bg-slate-100 border border-coolBorder rounded-xl text-center">
+        <div onclick="setModalStatusFilter('Stable')" role="button" tabindex="0" class="p-2 bg-slate-100 border border-coolBorder rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-slate-200 ring-slate-400 ${ring('Stable')}">
           <div class="text-xl font-extrabold text-slate-600">${stable}</div>
           <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Stable</div>
         </div>
-        <div class="p-2 bg-accentAmber/10 border border-accentAmber/20 rounded-xl text-center">
+        <div onclick="setModalStatusFilter('Recovering')" role="button" tabindex="0" class="p-2 bg-accentAmber/10 border border-accentAmber/20 rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-accentAmber/20 ring-accentAmber ${ring('Recovering')}">
           <div class="text-xl font-extrabold text-accentAmber">${recovering}</div>
           <div class="text-[10px] font-bold text-accentAmber/80 uppercase tracking-wider">Recovering</div>
         </div>
@@ -6144,14 +6148,16 @@ body.bg-coolDark{
       const mayVals = list.map(b => Number(b.serviceMay) || 0);
       const totalMay = mayVals.reduce((s, v) => s + v, 0);
       const top = list.length ? list.reduce((a, b) => Number(b.serviceMay) > Number(a.serviceMay) ? b : a) : null;
+      const activeStatus = (window.modalFilterState && window.modalFilterState.statusValue) || 'ALL';
+      const ring = (v) => activeStatus === v ? 'ring-2 ring-offset-1' : '';
 
       return `
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-2">
-        <div class="p-2 bg-accentEmerald/10 border border-accentEmerald/20 rounded-xl text-center">
+        <div onclick="setModalStatusFilter('Target')" role="button" tabindex="0" class="p-2 bg-accentEmerald/10 border border-accentEmerald/20 rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-accentEmerald/20 ring-accentEmerald ${ring('Target')}">
           <div class="text-xl font-extrabold text-accentEmerald">${onTarget}</div>
           <div class="text-[10px] font-bold text-accentEmerald/80 uppercase tracking-wider">On Target</div>
         </div>
-        <div class="p-2 bg-accentRose/10 border border-accentRose/20 rounded-xl text-center">
+        <div onclick="setModalStatusFilter('Declining')" role="button" tabindex="0" class="p-2 bg-accentRose/10 border border-accentRose/20 rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-accentRose/20 ring-accentRose ${ring('Declining')}">
           <div class="text-xl font-extrabold text-accentRose">${declining}</div>
           <div class="text-[10px] font-bold text-accentRose/80 uppercase tracking-wider">Declining</div>
         </div>
