@@ -6237,7 +6237,7 @@ body.bg-coolDark{
       if (showCollection) statusHeaders += `<th class="p-2 bg-gray-50 text-center whitespace-nowrap">Collection</th>`;
       if (showSales) {
         statusHeaders += `<th class="p-2 bg-gray-50 text-center whitespace-nowrap">Sales</th>`;
-        if (type === 'sales') statusHeaders += `<th class="p-2 bg-gray-50 text-center whitespace-nowrap">Expected Sales (INS/COD)</th>`;
+        if (type === 'sales') statusHeaders += `<th class="p-2 bg-gray-50 text-center whitespace-nowrap">Expected Sales</th>`;
       }
       if (showService) statusHeaders += `<th class="p-2 bg-gray-50 text-center whitespace-nowrap">Service</th>`;
 
@@ -6361,7 +6361,19 @@ body.bg-coolDark{
           if (showCollection) statusCells += `<td class="p-2 text-center">${getStatusBadge(b.collection)}</td>`;
           if (showSales) {
             statusCells += `<td class="p-2 text-center">${getStatusBadge(b.sales)}</td>`;
-            if (type === 'sales') statusCells += `<td class="p-2 text-center font-semibold text-accentAmber text-xs">${b.expectedIns || 0} / ${b.expectedCod || 0}</td>`;
+            if (type === 'sales') statusCells += `
+              <td class="p-2 text-center">
+                <div class="flex items-center justify-center gap-3">
+                  <span class="flex flex-col items-center leading-tight">
+                    <span class="text-[9px] font-bold text-accentEmerald">INS</span>
+                    <span class="text-xs font-bold text-slate-800 tabular-nums">${b.expectedIns || 0}</span>
+                  </span>
+                  <span class="flex flex-col items-center leading-tight">
+                    <span class="text-[9px] font-bold text-accentBlue">COD</span>
+                    <span class="text-xs font-bold text-slate-800 tabular-nums">${b.expectedCod || 0}</span>
+                  </span>
+                </div>
+              </td>`;
           }
           if (showService) statusCells += `<td class="p-2 text-center">${getStatusBadge(b.service)}</td>`;
 
