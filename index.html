@@ -5967,11 +5967,16 @@ body.bg-coolDark{
         const records = allDetail.filter(r => getRecordYear(r) === Number(year))
                                   .sort((a, b) => (a.date < b.date ? 1 : -1));
 
-        const yearTabs = ALLOWED_FINDING_YEARS.map(y => `
+        const yearTabs = ALLOWED_FINDING_YEARS.map(y => {
+            const count = allDetail.filter(r => getRecordYear(r) === y).length;
+            const active = Number(year) === y;
+            return `
             <button onclick="renderProfileFindingsPanel('${escapeFindingHTML(branchName)}', ${y})"
-                class="px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors ${Number(year) === y ? 'bg-accentIndigo text-white border-accentIndigo' : 'bg-white text-slate-500 border-coolBorder hover:border-accentIndigo/40'}">
-                ${y}
-            </button>`).join('');
+                class="px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors inline-flex items-center gap-1 ${active ? 'bg-accentIndigo text-white border-accentIndigo' : 'bg-white text-slate-500 border-coolBorder hover:border-accentIndigo/40'}">
+                <span>${y}</span>
+                <span class="px-1 min-w-[16px] text-center rounded ${active ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-500'} text-[10px] font-bold tabular-nums">${count}</span>
+            </button>`;
+        }).join('');
 
         const rowsHtml = records.length === 0
             ? `<tr><td colspan="3" class="p-4 text-center text-xs text-slate-400 italic">No individual findings recorded for FY${year} (from AUDIT FINDINGS sheet).</td></tr>`
@@ -5985,7 +5990,7 @@ body.bg-coolDark{
         container.innerHTML = `
             <div class="bg-white rounded-lg border border-coolBorder overflow-hidden">
                 <div class="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-coolBorder">
-                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">${branchName} — Audit Findings (source: AUDIT FINDINGS sheet)</span>
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">${branchName} — Audit Findings (source: AUDIT FINDINGS sheet) · FY${year}: ${records.length} finding${records.length === 1 ? '' : 's'}</span>
                     <div class="flex gap-1.5">${yearTabs}</div>
                 </div>
                 <div class="max-h-64 overflow-y-auto custom-scrollbar">
