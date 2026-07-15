@@ -6222,7 +6222,10 @@ body.bg-coolDark{
       // Audit Findings breakdowns are audit-data-only: no Collection/Sales/Service
       // status noise, and no Auditor column — just what's sourced from the
       // AUDIT FINDINGS sheet for that branch.
-      const showAuditorCol = (type !== 'findings');
+      // The Sales popup swaps the Auditor column out for an Expected Sales
+      // (INS/COD) column, shown right next to the Sales status column --
+      // Auditor isn't relevant when you're looking specifically at sales.
+      const showAuditorCol = (type !== 'findings' && type !== 'sales');
       // Edit now lives as a single icon button in the modal's header, right
       // next to Download (see openHeaderEditAssignment) — not as a per-row
       // column. A per-row Edit button in a list of dozens of branches was
@@ -6232,7 +6235,10 @@ body.bg-coolDark{
 
       let statusHeaders = '';
       if (showCollection) statusHeaders += `<th class="p-2 bg-gray-50 text-center whitespace-nowrap">Collection</th>`;
-      if (showSales) statusHeaders += `<th class="p-2 bg-gray-50 text-center whitespace-nowrap">Sales</th>`;
+      if (showSales) {
+        statusHeaders += `<th class="p-2 bg-gray-50 text-center whitespace-nowrap">Sales</th>`;
+        if (type === 'sales') statusHeaders += `<th class="p-2 bg-gray-50 text-center whitespace-nowrap">Expected Sales (INS/COD)</th>`;
+      }
       if (showService) statusHeaders += `<th class="p-2 bg-gray-50 text-center whitespace-nowrap">Service</th>`;
 
       // Build extra detail columns specific to what was clicked, so the
@@ -6353,7 +6359,10 @@ body.bg-coolDark{
 
           let statusCells = '';
           if (showCollection) statusCells += `<td class="p-2 text-center">${getStatusBadge(b.collection)}</td>`;
-          if (showSales) statusCells += `<td class="p-2 text-center">${getStatusBadge(b.sales)}</td>`;
+          if (showSales) {
+            statusCells += `<td class="p-2 text-center">${getStatusBadge(b.sales)}</td>`;
+            if (type === 'sales') statusCells += `<td class="p-2 text-center font-semibold text-accentAmber text-xs">${b.expectedIns || 0} / ${b.expectedCod || 0}</td>`;
+          }
           if (showService) statusCells += `<td class="p-2 text-center">${getStatusBadge(b.service)}</td>`;
 
           let detailCells = '';
