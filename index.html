@@ -3359,13 +3359,16 @@ body.bg-coolDark{
       <div id="branchFilterPanel" class="hidden fixed inset-0 z-50">
         <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="toggleBranchFilterPanel('close')"></div>
         <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
-          <div class="bg-white w-full max-w-sm sm:max-w-md max-h-[85vh] rounded-2xl shadow-2xl flex flex-col pointer-events-auto border border-coolBorder">
+          <div class="bg-white w-full max-w-sm sm:max-w-md max-h-[85vh] max-h-[85dvh] rounded-2xl shadow-2xl flex flex-col pointer-events-auto border border-coolBorder overflow-hidden">
             <div class="p-4 border-b border-coolBorder shrink-0">
               <div class="flex items-center justify-between mb-2">
                 <span class="text-sm text-slate-700">Select Branches</span>
-                <button type="button" onclick="toggleBranchFilterPanel('close')" class="p-1 text-slate-400 hover:text-slate-600 hover:bg-gray-100 rounded-lg transition-all cursor-pointer">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
-                </button>
+                <div class="flex items-center gap-2">
+                  <button type="button" onclick="confirmBranchFilter()" class="px-3 py-1 text-[11px] font-bold bg-accentCyan text-white rounded-lg hover:bg-accentCyan/90 transition-all cursor-pointer active:scale-95">OK</button>
+                  <button type="button" onclick="toggleBranchFilterPanel('close')" class="p-1 text-slate-400 hover:text-slate-600 hover:bg-gray-100 rounded-lg transition-all cursor-pointer">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                  </button>
+                </div>
               </div>
               <input type="text" id="branchFilterSearch" placeholder="Search branch..." oninput="renderBranchFilterList()" class="w-full px-2.5 py-1.5 bg-gray-50 border border-coolBorder rounded-lg text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all">
               <div class="flex items-center gap-2 mt-2">
@@ -3373,7 +3376,7 @@ body.bg-coolDark{
                 <button type="button" onclick="clearAllBranchFilter()" class="flex-1 px-2 py-1 text-[11px] font-semibold bg-gray-100 text-slate-500 rounded-lg hover:bg-gray-200 transition-all cursor-pointer">Clear All</button>
               </div>
             </div>
-            <div id="branchFilterList" class="overflow-y-auto custom-scrollbar p-2 space-y-0.5 flex-1 min-h-[16rem]"></div>
+            <div id="branchFilterList" class="overflow-y-auto custom-scrollbar p-2 space-y-0.5 flex-1 min-h-0"></div>
             <div class="p-3 border-t border-coolBorder shrink-0 flex flex-col sm:flex-row items-center justify-between gap-2">
               <span class="text-[11px] text-slate-400" id="branchFilterCount">56 of 56 selected</span>
               <div class="flex items-center gap-2 w-full sm:w-auto">
@@ -3524,8 +3527,6 @@ body.bg-coolDark{
             panel.classList.remove('hidden');
             document.body.style.overflow = 'hidden';
             renderBranchFilterList();
-            const searchEl = document.getElementById('branchFilterSearch');
-            if (searchEl) setTimeout(() => searchEl.focus(), 50);
         } else {
             panel.classList.add('hidden');
             document.body.style.overflow = '';
