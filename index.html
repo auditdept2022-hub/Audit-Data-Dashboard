@@ -3359,7 +3359,7 @@ body.bg-coolDark{
       <div id="branchFilterPanel" class="hidden fixed inset-0 z-50">
         <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="toggleBranchFilterPanel('close')"></div>
         <div class="absolute inset-0 flex items-start sm:items-center justify-center overflow-y-auto p-4 py-6 pointer-events-none">
-          <div class="bg-white w-full max-w-sm sm:max-w-md max-h-[80vh] max-h-[80dvh] my-auto rounded-2xl shadow-2xl flex flex-col pointer-events-auto border border-coolBorder overflow-hidden">
+          <div class="bg-white w-full max-w-xs sm:max-w-sm max-h-[68vh] max-h-[68dvh] my-auto rounded-2xl shadow-2xl flex flex-col pointer-events-auto border border-coolBorder overflow-hidden">
             <div class="p-4 border-b border-coolBorder shrink-0">
               <div class="flex items-center justify-between mb-2">
                 <span class="text-sm text-slate-700">Select Branches</span>
@@ -6280,12 +6280,12 @@ body.bg-coolDark{
         const sortState = (window.modalFilterState && window.modalFilterState.effSort) || null;
         const sortIcon = sortState === 'desc' ? '↓' : (sortState === 'asc' ? '↑' : '↕');
         detailHeaders = `
-          <th class="p-2 bg-gray-50 text-center">Eff ${trendLbls[0]}</th>
-          <th class="p-2 bg-gray-50 text-center">Eff ${trendLbls[1]}</th>
-          <th class="p-2 bg-gray-50 text-center cursor-pointer select-none hover:text-accentIndigo transition-colors" onclick="toggleCollectionSort()">Eff ${trendLbls[2]} <span class="inline-block ml-0.5">${sortIcon}</span></th>
-          <th class="p-2 bg-gray-50 text-center border-l border-coolBorder whitespace-nowrap">Repo ${trendLbls[0]}</th>
+          <th class="p-2 bg-gray-50 text-center whitespace-nowrap">Repo ${trendLbls[0]}</th>
           <th class="p-2 bg-gray-50 text-center whitespace-nowrap">Repo ${trendLbls[1]}</th>
-          <th class="p-2 bg-gray-50 text-center whitespace-nowrap">Repo ${trendLbls[2]}</th>`;
+          <th class="p-2 bg-gray-50 text-center whitespace-nowrap">Repo ${trendLbls[2]}</th>
+          <th class="p-2 bg-gray-50 text-center border-l border-coolBorder">Eff ${trendLbls[0]}</th>
+          <th class="p-2 bg-gray-50 text-center">Eff ${trendLbls[1]}</th>
+          <th class="p-2 bg-gray-50 text-center cursor-pointer select-none hover:text-accentIndigo transition-colors" onclick="toggleCollectionSort()">Eff ${trendLbls[2]} <span class="inline-block ml-0.5">${sortIcon}</span></th>`;
         showEffRepo = false;
       } else if (type === 'sales') {
         const sortState = (window.modalFilterState && window.modalFilterState.avgSort) || null;
@@ -6337,13 +6337,16 @@ body.bg-coolDark{
           <th class="p-2 bg-gray-50 text-center whitespace-nowrap" title="Findings by year — from AUDIT FINDINGS sheet">Findings ('24 · '25 · '26)</th>`;
         showEffRepo = false;
       } else if (type === 'accounts') {
-        // Monthly accounts trend across the first two trend months, with
-        // the latest month + trend indicator living in the sortable
-        // "Total Accounts" column (extraColHeader/extraColCell) — mirrors
-        // the layout used for the repo trend columns elsewhere.
+        // Repo count trend across the 3 trend months, followed by the
+        // Accounts trend for the first two months, with the latest
+        // month's Total Accounts + indicator living in the sortable
+        // final column (extraColHeader/extraColCell).
         detailHeaders = `
-          <th class="p-2 bg-gray-50 text-center border-l border-coolBorder whitespace-nowrap">${trendLbls[0]}</th>
-          <th class="p-2 bg-gray-50 text-center whitespace-nowrap">${trendLbls[1]}</th>`;
+          <th class="p-2 bg-gray-50 text-center border-l border-coolBorder whitespace-nowrap">Repo ${trendLbls[0]}</th>
+          <th class="p-2 bg-gray-50 text-center whitespace-nowrap">Repo ${trendLbls[1]}</th>
+          <th class="p-2 bg-gray-50 text-center whitespace-nowrap">Repo ${trendLbls[2]}</th>
+          <th class="p-2 bg-gray-50 text-center border-l border-coolBorder whitespace-nowrap">Accounts ${trendLbls[0]}</th>
+          <th class="p-2 bg-gray-50 text-center whitespace-nowrap">Accounts ${trendLbls[1]}</th>`;
         showEffRepo = false;
       }
 
@@ -6432,18 +6435,26 @@ body.bg-coolDark{
             const repoMarRate = Number(b.repoRateMar) || 0;
             const repoAprRate = Number(b.repoRateApr) || 0;
             const repoLatestRate = Number(b.repoRateLatest ?? b.repoRate) || 0;
+            const repoUp = repoLatestRate > repoMarRate, repoFlat = repoLatestRate === repoMarRate;
+            const repoIcon = repoFlat ? '→' : (repoUp ? '▲' : '▼');
+            const repoColor = repoFlat ? 'text-slate-400' : (repoUp ? 'text-accentRose' : 'text-accentEmerald');
             detailCells = `
-              <td class="p-2 text-center text-slate-600">${b.effMar}%</td>
+              <td class="p-2 text-center text-slate-600">${repoMarRate.toFixed(2)}%</td>
+              <td class="p-2 text-center text-slate-600">${repoAprRate.toFixed(2)}%</td>
+              <td class="p-2 text-center">
+                <div class="flex items-center justify-center gap-1.5">
+                  <span class="font-semibold ${repoLatestRate > 7 ? 'text-accentRose' : 'text-slate-800'}">${repoLatestRate.toFixed(2)}%</span>
+                  <span class="${repoColor} text-[10px]">${repoIcon}</span>
+                </div>
+              </td>
+              <td class="p-2 text-center text-slate-600 border-l border-coolBorder">${b.effMar}%</td>
               <td class="p-2 text-center text-slate-600">${b.effApr}%</td>
               <td class="p-2 text-center">
                 <div class="flex items-center justify-center gap-1.5">
                   <span class="font-semibold text-slate-800">${b.effLatest}%</span>
                   <span class="${effColor} text-[10px]">${effIcon}</span>
                 </div>
-              </td>
-              <td class="p-2 text-center text-slate-600 border-l border-coolBorder">${repoMarRate.toFixed(2)}%</td>
-              <td class="p-2 text-center text-slate-600">${repoAprRate.toFixed(2)}%</td>
-              <td class="p-2 text-center ${repoLatestRate > 7 ? 'text-accentRose font-bold' : 'text-slate-600'}">${repoLatestRate.toFixed(2)}%</td>`;
+              </td>`;
           } else if (type === 'sales') {
             const avgSales = computeAvgSales(b);
             const fmtMonth = (m, border) => `
@@ -6510,6 +6521,9 @@ body.bg-coolDark{
               </td>`;
           } else if (type === 'accounts') {
             detailCells = `
+              <td class="p-2 text-center text-slate-600 border-l border-coolBorder">${(b.noOfRepoMar || 0).toLocaleString()}</td>
+              <td class="p-2 text-center text-slate-600">${(b.noOfRepoApr || 0).toLocaleString()}</td>
+              <td class="p-2 text-center text-slate-600">${(b.noOfRepoLatest || 0).toLocaleString()}</td>
               <td class="p-2 text-center text-slate-600 border-l border-coolBorder">${(b.accountsMar || 0).toLocaleString()}</td>
               <td class="p-2 text-center text-slate-600">${(b.accountsApr || 0).toLocaleString()}</td>`;
           }
