@@ -6156,7 +6156,7 @@ body.bg-coolDark{
           </div>
       `;
       const __defaultFindingsYears = getBranchFindingYears(b.name);
-      renderProfileFindingsPanel(b.name, __defaultFindingsYears.length ? __defaultFindingsYears[__defaultFindingsYears.length - 1] : ALLOWED_FINDING_YEARS[ALLOWED_FINDING_YEARS.length - 1]);
+      renderProfileFindingsPanel(b.name, __defaultFindingsYears.length ? __defaultFindingsYears[__defaultFindingsYears.length - 1] : getAllowedFindingYears()[getAllowedFindingYears().length - 1]);
     }
 
     // Returns the sorted list of distinct years that actually have logged
@@ -6167,24 +6167,39 @@ body.bg-coolDark{
     // The dashboard only tracks findings for these years. Any other year
     // value that shows up in the data source (e.g. a mis-typed 2021 entry)
     // is ignored here so it can't add a stray card to the findings history.
-    // Starts at 2024 (the earliest year the AUDIT FINDINGS sheet tracks)
-    // and always extends a few years past the current calendar year, so
-    // 2027/2028/etc. show up as soon as they arrive without needing this
-    // list edited again.
-    const ALLOWED_FINDING_YEARS = (() => {
-        const startYear = 2024;
-        const endYear = new Date().getFullYear() + 4;
-        const years = [];
-        for (let y = startYear; y <= endYear; y++) years.push(y);
-        return years;
-    })();
+    //
+    // The year TABS shown across all branches (getAllowedFindingYears,
+    // below) always include 2024-2026, and only add a later year (2027,
+    // 2028, ...) once at least one row for that year actually exists
+    // somewhere in the sheet — so updating the data with 2027 findings is
+    // what makes the "2027" tab appear, rather than it showing up ahead of
+    // time with nothing in it.
+    const BASE_FINDING_YEARS = [2024, 2025, 2026];
+    // Sanity cap so a mis-typed year (e.g. "2072") in the sheet can't spawn
+    // a bogus far-future tab — anything beyond ~5 years out is ignored.
+    const MAX_FUTURE_FINDING_YEAR = new Date().getFullYear() + 5;
+
+    function getAllowedFindingYears() {
+        const years = new Set(BASE_FINDING_YEARS);
+        const allBranchDetail = (activeData && activeData.auditFindingsDetail) || {};
+        Object.keys(allBranchDetail).forEach(branchName => {
+            (allBranchDetail[branchName] || []).forEach(r => {
+                const y = getRecordYear(r);
+                if (!isNaN(y) && y > BASE_FINDING_YEARS[BASE_FINDING_YEARS.length - 1] && y <= MAX_FUTURE_FINDING_YEAR) {
+                    years.add(y);
+                }
+            });
+        });
+        return Array.from(years).sort((a, b) => a - b);
+    }
 
     function getBranchFindingYears(branchName) {
+        const allowedYears = getAllowedFindingYears();
         const allDetail = (activeData.auditFindingsDetail && activeData.auditFindingsDetail[branchName]) || [];
         const years = new Set();
         allDetail.forEach(r => {
             const y = getRecordYear(r);
-            if (ALLOWED_FINDING_YEARS.includes(y)) years.add(y);
+            if (allowedYears.includes(y)) years.add(y);
         });
         return Array.from(years).sort((a, b) => a - b);
     }
@@ -6490,7 +6505,7 @@ body.bg-coolDark{
         const records = allDetail.filter(r => getRecordYear(r) === Number(year))
                                   .sort((a, b) => (a.date < b.date ? 1 : -1));
 
-        const yearTabs = ALLOWED_FINDING_YEARS.map(y => {
+        const yearTabs = getAllowedFindingYears().map(y => {
             const count = allDetail.filter(r => getRecordYear(r) === y).length;
             const active = Number(year) === y;
             return `
@@ -7150,7 +7165,7 @@ body.bg-coolDark{
         const records = allDetail.filter(r => getRecordYear(r) === Number(year))
                                   .sort((a, b) => (a.date < b.date ? 1 : -1));
 
-        const yearTabs = ALLOWED_FINDING_YEARS.map(y => {
+        const yearTabs = getAllowedFindingYears().map(y => {
             const count = allDetail.filter(r => getRecordYear(r) === y).length;
             const active = Number(year) === y;
             return `
