@@ -1872,6 +1872,23 @@ body.bg-coolDark{
     background: linear-gradient(90deg,#3355d8,#4169E1); color: #fff; font-weight: 700;
   }
   #miniCalGrid .mini-cal-day.is-muted { color: #cbd5e1; }
+  /* Philippine holidays: a small coloured dot under the day number so the
+     day itself stays legible; regular holidays (fixed by law, e.g. RA 9849)
+     use royal blue, special non-working days use amber. The dot sits under
+     "today"'s number too (white, since today's background is already blue). */
+  #miniCalGrid .mini-cal-day { position: relative; flex-direction: column; gap: 1px; padding-top: 2px; }
+  #miniCalGrid .mini-cal-day.is-holiday-regular,
+  #miniCalGrid .mini-cal-day.is-holiday-special { font-weight: 700; }
+  #miniCalGrid .mini-cal-day.is-holiday-regular:not(.is-today) { color: #4169E1; }
+  #miniCalGrid .mini-cal-day.is-holiday-special:not(.is-today) { color: #b45309; }
+  #miniCalGrid .mini-cal-day .ph-holiday-dot {
+    width: 4px; height: 4px; border-radius: 50%; margin-top: 1px;
+  }
+  #miniCalGrid .mini-cal-day.is-holiday-regular .ph-holiday-dot { background: #4169E1; }
+  #miniCalGrid .mini-cal-day.is-holiday-special .ph-holiday-dot { background: #d97706; }
+  #miniCalGrid .mini-cal-day.is-today .ph-holiday-dot { background: #fff; }
+  #miniCalHolidayList::-webkit-scrollbar { width: 4px; }
+  #miniCalHolidayList::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
   #liveTimeText, #liveDateText {
     transition: color .3s ease;
   }
@@ -2232,6 +2249,131 @@ body.bg-coolDark{
   </script>
 
   <script>
+    // ============================================================
+    // PHILIPPINE HOLIDAYS ENGINE
+    // ------------------------------------------------------------
+    // Computes PH regular & special (non-working) holidays for any
+    // year automatically, so the mini calendar stays correct every
+    // year without needing to be hand-edited.
+    //
+    // - Fixed-date holidays (New Year's Day, Independence Day, etc.)
+    //   and rule-based ones (Maundy Thursday/Good Friday/Black
+    //   Saturday via the Easter Computus algorithm; National Heroes
+    //   Day = last Monday of August) are calculated exactly, forever.
+    // - Chinese New Year, Eid'l Fitr and Eid'l Adha follow the lunar/
+    //   Hijri calendar and can't be derived from a formula the same
+    //   way, so they're looked up from PH_LUNAR_HOLIDAYS below. That
+    //   table is filled in through 2036 using published astronomical
+    //   dates. Philippine Eid dates are only made official once the
+    //   National Commission on Muslim Filipinos confirms the moon
+    //   sighting, so those (and the exact Chinese New Year "special
+    //   day" designation) are marked as estimates until the yearly
+    //   Presidential Proclamation confirms them — this only ever
+    //   affects Eid/CNY, not the fixed or Easter-based holidays.
+    // ============================================================
+    (function () {
+      // month is 0-indexed to match JS Date
+      var PH_LUNAR_HOLIDAYS = {
+        2024: { cny: [1, 10], eidFitr: [[3, 10]], eidAdha: [[5, 17]] },
+        2025: { cny: [0, 29], eidFitr: [[2, 31]], eidAdha: [[5, 6]] },
+        2026: { cny: [1, 17], eidFitr: [[2, 20]], eidAdha: [[4, 27]] },
+        2027: { cny: [1, 6],  eidFitr: [[2, 9]],  eidAdha: [[4, 16]] },
+        2028: { cny: [0, 26], eidFitr: [[1, 26]], eidAdha: [[4, 5]] },
+        2029: { cny: [1, 13], eidFitr: [[1, 14]], eidAdha: [[3, 24]] },
+        2030: { cny: [1, 3],  eidFitr: [[1, 4]],  eidAdha: [[3, 13]] },
+        2031: { cny: [0, 23], eidFitr: [[0, 24]], eidAdha: [[3, 2]] },
+        2032: { cny: [1, 11], eidFitr: [[0, 14]], eidAdha: [[2, 22]] },
+        2033: { cny: [0, 31], eidFitr: [[0, 2], [11, 23]], eidAdha: [[2, 11]] },
+        2034: { cny: [1, 19], eidFitr: [[11, 12]], eidAdha: [[1, 1]] },
+        2035: { cny: [1, 8],  eidFitr: [[11, 1]],  eidAdha: [[1, 18]] },
+        2036: { cny: [0, 28], eidFitr: [[10, 19]], eidAdha: [[1, 7]] }
+      };
+
+      function easterSunday(year) {
+        // Anonymous Gregorian algorithm (Meeus/Jones/Butcher) — exact
+        // for any Gregorian year, no lookup table needed.
+        var a = year % 19, b = Math.floor(year / 100), c = year % 100;
+        var d = Math.floor(b / 4), e = b % 4;
+        var f = Math.floor((b + 8) / 25);
+        var g = Math.floor((b - f + 1) / 3);
+        var h = (19 * a + b - d - g + 15) % 30;
+        var i = Math.floor(c / 4), k = c % 4;
+        var l = (32 + 2 * e + 2 * i - h - k) % 7;
+        var m = Math.floor((a + 11 * h + 22 * l) / 451);
+        var month = Math.floor((h + l - 7 * m + 114) / 31); // 3=Mar, 4=Apr
+        var day = ((h + l - 7 * m + 114) % 31) + 1;
+        return new Date(year, month - 1, day);
+      }
+      function addDays(date, n) {
+        var d = new Date(date);
+        d.setDate(d.getDate() + n);
+        return d;
+      }
+      function lastWeekdayOfMonth(year, month, weekday) {
+        // weekday: 0=Sun..6=Sat. Returns a Date for the last occurrence
+        // of that weekday in the given month.
+        var last = new Date(year, month + 1, 0);
+        var diff = (last.getDay() - weekday + 7) % 7;
+        return new Date(year, month, last.getDate() - diff);
+      }
+
+      // Returns an array of { month, day, name, type } for the given year.
+      // type is 'regular' or 'special'.
+      function getPHHolidays(year) {
+        var list = [];
+        function reg(m, d, name) { list.push({ month: m, day: d, name: name, type: 'regular' }); }
+        function spec(m, d, name) { list.push({ month: m, day: d, name: name, type: 'special' }); }
+
+        // ---- Regular holidays (fixed dates) ----
+        reg(0, 1, "New Year's Day");
+        reg(3, 9, "Araw ng Kagitingan");
+        reg(4, 1, "Labor Day");
+        reg(5, 12, "Independence Day");
+        reg(10, 30, "Bonifacio Day");
+        reg(11, 25, "Christmas Day");
+        reg(11, 30, "Rizal Day");
+
+        // National Heroes Day — last Monday of August
+        var heroesDay = lastWeekdayOfMonth(year, 7, 1);
+        reg(heroesDay.getMonth(), heroesDay.getDate(), "National Heroes Day");
+
+        // Holy Week — computed from Easter Sunday
+        var easter = easterSunday(year);
+        var maundyThu = addDays(easter, -3);
+        var goodFri = addDays(easter, -2);
+        var blackSat = addDays(easter, -1);
+        reg(maundyThu.getMonth(), maundyThu.getDate(), "Maundy Thursday");
+        reg(goodFri.getMonth(), goodFri.getDate(), "Good Friday");
+        spec(blackSat.getMonth(), blackSat.getDate(), "Black Saturday");
+
+        // ---- Special (non-working) holidays (fixed dates) ----
+        spec(7, 21, "Ninoy Aquino Day");
+        spec(10, 1, "All Saints' Day");
+        spec(10, 2, "All Souls' Day");
+        spec(11, 8, "Feast of the Immaculate Conception");
+        spec(11, 24, "Christmas Eve");
+        spec(11, 31, "Last Day of the Year");
+        // EDSA anniversary's working/non-working status is re-decided
+        // every year by proclamation (e.g. it was a special *working*
+        // day in 2026) — shown as an observance, not styled as a
+        // day off, so it's never wrong.
+        list.push({ month: 1, day: 25, name: "EDSA People Power Anniversary (observance)", type: 'observance' });
+
+        // ---- Lunar/Hijri holidays (looked up, see note above) ----
+        var lunar = PH_LUNAR_HOLIDAYS[year];
+        if (lunar) {
+          spec(lunar.cny[0], lunar.cny[1], "Chinese New Year");
+          lunar.eidFitr.forEach(function (md) { reg(md[0], md[1], "Eid'l Fitr (estimated)"); });
+          lunar.eidAdha.forEach(function (md) { reg(md[0], md[1], "Eid'l Adha (estimated)"); });
+        }
+
+        return list;
+      }
+      window.getPHHolidays = getPHHolidays;
+    })();
+  </script>
+
+  <script>
     // Small calendar popup that opens when the header time/date card is
     // clicked. Purely a display/navigation aid — it doesn't read or write
     // any dashboard data, so it's safe to init independently of everything
@@ -2242,6 +2384,7 @@ body.bg-coolDark{
         const popup = document.getElementById('miniCalendarPopup');
         const label = document.getElementById('miniCalLabel');
         const grid = document.getElementById('miniCalGrid');
+        const holidayListEl = document.getElementById('miniCalHolidayList');
         const prevBtn = document.getElementById('miniCalPrev');
         const nextBtn = document.getElementById('miniCalNext');
         const todayBtn = document.getElementById('miniCalToday');
@@ -2260,22 +2403,74 @@ body.bg-coolDark{
           const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
           const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
 
+          // PH holidays for this year, keyed by "month-day" for quick lookup.
+          // Also pull in December of the previous year / January of the next
+          // year so holidays still show correctly on the muted lead/trail days.
+          const holidaysByDay = {};
+          [viewYear - 1, viewYear, viewYear + 1].forEach(function (y) {
+            if (!window.getPHHolidays) return;
+            window.getPHHolidays(y).forEach(function (h) {
+              const key = y + '-' + h.month + '-' + h.day;
+              holidaysByDay[key] = h;
+            });
+          });
+          function holidayFor(y, m, d) { return holidaysByDay[y + '-' + m + '-' + d]; }
+
           let html = '';
           // Trailing days from previous month, muted, to fill the first row
+          const prevMonthYear = viewMonth === 0 ? viewYear - 1 : viewYear;
+          const prevMonth = viewMonth === 0 ? 11 : viewMonth - 1;
           for (let i = startDay - 1; i >= 0; i--) {
-            html += '<span class="mini-cal-day is-muted">' + (daysInPrevMonth - i) + '</span>';
+            const d = daysInPrevMonth - i;
+            const h = holidayFor(prevMonthYear, prevMonth, d);
+            const dot = h && h.type !== 'observance' ? '<span class="ph-holiday-dot"></span>' : '';
+            html += '<span class="mini-cal-day is-muted" title="' + (h ? h.name : '') + '"><span>' + d + '</span>' + dot + '</span>';
           }
+          const monthHolidays = [];
           for (let d = 1; d <= daysInMonth; d++) {
             const isToday = d === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
-            html += '<span class="mini-cal-day' + (isToday ? ' is-today' : '') + '">' + d + '</span>';
+            const h = holidayFor(viewYear, viewMonth, d);
+            let cls = 'mini-cal-day' + (isToday ? ' is-today' : '');
+            let dot = '';
+            let title = '';
+            if (h) {
+              title = h.name;
+              if (h.type !== 'observance') {
+                cls += h.type === 'regular' ? ' is-holiday-regular' : ' is-holiday-special';
+                dot = '<span class="ph-holiday-dot"></span>';
+              }
+              monthHolidays.push({ day: d, name: h.name, type: h.type });
+            }
+            html += '<span class="' + cls + '" title="' + title + '"><span>' + d + '</span>' + dot + '</span>';
           }
           // Leading days of next month so the grid always fills complete weeks
           const totalCells = startDay + daysInMonth;
           const trailing = (7 - (totalCells % 7)) % 7;
+          const nextMonthYear = viewMonth === 11 ? viewYear + 1 : viewYear;
+          const nextMonth = viewMonth === 11 ? 0 : viewMonth + 1;
           for (let d = 1; d <= trailing; d++) {
-            html += '<span class="mini-cal-day is-muted">' + d + '</span>';
+            const h = holidayFor(nextMonthYear, nextMonth, d);
+            const dot = h && h.type !== 'observance' ? '<span class="ph-holiday-dot"></span>' : '';
+            html += '<span class="mini-cal-day is-muted" title="' + (h ? h.name : '') + '"><span>' + d + '</span>' + dot + '</span>';
           }
           grid.innerHTML = html;
+
+          // Below-grid list so holidays are readable (not just a hover
+          // tooltip, which doesn't work on touch devices).
+          if (holidayListEl) {
+            if (monthHolidays.length === 0) {
+              holidayListEl.innerHTML = '<p class="text-[10px] text-slate-400 px-1">No PH holidays this month</p>';
+            } else {
+              holidayListEl.innerHTML = monthHolidays.map(function (h) {
+                const dotColor = h.type === 'observance' ? '#94a3b8' : (h.type === 'regular' ? '#4169E1' : '#d97706');
+                return '<div class="flex items-center gap-1.5 px-1 py-0.5 rounded-lg hover:bg-slate-50">' +
+                  '<span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:' + dotColor + '"></span>' +
+                  '<span class="text-[10px] font-bold text-slate-500 tabular-nums w-9 shrink-0">' + MONTH_NAMES[viewMonth].slice(0,3) + ' ' + h.day + '</span>' +
+                  '<span class="text-[10px] text-slate-600 truncate">' + h.name + '</span>' +
+                '</div>';
+              }).join('');
+            }
+          }
         }
 
         // The popup is `position: absolute` inside #liveDateTime and defaults
@@ -2968,6 +3163,11 @@ body.bg-coolDark{
             <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
           </div>
           <div id="miniCalGrid" class="grid grid-cols-7 gap-y-1 text-center text-xs"></div>
+          <div class="flex items-center gap-3 mt-2 px-1 text-[9px] font-semibold text-slate-400">
+            <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full" style="background:#4169E1"></span>Regular holiday</span>
+            <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full" style="background:#d97706"></span>Special day</span>
+          </div>
+          <div id="miniCalHolidayList" class="mt-1.5 max-h-24 overflow-y-auto custom-scrollbar space-y-1 text-left"></div>
           <button type="button" id="miniCalToday" class="mt-2 w-full py-1.5 text-xs font-semibold text-accentBlue hover:bg-accentBlue/10 rounded-lg transition-all">Today</button>
         </div>
       </div>
