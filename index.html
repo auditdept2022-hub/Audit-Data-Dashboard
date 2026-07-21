@@ -1942,6 +1942,22 @@ body.bg-coolDark{
   .leading-tight{line-height:1.25}
   .tracking-wide{letter-spacing:0.025em}
   .mt-0\.5{margin-top:0.125rem}
+
+  /* Make the selected filter pill unmistakable: a bold colored ring plus a
+     slight lift/scale and deeper tint, instead of a thin ring that's easy
+     to miss against the pill's already-tinted background. !important guards
+     against cascade-order fights with the base color/bg utility classes. */
+  .ring-2.ring-offset-1{
+    transform: translateY(-1px) scale(1.03) !important;
+    font-weight: 800 !important;
+  }
+  .ring-accentEmerald.ring-2{box-shadow:0 0 0 2px #fff, 0 0 0 4px rgb(5 150 105), 0 2px 6px rgb(5 150 105 / 0.35) !important;background-color:rgb(5 150 105 / 0.18) !important;}
+  .ring-accentRose.ring-2{box-shadow:0 0 0 2px #fff, 0 0 0 4px rgb(225 29 72), 0 2px 6px rgb(225 29 72 / 0.35) !important;background-color:rgb(225 29 72 / 0.18) !important;}
+  .ring-slate-400.ring-2{box-shadow:0 0 0 2px #fff, 0 0 0 4px rgb(100 116 139), 0 2px 6px rgb(100 116 139 / 0.35) !important;background-color:rgb(226 232 240) !important;}
+  .ring-accentAmber.ring-2{box-shadow:0 0 0 2px #fff, 0 0 0 4px rgb(217 119 6), 0 2px 6px rgb(217 119 6 / 0.35) !important;background-color:rgb(217 119 6 / 0.18) !important;}
+  .ring-accentBlue.ring-2{box-shadow:0 0 0 2px #fff, 0 0 0 4px rgb(37 99 235), 0 2px 6px rgb(37 99 235 / 0.35) !important;background-color:rgb(37 99 235 / 0.18) !important;}
+  .ring-accentCyan.ring-2{box-shadow:0 0 0 2px #fff, 0 0 0 4px rgb(8 145 178), 0 2px 6px rgb(8 145 178 / 0.35) !important;background-color:rgb(8 145 178 / 0.18) !important;}
+  .row-hover-strong:hover{background-color:rgb(241 245 249) !important;}
   @media (min-width:640px){
     .sm\:flex{display:flex}
     .sm\:inline-flex{display:inline-flex}
@@ -3072,7 +3088,6 @@ body.bg-coolDark{
             </span>
             <div class="min-w-0">
               <h3 class="text-sm sm:text-base font-bold tracking-tight text-slate-900 leading-tight">Collection, Sales, Service &amp; Audit Overview</h3>
-              <p class="text-xs text-slate-500 mt-0.5">Branch-level status mix across all four performance pillars</p>
             </div>
           </div>
           <span class="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-bold tracking-wider text-accentEmerald uppercase bg-accentEmerald/10 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
@@ -7018,7 +7033,7 @@ body.bg-coolDark{
         const pct = total ? Math.round(val / total * 100) : 0;
         const safeTitle = `${modalTitlePrefix}: ${seg.label}`.replace(/'/g, "\\'");
         return `
-          <div class="cursor-pointer rounded-lg p-1.5 -m-1.5 border border-transparent hover:border-coolBorder hover:bg-gray-50 transition-colors" onclick="event.stopPropagation(); openModal('${safeTitle}', '${modalKey}', '${seg.label}')">
+          <div class="cursor-pointer rounded-lg p-1.5 -m-1.5 border border-transparent hover:border-coolBorder hover:bg-gray-50 hover:shadow-sm transition-colors row-hover-strong" onclick="event.stopPropagation(); openModal('${safeTitle}', '${modalKey}', '${seg.label}')">
             <div class="flex items-center justify-between text-xs sm:text-[13px] font-semibold mb-1">
               <span class="flex items-center gap-2 text-slate-700 min-w-0">
                 <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${seg.color}"></span>
