@@ -93,6 +93,21 @@
   #modalDialog.modal-fullscreen #modalBody [class*="max-w-"] {
     max-width: min(100%, 1400px) !important;
   }
+  /* Same problem, but vertically: several popups (Total Active Accounts
+     Breakdown, Service/Sales/Collection/All Branches Overview, Auditor
+     Workload, Emergency History, the per-branch findings table) wrap
+     their list/table in a short, fixed-height scroll box — e.g.
+     h-[500px]/max-h-[60vh], max-h-64, max-h-80 — sized for the small
+     windowed popup. Going fullscreen resized the dialog but left these
+     inner boxes just as short, so the data area itself never grew and
+     fullscreen looked like it did nothing. In fullscreen, let every such
+     box grow to use the real available height instead of staying capped. */
+  #modalDialog.modal-fullscreen #modalBody [class*="h-[500px]"] {
+    height: calc(100dvh - 230px) !important;
+  }
+  #modalDialog.modal-fullscreen #modalBody [class*="max-h-"] {
+    max-height: calc(100dvh - 230px) !important;
+  }
     #modalBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
     /* Branch Audit Interval modal: the outer #modalBody must NOT scroll
        itself here (that created a double scroll region — the toolbar/
