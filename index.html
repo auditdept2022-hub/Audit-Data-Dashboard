@@ -6167,7 +6167,17 @@ body.bg-coolDark{
     // The dashboard only tracks findings for these years. Any other year
     // value that shows up in the data source (e.g. a mis-typed 2021 entry)
     // is ignored here so it can't add a stray card to the findings history.
-    const ALLOWED_FINDING_YEARS = [2024, 2025, 2026];
+    // Starts at 2024 (the earliest year the AUDIT FINDINGS sheet tracks)
+    // and always extends a few years past the current calendar year, so
+    // 2027/2028/etc. show up as soon as they arrive without needing this
+    // list edited again.
+    const ALLOWED_FINDING_YEARS = (() => {
+        const startYear = 2024;
+        const endYear = new Date().getFullYear() + 4;
+        const years = [];
+        for (let y = startYear; y <= endYear; y++) years.push(y);
+        return years;
+    })();
 
     function getBranchFindingYears(branchName) {
         const allDetail = (activeData.auditFindingsDetail && activeData.auditFindingsDetail[branchName]) || [];
@@ -6435,9 +6445,21 @@ body.bg-coolDark{
 
 
     function formatFindingDate(dateStr, fallbackYear) {
-        // Per AUDIT FINDINGS column E: show the fiscal year label (e.g. "FY2026")
-        // instead of a month/day/year date.
+        // The AUDIT FINDINGS sheet only started logging a real per-finding
+        // date starting FY2026 — years before that only ever have the
+        // fiscal-year column populated, so those keep showing the
+        // "FY2024"/"FY2025" label as before. FY2026 onward shows the
+        // actual date (e.g. "Jun 15, 2026") now that it's available.
         const y = Number(fallbackYear);
+        if (dateStr && (isNaN(y) || y >= 2026)) {
+            const parts = String(dateStr).split('-').map(Number);
+            if (parts.length === 3 && !parts.some(isNaN)) {
+                const d = new Date(parts[0], parts[1] - 1, parts[2]);
+                if (!isNaN(d.getTime())) {
+                    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                }
+            }
+        }
         if (!isNaN(y) && y) return `FY${y}`;
         if (dateStr) {
             const parts = String(dateStr).split('-').map(Number);
@@ -6483,7 +6505,7 @@ body.bg-coolDark{
             ? `<tr><td colspan="3" class="p-4 text-center text-xs text-slate-400 italic">No individual findings recorded for FY${year} (from AUDIT FINDINGS sheet).</td></tr>`
             : records.map(r => `
                 <tr class="border-t border-coolBorder">
-                    <td class="p-2 text-[11px] font-semibold text-slate-500 tabular-nums whitespace-nowrap align-top">${formatFindingDate(r.date, r.year)}</td>
+                    <td class="p-2 text-[11px] font-semibold text-slate-500 tabular-nums whitespace-nowrap align-top text-right">${formatFindingDate(r.date, r.year)}</td>
                     <td class="p-2 align-top whitespace-nowrap">${getFindingCategoryBadge(r.category)}</td>
                     <td class="p-2 text-xs text-slate-800">${escapeFindingHTML(r.finding)}</td>
                 </tr>`).join('');
@@ -6497,7 +6519,7 @@ body.bg-coolDark{
                 <div class="max-h-64 overflow-y-auto custom-scrollbar">
                     <table class="w-full text-left border-collapse">
                         <thead class="bg-slate-50 text-[9px] uppercase tracking-wider text-slate-400 font-bold sticky top-0">
-                            <tr><th class="p-2 w-24">Date</th><th class="p-2 w-40">Category</th><th class="p-2">Remarks</th></tr>
+                            <tr><th class="p-2 w-24 text-right">Date</th><th class="p-2 w-40">Category</th><th class="p-2">Remarks</th></tr>
                         </thead>
                         <tbody>${rowsHtml}</tbody>
                     </table>
@@ -7145,7 +7167,7 @@ body.bg-coolDark{
         } else {
             rowsHtml = records.map(r => `
                 <tr class="border-t border-coolBorder">
-                    <td class="p-2 text-[11px] font-semibold text-slate-500 tabular-nums whitespace-nowrap align-top">${formatFindingDate(r.date, r.year)}</td>
+                    <td class="p-2 text-[11px] font-semibold text-slate-500 tabular-nums whitespace-nowrap align-top text-right">${formatFindingDate(r.date, r.year)}</td>
                     <td class="p-2 align-top whitespace-nowrap">${getFindingCategoryBadge(r.category)}</td>
                     <td class="p-2 text-xs text-slate-800">${escapeFindingHTML(r.finding)}</td>
                 </tr>`).join('');
@@ -7160,7 +7182,7 @@ body.bg-coolDark{
                 <div class="max-h-64 overflow-y-auto custom-scrollbar">
                     <table class="w-full text-left border-collapse">
                         <thead class="bg-slate-50 text-[9px] uppercase tracking-wider text-slate-400 font-bold sticky top-0">
-                            <tr><th class="p-2 w-24">Date</th><th class="p-2 w-40">Category</th><th class="p-2">Remarks</th></tr>
+                            <tr><th class="p-2 w-24 text-right">Date</th><th class="p-2 w-40">Category</th><th class="p-2">Remarks</th></tr>
                         </thead>
                         <tbody>${rowsHtml}</tbody>
                     </table>
