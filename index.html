@@ -2476,8 +2476,8 @@ body.bg-coolDark{
 
   <div id="dataModal" class="fixed inset-0 z-50 transition-opacity duration-300 opacity-0 hidden">
     <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="closeModal()"></div>
-    <div class="absolute inset-0 flex items-start sm:items-center justify-center overflow-y-auto p-3 sm:p-4 py-6 pointer-events-none">
-      <div class="bg-coolCard w-full max-w-5xl max-h-[85vh] max-h-[85dvh] my-auto rounded-2xl shadow-2xl flex flex-col pointer-events-auto transform transition-transform duration-300 border border-coolBorder scale-95" id="modalDialog">
+    <div class="absolute inset-0 flex items-start sm:items-center justify-center overflow-y-auto p-3 sm:p-4 py-6" onclick="closeModal()">
+      <div class="bg-coolCard w-full max-w-5xl max-h-[85vh] max-h-[85dvh] my-auto rounded-2xl shadow-2xl flex flex-col transform transition-transform duration-300 border border-coolBorder scale-95" id="modalDialog" onclick="event.stopPropagation()">
         <div class="px-4 sm:px-5 py-2.5 sm:py-3 border-b border-coolBorder flex justify-between items-center gap-3 bg-gray-50 rounded-t-2xl">
           <div class="flex items-center gap-2 min-w-0">
             <button id="modalBackBtn" onclick="modalGoBack()" title="Back" aria-label="Back to previous view" class="hidden p-2 -ml-1 text-slate-400 hover:text-accentBlue hover:bg-accentBlue/10 active:scale-95 rounded-xl transition-all cursor-pointer flex-shrink-0">
@@ -3015,43 +3015,93 @@ body.bg-coolDark{
       </div>
     </div>
 
-    <div id="section-charts" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div id="section-charts" class="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
       
-      <div class="dash-card-accent bg-coolCard border border-coolBorder rounded-2xl p-4 shadow-md lg:col-span-2 flex flex-col justify-between hover:shadow-lg transition-all">
-        <h3 class="text-lg font-bold tracking-tight text-slate-900 mb-4 flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pie-chart w-5 h-5 text-accentCyan"><path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z"></path><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path></svg>
-          COLLECTION, SALES, SERVICE &amp; AUDIT OVERVIEW
-        </h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 h-full items-center">
-          <div onclick="if(!event.target.closest('.apexcharts-canvas')){openModal('Collection Status Overview', 'collection', 'ALL');}" title="View all collection branches" class="cursor-pointer active:scale-[0.98] transition-all rounded-xl border border-coolBorder hover:border-accentEmerald/50 hover:shadow-md hover:-translate-y-0.5 hover:bg-accentEmerald/5 p-2">
-            <span class="text-xs font-semibold text-slate-500 tracking-wider uppercase flex items-center justify-center gap-1 mb-3 text-center">Collection Status Breakdown<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-accentEmerald shrink-0"><path d="m9 18 6-6-6-6"></path></svg></span>
-            <div id="collectionDonutChart" style="min-height: 200px;"></div>
+      <div class="dash-card-accent bg-coolCard border border-coolBorder rounded-2xl p-4 sm:p-5 shadow-md lg:col-span-2 flex flex-col hover:shadow-lg transition-all">
+        <div class="flex items-start justify-between gap-3 mb-3 pb-3 border-b border-coolBorder">
+          <div class="flex items-center gap-3 min-w-0">
+            <span class="hidden sm:flex w-10 h-10 rounded-xl bg-gradient-to-br from-accentIndigo/15 to-accentCyan/15 items-center justify-center shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-accentCyan"><path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z"></path><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path></svg>
+            </span>
+            <div class="min-w-0">
+              <h3 class="text-base sm:text-lg font-bold tracking-tight text-slate-900 leading-tight">Collection, Sales, Service &amp; Audit Overview</h3>
+              <p class="text-xs sm:text-sm text-slate-500 mt-0.5">Branch-level status mix across all four performance pillars</p>
+            </div>
           </div>
-          <div onclick="if(!event.target.closest('.apexcharts-canvas')){openModal('Sales Status Overview', 'sales', 'ALL');}" title="View all sales branches" class="cursor-pointer active:scale-[0.98] transition-all rounded-xl border border-coolBorder hover:border-accentIndigo/50 hover:shadow-md hover:-translate-y-0.5 hover:bg-accentIndigo/5 p-2">
-            <span class="text-xs font-semibold text-slate-500 tracking-wider uppercase flex items-center justify-center gap-1 mb-3 text-center">Sales Status Breakdown<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-accentIndigo shrink-0"><path d="m9 18 6-6-6-6"></path></svg></span>
-            <div id="salesDonutChart" style="min-height: 200px;"></div>
+          <span class="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-bold tracking-wider text-accentEmerald uppercase bg-accentEmerald/10 px-2.5 py-1 rounded-full shrink-0 whitespace-nowrap">
+            <span class="w-1.5 h-1.5 rounded-full bg-accentEmerald animate-pulse"></span>
+            Live
+          </span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div onclick="openModal('Collection Status Overview', 'collection', 'ALL')" title="View all collection branches" class="cursor-pointer active:scale-[0.98] transition-all rounded-xl border border-coolBorder hover:border-accentEmerald/50 hover:shadow-md hover:-translate-y-0.5 bg-gradient-to-b from-accentEmerald/[0.04] to-transparent p-3 sm:p-4 relative overflow-hidden group">
+            <span class="absolute top-0 left-0 right-0 h-[3px] bg-accentEmerald/70 group-hover:bg-accentEmerald transition-colors"></span>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs sm:text-sm font-bold text-slate-700 tracking-wide uppercase flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-accentEmerald shrink-0"><path d="M16 7h6v6"></path><path d="m22 7-8.5 8.5-5-5L2 17"></path></svg>
+                Collection Status
+              </span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-accentEmerald shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"><path d="m9 18 6-6-6-6"></path></svg>
+            </div>
+            <div class="flex items-baseline gap-1.5 mb-2.5">
+              <span id="collectionStatusTotal" class="text-3xl font-extrabold text-slate-900">0</span>
+              <span class="text-xs font-semibold text-slate-400">branches tracked</span>
+            </div>
+            <div id="collectionStatusRows" class="space-y-2"></div>
           </div>
-          <div onclick="if(!event.target.closest('.apexcharts-canvas')){openModal('Service Status Overview', 'service', 'ALL');}" title="View all service branches" class="cursor-pointer active:scale-[0.98] transition-all rounded-xl border border-coolBorder hover:border-accentCyan/50 hover:shadow-md hover:-translate-y-0.5 hover:bg-accentCyan/5 p-2">
-            <span class="text-xs font-semibold text-slate-500 tracking-wider uppercase flex items-center justify-center gap-1 mb-3 text-center">Service Status Breakdown<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-accentCyan shrink-0"><path d="m9 18 6-6-6-6"></path></svg></span>
-            <div id="serviceDonutChart" style="min-height: 200px;" class=""></div>
+          <div onclick="openModal('Sales Status Overview', 'sales', 'ALL')" title="View all sales branches" class="cursor-pointer active:scale-[0.98] transition-all rounded-xl border border-coolBorder hover:border-accentIndigo/50 hover:shadow-md hover:-translate-y-0.5 bg-gradient-to-b from-accentIndigo/[0.04] to-transparent p-3 sm:p-4 relative overflow-hidden group">
+            <span class="absolute top-0 left-0 right-0 h-[3px] bg-accentIndigo/70 group-hover:bg-accentIndigo transition-colors"></span>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs sm:text-sm font-bold text-slate-700 tracking-wide uppercase flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-accentIndigo shrink-0"><circle cx="8" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"></path></svg>
+                Sales Status
+              </span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-accentIndigo shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"><path d="m9 18 6-6-6-6"></path></svg>
+            </div>
+            <div class="flex items-baseline gap-1.5 mb-2.5">
+              <span id="salesStatusTotal" class="text-3xl font-extrabold text-slate-900">0</span>
+              <span class="text-xs font-semibold text-slate-400">branches tracked</span>
+            </div>
+            <div id="salesStatusRows" class="space-y-2"></div>
           </div>
-          <div class="active:scale-[0.98] transition-all rounded-xl border border-coolBorder p-2">
-            <span class="text-xs font-semibold text-slate-500 tracking-wider uppercase block mb-3 text-center">Audit Findings Trend</span>
-            <div id="findingsBarChart" style="min-height: 215px;"></div>
+          <div onclick="openModal('Service Status Overview', 'service', 'ALL')" title="View all service branches" class="cursor-pointer active:scale-[0.98] transition-all rounded-xl border border-coolBorder hover:border-accentCyan/50 hover:shadow-md hover:-translate-y-0.5 bg-gradient-to-b from-accentCyan/[0.04] to-transparent p-3 sm:p-4 relative overflow-hidden group">
+            <span class="absolute top-0 left-0 right-0 h-[3px] bg-accentCyan/70 group-hover:bg-accentCyan transition-colors"></span>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs sm:text-sm font-bold text-slate-700 tracking-wide uppercase flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-accentCyan shrink-0"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                Service Status
+              </span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-accentCyan shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"><path d="m9 18 6-6-6-6"></path></svg>
+            </div>
+            <div class="flex items-baseline gap-1.5 mb-2.5">
+              <span id="serviceStatusTotal" class="text-3xl font-extrabold text-slate-900">0</span>
+              <span class="text-xs font-semibold text-slate-400">branches tracked</span>
+            </div>
+            <div id="serviceStatusRows" class="space-y-2"></div>
+          </div>
+          <div onclick="openModal('Audit Findings FY2026 Breakdown', 'findings', 'findings2026')" title="View audit findings breakdown" class="cursor-pointer active:scale-[0.98] transition-all rounded-xl border border-coolBorder hover:border-accentRose/50 hover:shadow-md hover:-translate-y-0.5 bg-gradient-to-b from-accentRose/[0.04] to-transparent p-3 sm:p-4 flex flex-col relative overflow-hidden group">
+            <span class="absolute top-0 left-0 right-0 h-[3px] bg-accentRose/70 group-hover:bg-accentRose transition-colors"></span>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs sm:text-sm font-bold text-slate-700 tracking-wide uppercase flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-accentRose shrink-0"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+                Audit Findings Trend
+              </span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-accentRose shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"><path d="m9 18 6-6-6-6"></path></svg>
+            </div>
+            <div id="findingsBarChart" class="flex-1" style="min-height: 200px;"></div>
           </div>
         </div>
       </div>
 
-      <div class="bg-coolCard border border-coolBorder rounded-2xl p-4 shadow-md flex flex-col justify-between">
+      <div class="bg-coolCard border border-coolBorder rounded-2xl p-4 shadow-md flex flex-col">
         <div>
-          <h3 class="text-lg font-bold tracking-tight text-slate-900 mb-3 flex items-center gap-2">
+          <h3 class="text-base font-bold tracking-tight text-slate-900 mb-2 flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-users w-5 h-5 text-accentIndigo"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><path d="M16 3.128a4 4 0 0 1 0 7.744"></path><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><circle cx="9" cy="7" r="4"></circle></svg>
             Operations Highpoints
           </h3>
-          <div class="space-y-4">
-            <div>
-              <span class="text-xs font-semibold text-slate-500 tracking-wider uppercase block mb-2">Auditor Active Engagements</span>
-              <div class="space-y-4" id="auditor-workload-list"><div class="space-y-1.5 cursor-pointer active:scale-95 transition-all p-1.5 -m-1.5 rounded-lg hover:bg-accentIndigo/5 border border-coolBorder hover:border-accentIndigo/40 hover:shadow-sm" onclick="openModal('Auditor Workload: LAURENCE', 'auditor', 'LAURENCE')">
+          <div>
+              <span class="text-xs font-semibold text-slate-500 tracking-wider uppercase block mb-1.5">Auditor Active Engagements</span>
+              <div class="space-y-2" id="auditor-workload-list"><div class="space-y-1 cursor-pointer active:scale-95 transition-all p-1 -m-1 rounded-lg hover:bg-accentIndigo/5 border border-coolBorder hover:border-accentIndigo/40 hover:shadow-sm" onclick="openModal('Auditor Workload: LAURENCE', 'auditor', 'LAURENCE')">
           <div class="flex items-center justify-between text-xs font-semibold pointer-events-none">
             <span class="text-slate-700 flex items-center gap-1.5">
               <span class="w-1.5 h-1.5 rounded-full bg-accentIndigo"></span>
@@ -3059,10 +3109,10 @@ body.bg-coolDark{
             </span>
             <span class="text-slate-500">21 engagements (31%)</span>
           </div>
-          <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden border border-coolBorder pointer-events-none">
+          <div class="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden border border-coolBorder pointer-events-none">
             <div class="bg-gradient-to-r from-accentIndigo to-accentBlue h-full rounded-full transition-all duration-1000" style="width: 31%"></div>
           </div>
-        </div><div class="space-y-1.5 cursor-pointer active:scale-95 transition-all p-1.5 -m-1.5 rounded-lg hover:bg-accentIndigo/5 border border-coolBorder hover:border-accentIndigo/40 hover:shadow-sm" onclick="openModal('Auditor Workload: KARL', 'auditor', 'KARL')">
+        </div><div class="space-y-1 cursor-pointer active:scale-95 transition-all p-1 -m-1 rounded-lg hover:bg-accentIndigo/5 border border-coolBorder hover:border-accentIndigo/40 hover:shadow-sm" onclick="openModal('Auditor Workload: KARL', 'auditor', 'KARL')">
           <div class="flex items-center justify-between text-xs font-semibold pointer-events-none">
             <span class="text-slate-700 flex items-center gap-1.5">
               <span class="w-1.5 h-1.5 rounded-full bg-accentIndigo"></span>
@@ -3070,10 +3120,10 @@ body.bg-coolDark{
             </span>
             <span class="text-slate-500">16 engagements (24%)</span>
           </div>
-          <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden border border-coolBorder pointer-events-none">
+          <div class="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden border border-coolBorder pointer-events-none">
             <div class="bg-gradient-to-r from-accentIndigo to-accentBlue h-full rounded-full transition-all duration-1000" style="width: 24%"></div>
           </div>
-        </div><div class="space-y-1.5 cursor-pointer active:scale-95 transition-all p-1.5 -m-1.5 rounded-lg hover:bg-accentIndigo/5 border border-coolBorder hover:border-accentIndigo/40 hover:shadow-sm" onclick="openModal('Auditor Workload: GENESIS', 'auditor', 'GENESIS')">
+        </div><div class="space-y-1 cursor-pointer active:scale-95 transition-all p-1 -m-1 rounded-lg hover:bg-accentIndigo/5 border border-coolBorder hover:border-accentIndigo/40 hover:shadow-sm" onclick="openModal('Auditor Workload: GENESIS', 'auditor', 'GENESIS')">
           <div class="flex items-center justify-between text-xs font-semibold pointer-events-none">
             <span class="text-slate-700 flex items-center gap-1.5">
               <span class="w-1.5 h-1.5 rounded-full bg-accentIndigo"></span>
@@ -3081,10 +3131,10 @@ body.bg-coolDark{
             </span>
             <span class="text-slate-500">15 engagements (22%)</span>
           </div>
-          <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden border border-coolBorder pointer-events-none">
+          <div class="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden border border-coolBorder pointer-events-none">
             <div class="bg-gradient-to-r from-accentIndigo to-accentBlue h-full rounded-full transition-all duration-1000" style="width: 22%"></div>
           </div>
-        </div><div class="space-y-1.5 cursor-pointer active:scale-95 transition-all p-1.5 -m-1.5 rounded-lg hover:bg-accentIndigo/5 border border-coolBorder hover:border-accentIndigo/40 hover:shadow-sm" onclick="openModal('Auditor Workload: EDISON', 'auditor', 'EDISON')">
+        </div><div class="space-y-1 cursor-pointer active:scale-95 transition-all p-1 -m-1 rounded-lg hover:bg-accentIndigo/5 border border-coolBorder hover:border-accentIndigo/40 hover:shadow-sm" onclick="openModal('Auditor Workload: EDISON', 'auditor', 'EDISON')">
           <div class="flex items-center justify-between text-xs font-semibold pointer-events-none">
             <span class="text-slate-700 flex items-center gap-1.5">
               <span class="w-1.5 h-1.5 rounded-full bg-accentIndigo"></span>
@@ -3092,16 +3142,16 @@ body.bg-coolDark{
             </span>
             <span class="text-slate-500">15 engagements (22%)</span>
           </div>
-          <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden border border-coolBorder pointer-events-none">
+          <div class="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden border border-coolBorder pointer-events-none">
             <div class="bg-gradient-to-r from-accentIndigo to-accentBlue h-full rounded-full transition-all duration-1000" style="width: 22%"></div>
           </div>
         </div></div>
             </div>
             
-            <div class="pt-4 border-t border-coolBorder">
-              <span class="text-xs font-semibold text-accentRose tracking-wider uppercase block mb-2">Next Emergency Auditor</span>
-              <div onclick="openModal('Emergency Auditor Status', 'emergency', null)" class="flex items-center gap-3 bg-accentRose/5 p-3 rounded-xl border border-accentRose/10 cursor-pointer hover:bg-accentRose/10 hover:shadow-sm active:scale-[0.98] transition-all transform hover:-translate-y-0.5">
-                  <div class="w-8 h-8 rounded-full bg-accentRose text-white flex items-center justify-center font-bold text-xs" id="emergency-auditor-initial">G</div>
+            <div class="pt-2.5 border-t border-coolBorder">
+              <span class="text-xs font-semibold text-accentRose tracking-wider uppercase block mb-1.5">Next Emergency Auditor</span>
+              <div onclick="openModal('Emergency Auditor Status', 'emergency', null)" class="flex items-center gap-2.5 bg-accentRose/5 p-2.5 rounded-xl border border-accentRose/10 cursor-pointer hover:bg-accentRose/10 hover:shadow-sm active:scale-[0.98] transition-all transform hover:-translate-y-0.5">
+                  <div class="w-7 h-7 rounded-full bg-accentRose text-white flex items-center justify-center font-bold text-xs shrink-0" id="emergency-auditor-initial">G</div>
                   <div>
                       <p class="text-sm font-bold text-slate-800" id="emergency-auditor-name">GENESIS</p>
                       <p class="text-xs text-slate-500">Available for immediate deployment</p>
@@ -3358,8 +3408,8 @@ body.bg-coolDark{
 
       <div id="branchFilterPanel" class="hidden fixed inset-0 z-50">
         <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="toggleBranchFilterPanel('close')"></div>
-        <div class="absolute inset-0 flex items-start sm:items-center justify-center overflow-y-auto p-4 py-6 pointer-events-none">
-          <div class="bg-white w-full max-w-xs sm:max-w-sm max-h-[68vh] max-h-[68dvh] my-auto rounded-2xl shadow-2xl flex flex-col pointer-events-auto border border-coolBorder overflow-hidden">
+        <div class="absolute inset-0 flex items-start sm:items-center justify-center overflow-y-auto p-4 py-6" onclick="toggleBranchFilterPanel('close')">
+          <div class="bg-white w-full max-w-xs sm:max-w-sm max-h-[68vh] max-h-[68dvh] my-auto rounded-2xl shadow-2xl flex flex-col border border-coolBorder overflow-hidden" onclick="event.stopPropagation()">
             <div class="p-4 border-b border-coolBorder shrink-0">
               <div class="flex items-center justify-between mb-2">
                 <span class="text-sm text-slate-700">Select Branches</span>
@@ -3804,6 +3854,13 @@ body.bg-coolDark{
       const modal = document.getElementById('dataModal');
       const modalDialog = document.getElementById('modalDialog');
       modal.classList.remove('hidden');
+      // Always start at the top of the new view — without this, opening a
+      // fresh item (or navigating Back) could silently keep the previous
+      // item's scroll offset, making the popup feel like it "doesn't
+      // follow" / jumps to a random spot instead of showing from the top.
+      modalBody.scrollTop = 0;
+      const modalScrollWrap = modal.querySelector(':scope > div.overflow-y-auto');
+      if (modalScrollWrap) modalScrollWrap.scrollTop = 0;
       // Double rAF (not a magic-number setTimeout) guarantees the browser
       // has actually painted the "before" state first, so the transition
       // reliably kicks in on the very next frame instead of occasionally
@@ -6898,114 +6955,62 @@ body.bg-coolDark{
     // coherent, professional system rather than seven separately-styled
     // widgets. Colors are intentionally untouched from the original palette.
     const CHART_FONT = 'Plus Jakarta Sans, sans-serif';
-    function donutCenterTotal(label) {
-      return {
-        show: true, showAlways: true,
-        name: { show: true, fontSize: '10px', fontWeight: 700, color: '#94a3b8', offsetY: -6, formatter: () => label },
-        value: { show: true, fontSize: '22px', fontWeight: 800, color: '#0f172a', offsetY: 4, formatter: (val) => val }
-      };
+
+    // Shared builder for the Collection/Sales/Service "stat + segmented bar"
+    // panels — replaces the old cramped donut+legend widgets with plain HTML
+    // rows that always have room to breathe regardless of card width.
+    // segments: [{ label, value, color }]
+    function renderStatusPanel(totalElId, rowsElId, segments, modalTitlePrefix, modalKey) {
+      const total = segments.reduce((a, s) => a + (s.value || 0), 0);
+      const totalEl = document.getElementById(totalElId);
+      if (totalEl) totalEl.textContent = total;
+      const rowsEl = document.getElementById(rowsElId);
+      if (!rowsEl) return;
+      rowsEl.innerHTML = segments.map(seg => {
+        const val = seg.value || 0;
+        const pct = total ? Math.round(val / total * 100) : 0;
+        const safeTitle = `${modalTitlePrefix}: ${seg.label}`.replace(/'/g, "\\'");
+        return `
+          <div class="cursor-pointer" onclick="event.stopPropagation(); openModal('${safeTitle}', '${modalKey}', '${seg.label}')">
+            <div class="flex items-center justify-between text-xs sm:text-[13px] font-semibold mb-1">
+              <span class="flex items-center gap-2 text-slate-700 min-w-0">
+                <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${seg.color}"></span>
+                <span class="truncate">${seg.label}</span>
+              </span>
+              <span class="text-slate-500 whitespace-nowrap shrink-0">${val} <span class="text-slate-400 font-medium">(${pct}%)</span></span>
+            </div>
+            <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden border border-coolBorder/60">
+              <div class="h-full rounded-full transition-all duration-700" style="width:${pct}%; background:${seg.color}"></div>
+            </div>
+          </div>`;
+      }).join('');
     }
 
     function renderDonutChart() {
       const sum = activeData.summary;
-      const seriesVals = [sum.improvingCollection || 0, sum.decliningCollection || 0, sum.stableCollection || 0, sum.recoveringCollection || 0];
-      const total = seriesVals.reduce((a,b) => a+b, 0);
-      const options = {
-        chart: { 
-          type: 'donut', height: 220, background: 'transparent', fontFamily: CHART_FONT,
-          animations: { enabled: true, easing: 'easeinout', speed: 500 },
-          dropShadow: { enabled: true, top: 2, left: 0, blur: 6, opacity: 0.10 },
-          events: {
-            dataPointSelection: function(event, chartContext, config) {
-              const labels = ['Improving', 'Declining', 'Stable', 'Recovering'];
-              openModal(`Collection Status: ${labels[config.dataPointIndex]}`, 'collection', labels[config.dataPointIndex]);
-            }
-          }
-        },
-        series: seriesVals,
-        labels: ['Improving', 'Declining', 'Stable', 'Recovering'],
-        colors: ['#10b981', '#f43f5e', '#64748b', '#d97706'],
-        stroke: { show: true, width: 3, colors: ['#ffffff'] },
-        fill: { type: 'gradient', gradient: { shade: 'light', type: 'diagonal1', shadeIntensity: 0.35, inverseColors: false, opacityFrom: 1, opacityTo: 0.82, stops: [0, 100] } },
-        states: { hover: { filter: { type: 'darken', value: 0.9 } } },
-        plotOptions: { pie: { donut: { size: '72%', labels: donutCenterTotal('TOTAL') } } },
-        legend: { position: 'bottom', fontSize: '11px', fontWeight: 600, labels: { colors: '#475569' }, markers: { size: 6, offsetX: -2 }, itemMargin: { horizontal: 8, vertical: 4 } },
-        dataLabels: { enabled: false },
-        tooltip: { theme: 'light', y: { formatter: (val) => `${val} branch${val === 1 ? '' : 'es'} (${total ? Math.round(val/total*100) : 0}%)` } }
-      };
-      const el = document.querySelector("#collectionDonutChart");
-      if (charts.collectionDonut) charts.collectionDonut.destroy();
-      el.innerHTML = '';
-      charts.collectionDonut = new ApexCharts(el, options);
-      charts.collectionDonut.render();
+      renderStatusPanel('collectionStatusTotal', 'collectionStatusRows', [
+        { label: 'Improving', value: sum.improvingCollection || 0, color: '#10b981' },
+        { label: 'Declining', value: sum.decliningCollection || 0, color: '#f43f5e' },
+        { label: 'Stable', value: sum.stableCollection || 0, color: '#64748b' },
+        { label: 'Recovering', value: sum.recoveringCollection || 0, color: '#d97706' }
+      ], 'Collection Status', 'collection');
     }
 
     function renderSalesDonutChart() {
       const sum = activeData.summary;
-      const seriesVals = [sum.salesImproving || 0, sum.salesDeclining || 0, sum.salesStable || 0];
-      const total = seriesVals.reduce((a,b) => a+b, 0);
-      const options = {
-        chart: { 
-          type: 'donut', height: 220, background: 'transparent', fontFamily: CHART_FONT,
-          animations: { enabled: true, easing: 'easeinout', speed: 500 },
-          dropShadow: { enabled: true, top: 2, left: 0, blur: 6, opacity: 0.10 },
-          events: {
-            dataPointSelection: function(event, chartContext, config) {
-              const labels = ['Improving', 'Declining', 'Stable'];
-              openModal(`Sales Status: ${labels[config.dataPointIndex]}`, 'sales', labels[config.dataPointIndex]);
-            }
-          }
-        },
-        series: seriesVals,
-        labels: ['Improving', 'Declining', 'Stable'],
-        colors: ['#4f46e5', '#f43f5e', '#64748b'], 
-        stroke: { show: true, width: 3, colors: ['#ffffff'] },
-        fill: { type: 'gradient', gradient: { shade: 'light', type: 'diagonal1', shadeIntensity: 0.35, opacityFrom: 1, opacityTo: 0.82, stops: [0, 100] } },
-        states: { hover: { filter: { type: 'darken', value: 0.9 } } },
-        plotOptions: { pie: { donut: { size: '72%', labels: donutCenterTotal('TOTAL') } } },
-        legend: { position: 'bottom', fontSize: '11px', fontWeight: 600, labels: { colors: '#475569' }, markers: { size: 6, offsetX: -2 }, itemMargin: { horizontal: 8, vertical: 4 } },
-        dataLabels: { enabled: false },
-        tooltip: { theme: 'light', y: { formatter: (val) => `${val} branch${val === 1 ? '' : 'es'} (${total ? Math.round(val/total*100) : 0}%)` } }
-      };
-      const el = document.querySelector("#salesDonutChart");
-      if (charts.salesDonut) charts.salesDonut.destroy();
-      el.innerHTML = '';
-      charts.salesDonut = new ApexCharts(el, options);
-      charts.salesDonut.render();
+      renderStatusPanel('salesStatusTotal', 'salesStatusRows', [
+        { label: 'Improving', value: sum.salesImproving || 0, color: '#4f46e5' },
+        { label: 'Declining', value: sum.salesDeclining || 0, color: '#f43f5e' },
+        { label: 'Stable', value: sum.salesStable || 0, color: '#64748b' }
+      ], 'Sales Status', 'sales');
     }
 
     function renderServiceDonutChart() {
       const sum = activeData.summary;
-      const seriesVals = [sum.serviceTarget || 0, sum.serviceDeclining || 0];
-      const total = seriesVals.reduce((a,b) => a+b, 0);
-      const options = {
-        chart: { 
-          type: 'donut', height: 220, background: 'transparent', fontFamily: CHART_FONT,
-          animations: { enabled: true, easing: 'easeinout', speed: 500 },
-          dropShadow: { enabled: true, top: 2, left: 0, blur: 6, opacity: 0.10 },
-          events: {
-            dataPointSelection: function(event, chartContext, config) {
-              const labels = ['Target', 'Declining'];
-              openModal(`Service Status: ${labels[config.dataPointIndex]}`, 'service', labels[config.dataPointIndex]);
-            }
-          }
-        },
-        series: seriesVals,
-        labels: ['Target', 'Declining'],
-        colors: ['#0891b2', '#f43f5e'], 
-        stroke: { show: true, width: 3, colors: ['#ffffff'] },
-        fill: { type: 'gradient', gradient: { shade: 'light', type: 'diagonal1', shadeIntensity: 0.35, opacityFrom: 1, opacityTo: 0.82, stops: [0, 100] } },
-        states: { hover: { filter: { type: 'darken', value: 0.9 } } },
-        plotOptions: { pie: { donut: { size: '72%', labels: donutCenterTotal('TOTAL') } } },
-        legend: { position: 'bottom', fontSize: '11px', fontWeight: 600, labels: { colors: '#475569' }, markers: { size: 6, offsetX: -2 }, itemMargin: { horizontal: 8, vertical: 4 } },
-        dataLabels: { enabled: false },
-        tooltip: { theme: 'light', y: { formatter: (val) => `${val} branch${val === 1 ? '' : 'es'} (${total ? Math.round(val/total*100) : 0}%)` } }
-      };
-      const el = document.querySelector("#serviceDonutChart");
-      if (charts.serviceDonut) charts.serviceDonut.destroy();
-      el.innerHTML = '';
-      charts.serviceDonut = new ApexCharts(el, options);
-      charts.serviceDonut.render();
+      renderStatusPanel('serviceStatusTotal', 'serviceStatusRows', [
+        { label: 'Target', value: sum.serviceTarget || 0, color: '#0891b2' },
+        { label: 'Declining', value: sum.serviceDeclining || 0, color: '#f43f5e' }
+      ], 'Service Status', 'service');
     }
 
     function renderFindingsChart() {
@@ -7193,7 +7198,7 @@ body.bg-coolDark{
       activeData.auditors.forEach(auditor => {
         const percentage = totalWork === 0 ? 0 : Math.round((auditor.count / totalWork) * 100);
         const bar = document.createElement('div');
-        bar.className = "space-y-1.5 cursor-pointer active:scale-95 transition-all p-1.5 -m-1.5 rounded-lg hover:bg-accentIndigo/5 border border-transparent hover:border-accentIndigo/10";
+        bar.className = "space-y-1 cursor-pointer active:scale-95 transition-all p-1 -m-1 rounded-lg hover:bg-accentIndigo/5 border border-transparent hover:border-accentIndigo/10";
         bar.setAttribute('onclick', `openModal('Auditor Workload: ${auditor.name}', 'auditor', '${auditor.name}')`);
         bar.innerHTML = `
           <div class="flex items-center justify-between text-xs font-semibold pointer-events-none">
@@ -7203,7 +7208,7 @@ body.bg-coolDark{
             </span>
             <span class="text-slate-500">${auditor.count} engagements (${percentage}%)</span>
           </div>
-          <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden border border-coolBorder pointer-events-none">
+          <div class="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden border border-coolBorder pointer-events-none">
             <div class="bg-gradient-to-r from-accentIndigo to-accentBlue h-full rounded-full transition-all duration-1000" style="width: ${percentage}%"></div>
           </div>
         `;
@@ -7765,6 +7770,30 @@ body.bg-coolDark{
                           note: r[10] !== undefined ? String(r[10] || '').trim() : '', // column K, kept as-is
                           rounds: scheduleRounds
                       };
+                  }
+              }
+
+              // Column V — a dedicated free-text block for one extra/dynamic
+              // auditor beyond the 4 fixed columns above: V2 holds the
+              // auditor's name, and V3 downward holds that auditor's
+              // assigned branches, one per row, for as many rows as are
+              // filled in. Only added to the Auditor Active Engagements
+              // card (Operations Highpoints) once BOTH the name and at
+              // least one branch are actually present — an empty V column
+              // shows nothing, no manual "Add Auditor" step needed.
+              const colVName = String((rotRows[1] && rotRows[1][21]) || "").trim().toUpperCase();
+              if (colVName) {
+                  const colVBranches = [];
+                  for (let vi = 2; vi < rotRows.length; vi++) {
+                      const rawVBranch = String((rotRows[vi] && rotRows[vi][21]) || "").trim();
+                      if (!rawVBranch) continue; // skip blank rows, keep scanning to the end
+                      const normalizedVBranch = normalizeName(rawVBranch);
+                      const vMatchIdx = branchNormalized.indexOf(normalizedVBranch);
+                      colVBranches.push(vMatchIdx !== -1 ? branchList[vMatchIdx] : rawVBranch);
+                  }
+                  if (colVBranches.length > 0) {
+                      if (!auditorMap[colVName]) auditorMap[colVName] = [];
+                      auditorMap[colVName].push(...colVBranches);
                   }
               }
 
