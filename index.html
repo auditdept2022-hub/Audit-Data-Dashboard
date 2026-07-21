@@ -78,6 +78,21 @@
     margin: 0 !important;
     border-radius: 0 !important;
   }
+  /* Fullscreen used to just blow up the outer frame while the content
+     inside stayed locked to the same widths it used in the small windowed
+     popup — so it "went fullscreen" but the data itself never got any
+     bigger/wider, which read as a static preview instead of a real page.
+     These rules let the actual content use the extra room: */
+  #modalDialog.modal-fullscreen #modalBody {
+    max-width: none !important;
+  }
+  /* Any max-w-* wrapper left over from the windowed layout (e.g. the Edit
+     Assignment form's max-w-lg) gets a much roomier ceiling instead of no
+     ceiling at all, so a single form doesn't stretch edge-to-edge on an
+     ultrawide monitor while still genuinely using the extra fullscreen space. */
+  #modalDialog.modal-fullscreen #modalBody [class*="max-w-"] {
+    max-width: min(100%, 1400px) !important;
+  }
     #modalBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
     /* Branch Audit Interval modal: the outer #modalBody must NOT scroll
        itself here (that created a double scroll region — the toolbar/
@@ -4278,7 +4293,7 @@ body.bg-coolDark{
       };
 
       const rotationRowHtml = (roundNum, label) => `
-          <div class="grid grid-cols-2 gap-3 mb-4">
+          <div class="grid grid-cols-2 gap-3 mb-4 no-fs-grid">
             <div>
               <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">${label} Auditor</label>
               <select id="editAssign-auditor${roundNum}" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
@@ -4787,6 +4802,14 @@ body.bg-coolDark{
         btn.title = label;
         btn.setAttribute('aria-label', label);
       }
+      // The dialog's own width/height change via CSS, but anything that
+      // measured its container size when it first rendered (scroll areas,
+      // any chart that might get added to a modal later) won't know the
+      // available space just changed unless something tells it to. A
+      // resize event is the standard way to nudge that kind of code to
+      // re-measure — fired after the fullscreen CSS transition finishes
+      // so it reads the final size, not the mid-transition one.
+      setTimeout(function() { window.dispatchEvent(new Event('resize')); }, 320);
     }
 
     function closeModal() {
@@ -5152,14 +5175,19 @@ body.bg-coolDark{
 
       const branchRows = (activeData.branches || []).map(function(b, i) {
           const info = getBranchAuditRoundInfo(b);
+          const sales = m => (b[m] ? (b[m].ins || 0) + '/' + (b[m].cod || 0) + '/' + (b[m].ca || 0) : '');
           return [
               i + 1, b.name, b.auditStatus, b.auditor, b.lastAuditDate || '',
               info.upNextAuditor === null ? '' : info.upNextAuditor,
               info.expectedAuditDate || '',
               b.collection, b.sales, b.service,
               b.effMar, b.effApr, b.effLatest,
-              b.repoRateLatest, b.noOfRepoLatest,
-              b.accountsMay,
+              b.repoRateMar, b.repoRateApr, b.repoRateLatest,
+              b.noOfRepoMar, b.noOfRepoApr, b.noOfRepoLatest,
+              b.accountsMar, b.accountsApr, b.accountsMay,
+              sales('salesMar'), sales('salesApr'), sales('salesMay'),
+              b.expectedIns, b.expectedCod,
+              b.serviceTarget, b.serviceMar, b.serviceApr, b.serviceMay,
               b.findings2024, b.findings2025, b.findings2026
           ];
       });
@@ -5204,7 +5232,7 @@ body.bg-coolDark{
 
       const sheets = [
           { name: 'Summary', headers: ['Metric', 'Value'], rows: summaryRows },
-          { name: 'Branches', headers: ['#', 'Branch', 'Audit Status', 'Auditor', 'Last Audit Date', 'Up Next Auditor', 'Expected Audit Date', 'Collection', 'Sales', 'Service', 'Eff Mar %', 'Eff Apr %', 'Eff Latest %', 'Repo Rate Latest %', 'No. of Repo Latest', 'Accounts (May)', 'Findings 2024', 'Findings 2025', 'Findings 2026'], rows: branchRows },
+          { name: 'Branches', headers: ['#', 'Branch', 'Audit Status', 'Auditor', 'Last Audit Date', 'Up Next Auditor', 'Expected Audit Date', 'Collection', 'Sales', 'Service', 'Eff Mar %', 'Eff Apr %', 'Eff Latest %', 'Repo Rate Mar %', 'Repo Rate Apr %', 'Repo Rate Latest %', 'No. of Repo Mar', 'No. of Repo Apr', 'No. of Repo Latest', 'Accounts Mar', 'Accounts Apr', 'Accounts May', 'Sales Mar (INS/COD/CA)', 'Sales Apr (INS/COD/CA)', 'Sales May (INS/COD/CA)', 'Expected INS', 'Expected COD', 'Service Target', 'Service Mar', 'Service Apr', 'Service May', 'Findings 2024', 'Findings 2025', 'Findings 2026'], rows: branchRows },
           { name: 'Assignment Queue', headers: ['Branch', 'Up Next Auditor', 'Expected Audit Date', 'Last Audit Date', 'Last Auditor', 'Recent Audit Date', 'Recent Auditor', 'Audit Interval (to date)'], rows: assignmentQueueRows },
           { name: 'Lowest Efficiency', headers: ['Branch', 'Efficiency %'], rows: (activeData.lowestEfficiency || []).map(function(x) { return [x.branch, x.rate]; }) },
           { name: 'Highest Repo Rate', headers: ['Branch', 'Repo Rate %'], rows: (activeData.highestRepo || []).map(function(x) { return [x.branch, x.rate]; }) },
