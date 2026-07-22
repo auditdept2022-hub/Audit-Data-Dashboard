@@ -3159,12 +3159,15 @@ body.bg-coolDark{
         <svg class="side-menu-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
       </div>
 
-      <!-- AUDIT REPORT -> opens the Drive folder gateway (a separate Apps
-           Script web app) directly in a new tab. That gateway does its own
-           sign-in + ALLOWED_EMAILS check on its own /exec page, so this
-           doesn't need to go through the dashboard's password re-check /
-           Quick_Links backend lookup like the other Quick Links above. -->
-      <div role="button" tabindex="0" onclick="window.open('https://script.google.com/macros/s/AKfycbzfRpvbvB3rGE5hQdtU2mQ4gpwePzGGwgXmUhzYjbvb80o-8o6zBLXjPdUNBM0aJU8D/exec','_blank','noopener'); if (typeof window.closeSideMenu === 'function') window.closeSideMenu();" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.open('https://script.google.com/macros/s/AKfycbzfRpvbvB3rGE5hQdtU2mQ4gpwePzGGwgXmUhzYjbvb80o-8o6zBLXjPdUNBM0aJU8D/exec','_blank','noopener'); if (typeof window.closeSideMenu === 'function') window.closeSideMenu();}" class="side-menu-link cursor-pointer select-none">
+      <!-- AUDIT REPORT (Audit Vault) -> now merged into the SAME Apps
+           Script deployment as the rest of the dashboard, instead of a
+           separate audit-vault-launcher /exec app. It goes through the
+           exact same password re-check + Quick_Links backend lookup
+           (openQuickLink -> action=open&id=auditreport) as the other
+           Quick Links above, using the "auditreport" entry already
+           defined in QUICK_LINKS in the merged Code.gs. One script, one
+           deployment, one auth path for all seven links. -->
+      <div role="button" tabindex="0" onclick="openQuickLink('auditreport','AUDIT REPORT')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openQuickLink('auditreport','AUDIT REPORT');}" class="side-menu-link cursor-pointer select-none">
         <span class="side-menu-icon" style="background:rgba(217,119,6,0.10);"><svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentAmber shrink-0"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span>
         <span>AUDIT REPORT</span>
         <svg class="side-menu-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
