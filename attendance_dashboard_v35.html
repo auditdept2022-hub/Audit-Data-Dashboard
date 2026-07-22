@@ -14,22 +14,22 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   :root{
-    --bg:#EEF1F8; --surface:#FFFFFF; --surface-2:#F2F5FC; --surface-3:#E7ECF7;
-    --ink:#0B1730; --ink-soft:#1E2E52;
-    --text-secondary:#44536F; --text-muted:#647089; --line:#DBE1EF; --border:#CCD5E7;
-    --blue:#1D4ED8; --blue-dark:#132E8C; --blue-light:#E6EDFC;
-    --gold:#B4881A; --gold-dark:#8F6A10; --gold-light:#FBF3DF;
-    --navy:#0A1A3F; --navy-2:#122756; --navy-3:#1B3A80;
-    --present:#0F8A5F; --present-bg:#E1F5EC;
-    --absent:#C22B3D; --absent-bg:#FBE6E9;
-    --holiday:#B4881A; --holiday-bg:#FBF1DA;
-    --field:#2054D6; --field-bg:#E6EDFC;
-    --sunday:#8493AC; --sunday-bg:#ECF0F8;
-    --holidayAbsent:#0F8A5F; --holidayAbsent-bg:#E1F5EC;
-    --leave:#0D7D8C; --leave-bg:#DEF3F6;
-    --others:#C22B3D; --others-bg:#FBE6E9;
-    --halfday:#7C3AED; --halfday-bg:#F1E9FD;
-    --late:#C2570B; --late-bg:#FCEADA;
+    --bg:#EBEFF8; --surface:#FFFFFF; --surface-2:#F1F4FB; --surface-3:#E4EAF6;
+    --ink:#07101F; --ink-soft:#17274D;
+    --text-secondary:#3A4A6B; --text-muted:#5C6A87; --line:#D6DEEE; --border:#BFCAE0;
+    --blue:#1341E0; --blue-dark:#0B2790; --blue-light:#E1EAFC;
+    --gold:#A8790A; --gold-dark:#7A5806; --gold-light:#FAF0D6;
+    --navy:#081132; --navy-2:#0F2158; --navy-3:#173584;
+    --present:#0A9D63; --present-bg:#DDF4E9;
+    --absent:#D81C35; --absent-bg:#FADBDF;
+    --holiday:#C99200; --holiday-bg:#FBEDCC;
+    --field:#124FE0; --field-bg:#E1EAFC;
+    --sunday:#75849F; --sunday-bg:#E9EEF7;
+    --holidayAbsent:#0A9D63; --holidayAbsent-bg:#DDF4E9;
+    --leave:#067688; --leave-bg:#D7F1F4;
+    --others:#D81C35; --others-bg:#FADBDF;
+    --halfday:#6C22EE; --halfday-bg:#EDE2FC;
+    --late:#D45A00; --late-bg:#FCE4CC;
     --radius:16px; --radius-sm:12px; --radius-lg:20px;
     --shadow: 0 1px 3px rgba(10,26,63,.08), 0 1px 2px rgba(10,26,63,.05);
     --shadow-md: 0 6px 18px rgba(10,26,63,.10), 0 1px 4px rgba(10,26,63,.06);
@@ -99,9 +99,10 @@
     .cal-cell .times{font-size:11px;}
     .team-grid{gap:9px;}
     .team-card{padding:11px 11px 9px;}
-    .team-card .name{font-size:12px;}
-    .team-card .rate{font-size:9.5px;}
-    .team-card .stat .stat-value{font-size:13px;}
+    .team-card .name{font-size:14.5px;}
+    .team-card .rate{font-size:12px;}
+    .team-card .stat .stat-value{font-size:15px;}
+    .team-card .stat .stat-label{font-size:10.5px;}
     table{font-size:13.5px;}
     .log-toolbar{padding:6px 8px 6px 14px; gap:9px;}
     .month-year-shortcut select{font-size:12.5px; padding:7px 12px;}
@@ -110,18 +111,10 @@
 
   .topbar{
     position:sticky; top:0; z-index:50; overflow:hidden;
-    background:linear-gradient(120deg, #2740D6 0%, #3E58E4 32%, #6169EE 64%, #8C6EF2 100%);
+    background:linear-gradient(100deg, #081A4D 0%, #123597 32%, #1550E0 64%, #0C7FC7 100%);
     padding:18px 24px; margin-bottom:26px;
     border-bottom:3px solid var(--gold);
-    box-shadow:0 6px 20px rgba(39,64,214,.32);
-  }
-  .topbar::before{
-    content:""; position:absolute; top:-70px; right:-40px; width:240px; height:240px; border-radius:50%;
-    background:radial-gradient(circle, rgba(255,255,255,.22), transparent 70%); pointer-events:none;
-  }
-  .topbar::after{
-    content:""; position:absolute; bottom:-90px; left:18%; width:180px; height:180px; border-radius:50%;
-    background:radial-gradient(circle, rgba(255,214,120,.20), transparent 70%); pointer-events:none;
+    box-shadow:0 6px 20px rgba(16,40,107,.32);
   }
   .topbar-inner{
     max-width:1180px; margin:0 auto; display:flex; align-items:center; justify-content:space-between;
@@ -145,34 +138,37 @@
   .topbar .brand .sub{font-size:12px; color:rgba(255,255,255,.82); white-space:nowrap;}
   .header-actions{display:flex; align-items:center; gap:12px; flex:none; flex-wrap:wrap; position:relative; z-index:1;}
 
-  .header-clock{
-    display:flex; align-items:center; gap:10px; flex:none;
-    background:rgba(255,255,255,.16); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
-    border:1px solid rgba(255,255,255,.24);
-    padding:8px 16px; border-radius:999px; white-space:nowrap;
+  .header-status-bar{
+    display:flex; align-items:center; gap:9px; flex:none;
+    background:rgba(6,15,36,.38);
+    border:1px solid rgba(255,255,255,.32);
+    padding:8px 14px; border-radius:8px; white-space:nowrap;
   }
-  .header-clock .clock-icon{flex:none; color:#FFE4A8; opacity:.95;}
-  .header-clock .clock-text{display:flex; flex-direction:column; line-height:1.3; min-width:0;}
-  .header-clock .clock-date{font-family:'Inter'; font-size:11px; font-weight:600; color:rgba(255,255,255,.82); letter-spacing:.01em; white-space:nowrap;}
-  .header-clock .clock-time{font-family:'IBM Plex Mono',monospace; font-size:13.5px; font-weight:600; color:#fff; letter-spacing:.03em; white-space:nowrap;}
+  .status-divider{width:1px; height:15px; background:rgba(255,255,255,.32); flex:none; margin:0 3px;}
+  .header-clock{
+    display:flex; align-items:center; gap:8px; flex:none;
+  }
+  .header-clock .clock-icon{flex:none; color:#FFD873;}
+  .header-clock .clock-text{display:flex; flex-direction:row; align-items:baseline; gap:8px; line-height:1; min-width:0;}
+  .header-clock .clock-date{font-family:'Inter'; font-size:11.5px; font-weight:600; color:rgba(255,255,255,.88); letter-spacing:.01em; white-space:nowrap;}
+  .header-clock .clock-time{font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:700; color:#fff; letter-spacing:.02em; white-space:nowrap;}
 
   .sync-badge{
-    display:inline-flex; align-items:center; gap:6px; flex:none; font-family:'Inter'; font-size:11.5px; font-weight:600;
-    background:rgba(255,255,255,.16); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
-    border:1px solid rgba(255,255,255,.26); color:#fff; padding:7px 8px 7px 11px;
-    border-radius:999px; white-space:nowrap;
+    display:inline-flex; align-items:center; gap:6px; flex:none; font-family:'Inter'; font-size:11.5px; font-weight:700;
+    color:#fff; padding:0;
+    white-space:nowrap;
   }
   .sync-badge .dot{width:7px; height:7px; border-radius:50%; flex:none; background:#C7D2E0; transition:background .2s;}
-  .sync-badge.mode-live .dot{background:#4FD1A5; box-shadow:0 0 0 3px rgba(79,209,165,.3);}
-  .sync-badge.mode-snapshot .dot{background:#FFCB61; box-shadow:0 0 0 3px rgba(255,203,97,.3);}
-  .sync-badge.mode-uploaded .dot{background:#8FC7FF; box-shadow:0 0 0 3px rgba(143,199,255,.3);}
+  .sync-badge.mode-live .dot{background:#22D48B; box-shadow:0 0 0 3px rgba(34,212,139,.35);}
+  .sync-badge.mode-snapshot .dot{background:#FFC02E; box-shadow:0 0 0 3px rgba(255,192,46,.35);}
+  .sync-badge.mode-uploaded .dot{background:#4FA8FF; box-shadow:0 0 0 3px rgba(79,168,255,.35);}
   .sync-badge.mode-connecting .dot{background:#E4E9FA; animation:sync-pulse 1.1s ease-in-out infinite;}
   @keyframes sync-pulse{ 0%,100%{opacity:.4;} 50%{opacity:1;} }
   .sync-refresh-btn{
-    display:flex; align-items:center; justify-content:center; width:22px; height:22px; flex:none; margin-left:2px;
-    background:rgba(255,255,255,.18); border:none; border-radius:50%; color:#fff; cursor:pointer; transition:background .15s;
+    display:flex; align-items:center; justify-content:center; width:21px; height:21px; flex:none; margin-left:1px;
+    background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.22); border-radius:5px; color:#fff; cursor:pointer; transition:background .15s;
   }
-  .sync-refresh-btn:hover{background:rgba(255,255,255,.32);}
+  .sync-refresh-btn:hover{background:rgba(255,255,255,.28);}
   .sync-refresh-btn svg{transition:transform .5s ease;}
   .sync-refresh-btn.is-spinning svg{animation:sync-spin .8s linear infinite;}
   @keyframes sync-spin{ to{transform:rotate(360deg);} }
@@ -258,7 +254,7 @@
     position:relative;
   }
   .kpi-card:hover{box-shadow:var(--shadow-hover); transform:translateY(-2px);}
-  .kpi-row-4 .kpi-card:hover{box-shadow:0 12px 26px -6px color-mix(in srgb, var(--accent-color) 35%, transparent), var(--shadow-hover);}
+  .kpi-row-4 .kpi-card:hover{box-shadow:none; transform:none;}
   .kpi-card .label{font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--text-muted); margin:0 0 6px; font-weight:700;}
   .kpi-card .value{font-family:'IBM Plex Mono'; font-size:24px; font-weight:700; margin:0; color:var(--blue);}
   .kpi-card .value.present{color:var(--present);}
@@ -274,58 +270,59 @@
   }
   .kpi-row-3 .kpi-card, .kpi-row-4 .kpi-card{position:relative; text-align:left;}
   .kpi-row-4 .kpi-card{
-    overflow:hidden; --accent-tint:var(--blue-light); --accent-color:var(--blue);
-    display:flex; flex-direction:column; min-height:236px; padding:16px 16px 0;
-    border-top:1px solid var(--border); border-bottom:4px solid var(--accent-color);
+    --accent-color:var(--blue);
+    display:grid; row-gap:0; column-gap:10px;
+    grid-template-columns:30px 1fr;
+    grid-template-areas:
+      "icon label"
+      "value value"
+      "hint hint"
+      "foot foot";
+    align-items:start;
+    min-height:0; padding:14px 15px 13px;
+    border:1px solid var(--border); border-top:3px solid var(--accent-color); border-radius:11px;
+    box-shadow:var(--shadow);
   }
-  .kpi-row-4 .kpi-card::before{
-    content:""; position:absolute; top:-34px; right:-30px; width:120px; height:120px;
-    border-radius:44% 56% 65% 35% / 45% 40% 60% 55%;
-    background:var(--accent-tint); z-index:0; pointer-events:none;
-  }
-  .kpi-row-4 .kpi-card::after{
-    content:""; position:absolute; top:48px; right:38px; width:7px; height:7px; border-radius:50%;
-    background:var(--accent-tint); z-index:0; pointer-events:none;
-  }
-  .kpi-row-4 .kpi-card > *{position:relative; z-index:1;}
-  .kpi-row-4 .kpi-card:has(.icon-working){--accent-tint:var(--blue-light); --accent-color:var(--blue);}
-  .kpi-row-4 .kpi-card:has(.icon-holiday){--accent-tint:var(--holiday-bg); --accent-color:var(--holiday);}
-  .kpi-row-4 .kpi-card:has(.icon-field){--accent-tint:var(--halfday-bg); --accent-color:var(--halfday);}
-  .kpi-row-4 .kpi-card:has(.icon-leave){--accent-tint:var(--present-bg); --accent-color:var(--present);}
+  .kpi-row-4 .kpi-card:hover{box-shadow:var(--shadow-hover); transform:translateY(-2px);}
+  .kpi-row-4 .kpi-card:has(.icon-working){--accent-color:var(--blue); border-top-color:var(--blue) !important;}
+  .kpi-row-4 .kpi-card:has(.icon-holiday){--accent-color:var(--holiday); border-top-color:var(--holiday) !important;}
+  .kpi-row-4 .kpi-card:has(.icon-field){--accent-color:var(--halfday); border-top-color:var(--halfday) !important;}
+  .kpi-row-4 .kpi-card:has(.icon-leave){--accent-color:var(--present); border-top-color:var(--present) !important;}
   .kpi-row-4 .value.field{color:var(--halfday);}
   .kpi-row-4 .value.leave{color:var(--present);}
-  .kpi-row-4 .kpi-card .value{font-size:27px; letter-spacing:-.01em; line-height:1.05; margin-bottom:6px;}
+  .kpi-row-4 .kpi-card .value{grid-area:value; font-size:24px; letter-spacing:-.01em; line-height:1.15; margin:8px 0 2px;}
   .kpi-row-4 .kpi-card .label{
-    display:block; font-size:10.5px; font-weight:800; letter-spacing:.06em; color:var(--accent-color); margin-bottom:10px;
+    grid-area:label; align-self:center; display:block; font-size:11.5px; font-weight:700; letter-spacing:.07em;
+    color:var(--text-muted); text-transform:uppercase; margin:0;
   }
   .kpi-row-4 .kpi-card .label::before{content:none;}
-  .kpi-row-4 .kpi-card .hint{margin-top:0; margin-bottom:0; font-size:11.5px;}
+  .kpi-row-4 .kpi-card .hint{grid-area:hint; margin:0 0 10px; font-size:11px; color:var(--text-secondary);}
   .kpi-row-3 .kpi-icon.icon-working, .kpi-row-4 .kpi-icon.icon-working{background:var(--blue-light); color:var(--blue);}
   .kpi-row-3 .kpi-icon.icon-holiday, .kpi-row-4 .kpi-icon.icon-holiday{background:var(--holiday-bg); color:var(--holiday);}
   .kpi-row-3 .kpi-icon.icon-field{background:var(--field-bg); color:var(--field);}
   .kpi-row-4 .kpi-icon.icon-field{background:var(--halfday-bg); color:var(--halfday);}
   .kpi-row-4 .kpi-icon.icon-leave{background:var(--present-bg); color:var(--present);}
   .kpi-row-4 .kpi-icon{
-    width:38px; height:38px; border-radius:13px; margin-bottom:12px;
-    box-shadow:0 4px 10px rgba(20,30,50,.1), inset 0 0 0 1px rgba(255,255,255,.4);
+    grid-area:icon; width:30px; height:30px; border-radius:8px; margin-bottom:0; box-shadow:none;
   }
-  .kpi-row-4 .kpi-icon svg{width:18px; height:18px;}
+  .kpi-row-4 .kpi-icon svg{width:15px; height:15px;}
   .kpi-row-4 .kpi-foot{
-    margin:auto -16px 0; padding:0; width:calc(100% + 32px); min-height:78px;
-    display:flex; align-items:flex-end; position:relative;
+    grid-area:foot; margin-top:2px; padding:8px 9px 7px; min-height:0;
+    display:flex; align-items:center; justify-content:flex-start;
+    background:color-mix(in srgb, var(--accent-color) 7%, var(--surface));
+    border:1px solid color-mix(in srgb, var(--accent-color) 20%, var(--line));
+    border-radius:8px;
   }
-  .kpi-row-4 .kpi-sparkline, .kpi-row-4 .kpi-bars{width:100%; height:78px; display:block;}
-  .kpi-row-4 .kpi-foot-pill{align-items:flex-start; min-height:0; margin:10px -16px 16px; width:calc(100% + 32px); padding:0 16px;}
+  .kpi-row-4 .kpi-sparkline, .kpi-row-4 .kpi-bars{width:100%; height:26px; display:block; opacity:.9; align-self:stretch;}
+  .kpi-row-4 .kpi-foot-pill{align-items:center;}
   .kpi-row-4 .kpi-pill{
-    display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:600; color:var(--text-secondary);
-    background:var(--surface-2); border:1px solid var(--line); padding:6px 11px; border-radius:999px;
+    display:inline-flex; align-items:center; gap:6px; font-size:10.5px; font-weight:700; color:var(--ink-soft);
+    background:transparent; border:none; padding:2px 0; border-radius:0; line-height:1.3;
   }
   .kpi-row-4 .kpi-pill::before{content:""; width:6px; height:6px; border-radius:50%; background:var(--accent-color); flex:none;}
-  .kpi-row-4 .kpi-foot-wave{position:relative; width:100%; height:78px;}
-  .kpi-row-4 .kpi-wave{position:absolute; left:0; right:0; bottom:0; width:100%; height:78px;}
-  .kpi-row-4 .kpi-leaf{position:absolute;}
-  .kpi-row-4 .kpi-leaf-1{top:18px; right:20px; transform:rotate(18deg);}
-  .kpi-row-4 .kpi-leaf-2{top:40px; right:36px; transform:rotate(-8deg);}
+  .kpi-row-4 .kpi-foot-wave{position:relative; width:100%; height:26px; align-self:stretch;}
+  .kpi-row-4 .kpi-wave{position:absolute; left:0; right:0; bottom:0; width:100%; height:26px; opacity:.9;}
+  .kpi-row-4 .kpi-leaf{display:none;}
   .kpi-card:has(.value.present){border-top-color:var(--present);}
   .kpi-card:has(.value.absent){border-top-color:var(--absent);}
   .kpi-card:has(.value.holiday){border-top-color:var(--holiday);}
@@ -392,15 +389,21 @@
     border-bottom:3px solid var(--emp-accent, var(--blue));
   }
   .team-card:hover{box-shadow:0 10px 22px -6px color-mix(in srgb, var(--emp-accent, var(--blue)) 30%, transparent), var(--shadow-hover); transform:translateY(-2px);}
-  .team-card .card-head{display:flex; align-items:center; gap:6px; margin-bottom:8px;}
+  .team-card .card-head{display:flex; align-items:center; gap:8px; margin-bottom:8px;}
   .team-card .avatar{
     width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center;
     color:#fff; font-weight:700; font-size:10.5px; flex:none; box-shadow:0 3px 8px rgba(20,30,50,.18);
   }
   .team-card .head-text{flex:1 1 auto; min-width:0;}
-  .team-card .name{font-weight:700; font-size:11.5px; margin:0; color:var(--ink);}
-  .team-card .rate{font-family:'Inter'; font-weight:600; font-size:9px; color:var(--emp-accent, var(--blue)); margin:1px 0 0;}
-  .team-card .head-spark{flex:none; width:36px; height:15px; display:block;}
+  .team-card .name{font-weight:700; font-size:13.5px; margin:0; color:var(--ink);}
+  .team-card .rate{font-family:'Inter'; font-weight:600; font-size:11px; color:var(--emp-accent, var(--blue)); margin:1px 0 0;}
+  .team-card .head-ring{
+    position:relative; flex:none; width:32px; height:32px; border-radius:50%;
+    background:conic-gradient(var(--ring-color, var(--blue)) calc(var(--ring-pct, 0) * 1%), var(--surface-3) 0);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .team-card .head-ring::before{content:""; position:absolute; inset:4px; border-radius:50%; background:var(--surface);}
+  .team-card .head-ring-value{position:relative; z-index:1; font-family:'IBM Plex Mono'; font-size:8.5px; font-weight:800; color:var(--ink-soft);}
   .team-card .stat-grid{display:grid; grid-template-columns:1fr 1fr; column-gap:7px; row-gap:7px;}
   .team-card .stat{
     padding:8px 9px 9px; border-radius:12px;
@@ -417,8 +420,8 @@
     display:flex; align-items:center; margin-bottom:3px;
   }
   .team-card .stat .stat-icon svg{width:14px; height:14px;}
-  .team-card .stat .stat-label{font-size:7.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--text-muted); font-weight:700;}
-  .team-card .stat .stat-value{font-family:'IBM Plex Mono'; font-size:12.5px; font-weight:800; margin-top:1px; color:var(--stat-color, var(--blue));}
+  .team-card .stat .stat-label{font-size:9.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--text-muted); font-weight:700;}
+  .team-card .stat .stat-value{font-family:'IBM Plex Mono'; font-size:14px; font-weight:800; margin-top:1px; color:var(--stat-color, var(--blue));}
   .team-card .stat.stat-present{--stat-color:var(--halfday); --stat-bg:var(--halfday-bg); --stat-border:color-mix(in srgb, var(--halfday) 22%, transparent);}
   .team-card .stat.stat-field{--stat-color:var(--halfday); --stat-bg:var(--halfday-bg); --stat-border:color-mix(in srgb, var(--halfday) 22%, transparent);}
   .team-card .stat.stat-halfday{--stat-color:var(--halfday); --stat-bg:var(--halfday-bg); --stat-border:color-mix(in srgb, var(--halfday) 22%, transparent);}
@@ -626,9 +629,9 @@
 
   .brand-footer{
     position:relative; overflow:hidden; width:100%; margin-top:36px; min-height:36px;
-    background:linear-gradient(120deg, #8C6EF2 0%, #6169EE 36%, #3E58E4 68%, #2740D6 100%);
+    background:linear-gradient(120deg, #0EA5D9 0%, #1D6FE0 32%, #1D4ED8 68%, #10286B 100%);
     border-top:3px solid var(--gold);
-    box-shadow:0 -4px 14px rgba(39,64,214,.22);
+    box-shadow:0 -4px 14px rgba(16,40,107,.22);
     -webkit-print-color-adjust:exact; print-color-adjust:exact;
   }
   .brand-footer::before{
@@ -746,7 +749,7 @@
   @media (max-width: 720px){
     .topbar-inner{justify-content:flex-start;}
     .header-actions{width:100%; justify-content:flex-end;}
-    .header-clock{flex:1 1 auto;}
+    .header-status-bar{flex:1 1 auto; justify-content:space-between;}
     .employee-sidebar{width:82vw;}
   }
 
@@ -1041,19 +1044,22 @@
       </div>
     </div>
     <div class="header-actions">
-      <div class="header-clock" aria-live="polite">
-        <svg class="clock-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
-        <div class="clock-text">
-          <span class="clock-date" id="clockDate">&mdash;</span>
-          <span class="clock-time" id="clockTime">&mdash;</span>
+      <div class="header-status-bar">
+        <div class="header-clock" aria-live="polite">
+          <svg class="clock-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+          <div class="clock-text">
+            <span class="clock-date" id="clockDate">&mdash;</span>
+            <span class="clock-time" id="clockTime">&mdash;</span>
+          </div>
         </div>
-      </div>
-      <span class="sync-badge mode-connecting" id="syncInline" title="Live data sync status">
-        <span class="dot"></span><span id="syncInlineText">Update &middot; Connecting&hellip;</span>
+        <span class="status-divider" aria-hidden="true"></span>
+        <span class="sync-badge mode-connecting" id="syncInline" title="Live data sync status">
+          <span class="dot"></span><span id="syncInlineText">Update &middot; Connecting&hellip;</span>
+        </span>
         <button class="sync-refresh-btn" id="syncRefreshBtn" type="button" aria-label="Refresh data from the sheet now">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"/><path d="M3 21v-5h5"/></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"/><path d="M3 21v-5h5"/></svg>
         </button>
-      </span>
+      </div>
       <a class="icon-btn" id="sheetLink" href="https://docs.google.com/spreadsheets/d/1BUeSUuFzYnLnEVrmeNZuzpcrwgbxjMQytkIp0YMVlSw/edit?usp=sharing" target="_blank" rel="noopener" style="display:none;" aria-label="Open sheet">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
       </a>
@@ -1322,10 +1328,6 @@
 </div>
 <div class="wrap">
 
-  <div id="kpiRow" class="kpi-row"></div>
-
-  <div id="teamOverviewRow"></div>
-
   <div class="panel" id="entryPanel">
     <p class="panel-title"><span>Update attendance</span></p>
     <details class="adv-settings">
@@ -1408,6 +1410,10 @@
     </div>
     <span class="entry-status" id="entryStatus"></span>
   </div>
+
+  <div id="kpiRow" class="kpi-row"></div>
+
+  <div id="teamOverviewRow"></div>
 
   <div id="mainContent"></div>
 </div>
@@ -2563,14 +2569,18 @@ function closeHolidaysThisMonthModal(){
 // the Yearly Attendance report uses to stitch multiple months together.
 const leaveState = { year:null, monthIdx:null, employees:[], data:{}, employee:null, editing:false, drafts:{} };
 
-async function computeLeaveForEmployee(employee, year){
+async function computeLeaveForEmployee(employee, year, monthDataMap){
   let used = 0;
   const dates = [];
   for(let mi=0; mi<=11; mi++){
     const mm = MONTHS.find(mo => mo.year===year && mo.month===mi);
     if(!mm) continue;
     let sd = null;
-    try{ sd = await getSheetData(mm.key); } catch(err){ sd = null; }
+    if(monthDataMap && Object.prototype.hasOwnProperty.call(monthDataMap, mm.key)){
+      sd = monthDataMap[mm.key];
+    } else {
+      try{ sd = await getSheetData(mm.key); } catch(err){ sd = null; }
+    }
     if(!sd || !sd.employees.includes(employee)) continue;
     sd.days.forEach(d => {
       const pair = d.e[employee] || [null,null];
@@ -2768,9 +2778,21 @@ async function openLeaveModal(sheetData, m){
   if(body) body.innerHTML = '<div class="loading-panel"><div class="loading-spinner"></div><p>Loading leave records\u2026</p></div>';
   const subtitle = document.getElementById('leaveModalSubtitle');
   if(subtitle) subtitle.textContent = `Loading ${m.year} leave balances\u2026`;
-  for(const name of leaveState.employees){
-    leaveState.data[name] = await computeLeaveForEmployee(name, m.year);
-  }
+  // Fetch every month of the year once, in parallel, instead of once per
+  // employee sequentially \u2014 this is what used to make the Leave modal
+  // slow to open (12 months \u00d7 N employees fired one after another).
+  const yearMonths = MONTHS.filter(mo => mo.year === m.year);
+  const monthDataMap = {};
+  await Promise.all(yearMonths.map(async mo => {
+    try{ monthDataMap[mo.key] = await getSheetData(mo.key); }
+    catch(err){ monthDataMap[mo.key] = null; }
+  }));
+  // Bail out quietly if the modal was closed or a different month opened mid-fetch.
+  if(!overlay.classList.contains('is-open') || leaveState.year !== m.year || leaveState.monthIdx !== m.month) return;
+  const results = await Promise.all(
+    leaveState.employees.map(name => computeLeaveForEmployee(name, m.year, monthDataMap))
+  );
+  leaveState.employees.forEach((name, i) => { leaveState.data[name] = results[i]; });
   // Bail out quietly if the modal was closed or a different month opened mid-fetch.
   if(!overlay.classList.contains('is-open') || leaveState.year !== m.year || leaveState.monthIdx !== m.month) return;
   showLeaveEmployeeList();
@@ -3247,10 +3269,9 @@ async function render(){
             <p class="name">${name}</p>
             <p class="rate">${s.rate!=null?s.rate+'% attendance':'\u2014'}</p>
           </div>
-          <svg class="head-spark" viewBox="0 0 76 30" preserveAspectRatio="none">
-            <path d="M0,20 C8,24 14,10 22,15 C30,20 36,6 44,11 C52,16 58,4 66,8 C69,9.5 72,6 76,7" fill="none" stroke="${accent}" stroke-width="2" stroke-linecap="round"/>
-            <circle cx="76" cy="7" r="3" fill="${accent}"/>
-          </svg>
+          <div class="head-ring" style="--ring-pct:${s.rate!=null?s.rate:0};--ring-color:${accent}">
+            <span class="head-ring-value">${s.rate!=null?s.rate:'\u2014'}</span>
+          </div>
         </div>
         <div class="stat-grid">
           <div class="stat stat-present">
