@@ -530,28 +530,32 @@
     body.print-cutoff-log #payrollModalOverlay .modal-close{ display:none !important; }
     body.print-cutoff-log #payrollModalOverlay .modal-foot-note{ display:none !important; }
     body.print-cutoff-log #payrollModalOverlay .cutoff-controls{ display:none !important; }
-    body.print-cutoff-log #payrollModalOverlay .modal-body{ padding:0; }
-    body.print-cutoff-log #payrollModalOverlay .print-only{ display:block; margin:0 0 5px; font-family:'Inter'; }
-    body.print-cutoff-log #payrollModalOverlay .print-only .print-title{ font-size:13px; font-weight:700; color:#000; margin:0 0 1px; }
-    body.print-cutoff-log #payrollModalOverlay .print-only .print-sub{ font-size:9px; color:#444; margin:0; }
-    body.print-cutoff-log #payrollModalOverlay table{ font-size:8px; width:100%; }
-    body.print-cutoff-log #payrollModalOverlay thead th{ color:#000; border-bottom:1px solid #000; padding:2px 4px; }
-    body.print-cutoff-log #payrollModalOverlay tbody td{ border-bottom:1px solid #ccc; padding:1.5px 4px; }
-    body.print-cutoff-log #payrollModalOverlay .status-chip{ -webkit-print-color-adjust:exact; print-color-adjust:exact; padding:1px 6px; }
+    body.print-cutoff-log *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+    body.print-cutoff-log #payrollModalOverlay .modal-body{ padding:0; transform-origin:top left; }
+    body.print-cutoff-log #payrollModalOverlay .print-only{ display:block; margin:0 0 5px; font-family:'Inter'; break-inside:avoid; page-break-inside:avoid; }
+    body.print-cutoff-log #payrollModalOverlay .print-only .print-title{ font-size:13px; font-weight:700; margin:0 0 1px; }
+    body.print-cutoff-log #payrollModalOverlay .print-only .print-sub{ font-size:9px; margin:0; }
+    body.print-cutoff-log #payrollModalOverlay table{ font-size:8px; width:100%; border-collapse:collapse; }
+    body.print-cutoff-log #payrollModalOverlay thead{ display:table-header-group; }
+    body.print-cutoff-log #payrollModalOverlay tr{ break-inside:avoid; page-break-inside:avoid; }
+    body.print-cutoff-log #payrollModalOverlay thead th{ padding:2px 4px; }
+    body.print-cutoff-log #payrollModalOverlay tbody td{ padding:1.5px 4px; }
+    body.print-cutoff-log #payrollModalOverlay .cutoff-boundary-row td{ padding:2px 4px; }
+    body.print-cutoff-log #payrollModalOverlay .status-chip{ padding:1px 6px; }
     body.print-cutoff-log #payrollModalOverlay div[style*="overflow-x:auto"]{ overflow:visible !important; }
-    body.print-cutoff-log #payrollModalOverlay .cutoff-summary-block{ margin-top:6px; }
+    body.print-cutoff-log #payrollModalOverlay .cutoff-summary-block{ margin-top:6px; break-inside:avoid; page-break-inside:avoid; }
     body.print-cutoff-log #payrollModalOverlay .cutoff-summary-block .panel-title{ margin:6px 0 4px !important; font-size:10px; }
     body.print-cutoff-log #payrollModalOverlay .signatory-block{ margin-top:8px; padding-top:6px; break-inside:avoid; page-break-inside:avoid; }
     body.print-cutoff-log #payrollModalOverlay .signatory-grid{ gap:8px; }
     body.print-cutoff-log #payrollModalOverlay .signatory-sig-slot{ height:34px; margin-bottom:2px; }
-    body.print-cutoff-log #payrollModalOverlay .signatory-overlay{ max-height:28px; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    body.print-cutoff-log #payrollModalOverlay .signatory-name{ color:#000; font-size:10px; }
-    body.print-cutoff-log #payrollModalOverlay .signatory-line{ border-top-color:#000; margin:0 auto 2px; }
+    body.print-cutoff-log #payrollModalOverlay .signatory-overlay{ max-height:28px; }
+    body.print-cutoff-log #payrollModalOverlay .signatory-name{ font-size:10px; }
+    body.print-cutoff-log #payrollModalOverlay .signatory-line{ margin:0 auto 2px; }
     body.print-cutoff-log #payrollModalOverlay .cutoff-print-brand{
-      display:block !important; width:100%; height:auto; -webkit-print-color-adjust:exact; print-color-adjust:exact;
+      display:block !important; width:100%; height:auto;
     }
-    body.print-cutoff-log #payrollModalOverlay .cutoff-print-header{ max-height:52px; width:auto; margin:0 auto 8px; display:block !important; }
-    body.print-cutoff-log #payrollModalOverlay .cutoff-print-footer{ max-height:34px; width:auto; margin:8px auto 0; display:block !important; break-inside:avoid; page-break-inside:avoid; }
+    body.print-cutoff-log #payrollModalOverlay .cutoff-print-header{ width:100%; height:auto; margin:0 0 6px; display:block !important; break-inside:avoid; page-break-inside:avoid; page-break-after:avoid; }
+    body.print-cutoff-log #payrollModalOverlay .cutoff-print-footer{ width:100%; height:auto; margin:6px 0 0; display:block !important; break-inside:avoid; page-break-inside:avoid; page-break-before:avoid; }
     body.print-cutoff-log{ background:#fff !important; background-image:none !important; }
   }
 
@@ -3842,9 +3846,76 @@ function printCutoffLog(){
   pageStyle.textContent = '@media print{ @page{ size:portrait; margin:9mm; } }';
   document.head.appendChild(pageStyle);
   document.body.classList.add('print-cutoff-log');
+
+  // The report's height varies with the number of days in the cut-off and
+  // the number of employees shown, so a fixed font size can't guarantee it
+  // stays on one sheet. The @media print rules (8px table font, the
+  // print-only header block, etc.) only take effect once the browser
+  // actually starts building the print layout, so we measure and scale
+  // inside beforeprint/afterprint rather than before calling print() \u2014
+  // measuring earlier would size against the normal on-screen layout
+  // instead of the print one, and give the wrong answer. This is what
+  // keeps the header logo and the footer/signatories from being sliced
+  // across a page break: the whole block is shrunk to fit one page
+  // before the browser paginates it.
+  const modalBody = document.querySelector('#payrollModalOverlay .modal-body');
+
+  // The date/time, URL, and page-number line the browser prints above and
+  // below the page is a browser-level "Headers and footers" setting \u2014 a
+  // web page has no way to remove that line itself, and leaving the title
+  // blank just makes the browser fall back to showing the filename there
+  // instead, which looks worse. Use a clean, descriptive title instead.
+  const originalTitle = document.title;
+  const periodLabelEl = document.getElementById('cutoffPeriodLabel');
+  document.title = periodLabelEl && periodLabelEl.textContent.trim()
+    ? `Salary Cut-off \u2014 ${periodLabelEl.textContent.trim()}`
+    : 'Salary Cut-off Calendar';
+
+  function fitToOnePage(){
+    if(!modalBody) return;
+    modalBody.style.transform = '';
+    modalBody.style.width = '';
+    // Measure the natural (unscaled) content size. A table can render
+    // wider than its container when there are enough employee columns
+    // (that's what was clipping text off the right edge of the page), so
+    // check every table's actual rendered width, not just the wrapper's.
+    let contentWidthPx = modalBody.scrollWidth;
+    modalBody.querySelectorAll('table').forEach(t => {
+      contentWidthPx = Math.max(contentWidthPx, t.scrollWidth, t.offsetWidth);
+    });
+    const contentHeightPx = modalBody.scrollHeight;
+    // Conservative printable-area estimate (Letter, 8.5x11in, is smaller
+    // than A4 in both dimensions, so basing the fit on it keeps the
+    // report on one page on either paper size): page size \u2212 2 \u00d7 9mm
+    // margins, at 96 CSS px/in.
+    const pageWidthPx = (8.5 * 96) - (2 * (9 / 25.4) * 96);
+    const pageHeightPx = (11 * 96) - (2 * (9 / 25.4) * 96);
+    const widthScale = contentWidthPx > pageWidthPx ? pageWidthPx / contentWidthPx : 1;
+    const heightScale = contentHeightPx > pageHeightPx ? pageHeightPx / contentHeightPx : 1;
+    const scale = Math.min(widthScale, heightScale);
+    if(scale < 1){
+      modalBody.style.transform = `scale(${scale})`;
+      modalBody.style.width = `${100 / scale}%`;
+    }
+  }
+  function restoreAfterPrint(){
+    if(modalBody){
+      modalBody.style.transform = '';
+      modalBody.style.width = '';
+    }
+    document.body.classList.remove('print-cutoff-log');
+    document.title = originalTitle;
+    pageStyle.remove();
+    window.removeEventListener('beforeprint', fitToOnePage);
+    window.removeEventListener('afterprint', restoreAfterPrint);
+  }
+  window.addEventListener('beforeprint', fitToOnePage);
+  window.addEventListener('afterprint', restoreAfterPrint);
+
   window.print();
-  document.body.classList.remove('print-cutoff-log');
-  pageStyle.remove();
+
+  // Safety net for browsers that don't reliably fire afterprint.
+  setTimeout(restoreAfterPrint, 1000);
 }
 
 // Renders the currently displayed Audit Attendance period (table + late/
