@@ -138,6 +138,48 @@
   .topbar .brand .sub{font-size:12px; color:rgba(255,255,255,.82); white-space:nowrap;}
   .header-actions{display:flex; align-items:center; gap:12px; flex:none; flex-wrap:wrap; position:relative; z-index:1;}
 
+  /* Motorcycle loading strip: a subtle road along the bottom of the header.
+     The bike rides across only while data is actively syncing/connecting. */
+  .moto-strip{
+    position:absolute; left:0; right:0; bottom:0; height:34px; overflow:hidden;
+    pointer-events:none; z-index:2;
+  }
+  .moto-strip::before{
+    content:""; position:absolute; left:0; right:0; bottom:4px; height:2px;
+    background-image:repeating-linear-gradient(90deg, rgba(255,255,255,.38) 0 10px, transparent 10px 20px);
+    opacity:.55;
+  }
+  .moto-icon{
+    position:absolute; bottom:2px; left:-12%; width:58px; height:34px;
+    opacity:0; transition:opacity .3s ease;
+  }
+  .moto-icon .speed-line{stroke:#fff; stroke-width:2; stroke-linecap:round; opacity:.55;}
+  .moto-icon .wheel-tire{fill:#0B2790;}
+  .moto-icon .wheel-hub{fill:#FFD873;}
+  .moto-icon .wheel-spoke{stroke:#FFD873; stroke-width:1.4;}
+  .moto-icon .bike-body{fill:#3D63EA;}
+  .moto-icon .bike-body-dark{fill:#1E3AAE;}
+  .moto-icon .rider-suit{fill:#FF9A44;}
+  .moto-icon .rider-suit-shade{fill:#E67F27;}
+  .moto-icon .rider-limb{fill:#173584;}
+  .moto-icon .helmet{fill:#173584;}
+  .moto-icon .helmet-visor{fill:#FF9A44;}
+  .topbar:has(.sync-badge.mode-connecting) .moto-icon{
+    opacity:1;
+    animation:moto-ride 2.8s linear infinite;
+  }
+  @keyframes moto-ride{
+    0%{ left:-12%; }
+    100%{ left:106%; }
+  }
+  .topbar:has(.sync-badge.mode-connecting) .moto-strip::before{
+    animation:moto-road-scroll .5s linear infinite;
+  }
+  @keyframes moto-road-scroll{
+    0%{ background-position-x:0; }
+    100%{ background-position-x:-20px; }
+  }
+
   .header-status-bar{
     display:flex; align-items:center; gap:9px; flex:none;
     background:rgba(6,15,36,.38);
@@ -1068,6 +1110,30 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
       </a>
     </div>
+  </div>
+  <div class="moto-strip" aria-hidden="true">
+    <svg class="moto-icon" viewBox="0 0 110 64" xmlns="http://www.w3.org/2000/svg">
+      <line class="speed-line" x1="2" y1="16" x2="17" y2="16"/>
+      <line class="speed-line" x1="7" y1="24" x2="26" y2="24"/>
+      <line class="speed-line" x1="3" y1="32" x2="20" y2="32"/>
+      <circle class="wheel-tire" cx="26" cy="50" r="13"/>
+      <circle class="wheel-hub" cx="26" cy="50" r="5"/>
+      <line class="wheel-spoke" x1="26" y1="41" x2="26" y2="59"/>
+      <line class="wheel-spoke" x1="17" y1="50" x2="35" y2="50"/>
+      <circle class="wheel-tire" cx="86" cy="50" r="13"/>
+      <circle class="wheel-hub" cx="86" cy="50" r="5"/>
+      <line class="wheel-spoke" x1="86" y1="41" x2="86" y2="59"/>
+      <line class="wheel-spoke" x1="77" y1="50" x2="95" y2="50"/>
+      <path class="bike-body" d="M38,47 L58,24 L92,30 L100,42 L88,47 L70,47 L60,40 L46,47 Z"/>
+      <path class="bike-body-dark" d="M70,47 L88,47 L100,42 L94,34 L78,38 Z"/>
+      <rect class="bike-body-dark" x="29" y="42" width="17" height="5" rx="2.2"/>
+      <path class="rider-limb" d="M56,39 C52,43 50,49 52,54 L60,54 C60,48 62,44 66,39 Z"/>
+      <path class="rider-suit" d="M55,13 C52,19 51,27 54,35 L68,35 C67,27 66,19 63,13 Z"/>
+      <path class="rider-suit-shade" d="M60,19 L68,21 L67,31 L60,29 Z"/>
+      <path class="rider-limb" d="M63,17 C70,19 76,23 80,29 L76,33 C71,27 66,23 60,21 Z"/>
+      <circle class="helmet" cx="58" cy="9" r="8"/>
+      <path class="helmet-visor" d="M52,9 A8,8 0 0 0 62,13 L60,6 Z"/>
+    </svg>
   </div>
 </header>
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
