@@ -252,34 +252,6 @@
        on hover instead of a flat highlight. */
     .dash-container li.flex.items-center.justify-between {
       position: relative;
-      transition: transform .22s var(--ease-premium, cubic-bezier(.22,1,.36,1)), background-color .22s ease;
-    }
-    .dash-container li.flex.items-center.justify-between::before {
-      content: '';
-      position: absolute; left: -10px; top: 10%; bottom: 10%; width: 3px;
-      border-radius: 3px;
-      background: linear-gradient(180deg, #4f46e5, #0891b2);
-      transform: scaleY(0);
-      transform-origin: center;
-      transition: transform .25s var(--ease-snap, cubic-bezier(.34,1.56,.64,1));
-    }
-    .dash-container li.flex.items-center.justify-between:hover::before {
-      transform: scaleY(1);
-    }
-    .dash-container li.flex.items-center.justify-between:hover {
-      transform: translateX(3px);
-    }
-
-    /* Small eyebrow/status dots (the tiny colored dots next to section
-       labels, list rows, legends) get a soft breathing glow instead of
-       sitting completely static — a small ambient detail that makes the
-       dashboard read as "live" data rather than a frozen screenshot. */
-    span.w-1.h-1.rounded-full, span.w-1\.5.h-1\.5.rounded-full {
-      animation: dotBreathe 2.6s ease-in-out infinite;
-    }
-    @keyframes dotBreathe {
-      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 currentColor; }
-      50% { opacity: .55; box-shadow: 0 0 4px 1px currentColor; }
     }
 
     /* Table polish for the branch scorecard. */
@@ -379,20 +351,6 @@
       outline: 2px solid rgba(37, 99, 235, 0.55);
       outline-offset: 2px;
       border-radius: 6px;
-    }
-
-    /* Main data popup: a touch of rise + spring instead of a flat scale,
-       so opening/closing feels more like a physical object settling into
-       place rather than a plain fade. Overrides only the timing/transform
-       add-on — the base show/hide classes (hidden/opacity-0/scale-95)
-       already toggled by openModal()/closeModal() are untouched. */
-    #modalDialog {
-      transition: transform .32s var(--ease-snap), opacity .28s var(--ease-premium) !important;
-    }
-    #modalDialog.scale-95 { transform: translateY(10px) scale(.96); opacity: 0; }
-    #modalDialog.scale-100 { transform: translateY(0) scale(1); opacity: 1; }
-    #dataModal .absolute.inset-0.bg-slate-900\/40 {
-      transition: backdrop-filter .3s ease, background-color .3s ease;
     }
 
     /* Table rows: replace the flat hover tint with a subtle slide-in
@@ -4392,10 +4350,6 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
       const modal = document.getElementById('dataModal');
       const modalDialog = document.getElementById('modalDialog');
       modal.classList.remove('hidden');
-      // Freeze the dashboard behind the popup — without this, scrolling
-      // while the modal is open also scrolled the underlying dashboard,
-      // which felt broken since the two would drift out of sync.
-      document.body.style.overflow = 'hidden';
       // Always start at the top of the new view — without this, opening a
       // fresh item (or navigating Back) could silently keep the previous
       // item's scroll offset, making the popup feel like it "doesn't
@@ -5072,8 +5026,6 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
       setTimeout(() => {
           modal.classList.add('hidden');
       }, 300);
-      // Give the dashboard its scroll back now that the popup is gone.
-      document.body.style.overflow = '';
       // Fully closing the popup means the next open should be treated as
       // fresh, not a continuation of whatever screen history built up.
       modalHistory = [];
@@ -6925,13 +6877,10 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
     // valueFn(branch) returns the already-formatted value string/number to
     // display next to each name. accentColor is one of the accent* Tailwind
     // color tokens already defined for this dashboard (accentIndigo/accentCyan).
-    // Each row opens that branch's Detailed Profile (same popup used
-    // everywhere else a branch name is clickable), navigating deeper within
-    // the already-open modal so Back still returns to this breakdown.
     function buildTopPerformersList(top5, valueFn, accentColor) {
       if (!top5 || top5.length === 0) return '';
       const rows = top5.map((b, i) => `
-        <div onclick="openModalDetail('${String(b.name).replace(/'/g, "\\'")}')" role="button" tabindex="0" title="View ${b.name}'s detailed profile" class="flex items-center justify-between gap-2 text-[11px] bg-slate-200 border border-slate-300 rounded-lg px-2 py-1 cursor-pointer active:scale-95 transition-all hover:bg-white hover:border-${accentColor}/50 hover:shadow-sm hover:-translate-y-0.5">
+        <div class="flex items-center justify-between gap-2 text-[11px] bg-slate-200 border border-slate-300 rounded-lg px-2 py-1">
           <div class="flex items-center gap-1.5 min-w-0">
             <span class="flex-shrink-0 w-4 h-4 rounded-full bg-${accentColor}/20 text-${accentColor} font-bold text-[9px] flex items-center justify-center">${i + 1}</span>
             <span class="truncate font-semibold text-slate-700">${b.name}</span>
