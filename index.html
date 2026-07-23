@@ -252,6 +252,34 @@
        on hover instead of a flat highlight. */
     .dash-container li.flex.items-center.justify-between {
       position: relative;
+      transition: transform .22s var(--ease-premium, cubic-bezier(.22,1,.36,1)), background-color .22s ease;
+    }
+    .dash-container li.flex.items-center.justify-between::before {
+      content: '';
+      position: absolute; left: -10px; top: 10%; bottom: 10%; width: 3px;
+      border-radius: 3px;
+      background: linear-gradient(180deg, #4f46e5, #0891b2);
+      transform: scaleY(0);
+      transform-origin: center;
+      transition: transform .25s var(--ease-snap, cubic-bezier(.34,1.56,.64,1));
+    }
+    .dash-container li.flex.items-center.justify-between:hover::before {
+      transform: scaleY(1);
+    }
+    .dash-container li.flex.items-center.justify-between:hover {
+      transform: translateX(3px);
+    }
+
+    /* Small eyebrow/status dots (the tiny colored dots next to section
+       labels, list rows, legends) get a soft breathing glow instead of
+       sitting completely static — a small ambient detail that makes the
+       dashboard read as "live" data rather than a frozen screenshot. */
+    span.w-1.h-1.rounded-full, span.w-1\.5.h-1\.5.rounded-full {
+      animation: dotBreathe 2.6s ease-in-out infinite;
+    }
+    @keyframes dotBreathe {
+      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 currentColor; }
+      50% { opacity: .55; box-shadow: 0 0 4px 1px currentColor; }
     }
 
     /* Table polish for the branch scorecard. */
@@ -269,7 +297,125 @@
       content: '';
       position: absolute; top: 0; left: 0; right: 0; height: 3px;
       background: linear-gradient(90deg, #4f46e5, #0891b2 55%, #059669);
+      background-size: 200% 100%;
       opacity: .85;
+      animation: accentShimmer 6s ease-in-out infinite;
+    }
+    @keyframes accentShimmer {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
+    /* ============================================================
+       PREMIUM INTERACTION LAYER
+       A cohesive, performance-conscious pass over motion & feel:
+       smoother global easing, lifted/glowing cards on hover, tactile
+       buttons with a real ripple, and a refined focus/press language —
+       layered on top of the existing utility classes so none of the
+       underlying markup or logic has to change. Everything here is
+       GPU-friendly (transform/opacity only) and fully respects
+       prefers-reduced-motion.
+       ============================================================ */
+    html { scroll-behavior: smooth; }
+    :root {
+      --ease-premium: cubic-bezier(.22, 1, .36, 1);
+      --ease-snap: cubic-bezier(.34, 1.56, .64, 1);
+    }
+
+    /* Re-time the existing Tailwind transition utilities with a softer,
+       more premium curve instead of the default linear/ease timing. */
+    .transition-all, .transition-colors, .transition-transform, .transition-opacity {
+      transition-timing-function: var(--ease-premium);
+    }
+
+    /* Primary content cards: gentle lift + soft glow + border brighten.
+       Targets the real card shells already used throughout the dashboard
+       (bg-coolCard + border + rounded-2xl/xl) without needing new classes
+       on every element in a 9000-line markup tree. */
+    .bg-coolCard.border.border-coolBorder.rounded-2xl,
+    .bg-coolCard.border.border-coolBorder.rounded-xl,
+    .dash-card-accent {
+      transition: transform .38s var(--ease-premium), box-shadow .38s var(--ease-premium), border-color .38s var(--ease-premium);
+      will-change: transform;
+    }
+    .bg-coolCard.border.border-coolBorder.rounded-2xl:hover,
+    .bg-coolCard.border.border-coolBorder.rounded-xl:hover,
+    .dash-card-accent:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 20px 40px -18px rgba(30, 41, 59, 0.22), 0 4px 10px -4px rgba(30, 41, 59, 0.08);
+      border-color: rgba(79, 70, 229, 0.28);
+    }
+
+    /* Buttons & interactive controls: crisper press feedback layered on
+       top of whatever active:scale-* utility is already present. */
+    button, [role="button"], .cursor-pointer {
+      transition-timing-function: var(--ease-snap);
+    }
+    button:active, [role="button"]:active {
+      filter: brightness(0.97);
+    }
+
+    /* Lightweight ripple: a single absolutely-positioned span injected on
+       pointerdown (see the script near the end of body). Pure CSS/opacity
+       animation — no layout thrash, no interference with click handlers. */
+    .btn-ripple-host { position: relative; overflow: hidden; }
+    .btn-ripple {
+      position: absolute;
+      border-radius: 9999px;
+      background: currentColor;
+      opacity: 0.28;
+      transform: scale(0);
+      pointer-events: none;
+      animation: rippleExpand .55s var(--ease-premium) forwards;
+    }
+    @keyframes rippleExpand {
+      to { transform: scale(2.6); opacity: 0; }
+    }
+
+    /* Sharper, more visible keyboard focus ring in the same accent
+       language as the rest of the dashboard. */
+    a:focus-visible, button:focus-visible, [role="button"]:focus-visible,
+    input:focus-visible, select:focus-visible, textarea:focus-visible {
+      outline: 2px solid rgba(37, 99, 235, 0.55);
+      outline-offset: 2px;
+      border-radius: 6px;
+    }
+
+    /* Main data popup: a touch of rise + spring instead of a flat scale,
+       so opening/closing feels more like a physical object settling into
+       place rather than a plain fade. Overrides only the timing/transform
+       add-on — the base show/hide classes (hidden/opacity-0/scale-95)
+       already toggled by openModal()/closeModal() are untouched. */
+    #modalDialog {
+      transition: transform .32s var(--ease-snap), opacity .28s var(--ease-premium) !important;
+    }
+    #modalDialog.scale-95 { transform: translateY(10px) scale(.96); opacity: 0; }
+    #modalDialog.scale-100 { transform: translateY(0) scale(1); opacity: 1; }
+    #dataModal .absolute.inset-0.bg-slate-900\/40 {
+      transition: backdrop-filter .3s ease, background-color .3s ease;
+    }
+
+    /* Table rows: replace the flat hover tint with a subtle slide-in
+       accent bar, echoing the ranking-list hover treatment already used
+       elsewhere in the dashboard. */
+    .dash-container table tbody tr {
+      transition: background-color .2s var(--ease-premium), transform .2s var(--ease-premium);
+    }
+    .dash-container table tbody tr:hover {
+      transform: translateX(1px);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .dash-card-accent::before { animation: none; }
+      .bg-coolCard.border.border-coolBorder.rounded-2xl,
+      .bg-coolCard.border.border-coolBorder.rounded-xl,
+      .dash-card-accent,
+      .dash-container table tbody tr {
+        transition: none !important;
+        transform: none !important;
+      }
+      .btn-ripple { display: none; }
     }
   </style>
 
@@ -4246,6 +4392,10 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
       const modal = document.getElementById('dataModal');
       const modalDialog = document.getElementById('modalDialog');
       modal.classList.remove('hidden');
+      // Freeze the dashboard behind the popup — without this, scrolling
+      // while the modal is open also scrolled the underlying dashboard,
+      // which felt broken since the two would drift out of sync.
+      document.body.style.overflow = 'hidden';
       // Always start at the top of the new view — without this, opening a
       // fresh item (or navigating Back) could silently keep the previous
       // item's scroll offset, making the popup feel like it "doesn't
@@ -4922,6 +5072,8 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
       setTimeout(() => {
           modal.classList.add('hidden');
       }, 300);
+      // Give the dashboard its scroll back now that the popup is gone.
+      document.body.style.overflow = '';
       // Fully closing the popup means the next open should be treated as
       // fresh, not a continuation of whatever screen history built up.
       modalHistory = [];
@@ -5375,26 +5527,65 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
       const nonEmpty = sheets.filter(function(s) { return s.rows && s.rows.length > 0; });
       if (nonEmpty.length === 0) { showToast('Nothing to export yet.'); return; }
 
-      const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType } = docx;
+      const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, TableLayoutType, PageOrientation } = docx;
+
+      // Landscape A4 in twentieths-of-a-point (dxa), with narrower 0.5in
+      // margins so wide sheets (e.g. the 34-column Branches table) have as
+      // much usable width as possible before columns have to shrink.
+      const PAGE_WIDTH_DXA = 16838;
+      const PAGE_HEIGHT_DXA = 11906;
+      const MARGIN_DXA = 560;
+      const USABLE_WIDTH_DXA = PAGE_WIDTH_DXA - (MARGIN_DXA * 2);
 
       function buildTable(headers, rows) {
+          const colCount = headers.length;
+
+          // Wide tables used to just get an equal 100%/colCount share per
+          // column, which crushed 30+ column sheets into unreadable slivers.
+          // Instead, size each column proportionally to its actual content
+          // (same idea as the Excel auto-width logic) so short columns like
+          // "#" stay narrow and long ones like branch names get real room,
+          // and scale the font down as column count grows so text still fits.
+          const rawWidths = headers.map(function(h, i) {
+              let maxLen = String(h).length;
+              rows.forEach(function(r) {
+                  const v = r[i];
+                  if (v !== undefined && v !== null) maxLen = Math.max(maxLen, String(v).length);
+              });
+              return Math.min(Math.max(maxLen, 4), 40);
+          });
+          const totalRaw = rawWidths.reduce(function(a, b) { return a + b; }, 0) || 1;
+          const colWidths = rawWidths.map(function(w) { return Math.max(Math.round((w / totalRaw) * USABLE_WIDTH_DXA), 400); });
+
+          const fontSize = colCount <= 8 ? 20 : colCount <= 14 ? 18 : colCount <= 22 ? 16 : 14; // half-points
+
           const headerRow = new TableRow({
               tableHeader: true,
-              children: headers.map(function(h) {
+              children: headers.map(function(h, i) {
                   return new TableCell({
+                      width: { size: colWidths[i], type: WidthType.DXA },
+                      margins: { top: 60, bottom: 60, left: 80, right: 80 },
                       shading: { fill: 'E5E7EB' },
-                      children: [new Paragraph({ children: [new TextRun({ text: String(h), bold: true })] })]
+                      children: [new Paragraph({ children: [new TextRun({ text: String(h), bold: true, size: fontSize })] })]
                   });
               })
           });
           const bodyRows = rows.map(function(r) {
               return new TableRow({
-                  children: r.map(function(v) {
-                      return new TableCell({ children: [new Paragraph(v === undefined || v === null ? '' : String(v))] });
+                  children: r.map(function(v, i) {
+                      return new TableCell({
+                          width: { size: colWidths[i], type: WidthType.DXA },
+                          margins: { top: 40, bottom: 40, left: 80, right: 80 },
+                          children: [new Paragraph({ children: [new TextRun({ text: v === undefined || v === null ? '' : String(v), size: fontSize })] })]
+                      });
                   })
               });
           });
-          return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [headerRow].concat(bodyRows) });
+          return new Table({
+              width: { size: USABLE_WIDTH_DXA, type: WidthType.DXA },
+              layout: TableLayoutType.FIXED,
+              rows: [headerRow].concat(bodyRows)
+          });
       }
 
       const children = [
@@ -5407,7 +5598,19 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
           children.push(buildTable(s.headers, s.rows));
       });
 
-      const doc = new Document({ sections: [{ properties: {}, children: children }] });
+      // Landscape orientation (rather than the docx default portrait) so
+      // wide tables get the extra horizontal room instead of squeezing.
+      const doc = new Document({
+          sections: [{
+              properties: {
+                  page: {
+                      size: { width: PAGE_WIDTH_DXA, height: PAGE_HEIGHT_DXA, orientation: PageOrientation.LANDSCAPE },
+                      margin: { top: MARGIN_DXA, bottom: MARGIN_DXA, left: MARGIN_DXA, right: MARGIN_DXA }
+                  }
+              },
+              children: children
+          }]
+      });
       const blob = await Packer.toBlob(doc);
       downloadBlob(blob, filename);
       showToast('Word document downloaded.');
@@ -5425,8 +5628,18 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
       const pageWidth = doc.internal.pageSize.getWidth();
       const generatedLabel = 'Generated ' + new Date().toLocaleString();
 
+      // Wide sheets (e.g. the 34-column Branches table) used to get crushed
+      // into unreadably tiny cells because autoTable was forced to squeeze
+      // every column onto a single landscape page. Instead: scale the font/
+      // padding down gradually as columns increase, AND let genuinely wide
+      // tables spill onto continuation pages (repeating the first column as
+      // a row identifier) so text stays legible instead of shrinking forever.
       nonEmpty.forEach(function(s, idx) {
           if (idx > 0) doc.addPage();
+          const colCount = s.headers.length;
+          const fontSize = colCount <= 8 ? 9 : colCount <= 14 ? 7.5 : colCount <= 22 ? 6.5 : 5.5;
+          const cellPadding = colCount <= 8 ? 5 : colCount <= 14 ? 4 : colCount <= 22 ? 3 : 2;
+
           doc.setFontSize(14);
           doc.setTextColor(30, 41, 59);
           doc.text(String(title), 40, 36);
@@ -5442,10 +5655,15 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
               body: s.rows.map(function(r) { return r.map(function(v) { return (v === undefined || v === null) ? '' : String(v); }); }),
               startY: 66,
               margin: { left: 40, right: 40, bottom: 30 },
-              styles: { fontSize: 8, cellPadding: 5, overflow: 'linebreak' },
-              headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
+              styles: { fontSize: fontSize, cellPadding: cellPadding, overflow: 'linebreak', valign: 'middle' },
+              headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', fontSize: fontSize },
               alternateRowStyles: { fillColor: [248, 250, 252] },
               theme: 'grid',
+              // Split wide tables across extra pages column-wise instead of
+              // squeezing everything onto one page; the first column repeats
+              // on each continuation page so rows stay identifiable.
+              horizontalPageBreak: colCount > 8,
+              horizontalPageBreakRepeat: 0,
               didDrawPage: function() {
                   const pageCount = doc.internal.getNumberOfPages();
                   doc.setFontSize(8);
@@ -6707,10 +6925,13 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
     // valueFn(branch) returns the already-formatted value string/number to
     // display next to each name. accentColor is one of the accent* Tailwind
     // color tokens already defined for this dashboard (accentIndigo/accentCyan).
+    // Each row opens that branch's Detailed Profile (same popup used
+    // everywhere else a branch name is clickable), navigating deeper within
+    // the already-open modal so Back still returns to this breakdown.
     function buildTopPerformersList(top5, valueFn, accentColor) {
       if (!top5 || top5.length === 0) return '';
       const rows = top5.map((b, i) => `
-        <div class="flex items-center justify-between gap-2 text-[11px] bg-slate-200 border border-slate-300 rounded-lg px-2 py-1">
+        <div onclick="openModalDetail('${String(b.name).replace(/'/g, "\\'")}')" role="button" tabindex="0" title="View ${b.name}'s detailed profile" class="flex items-center justify-between gap-2 text-[11px] bg-slate-200 border border-slate-300 rounded-lg px-2 py-1 cursor-pointer active:scale-95 transition-all hover:bg-white hover:border-${accentColor}/50 hover:shadow-sm hover:-translate-y-0.5">
           <div class="flex items-center gap-1.5 min-w-0">
             <span class="flex-shrink-0 w-4 h-4 rounded-full bg-${accentColor}/20 text-${accentColor} font-bold text-[9px] flex items-center justify-center">${i + 1}</span>
             <span class="truncate font-semibold text-slate-700">${b.name}</span>
@@ -9561,6 +9782,37 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
     } else {
       start();
     }
+  })();
+</script>
+
+<script>
+  // Lightweight tactile "ripple" for buttons and button-role controls.
+  // Purely visual (an absolutely-positioned span with a CSS animation) and
+  // attached via a single delegated, non-capturing listener — it never
+  // calls preventDefault/stopPropagation, so every existing onclick/handler
+  // across the dashboard keeps working exactly as before.
+  (function () {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    document.addEventListener('pointerdown', function (e) {
+      if (e.button !== undefined && e.button !== 0) return; // left click / primary touch only
+      const target = e.target.closest('button, [role="button"]');
+      if (!target || target.disabled) return;
+
+      const style = getComputedStyle(target);
+      if (style.position === 'static') target.classList.add('btn-ripple-host');
+      else target.classList.add('btn-ripple-host'); // overflow:hidden is what actually matters here
+
+      const rect = target.getBoundingClientRect();
+      const size = Math.max(rect.width, rect.height);
+      const span = document.createElement('span');
+      span.className = 'btn-ripple';
+      span.style.width = span.style.height = size + 'px';
+      span.style.left = (e.clientX - rect.left - size / 2) + 'px';
+      span.style.top = (e.clientY - rect.top - size / 2) + 'px';
+      target.appendChild(span);
+      span.addEventListener('animationend', function () { span.remove(); }, { once: true });
+    }, { passive: true });
   })();
 </script>
 </body></html>
