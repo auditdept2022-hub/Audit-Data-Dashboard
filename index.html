@@ -2204,6 +2204,51 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
   /* Flat, minimalist header controls (Update data / Upload File / Log out)
      size themselves via padding now — no fixed pixel height needed, they
      line up naturally since they share the same py-2 padding. */
+
+  /* ---------- "Update data" road + motorcycle loader ---------- */
+  /* A little lane the bike drives across in a loop. Each lap eases in
+     (slow) then accelerates (fast) toward the end, so the motion itself
+     reads as "picking up speed" while the real fetch is in flight — the
+     loop just keeps repeating for as long as the request takes. */
+  #updateDataRoadLoader.flex { display: flex; }
+  .road-loader {
+    position: relative;
+    width: 44px;
+    height: 18px;
+    overflow: hidden;
+    border-radius: 5px;
+    background: rgba(255,255,255,0.08);
+    flex-shrink: 0;
+  }
+  .road-loader-track {
+    position: absolute;
+    left: 0; right: 0; top: 50%; height: 2px; transform: translateY(-50%);
+    background-image: repeating-linear-gradient(90deg, rgba(255,255,255,0.85) 0 5px, transparent 5px 12px);
+    background-size: 200% 100%;
+    animation: roadDashMove 1.2s cubic-bezier(.55, 0, .85, .35) infinite;
+  }
+  @keyframes roadDashMove {
+    from { background-position-x: 0; }
+    to   { background-position-x: -68px; }
+  }
+  .road-loader-bike {
+    position: absolute;
+    bottom: 1px;
+    left: -2px;
+    color: #fff;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,.25));
+    animation: bikeDrive 1.2s cubic-bezier(.55, 0, .85, .35) infinite;
+  }
+  @keyframes bikeDrive {
+    0%   { transform: translateX(0) scale(0.85); opacity: .75; }
+    85%  { transform: translateX(24px) scale(1); opacity: 1; }
+    100% { transform: translateX(30px) scale(1.02); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .road-loader-track, .road-loader-bike { animation: none !important; }
+    .road-loader-bike { left: 12px; opacity: 1; transform: none; }
+  }
+
   /* Once-a-minute settle so the date/minute change doesn't feel like a jump cut */
   @keyframes liveClockSettle {
     0%   { opacity: .45; transform: translateY(2px); }
@@ -3259,13 +3304,33 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
 
       <div class="flex items-center gap-0.5 w-full lg:w-auto justify-end">
         <button id="updateDataBtn" onclick="fetchSheet()" title="Refresh dashboard data" class="group flex items-center gap-2 px-2.5 sm:px-3 py-2 rounded-lg hover:bg-white/10 active:bg-white/15 cursor-pointer text-sm font-medium transition-colors duration-150 text-white/90 hover:text-white whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
-          <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-cloud-download shrink-0 transition-transform duration-500 group-active:-rotate-180"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="m8 17 4 4 4-4"></path></svg>
-          <span class="hidden sm:flex sm:flex-col sm:items-start leading-tight">
-            <span>Update data</span>
-            <span class="flex items-center gap-1 h-[11px]">
-              <span id="autoRefreshDot" class="hidden w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" title="Auto-refreshing in the background"></span>
-              <span id="lastSyncedLabel" class="text-[9px] font-medium normal-case text-white/50"></span>
+          <span id="updateDataIconWrap" class="flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-cloud-download shrink-0 transition-transform duration-500 group-active:-rotate-180"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="m8 17 4 4 4-4"></path></svg>
+            <span class="hidden sm:flex sm:flex-col sm:items-start leading-tight">
+              <span>Update data</span>
+              <span class="flex items-center gap-1 h-[11px]">
+                <span id="autoRefreshDot" class="hidden w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" title="Auto-refreshing in the background"></span>
+                <span id="lastSyncedLabel" class="text-[9px] font-medium normal-case text-white/50"></span>
+              </span>
             </span>
+          </span>
+          <!-- Road + motorcycle loader: swapped in for the icon/label above
+               while an "Update data" fetch is in flight. The bike drives its
+               lane on a loop that eases in (slow) and speeds up (fast) each
+               pass, so the whole thing reads as building momentum for as
+               long as the real request takes, instead of a generic spinner. -->
+          <span id="updateDataRoadLoader" class="hidden items-center gap-2" aria-hidden="true">
+            <span class="road-loader">
+              <span class="road-loader-track"></span>
+              <svg class="road-loader-bike" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="5.5" cy="17.5" r="2.5"></circle>
+                <circle cx="18.5" cy="17.5" r="2.5"></circle>
+                <path d="M5.5 17.5 9 10h3l1.5 3"></path>
+                <path d="M9 10 7.5 6.5h3L13 10"></path>
+                <path d="M18.5 17.5 15.5 12H12"></path>
+              </svg>
+            </span>
+            <span class="text-[11px] font-semibold normal-case whitespace-nowrap">Updating&hellip;</span>
           </span>
         </button>
 
@@ -6925,10 +6990,13 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
     // valueFn(branch) returns the already-formatted value string/number to
     // display next to each name. accentColor is one of the accent* Tailwind
     // color tokens already defined for this dashboard (accentIndigo/accentCyan).
+    // Each row opens that branch's Detailed Profile (same popup used
+    // everywhere else a branch name is clickable), navigating deeper within
+    // the already-open modal so Back still returns to this breakdown.
     function buildTopPerformersList(top5, valueFn, accentColor) {
       if (!top5 || top5.length === 0) return '';
       const rows = top5.map((b, i) => `
-        <div class="flex items-center justify-between gap-2 text-[11px] bg-slate-200 border border-slate-300 rounded-lg px-2 py-1">
+        <div onclick="openModalDetail('${String(b.name).replace(/'/g, "\\'")}')" role="button" tabindex="0" title="View ${b.name}'s detailed profile" class="flex items-center justify-between gap-2 text-[11px] bg-slate-200 border border-slate-300 rounded-lg px-2 py-1 cursor-pointer active:scale-95 transition-all hover:bg-white hover:border-${accentColor}/50 hover:shadow-sm hover:-translate-y-0.5">
           <div class="flex items-center gap-1.5 min-w-0">
             <span class="flex-shrink-0 w-4 h-4 rounded-full bg-${accentColor}/20 text-${accentColor} font-bold text-[9px] flex items-center justify-center">${i + 1}</span>
             <span class="truncate font-semibold text-slate-700">${b.name}</span>
@@ -9036,6 +9104,10 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
       isFetchingSheet = true;
       const updateBtn = document.getElementById('updateDataBtn');
       if (updateBtn && !isAutoLoad) updateBtn.disabled = true;
+      // Swap the button's normal icon/label for the road+motorcycle loader
+      // for the duration of a manual "Update data" click (auto/background
+      // refreshes stay silent, as before — the small green dot handles those).
+      if (!isAutoLoad) setUpdateDataBtnLoading(true);
 
       const baseUrl = defaultAppsScriptUrl;
       // On a manual click ("Update data" button), show the full immersive
@@ -9130,7 +9202,21 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
       } finally {
         isFetchingSheet = false;
         if (updateBtn && !isAutoLoad) updateBtn.disabled = false;
+        if (!isAutoLoad) setUpdateDataBtnLoading(false);
       }
+    }
+
+    // Toggles the "Update data" button between its normal icon/label and
+    // the road+motorcycle loader (see #updateDataRoadLoader / .road-loader
+    // CSS). Kept as its own function since fetchSheet() has multiple
+    // return/throw paths that all need to end up back in the right state.
+    function setUpdateDataBtnLoading(isLoading) {
+      const iconWrap = document.getElementById('updateDataIconWrap');
+      const loader = document.getElementById('updateDataRoadLoader');
+      if (!iconWrap || !loader) return;
+      iconWrap.classList.toggle('hidden', isLoading);
+      loader.classList.toggle('hidden', !isLoading);
+      loader.classList.toggle('flex', isLoading);
     }
 
     function saveDashboardDataToCache() {
