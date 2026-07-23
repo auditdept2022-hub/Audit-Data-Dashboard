@@ -9800,7 +9800,6 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
               processExcelData(workbook);
               updateLastSyncedLabel();
               triggerDataBoomReveal();
-              if (!isAutoLoad) showToast("Dashboard successfully updated!");
             });
             return;
           } catch (error) {
@@ -9810,7 +9809,6 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
             if (!isLastAttempt) {
               // Connection hiccups happen — keep the ride overlay up and
               // quietly retry instead of surfacing a failure right away.
-              if (!isAutoLoad) showToast("Connection hiccup, retrying\u2026");
               // Brief backoff so a flaky connection gets a moment to recover.
               await new Promise(function(resolve) { setTimeout(resolve, 500); });
             }
