@@ -2299,7 +2299,6 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
      so the title and buttons stay visible underneath. */
   #headerRideOverlay {
     position: absolute; inset: 0; z-index: 55;
-    overflow: hidden;
     opacity: 0;
     pointer-events: none;
     transition: opacity .3s ease;
@@ -2332,7 +2331,7 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
 
   .ride-rig {
     position: absolute; bottom: 4px; left: 0;
-    width: 96px; height: 88px;
+    width: 118px; height: 108px;
   }
   .ride-rig .walk-figure, .ride-rig .bike-figure {
     position: absolute; bottom: 0; left: 0;
@@ -2350,7 +2349,7 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
      reads as "the same guy just got on a bike", not as the rider suddenly
      shrinking or disappearing. */
   .walk-figure-img {
-    display: block; width: 58px; height: auto;
+    display: block; width: 72px; height: auto;
     filter: drop-shadow(0 2px 2px rgba(0,0,0,.35));
     animation: headerWalkBounce .34s ease-in-out infinite;
   }
@@ -2361,7 +2360,7 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
 
   .bike-figure { position: relative; }
   .bike-figure-img {
-    display: block; width: 78px; height: auto;
+    display: block; width: 96px; height: auto;
     filter: drop-shadow(0 3px 3px rgba(0,0,0,.4));
     animation: headerBikeBounce .22s ease-in-out infinite;
   }
@@ -9576,13 +9575,25 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
 
       const CRUISE_TARGET = 0.70;   // never crosses into the "fast" stretch on its own
       const CRUISE_ESTIMATE_MS = 2400; // paces how quickly it eases toward that ceiling
-      const FINISH_MS = 550;        // fixed, always-fast 70% -> 100% sprint once data lands
+      // The finish stretch's length now scales with how much road is left to
+      // cover instead of always being a fixed 550ms. That fixed duration was
+      // the bug behind "the walking man is gone" — if data came back fast,
+      // hardly any cruise time had passed, so the finish had to cover almost
+      // the entire 0-100% journey (including the walk and mount) in that
+      // same 550ms and it whipped by too fast to see. Now a mostly-uncovered
+      // journey gets up to SPRINT_MAX_MS to play out properly, while a ride
+      // that's already cruised most of the way to 70% still gets a short,
+      // genuinely fast final stretch.
+      const SPRINT_MS_PER_UNIT = 1300; // ms to cover the full 0->100% distance
+      const SPRINT_MIN_MS = 380;
+      const SPRINT_MAX_MS = 1300;
 
       let currentProgress = 0;
       let dataReady = false;
       let pendingOnDone = null;
       let finishStartTime = null;
       let finishFromProgress = 0;
+      let finishDurationMs = SPRINT_MAX_MS;
       let finished = false;
       const startTime = performance.now();
 
@@ -9616,9 +9627,12 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
           applyProgress(eased * CRUISE_TARGET);
         } else {
           if (finishStartTime === null) finishStartTime = now;
-          const t = Math.min(1, (now - finishStartTime) / FINISH_MS);
-          const easedOut = 1 - Math.pow(1 - t, 3);
-          applyProgress(finishFromProgress + easedOut * (1 - finishFromProgress));
+          const t = Math.min(1, (now - finishStartTime) / finishDurationMs);
+          // Accelerating ease-in (slow to start, fast by the end) instead of
+          // ease-out, so the remaining stretch actually reads as "picking up
+          // speed" rather than rushing out of the gate and coasting in.
+          const easedIn = t * t * t;
+          applyProgress(finishFromProgress + easedIn * (1 - finishFromProgress));
           if (t >= 1) { finishRide(); return; }
         }
         requestAnimationFrame(frame);
@@ -9647,6 +9661,8 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
           }
           dataReady = true;
           finishFromProgress = currentProgress;
+          const remaining = 1 - currentProgress;
+          finishDurationMs = Math.max(SPRINT_MIN_MS, Math.min(SPRINT_MAX_MS, remaining * SPRINT_MS_PER_UNIT));
           pendingOnDone = onDone;
         },
       };
