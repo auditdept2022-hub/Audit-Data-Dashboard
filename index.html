@@ -2290,10 +2290,13 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
   /* ---------- Header "Update data" ride overlay ---------- */
   /* Plays across the full width of the header: a cartoon figure walks a
      few steps, hops on a motorcycle, then rides off — slow at first,
-     picking up speed until it exits past the right edge. Runs on every
-     manual "Update data" click and every silent auto-refresh; the real
-     fetch is held open for the same minimum duration so the animation is
-     always seen in full before "Last synced" updates. */
+     picking up speed until it exits past the right edge, synced in real
+     time to the actual fetch (see playHeaderRide() in the script further
+     down). Manual "Update data" clicks only — silent background
+     auto-refreshes no longer trigger this at all, just the small pulsing
+     "autoRefreshDot" indicator. No opaque scrim behind it either: the rider
+     overlaps on top of the existing header content instead of covering it,
+     so the title and buttons stay visible underneath. */
   #headerRideOverlay {
     position: absolute; inset: 0; z-index: 55;
     overflow: hidden;
@@ -2304,14 +2307,14 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
   #headerRideOverlay.header-ride-visible {
     opacity: 1;
   }
-  .header-ride-scrim {
-    position: absolute; inset: 0;
-    background: linear-gradient(115deg, #3730a3 0%, #4f46e5 45%, #0891b2 100%);
-  }
   .header-ride-caption {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
     color: #fff; font-weight: 700; font-size: .8rem; letter-spacing: .01em;
     display: flex; align-items: center; gap: .5rem; white-space: nowrap;
+    background: rgba(15, 23, 42, .38);
+    backdrop-filter: blur(2px);
+    padding: .3rem .7rem;
+    border-radius: 999px;
     text-shadow: 0 1px 3px rgba(0,0,0,.25);
   }
   .header-ride-caption .dot {
@@ -3658,12 +3661,14 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
 
   <header class="relative border-b border-blue-800 sticky top-0 z-40 shadow-md app-header-reveal" style="background: linear-gradient(115deg, #3730a3 0%, #4f46e5 45%, #0891b2 100%);">
 
-    <!-- Plays over the whole header on every "Update data" click and every
-         auto-refresh: a little cartoon figure walks up, hops on a
-         motorcycle, and rides off the right edge, slow-to-fast, in sync
-         with the real data load. See playHeaderRide() further down. -->
+    <!-- Plays over the header on every manual "Update data" click, in sync
+         with the real data load: a little cartoon figure walks up, hops on
+         a motorcycle, and rides off the right edge, slow-to-fast. No solid
+         scrim behind it — the rider overlaps on top of the existing header
+         (title, buttons stay visible) instead of covering it up. Does NOT
+         run for silent background auto-refreshes — see fetchSheet()/
+         playHeaderRide() further down. -->
     <div id="headerRideOverlay" aria-hidden="true">
-      <div class="header-ride-scrim"></div>
       <div class="header-ride-road"></div>
       <div id="headerRideRig" class="ride-rig">
         <div class="header-ride-speedlines" style="left:4px; width:14px;"></div>
@@ -9674,7 +9679,12 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
       const baseUrl = defaultAppsScriptUrl;
       const startedAt = Date.now();
       const MAX_ATTEMPTS = 2;
-      const ride = playHeaderRide(isAutoLoad ? 'Auto-syncing dashboard\u2026' : 'Updating dashboard\u2026');
+      // Auto-refreshes (isAutoLoad) stay silent — no ride overlay at all,
+      // just the small pulsing "autoRefreshDot" indicator elsewhere in the
+      // header. Only a manual "Update data" click plays the walk/ride
+      // animation, and it now overlaps the header instead of covering it
+      // (see #headerRideOverlay markup — no opaque scrim behind it).
+      const ride = isAutoLoad ? null : playHeaderRide('Updating dashboard\u2026');
 
       // Settles the ride the instant the real fetch actually resolves — no
       // artificial minimum-hold delay, and no premature cut-off either.
@@ -9683,9 +9693,10 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
       // frame that sprint completes, so the "boom" data reveal always lands
       // in sync with the rider finishing the road: a fast response plays a
       // fast, short ride and a slow response plays a longer one, but either
-      // way the finish and the data swap are the same moment.
+      // way the finish and the data swap are the same moment. Auto-refreshes
+      // have no ride to settle, so onDone just runs right away.
       function settleRide(onDone) {
-        ride.finish(onDone);
+        if (ride) { ride.finish(onDone); } else if (onDone) { onDone(); }
       }
 
       if (!isAutoLoad) showToast("Fetching the latest data\u2026");
