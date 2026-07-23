@@ -462,7 +462,26 @@
 
     function updateCalculations() {
         const tb = activeData.branches;
-        
+
+        // --- Total Accounts staleness guard -----------------------------
+        // The "latest month" accounts figure (accountsMay, despite the
+        // name — it's always whichever column the data source currently
+        // labels as the newest) comes from a data source that can, for a
+        // period, silently serve an older snapshot than the live sheet
+        // (e.g. a Firestore cache that fell behind, or an auth failure on
+        // the sync job). When that happens, EVERY branch's "latest" figure
+        // reads back as 0 even though branches clearly exist and have real
+        // prior-month numbers — that combination (branches present, latest
+        // sum is 0, previous month sum is not) is a strong, specific
+        // signal of stale/missing data rather than a real "zero accounts"
+        // month. In that case, fall back to showing the previous month's
+        // total instead of a bare, misleading 0, and flag it so the UI can
+        // surface a visible warning rather than pretending it's current.
+        const rawLatestSum = tb.reduce((sum, b) => sum + (b.accountsMay || 0), 0);
+        const rawPrevSum = tb.reduce((sum, b) => sum + (b.accountsApr || 0), 0);
+        const accountsLatestLooksStale = tb.length > 0 && rawLatestSum === 0 && rawPrevSum > 0;
+        const totalAccountsLatestRaw = accountsLatestLooksStale ? rawPrevSum : rawLatestSum;
+
         activeData.summary = {
             ...activeData.summary,
             totalBranches: tb.length,
@@ -481,12 +500,17 @@
             findings2024: tb.reduce((sum, b) => sum + b.findings2024, 0),
             findings2025: tb.reduce((sum, b) => sum + b.findings2025, 0),
             findings2026: tb.reduce((sum, b) => sum + b.findings2026, 0),
-            totalAccounts: tb.reduce((sum, b) => sum + b.accountsMay, 0).toLocaleString(),
+            totalAccounts: totalAccountsLatestRaw.toLocaleString(),
             // Raw (non-formatted) latest and previous-month account totals,
             // used by the Total Accounts stack card to show a small
-            // "previous month" line with an up/down indicator.
-            totalAccountsLatestRaw: tb.reduce((sum, b) => sum + (b.accountsMay || 0), 0),
-            totalAccountsPrevRaw: tb.reduce((sum, b) => sum + (b.accountsApr || 0), 0),
+            // "previous month" line with an up/down indicator. When the
+            // staleness guard above kicked in, totalAccountsLatestRaw is
+            // the previous month's figure and totalAccountsFallbackActive
+            // is true so the card can say so instead of showing a trend
+            // arrow comparing a month against itself.
+            totalAccountsLatestRaw: totalAccountsLatestRaw,
+            totalAccountsPrevRaw: rawPrevSum,
+            totalAccountsFallbackActive: accountsLatestLooksStale,
             // Repo counts for the Total Accounts stack card's small subtext:
             // totalRepoLatest = sum of "No. of Repo" for the latest month only
             // (the same month shown in the card's "(JUNE)" label, via
@@ -3612,6 +3636,7 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
         </div>
         <div class="mt-4">
           <h3 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900" id="stat-total-accounts">12,924</h3>
+          <p class="text-xs font-semibold text-accentAmber mt-1 hidden" id="stat-total-accounts-fallback-warning">Latest month data unavailable — showing previous month instead</p>
           <p class="text-xs text-slate-400 mt-1" id="stat-total-accounts-prev">— total accounts (<span id="span-accounts-prev-month">PREV</span>)</p>
           <p class="text-xs text-slate-400 mt-2" id="stat-total-repo-latest">— total repo (<span id="span-repo-month">LATEST</span>)</p>
           <p class="text-xs text-slate-400" id="stat-total-repo-prev">— total repo (<span id="span-repo-prev-month">PREV</span>)</p>
@@ -7676,7 +7701,17 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
       document.getElementById('stat-findings-2025-sub').innerText = pctChange >= 0 ? `+${pctChange}% vs 2024` : `${pctChange}% vs 2024`;
       
       animateCountUp(document.getElementById('stat-findings-2026'), sum.findings2026 || 0);
-      animateCountUp(document.getElementById('stat-total-accounts'), sum.totalAccounts || 0);
+      // NOTE: sum.totalAccounts is a comma-formatted STRING (see
+      // totalAccounts: totalAccountsLatestRaw.toLocaleString() above) —
+      // animateCountUp does Number(target), and Number("12,924") is NaN,
+      // which silently falls back to 0 once the total crosses 1,000. Use
+      // the raw numeric total instead so the card animates/displays the
+      // real figure regardless of size.
+      animateCountUp(document.getElementById('stat-total-accounts'), sum.totalAccountsLatestRaw || 0);
+      const accountsFallbackWarningEl = document.getElementById('stat-total-accounts-fallback-warning');
+      if (accountsFallbackWarningEl) {
+          accountsFallbackWarningEl.classList.toggle('hidden', !sum.totalAccountsFallbackActive);
+      }
       const repoMonthLabel = (sum.trendLabels || ["MARCH", "APRIL", "MAY"])[2];
       const repoPrevMonthLabel = (sum.trendLabels || ["MARCH", "APRIL", "MAY"])[1];
       const repoLatestEl = document.getElementById('stat-total-repo-latest');
