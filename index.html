@@ -9396,31 +9396,35 @@ html.page-fade-ready body {
         const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
         if (!idToken) throw new Error('No ID token available.');
 
+        // Authorization check, up front, for EVERY quick link (not just
+        // opex) — action=list runs the exact same isAuthorizedQuickLink()
+        // check as action=open (see Code.gs) and only returns
+        // {success:true} for emails on QUICKLINKS_ALLOWED_EMAILS. Checking
+        // this first means an unauthorized click never opens a tab at all;
+        // it just shows "Access denied. Not authorized." right here in the
+        // modal, same as the password-mismatch case above.
+        let checkUrl = quickLinksAppsScriptUrl +
+          '?action=list&idToken=' + encodeURIComponent(idToken);
+        if (quickLinksAppsScriptSecret) {
+          checkUrl += '&secret=' + encodeURIComponent(quickLinksAppsScriptSecret);
+        }
+        const checkResp = await fetch(checkUrl);
+        const checkJson = await checkResp.json();
+        if (!checkJson || !checkJson.success) {
+          setQuickLinkPasswordSubmitting(false);
+          err.textContent = 'Access denied. Not authorized.';
+          err.classList.remove('hidden');
+          return;
+        }
+
+        const modal = document.getElementById('quickLinkPasswordModal');
+
         // AUDIT OPEX isn't a Google Sheet behind the Apps Script — it's a
-        // local file, so there's no real sheet URL to redirect to. But it
-        // still has to be gated by QUICKLINKS_ALLOWED_EMAILS like every
-        // other quick link. action=list runs the exact same
-        // isAuthorizedQuickLink() check as action=open (see Code.gs) and
-        // returns {success:true} only for allow-listed emails, so we reuse
-        // it here purely as a server-side authorization check before
-        // opening the local file — no new backend endpoint needed.
+        // local file — so once authorization is confirmed above, open it
+        // directly instead of going through the sheet-redirect lookup.
         if (pending.id === 'opex') {
-          let checkUrl = quickLinksAppsScriptUrl +
-            '?action=list&idToken=' + encodeURIComponent(idToken);
-          if (quickLinksAppsScriptSecret) {
-            checkUrl += '&secret=' + encodeURIComponent(quickLinksAppsScriptSecret);
-          }
-          const checkResp = await fetch(checkUrl);
-          const checkJson = await checkResp.json();
-          const modal2 = document.getElementById('quickLinkPasswordModal');
-          if (!checkJson || !checkJson.success) {
-            setQuickLinkPasswordSubmitting(false);
-            err.textContent = 'You\u2019re not authorized to open Audit Opex.';
-            err.classList.remove('hidden');
-            return;
-          }
           window.open('Opex.html', '_blank', 'noopener');
-          if (modal2) modal2.classList.add('hidden');
+          if (modal) modal.classList.add('hidden');
           pendingQuickLink = null;
           setQuickLinkPasswordSubmitting(false);
           return;
@@ -9435,8 +9439,9 @@ html.page-fade-ready body {
         // Full page navigation in a new tab (not fetch/JSONP) — the Apps
         // Script itself server-side redirects to the real sheet, so the
         // real URL is only ever revealed inside that new tab, at click-time.
+        // (Authorization was already confirmed above, so this tab is only
+        // ever opened for allow-listed users.)
         window.open(openUrl, '_blank', 'noopener');
-        const modal = document.getElementById('quickLinkPasswordModal');
         if (modal) modal.classList.add('hidden');
         pendingQuickLink = null;
       } catch (e2) {
