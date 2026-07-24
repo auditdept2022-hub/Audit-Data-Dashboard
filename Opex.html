@@ -203,16 +203,75 @@
     50%{ transform:translateY(7px) rotate(1.4deg); }
   }
   .ocean-bg .shark-inner .tailfin{
-    animation:tailsweep 1.8s ease-in-out infinite;
+    animation:tailsweep 1.5s ease-in-out infinite;
     transform-origin:100% 50%;
   }
   @keyframes tailsweep{
-    0%,100%{ transform:rotate(-8deg); }
-    50%{ transform:rotate(8deg); }
+    0%,100%{ transform:rotate(-11deg); }
+    50%{ transform:rotate(11deg); }
+  }
+  .ocean-bg .shark-inner .pecfin{
+    animation:pecsway 2.3s ease-in-out infinite;
+    transform-origin:50% 15%;
+    transform-box:fill-box;
+  }
+  @keyframes pecsway{
+    0%,100%{ transform:rotate(-5deg); }
+    50%{ transform:rotate(5deg); }
   }
   .ocean-bg .ray-inner .raytail{
     animation:tailsweep 2.2s ease-in-out infinite;
     transform-origin:0% 50%;
+  }
+
+  /* ----- Killer whale (orca): leaner and more powerful than the
+     humpback, so it porpoises through a wider vertical arc with a
+     quicker fluke beat instead of the whale's slow gentle roll. ----- */
+  .ocean-bg .orca-inner{
+    animation-name:orca-glide;
+  }
+  @keyframes orca-glide{
+    0%{ transform:translateY(-11px) rotate(-4.5deg) scaleX(1); }
+    22%{ transform:translateY(-15px) rotate(-6.5deg) scaleX(.97); }
+    50%{ transform:translateY(11px) rotate(4.5deg) scaleX(1.03); }
+    78%{ transform:translateY(15px) rotate(6.5deg) scaleX(.97); }
+    100%{ transform:translateY(-11px) rotate(-4.5deg) scaleX(1); }
+  }
+
+  /* ----- Wake bubbles: a short trailing stream pops off the tail of the
+     bigger/faster swimmers (sharks, orca) as they cut through the water —
+     reads as real turbulence instead of a silent glide. Each bubble
+     lives as a sibling of .fish-inner so it travels with the creature's
+     swim-r translateX, fading/rising on its own loop staggered by
+     --wdelay. Mirrors to the correct trailing side for face-left travel. ----- */
+  .ocean-bg .wake-bubble{
+    position:absolute;
+    bottom:32%;
+    left:0;
+    width:7%;
+    aspect-ratio:1/1;
+    border-radius:50%;
+    background:radial-gradient(circle at 30% 25%, rgba(255,255,255,.95), rgba(255,255,255,.2) 60%, transparent 78%);
+    opacity:0;
+    pointer-events:none;
+    animation:wake-pop var(--wdur,2.1s) ease-out infinite;
+    animation-delay:var(--wdelay,0s);
+  }
+  @keyframes wake-pop{
+    0%{ transform:translate(0,0) scale(.3); opacity:0; }
+    18%{ opacity:.85; }
+    60%{ transform:translate(-7%,-55%) scale(1); opacity:.4; }
+    100%{ transform:translate(-11%,-105%) scale(1.4); opacity:0; }
+  }
+  .ocean-bg .fish-outer.face-left .wake-bubble{
+    left:auto; right:0;
+    animation-name:wake-pop-l;
+  }
+  @keyframes wake-pop-l{
+    0%{ transform:translate(0,0) scale(.3); opacity:0; }
+    18%{ opacity:.85; }
+    60%{ transform:translate(7%,-55%) scale(1); opacity:.4; }
+    100%{ transform:translate(11%,-105%) scale(1.4); opacity:0; }
   }
 
   /* ---------- Underwater light -- soft moving caustic patches drifting over the
@@ -368,14 +427,27 @@
   }
 
   /* ---------- Dolphin: porpoises in a rolling arc instead of a level
-     glide, the way a real dolphin surfaces and dives. ---------- */
+     glide, the way a real dolphin surfaces and dives — now with a body
+     flex (scaleX) woven into the arc itself, plus an independently
+     beating tail fluke and pectoral fin layered on top, so the whole
+     animal reads as one continuous swimming motion instead of a single
+     rigid shape bouncing straight up and down. ---------- */
   .ocean-bg .dolphin-inner{ animation-name:dolphin-arc; }
   @keyframes dolphin-arc{
-    0%{ transform:translateY(12px) rotate(7deg); }
-    25%{ transform:translateY(-15px) rotate(-9deg); }
-    50%{ transform:translateY(12px) rotate(7deg); }
-    75%{ transform:translateY(-5px) rotate(-2deg); }
-    100%{ transform:translateY(12px) rotate(7deg); }
+    0%{ transform:translateY(13px) rotate(8deg) scaleX(1); }
+    15%{ transform:translateY(-2px) rotate(-2deg) scaleX(.97); }
+    25%{ transform:translateY(-16px) rotate(-10deg) scaleX(1.04); }
+    38%{ transform:translateY(-4px) rotate(-3deg) scaleX(.98); }
+    50%{ transform:translateY(13px) rotate(8deg) scaleX(1); }
+    63%{ transform:translateY(2px) rotate(1deg) scaleX(.97); }
+    75%{ transform:translateY(-6px) rotate(-2deg) scaleX(1.02); }
+    88%{ transform:translateY(6px) rotate(4deg) scaleX(.98); }
+    100%{ transform:translateY(13px) rotate(8deg) scaleX(1); }
+  }
+  .ocean-bg .dolphin-inner .pecfin{
+    animation:pecsway 1.3s ease-in-out infinite;
+    transform-origin:50% 10%;
+    transform-box:fill-box;
   }
 
   /* ---------- Whale: huge, slow, barely-there roll — reads as something
@@ -619,6 +691,73 @@
     65%{ transform:rotate(-1deg) scaleY(.99); }
     100%{ transform:rotate(6deg) scaleY(1); }
   }
+
+  /* ----- Coral: rigid stony branches don't billow like seagrass, so they
+     get a much smaller-amplitude version of the same current-driven sway
+     (barely-there, just enough to read as "alive" rather than a painted
+     backdrop), plus a soft ambient glow pulsing behind the whole cluster
+     and individually-pulsing polyp dots at the branch tips (like a coral
+     head's polyps opening and closing to feed). ----- */
+  .ocean-bg .coral-item{
+    transform-origin:bottom center;
+    animation:coral-sway var(--cdur,7s) ease-in-out infinite alternate;
+    animation-delay:var(--cdelay,0s);
+    filter:drop-shadow(0 5px 7px rgba(10,20,50,.2));
+  }
+  @keyframes coral-sway{
+    0%{ transform:rotate(-1.6deg) scaleY(1); }
+    50%{ transform:rotate(.4deg) scaleY(1.006); }
+    100%{ transform:rotate(2deg) scaleY(1); }
+  }
+  .ocean-bg .coral-item .polyp{
+    animation:polyp-pulse var(--pdur,3.2s) ease-in-out infinite;
+    animation-delay:var(--pdelay,0s);
+    transform-box:fill-box;
+    transform-origin:50% 50%;
+  }
+  @keyframes polyp-pulse{
+    0%,100%{ transform:scale(.85); opacity:.7; }
+    50%{ transform:scale(1.2); opacity:1; }
+  }
+  .ocean-bg .reef-glow{
+    position:absolute;
+    bottom:-10px;
+    left:var(--gleft,50%);
+    width:var(--gsize,140px);
+    height:calc(var(--gsize,140px) * .5);
+    transform:translateX(-50%);
+    border-radius:50%;
+    background:radial-gradient(ellipse at center, var(--gcolor,rgba(255,158,90,.4)), transparent 72%);
+    mix-blend-mode:screen;
+    filter:blur(3px);
+    animation:reef-glow-pulse var(--gdur,5s) ease-in-out infinite;
+    animation-delay:var(--gdelay,0s);
+    pointer-events:none;
+  }
+  @keyframes reef-glow-pulse{
+    0%,100%{ opacity:.35; transform:translateX(-50%) scale(1); }
+    50%{ opacity:.7; transform:translateX(-50%) scale(1.12); }
+  }
+
+  /* ----- Sea anemone: a ring of tentacles, each waving on its own
+     slightly-offset cycle (like the seagrass/octopus pattern) so the
+     whole crown ripples rather than swaying as one rigid unit — the
+     classic clownfish-host reef centerpiece. ----- */
+  .ocean-bg .anemone-item .tentacle{
+    animation:tentacle-wave var(--twdur2,2.6s) ease-in-out infinite;
+    animation-delay:var(--twdelay2,0s);
+    transform-box:fill-box;
+    transform-origin:50% 100%;
+  }
+  @keyframes tentacle-wave{
+    0%,100%{ transform:rotate(-11deg) scaleY(1); }
+    50%{ transform:rotate(11deg) scaleY(1.04); }
+  }
+  .ocean-bg .anemone-item .anem-body{
+    animation:polyp-pulse 4.2s ease-in-out infinite;
+    transform-box:fill-box;
+    transform-origin:50% 100%;
+  }
   .ocean-bg .bubble{
     position:absolute;
     bottom:-30px;
@@ -649,11 +788,15 @@
     50%{ opacity:1; filter:brightness(1.3); }
   }
   @media(prefers-reduced-motion:reduce){
-    .ocean-bg .seagrass, .ocean-bg .bubble, .ocean-bg .treasure-sparkle{ animation:none; }
+    .ocean-bg .seagrass, .ocean-bg .bubble, .ocean-bg .treasure-sparkle,
+    .ocean-bg .coral-item, .ocean-bg .coral-item .polyp, .ocean-bg .reef-glow,
+    .ocean-bg .anemone-item .tentacle, .ocean-bg .anemone-item .anem-body{ animation:none; }
     .ocean-bg::before{ animation:none; }
     .ocean-bg .fish-outer, .ocean-bg .fish-inner,
     .ocean-bg .jelly-outer, .ocean-bg .jelly-inner, .ocean-bg .jelly-tentacle,
-    .ocean-bg .turtle-inner .flipper, .ocean-bg .shark-inner .tailfin{ animation:none; }
+    .ocean-bg .turtle-inner .flipper, .ocean-bg .shark-inner .tailfin,
+    .ocean-bg .shark-inner .pecfin, .ocean-bg .orca-inner, .ocean-bg .wake-bubble,
+    .ocean-bg .dolphin-inner .pecfin{ animation:none; }
   }
   @media(max-width:640px){
     .ocean-bg{ opacity:.35; }
@@ -2132,11 +2275,90 @@
         <path d="M150 63 Q142 80 126 77 Q142 66 150 63Z" fill="#2B3548" opacity=".82"/>
         <path d="M40 33 L44 48 M50 31 L56 48 M60 31 L67 48 M71 33 L79 48 M82 35 L91 49" stroke="#2B3548" stroke-width="2" opacity=".55"/>
         <path d="M38 62 Q110 73 180 54" stroke="#fff" stroke-width="2" opacity=".22" fill="none"/>
-        <path d="M162 31 Q186 37 194 47 Q186 57 162 63 Q173 47 162 31Z" fill="url(#sharkg)"/>
+        <path class="pecfin" d="M162 31 Q186 37 194 47 Q186 57 162 63 Q173 47 162 31Z" fill="url(#sharkg)"/>
         <circle cx="178" cy="42" r="3.2" fill="#1B2233"/>
         <path d="M174 39 Q178 38 182 40" stroke="#1B2233" stroke-width="1.4" fill="none" opacity=".6"/>
       </svg>
     </div></div>
+    <span class="wake-bubble" style="--wdur:2s;--wdelay:0s;"></span>
+    <span class="wake-bubble" style="--wdur:2s;--wdelay:-.7s;"></span>
+    <span class="wake-bubble" style="--wdur:2s;--wdelay:-1.4s;"></span>
+  </div>
+
+  <!-- ===== Great white shark — bulkier reef predator variant: broader
+       countershaded body, blunt conical snout, darker slate back. Same
+       shark-glide travel + tailsweep/pecfin system as the base shark. ===== -->
+  <div class="fish-outer" style="--top:66%;--size:clamp(70px,8vw,108px);--dur:50s;--delay:-9s;">
+    <div class="fish-inner shark-inner" style="--bobdur:6.4s;--bobdelay:-2.6s;"><div class="fish-flip">
+      <svg viewBox="0 0 200 94" xmlns="http://www.w3.org/2000/svg">
+        <defs><linearGradient id="gwsharkg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#5C6B7E"/><stop offset="48%" stop-color="#3A4756"/><stop offset="100%" stop-color="#F4F6FA"/></linearGradient></defs>
+        <path class="tailfin" d="M32 47 Q16 16 4 4 Q11 28 21 47 Q11 66 4 90 Q16 78 32 47Z" fill="#232C36"/>
+        <path d="M18 49 Q15 27 44 19 Q66 4 114 10 Q154 14 186 39 Q196 44 196 49 Q196 54 186 59 Q154 78 114 80 Q66 86 44 71 Q17 60 18 49Z" fill="url(#gwsharkg)"/>
+        <path d="M98 14 Q120 -14 138 16 Q120 17 98 14Z" fill="#232C36"/>
+        <path d="M136 19 Q147 7 158 17 Q147 20 136 19Z" fill="#232C36" opacity=".82"/>
+        <path d="M152 64 Q144 82 127 78 Q144 67 152 64Z" fill="#1B222A" opacity=".82"/>
+        <path d="M38 62 Q112 74 182 54" stroke="#fff" stroke-width="3" opacity=".3" fill="none"/>
+        <path class="pecfin" d="M164 32 Q190 38 198 48 Q190 58 164 64 Q176 48 164 32Z" fill="url(#gwsharkg)"/>
+        <path d="M40 30 Q40 44 46 52 Q54 40 52 30 Q46 26 40 30Z" fill="#20272F" opacity=".9"/>
+        <path d="M92 40 L96 50 M100 39 L106 50 M108 40 L115 50" stroke="#F4F6FA" stroke-width="2" opacity=".85" stroke-linecap="round"/>
+        <circle cx="182" cy="43" r="3.4" fill="#0C0E12"/>
+        <path d="M177 40 Q182 39 186 41" stroke="#0C0E12" stroke-width="1.4" fill="none" opacity=".6"/>
+      </svg>
+    </div></div>
+    <span class="wake-bubble" style="--wdur:2.2s;--wdelay:-.3s;"></span>
+    <span class="wake-bubble" style="--wdur:2.2s;--wdelay:-1s;"></span>
+    <span class="wake-bubble" style="--wdur:2.2s;--wdelay:-1.7s;"></span>
+  </div>
+
+  <!-- ===== Hammerhead shark — T-shaped cephalofoil head with an eye at
+       each tip, olive-grey countershading. Same shark swim system. ===== -->
+  <div class="fish-outer face-left" style="--top:41%;--size:clamp(66px,7.6vw,102px);--dur:48s;--delay:-22s;">
+    <div class="fish-inner shark-inner" style="--bobdur:6.8s;--bobdelay:-1.6s;"><div class="fish-flip">
+      <svg viewBox="0 0 200 94" xmlns="http://www.w3.org/2000/svg">
+        <defs><linearGradient id="hammerg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#9FAE8B"/><stop offset="48%" stop-color="#5F6E52"/><stop offset="100%" stop-color="#F4F6FA"/></linearGradient></defs>
+        <path class="tailfin" d="M30 47 Q14 18 2 6 Q10 28 20 47 Q10 66 2 88 Q14 76 30 47Z" fill="#3E4A32"/>
+        <path d="M20 49 Q16 30 40 22 Q64 8 112 12 Q150 16 178 40 Q184 45 184 49 Q184 53 178 58 Q150 76 112 78 Q64 82 40 68 Q18 58 20 49Z" fill="url(#hammerg)"/>
+        <path d="M150 63 Q142 78 128 75 Q142 66 150 63Z" fill="#2E3626" opacity=".82"/>
+        <path d="M96 15 Q114 -10 132 16 Q114 17 96 15Z" fill="#3E4A32"/>
+        <path d="M38 62 Q108 72 176 55" stroke="#fff" stroke-width="2" opacity=".2" fill="none"/>
+        <path class="pecfin" d="M148 60 Q166 72 176 68 Q166 58 148 60Z" fill="url(#hammerg)"/>
+        <!-- hammer cephalofoil, two lobes each with a forward eye -->
+        <path d="M172 28 Q192 10 202 18 Q198 32 184 38Z" fill="url(#hammerg)"/>
+        <path d="M172 70 Q192 88 202 80 Q198 66 184 60Z" fill="url(#hammerg)"/>
+        <circle cx="196" cy="19" r="2.8" fill="#1B2233"/>
+        <circle cx="196" cy="79" r="2.8" fill="#1B2233"/>
+      </svg>
+    </div></div>
+    <span class="wake-bubble" style="--wdur:1.9s;--wdelay:-.5s;"></span>
+    <span class="wake-bubble" style="--wdur:1.9s;--wdelay:-1.2s;"></span>
+  </div>
+
+  <!-- ===== Tiger shark — striped variant: broad body, faint vertical
+       tiger stripes down the flank, blunt snout. Same shark system. ===== -->
+  <div class="fish-outer" style="--top:11%;--size:clamp(68px,7.8vw,106px);--dur:52s;--delay:-38s;">
+    <div class="fish-inner shark-inner" style="--bobdur:7.4s;--bobdelay:-3.4s;"><div class="fish-flip">
+      <svg viewBox="0 0 200 94" xmlns="http://www.w3.org/2000/svg">
+        <defs><linearGradient id="tigerg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#A6AC8E"/><stop offset="50%" stop-color="#6E7A5A"/><stop offset="100%" stop-color="#F4F6FA"/></linearGradient></defs>
+        <path class="tailfin" d="M30 47 Q14 18 2 6 Q10 28 20 47 Q10 66 2 88 Q14 76 30 47Z" fill="#40492F"/>
+        <path d="M20 49 Q16 28 42 20 Q64 6 112 11 Q152 15 184 39 Q194 44 194 49 Q194 54 184 59 Q152 78 112 79 Q64 84 42 68 Q18 58 20 49Z" fill="url(#tigerg)"/>
+        <path d="M96 15 Q116 -12 134 17 Q116 17 96 15Z" fill="#40492F"/>
+        <path d="M132 19 Q142 8 152 17 Q142 19 132 19Z" fill="#40492F" opacity=".82"/>
+        <path d="M150 63 Q142 80 126 77 Q142 66 150 63Z" fill="#333D24" opacity=".82"/>
+        <g stroke="#333D24" stroke-width="4" opacity=".55" stroke-linecap="round">
+          <path d="M46 26 L40 62"/>
+          <path d="M62 22 L57 66"/>
+          <path d="M80 20 L76 70"/>
+          <path d="M100 20 L97 72"/>
+          <path d="M120 22 L118 70"/>
+          <path d="M140 27 L139 63"/>
+        </g>
+        <path d="M38 62 Q110 73 180 54" stroke="#fff" stroke-width="2" opacity=".22" fill="none"/>
+        <path class="pecfin" d="M162 31 Q186 37 194 47 Q186 57 162 63 Q173 47 162 31Z" fill="url(#tigerg)"/>
+        <circle cx="178" cy="42" r="3.2" fill="#1B2233"/>
+      </svg>
+    </div></div>
+    <span class="wake-bubble" style="--wdur:2.1s;--wdelay:-.4s;"></span>
+    <span class="wake-bubble" style="--wdur:2.1s;--wdelay:-1.1s;"></span>
   </div>
 
   <!-- ===== Humpback whale — the header previously had no whale at all
@@ -2161,6 +2383,31 @@
         <circle cx="198" cy="39" r="2.8" fill="#0C121C"/>
       </svg>
     </div></div>
+  </div>
+
+  <!-- ===== Killer whale (orca) — the header previously had no orca:
+       black/white countershading, tall triangular dorsal fin, grey
+       saddle patch and white eye patch, leaner + faster than the
+       humpback so it porpoises through a wider arc. ===== -->
+  <div class="fish-outer" style="--top:58%;--size:clamp(86px,9.4vw,132px);--dur:100s;--delay:-55s;">
+    <div class="fish-inner orca-inner" style="--bobdur:9s;--bobdelay:-2s;"><div class="fish-flip">
+      <svg viewBox="0 0 210 100" xmlns="http://www.w3.org/2000/svg">
+        <defs><linearGradient id="orcag" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2B2F38"/><stop offset="55%" stop-color="#14171D"/><stop offset="100%" stop-color="#F4F6FA"/></linearGradient></defs>
+        <g class="tailwag" style="--tailspeed:1.4s;">
+          <path d="M30 46 Q10 20 0 4 Q5 28 15 46 Q5 64 0 88 Q10 72 30 46Z" fill="#14171D"/>
+        </g>
+        <path d="M28 46 Q30 15 60 6 Q106 -7 154 12 Q192 26 208 46 Q192 65 154 79 Q106 97 60 82 Q30 74 28 46Z" fill="url(#orcag)"/>
+        <path d="M90 8 Q97 -28 111 6 Q101 10 90 8Z" fill="#14171D"/>
+        <path d="M58 58 Q30 79 10 73 Q34 66 52 51Z" fill="#14171D" opacity=".9"/>
+        <path d="M110 14 Q140 10 154 25 Q132 31 114 27Z" fill="#7C828C" opacity=".55"/>
+        <path d="M62 51 Q104 68 154 57 Q142 76 100 80 Q70 76 62 51Z" fill="#F4F6FA" opacity=".95"/>
+        <ellipse cx="192" cy="34" rx="9" ry="5" fill="#F4F6FA" transform="rotate(-16 192 34)"/>
+        <circle cx="200" cy="38" r="2.8" fill="#0C0E12"/>
+      </svg>
+    </div></div>
+    <span class="wake-bubble" style="--wdur:2.4s;--wdelay:0s;"></span>
+    <span class="wake-bubble" style="--wdur:2.4s;--wdelay:-.8s;"></span>
+    <span class="wake-bubble" style="--wdur:2.4s;--wdelay:-1.6s;"></span>
   </div>
 
   <!-- ===== Angelfish — tall, striped, flowing fins ===== -->
@@ -2304,7 +2551,9 @@
     <div class="fish-inner dolphin-inner" style="--bobdur:2.6s;--bobdelay:-1s;"><div class="fish-flip">
       <svg viewBox="0 0 190 80" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="dolph1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#B9C7DE"/><stop offset="55%" stop-color="#7C8CA8"/><stop offset="100%" stop-color="#F4F6FA"/></linearGradient></defs>
-        <path d="M8 44 Q0 40 4 34 Q10 32 18 38 Q30 20 60 14 Q110 4 160 24 Q182 33 186 44 Q182 40 168 42 Q176 50 172 60 Q160 52 152 44 Q120 56 70 52 Q30 50 18 46 Q12 50 4 50 Q0 48 8 44Z" fill="url(#dolph1)"/>
+        <path d="M20 44 Q30 20 60 14 Q110 4 160 24 Q182 33 186 44 Q182 40 168 42 Q176 50 172 60 Q160 52 152 44 Q120 56 70 52 Q30 50 18 46Z" fill="url(#dolph1)"/>
+        <path class="tailwag" style="--tailspeed:.85s;" d="M26 44 Q9 27 0 15 Q7 32 14 44 Q7 56 0 73 Q9 61 26 44Z" fill="url(#dolph1)"/>
+        <path class="pecfin" d="M62 50 Q52 68 40 68 Q52 58 58 46Z" fill="#7C8CA8"/>
         <path d="M96 12 Q108 -8 118 10 Q108 14 96 12Z" fill="#7C8CA8"/>
         <path d="M60 50 Q68 62 78 54" stroke="#5E6E8C" stroke-width="2" fill="none" opacity=".5"/>
         <circle cx="166" cy="34" r="3.2" fill="#1B2233"/>
@@ -2383,52 +2632,129 @@
   <div class="bubble" style="--left:44.9%;--bsize:17.8px;--risedur:15.5s;--risedelay:-7.6s;--drift:6.6px;"></div>
 
 
-  <div class="seafloor-item" style="--left:2%;">
+  <!-- ===== Staghorn coral (red) — gradient-shaded branches instead of a
+       flat silhouette, polyp dots at every tip that pulse like feeding
+       coral polyps, a whole-cluster current-sway, and a soft ambient
+       glow pulsing on the sand behind it. ===== -->
+  <div class="reef-glow" style="--gleft:11%;--gsize:150px;--gcolor:rgba(255,111,89,.38);--gdur:4.6s;--gdelay:-1s;"></div>
+  <div class="seafloor-item coral-item" style="--left:2%;--cdur:6.4s;--cdelay:-1.2s;">
     <svg viewBox="0 0 120 140" style="width:clamp(46px,7vw,100px);height:auto;" xmlns="http://www.w3.org/2000/svg">
-      <g fill="#FF6F59">
+      <defs><linearGradient id="staghorn1" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#B8321E"/><stop offset="55%" stop-color="#FF6F59"/><stop offset="100%" stop-color="#FFB199"/></linearGradient></defs>
+      <g fill="url(#staghorn1)">
         <path d="M60 140 L55 90 Q40 70 30 40 Q28 30 35 25 Q40 45 55 60 L58 90 L60 140Z"/>
         <path d="M60 140 L63 85 Q75 60 85 30 Q90 20 82 15 Q78 40 65 55 L62 90 L60 140Z"/>
         <path d="M60 140 L58 100 Q50 90 45 70 Q60 80 62 100 L60 140Z"/>
       </g>
+      <path d="M56 92 L58 140 M62 88 L60 140" stroke="#7A2110" stroke-width="1.6" opacity=".4" fill="none"/>
+      <circle class="polyp" cx="35" cy="26" r="4.2" fill="#FFD9CC" style="--pdur:2.6s;--pdelay:0s;"/>
+      <circle class="polyp" cx="82" cy="16" r="4.2" fill="#FFD9CC" style="--pdur:2.6s;--pdelay:-.8s;"/>
+      <circle class="polyp" cx="46" cy="70" r="3.4" fill="#FFD9CC" style="--pdur:2.6s;--pdelay:-1.5s;"/>
+      <circle class="polyp" cx="55" cy="58" r="3" fill="#FFD9CC" style="--pdur:2.6s;--pdelay:-2s;"/>
     </svg>
   </div>
 
-  <div class="seafloor-item" style="--left:16%;">
+  <!-- ===== Brain coral — radial-gradient dome with a maze groove
+       pattern (paler ridges catching light) instead of flat pink, plus
+       faint pulsing polyp flecks across the surface. ===== -->
+  <div class="reef-glow" style="--gleft:20%;--gsize:170px;--gcolor:rgba(232,93,154,.36);--gdur:5.4s;--gdelay:-2.4s;"></div>
+  <div class="seafloor-item coral-item" style="--left:16%;--cdur:8s;--cdelay:-3s;">
     <svg viewBox="0 0 140 100" style="width:clamp(54px,8vw,120px);height:auto;" xmlns="http://www.w3.org/2000/svg">
-      <path d="M70 100 Q10 100 10 55 Q10 15 45 10 Q55 25 70 25 Q85 25 95 10 Q130 15 130 55 Q130 100 70 100Z" fill="#E85D9A"/>
+      <defs><radialGradient id="brain1" cx="42%" cy="30%" r="75%"><stop offset="0%" stop-color="#FFB3D3"/><stop offset="55%" stop-color="#E85D9A"/><stop offset="100%" stop-color="#9C3D6B"/></radialGradient></defs>
+      <path d="M70 100 Q10 100 10 55 Q10 15 45 10 Q55 25 70 25 Q85 25 95 10 Q130 15 130 55 Q130 100 70 100Z" fill="url(#brain1)"/>
       <path d="M25 90 Q20 60 35 40" stroke="#B03E76" stroke-width="4" fill="none" stroke-linecap="round"/>
       <path d="M50 92 Q48 55 55 30" stroke="#B03E76" stroke-width="4" fill="none" stroke-linecap="round"/>
       <path d="M90 92 Q92 55 85 30" stroke="#B03E76" stroke-width="4" fill="none" stroke-linecap="round"/>
       <path d="M115 90 Q120 60 105 40" stroke="#B03E76" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <path d="M38 78 Q46 68 40 55 M63 82 Q70 65 62 48 M100 80 Q106 66 98 50" stroke="#FFC9E1" stroke-width="2" fill="none" opacity=".55"/>
+      <circle class="polyp" cx="42" cy="30" r="2.6" fill="#FFE3F0" style="--pdur:3.6s;--pdelay:0s;"/>
+      <circle class="polyp" cx="78" cy="26" r="2.6" fill="#FFE3F0" style="--pdur:3.6s;--pdelay:-1.4s;"/>
+      <circle class="polyp" cx="105" cy="60" r="2.6" fill="#FFE3F0" style="--pdur:3.6s;--pdelay:-2.4s;"/>
     </svg>
   </div>
 
-  <div class="seafloor-item" style="--left:57%;">
+  <!-- ===== Finger/pillar coral — gradient tubes with glowing tips that
+       pulse like bioluminescent polyps opening and closing. ===== -->
+  <div class="reef-glow" style="--gleft:60%;--gsize:150px;--gcolor:rgba(156,107,255,.4);--gdur:5s;--gdelay:-.6s;"></div>
+  <div class="seafloor-item coral-item" style="--left:57%;--cdur:7.2s;--cdelay:-2s;">
     <svg viewBox="0 0 120 130" style="width:clamp(48px,7.5vw,105px);height:auto;" xmlns="http://www.w3.org/2000/svg">
-      <g>
-        <rect x="15" y="50" width="14" height="80" rx="7" fill="#7C4DFF"/>
-        <rect x="35" y="30" width="14" height="100" rx="7" fill="#9C6BFF"/>
-        <rect x="55" y="45" width="14" height="85" rx="7" fill="#7C4DFF"/>
-        <rect x="75" y="20" width="14" height="110" rx="7" fill="#9C6BFF"/>
-        <rect x="95" y="55" width="14" height="75" rx="7" fill="#7C4DFF"/>
+      <defs><linearGradient id="finger1" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#5A2FCC"/><stop offset="60%" stop-color="#7C4DFF"/><stop offset="100%" stop-color="#C6AEFF"/></linearGradient></defs>
+      <g fill="url(#finger1)">
+        <rect x="15" y="50" width="14" height="80" rx="7"/>
+        <rect x="35" y="30" width="14" height="100" rx="7"/>
+        <rect x="55" y="45" width="14" height="85" rx="7"/>
+        <rect x="75" y="20" width="14" height="110" rx="7"/>
+        <rect x="95" y="55" width="14" height="75" rx="7"/>
       </g>
-      <circle cx="22" cy="48" r="7" fill="#B497FF"/><circle cx="42" cy="28" r="7" fill="#B497FF"/>
-      <circle cx="62" cy="43" r="7" fill="#B497FF"/><circle cx="82" cy="18" r="7" fill="#B497FF"/>
-      <circle cx="102" cy="53" r="7" fill="#B497FF"/>
+      <circle class="polyp" cx="22" cy="48" r="7" fill="#D9C8FF" style="--pdur:2.4s;--pdelay:0s;"/>
+      <circle class="polyp" cx="42" cy="28" r="7" fill="#D9C8FF" style="--pdur:2.4s;--pdelay:-.5s;"/>
+      <circle class="polyp" cx="62" cy="43" r="7" fill="#D9C8FF" style="--pdur:2.4s;--pdelay:-1s;"/>
+      <circle class="polyp" cx="82" cy="18" r="7" fill="#D9C8FF" style="--pdur:2.4s;--pdelay:-1.5s;"/>
+      <circle class="polyp" cx="102" cy="53" r="7" fill="#D9C8FF" style="--pdur:2.4s;--pdelay:-2s;"/>
     </svg>
   </div>
 
-  <div class="seafloor-item" style="--left:80%;">
+  <!-- ===== Staghorn coral (amber), mirrored ===== -->
+  <div class="reef-glow" style="--gleft:84%;--gsize:130px;--gcolor:rgba(255,148,87,.36);--gdur:4.8s;--gdelay:-3.4s;"></div>
+  <div class="seafloor-item coral-item" style="--left:80%;--cdur:6.8s;--cdelay:-4s;">
     <svg viewBox="0 0 120 140" style="width:clamp(44px,6.5vw,95px);height:auto;transform:scaleX(-1);" xmlns="http://www.w3.org/2000/svg">
-      <g fill="#FF9457">
+      <defs><linearGradient id="staghorn2" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#C4601C"/><stop offset="55%" stop-color="#FF9457"/><stop offset="100%" stop-color="#FFD1AC"/></linearGradient></defs>
+      <g fill="url(#staghorn2)">
         <path d="M60 140 L55 90 Q40 70 30 40 Q28 30 35 25 Q40 45 55 60 L58 90 L60 140Z"/>
         <path d="M60 140 L63 85 Q75 60 85 30 Q90 20 82 15 Q78 40 65 55 L62 90 L60 140Z"/>
         <path d="M60 140 L58 100 Q50 90 45 70 Q60 80 62 100 L60 140Z"/>
       </g>
+      <circle class="polyp" cx="35" cy="26" r="4" fill="#FFE7D2" style="--pdur:2.8s;--pdelay:-.3s;"/>
+      <circle class="polyp" cx="82" cy="16" r="4" fill="#FFE7D2" style="--pdur:2.8s;--pdelay:-1.1s;"/>
+      <circle class="polyp" cx="46" cy="70" r="3.2" fill="#FFE7D2" style="--pdur:2.8s;--pdelay:-1.8s;"/>
     </svg>
   </div>
 
-  <!-- ===== Crabs — scuttle side to side along the seafloor, claws twitching ===== -->
+  <!-- ===== Sea anemone — a clownfish-host reef centerpiece: a crown of
+       tentacles waving independently around a soft pulsing base, sitting
+       on a small rock outcrop. ===== -->
+  <div class="reef-glow" style="--gleft:50%;--gsize:130px;--gcolor:rgba(120,200,255,.36);--gdur:5.2s;--gdelay:-1.8s;"></div>
+  <div class="seafloor-item anemone-item" style="--left:47%;">
+    <svg viewBox="0 0 140 120" style="width:clamp(50px,7.4vw,110px);height:auto;" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="anemT" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#3FB6C4"/><stop offset="100%" stop-color="#9FF0E0"/></linearGradient>
+        <radialGradient id="anemB" cx="45%" cy="25%" r="75%"><stop offset="0%" stop-color="#4CC7C7"/><stop offset="100%" stop-color="#1E7A82"/></radialGradient>
+      </defs>
+      <ellipse cx="70" cy="104" rx="34" ry="9" fill="#5C6472" opacity=".4"/>
+      <g stroke="url(#anemT)" stroke-width="6" stroke-linecap="round">
+        <path class="tentacle" d="M28 96 Q20 66 26 40" style="--twdur2:2.2s;--twdelay2:0s;"/>
+        <path class="tentacle" d="M40 98 Q34 64 38 34" style="--twdur2:2.5s;--twdelay2:-.4s;"/>
+        <path class="tentacle" d="M53 99 Q49 62 50 30" style="--twdur2:2.1s;--twdelay2:-.9s;"/>
+        <path class="tentacle" d="M66 100 Q64 60 64 28" style="--twdur2:2.6s;--twdelay2:-1.3s;"/>
+        <path class="tentacle" d="M79 100 Q80 60 78 28" style="--twdur2:2.3s;--twdelay2:-1.7s;"/>
+        <path class="tentacle" d="M92 99 Q95 62 90 30" style="--twdur2:2.7s;--twdelay2:-.6s;"/>
+        <path class="tentacle" d="M105 98 Q108 64 100 34" style="--twdur2:2.2s;--twdelay2:-1.1s;"/>
+        <path class="tentacle" d="M116 96 Q118 66 106 40" style="--twdur2:2.4s;--twdelay2:-1.9s;"/>
+      </g>
+      <path class="anem-body" d="M22 96 Q70 118 122 96 Q118 78 70 80 Q22 78 22 96Z" fill="url(#anemB)"/>
+      <ellipse cx="10" cy="98" rx="14" ry="8" fill="#6B7280"/>
+      <ellipse cx="128" cy="100" rx="16" ry="9" fill="#5A606E"/>
+    </svg>
+  </div>
+
+
+  <!-- ===== Rock outcrop — grounds the seafloor with texture beyond
+       coral/grass, a small barnacle-crusted shell catching a soft glint. ===== -->
+  <div class="seafloor-item" style="--left:34%;">
+    <svg viewBox="0 0 140 70" style="width:clamp(50px,7.2vw,104px);height:auto;" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="rock1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8A93A6"/><stop offset="100%" stop-color="#4E5568"/></linearGradient></defs>
+      <path d="M2 70 Q0 40 22 32 Q30 14 52 20 Q66 6 86 18 Q112 14 122 34 Q140 40 136 58 Q138 70 130 70Z" fill="url(#rock1)"/>
+      <path d="M30 70 Q28 50 40 42 M70 70 Q72 48 84 40 M100 70 Q104 52 116 46" stroke="#3A4052" stroke-width="2.4" opacity=".5" fill="none"/>
+      <ellipse cx="52" cy="24" rx="7" ry="4" fill="#6B7488" opacity=".7"/><ellipse cx="94" cy="20" rx="6" ry="3.6" fill="#6B7488" opacity=".7"/>
+    </svg>
+  </div>
+  <div class="seafloor-item treasure-sparkle" style="--left:38.5%;--twdur:3.4s;--twdelay:-1.2s;">
+    <svg viewBox="0 0 60 34" style="width:clamp(22px,3.2vw,40px);height:auto;transform:rotate(6deg);" xmlns="http://www.w3.org/2000/svg">
+      <path d="M30 4 Q52 10 52 22 Q30 32 8 22 Q8 10 30 4Z" fill="#F4F6FA" stroke="#C7CEDC" stroke-width="2"/>
+      <path d="M30 4 Q46 9 50 18 M30 4 Q14 9 10 18" stroke="#C7CEDC" stroke-width="1.4" fill="none" opacity=".7"/>
+      <ellipse cx="24" cy="12" rx="6" ry="2.6" fill="#fff" opacity=".8"/>
+    </svg>
+  </div>
+
   <div class="seafloor-item crab-item" style="--left:29%;--scdur:5.5s;--scdelay:-1s;">
     <svg viewBox="0 0 100 60" style="width:clamp(30px,4.4vw,52px);height:auto;" xmlns="http://www.w3.org/2000/svg">
       <ellipse cx="50" cy="34" rx="26" ry="16" fill="#E4572E"/>
@@ -3870,7 +4196,6 @@ document.getElementById('headerRefreshBtn').addEventListener('click', async ()=>
   const btn = document.getElementById('headerRefreshBtn');
   btn.classList.add('is-spinning');
   btn.disabled = true;
-  playFishAnimation();
   try{
     // These five calls are independent of each other -- running them in
     // parallel means Refresh takes as long as the SLOWEST one, not the sum
@@ -4387,18 +4712,22 @@ async function fetchNextReqNo(){
 // to preview until there's a branch to count. Purely instant/local now.
 document.getElementById('area').addEventListener('input', applyNextReqNoPreview);
 
-// Background auto-sync: keeps the cached Req No count, line-item limits, and
-// the two OPEX badges (as-of actual, for-the-year expected) current in case
-// someone else adds an entry to the sheet while this tab is open, without
-// ever blocking typing. Silent — no toast, no spinner; the manual "Refresh"
-// button (headerRefreshBtn) is still there for an on-demand sync with
-// visible feedback. Set to 2 seconds for tight multi-user sync (at the
-// cost of more requests to the Apps Script web app).
+// Background auto-sync: keeps the cached Req No count, line-item limits, the
+// two OPEX badges (as-of actual, for-the-year expected), and the saved-
+// entries dropdown list current in case someone else adds an entry to the
+// sheet while this tab is open, without ever blocking typing. Silent — no
+// toast, no spinner, no fish celebration; the manual "Refresh" button
+// (headerRefreshBtn) is still there for an on-demand sync with visible
+// feedback. Set to 2 seconds for tight multi-user sync (at the cost of more
+// requests to the Apps Script web app). The dropdown list is skipped while
+// it's actually open so a background refresh never yanks the menu out from
+// under someone mid-browse.
 const AUTO_SYNC_INTERVAL_MS = 2000;
 setInterval(()=>{
   fetchNextReqNo();
   fetchBudgetLimits();
   fetchOpexBadges();
+  if(!reqNoWrap.classList.contains('open')) loadReqNoList();
 }, AUTO_SYNC_INTERVAL_MS);
 
 // Shared by both the "Save request"/"Save changes" button and "Save as New".
