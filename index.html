@@ -9393,19 +9393,39 @@ html.page-fade-ready body {
         return;
       }
       try {
+        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+        if (!idToken) throw new Error('No ID token available.');
+
         // AUDIT OPEX isn't a Google Sheet behind the Apps Script — it's a
-        // local file — so once the password check above succeeds, open it
-        // directly instead of going through the sheet-redirect lookup.
+        // local file, so there's no real sheet URL to redirect to. But it
+        // still has to be gated by QUICKLINKS_ALLOWED_EMAILS like every
+        // other quick link. action=list runs the exact same
+        // isAuthorizedQuickLink() check as action=open (see Code.gs) and
+        // returns {success:true} only for allow-listed emails, so we reuse
+        // it here purely as a server-side authorization check before
+        // opening the local file — no new backend endpoint needed.
         if (pending.id === 'opex') {
-          window.open('Opex.html', '_blank', 'noopener');
+          let checkUrl = quickLinksAppsScriptUrl +
+            '?action=list&idToken=' + encodeURIComponent(idToken);
+          if (quickLinksAppsScriptSecret) {
+            checkUrl += '&secret=' + encodeURIComponent(quickLinksAppsScriptSecret);
+          }
+          const checkResp = await fetch(checkUrl);
+          const checkJson = await checkResp.json();
           const modal2 = document.getElementById('quickLinkPasswordModal');
+          if (!checkJson || !checkJson.success) {
+            setQuickLinkPasswordSubmitting(false);
+            err.textContent = 'You\u2019re not authorized to open Audit Opex.';
+            err.classList.remove('hidden');
+            return;
+          }
+          window.open('Opex.html', '_blank', 'noopener');
           if (modal2) modal2.classList.add('hidden');
           pendingQuickLink = null;
           setQuickLinkPasswordSubmitting(false);
           return;
         }
-        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
-        if (!idToken) throw new Error('No ID token available.');
+
         let openUrl = quickLinksAppsScriptUrl +
           '?action=open&id=' + encodeURIComponent(pending.id) +
           '&idToken=' + encodeURIComponent(idToken);
