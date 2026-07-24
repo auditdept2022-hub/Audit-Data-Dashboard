@@ -168,12 +168,62 @@
     0%,100%{ opacity:.88; filter:brightness(1); }
     50%{ opacity:1; filter:brightness(1.3); }
   }
+  /* Starfish -- a light continuous rock (not a blinking twinkle) so it
+     reads as gently resting/rocking on the seafloor current. */
+  .ocean-bg .starfish{
+    animation:starfish-rock var(--rockdur,5s) ease-in-out infinite;
+    animation-delay:var(--rockdelay,0s);
+    transform-origin:50% 85%;
+  }
+  @keyframes starfish-rock{
+    0%,100%{ transform:rotate(-4deg); }
+    50%{ transform:rotate(4deg); }
+  }
+  /* Shells and the anchor are purely static set-dressing, same as the
+     coral pieces -- no animation needed. */
   @media(prefers-reduced-motion:reduce){
-    .ocean-bg .seagrass, .ocean-bg .bubble, .ocean-bg .treasure-sparkle{ animation:none; }
+    .ocean-bg .seagrass, .ocean-bg .bubble, .ocean-bg .treasure-sparkle, .ocean-bg .starfish{ animation:none; }
     .ocean-bg::before{ animation:none; }
   }
   @media(prefers-reduced-motion:reduce){
     .ocean-bg .fish-outer, .ocean-bg .fish-inner{ animation:none; }
+  }
+
+  /* ---------- Jellyfish: drift up/down through the water column, bell
+     pulses, tentacles trail with a slight wave -- independent animations
+     layered on one element, same pattern as fish-outer/fish-inner/svg. */
+  .ocean-bg .jellyfish{
+    position:absolute;
+    top:var(--top);
+    left:0;
+    will-change:transform;
+    animation:jelly-drift var(--driftdur,9s) ease-in-out infinite;
+    animation-delay:var(--driftdelay,0s);
+    opacity:.75;
+  }
+  .ocean-bg .jellyfish svg{ width:var(--size); height:auto; display:block; }
+  @keyframes jelly-drift{
+    0%,100%{ transform:translate(var(--x,0),0); }
+    50%{ transform:translate(var(--x,0),-22px); }
+  }
+  .ocean-bg .jelly-bell{
+    transform-origin:50% 100%;
+    animation:jelly-pulse var(--pulsedur,2.6s) ease-in-out infinite;
+  }
+  @keyframes jelly-pulse{
+    0%,100%{ transform:scaleX(1) scaleY(1); }
+    50%{ transform:scaleX(1.1) scaleY(.86); }
+  }
+  .ocean-bg .jelly-tentacles path{
+    transform-origin:top center;
+    animation:tentacle-wave var(--wavedur,2.6s) ease-in-out infinite;
+  }
+  @keyframes tentacle-wave{
+    0%,100%{ transform:rotate(-6deg); }
+    50%{ transform:rotate(6deg); }
+  }
+  @media(prefers-reduced-motion:reduce){
+    .ocean-bg .jellyfish, .ocean-bg .jelly-bell, .ocean-bg .jelly-tentacles path{ animation:none; }
   }
   @media(max-width:640px){
     .ocean-bg{ opacity:.35; }
@@ -190,7 +240,8 @@
       radial-gradient(560px 320px at 10% -25%, rgba(255,255,255,.95), rgba(255,255,255,.22) 42%, transparent 68%),
       linear-gradient(160deg, #EAFDFF 0%, #B4EFF4 16%, #67D6E4 38%, #22B4CE 60%, #1495B8 80%, #0C6E8C 100%);
     border-radius:10px;
-    padding:18px 26px;
+    padding:42px 26px;
+    min-height:170px;
     overflow:hidden;
     margin-bottom:20px;
     display:flex;
@@ -199,6 +250,9 @@
     gap:16px;
     box-shadow:0 10px 26px rgba(9,60,80,.32);
     border-bottom:2px solid var(--flag-red);
+  }
+  @media(max-width:640px){
+    .banner{ padding:28px 18px; min-height:130px; }
   }
   .banner::before{
     content:'';
@@ -249,7 +303,7 @@
   .banner .title-block p{
     margin:4px 0 0 17px;
     color:#F3FBFF;
-    font-size:13px;
+    font-size:16px;
     letter-spacing:.2px;
     text-shadow:0 1px 3px rgba(3,22,32,.65), 0 0 10px rgba(3,22,32,.3);
   }
@@ -262,9 +316,9 @@
     margin-left:2px;
     border-left:1px solid rgba(255,255,255,.22);
   }
-  .banner .datetime .d{font-size:12.5px;color:#F3FBFF;line-height:1.3;text-shadow:0 1px 3px rgba(3,22,32,.55);}
+  .banner .datetime .d{font-size:15px;color:#F3FBFF;line-height:1.3;text-shadow:0 1px 3px rgba(3,22,32,.55);}
   .banner .datetime .t{
-    font-size:15.5px;font-weight:700;margin-top:3px;letter-spacing:.6px;
+    font-size:18px;font-weight:700;margin-top:3px;letter-spacing:.6px;
     color:var(--amber);
     font-variant-numeric:tabular-nums;
     text-shadow:0 0 10px rgba(255,198,41,.5);
@@ -291,22 +345,22 @@
     border:1px solid rgba(255,255,255,.28);
     color:#fff;
     border-radius:6px;
-    padding:9px 13px;
+    padding:9px 15px;
     font-family:'Inter',sans-serif;
-    font-size:13px;
+    font-size:16px;
     font-weight:600;
     cursor:pointer;
     white-space:nowrap;
     transition:background .12s ease, border-color .12s ease;
   }
   .banner-btn:hover{background:rgba(255,255,255,.2);border-color:var(--amber);}
-  .banner-btn .bi{font-size:14.5px;line-height:1;}
+  .banner-btn .bi{font-size:17px;line-height:1;}
   .banner-btn.is-spinning .bi{display:inline-block;animation:spin .7s linear infinite;}
   .sync-status{
     display:flex;
     align-items:center;
     gap:6px;
-    font-size:12px;
+    font-size:15px;
     color:#F3FBFF;
     margin-top:2px;
     text-shadow:0 1px 3px rgba(3,22,32,.55);
@@ -1402,6 +1456,85 @@
       <path d="M20 140 Q10 80 25 20 Q30 60 30 140Z" fill="#1F7A4D"/>
       <path d="M45 140 Q38 70 50 10 Q55 70 55 140Z" fill="#2FA968"/>
       <path d="M70 140 Q65 85 78 30 Q82 80 80 140Z" fill="#1F7A4D"/>
+    </svg>
+  </div>
+
+  <!-- Starfish -->
+  <div class="seafloor-item starfish" style="--left:6%;--rockdur:5.5s;--rockdelay:-1s;">
+    <svg viewBox="0 0 100 100" style="width:clamp(26px,3.8vw,46px);height:auto;" xmlns="http://www.w3.org/2000/svg">
+      <path d="M50 4 L61 34 L94 36 L66 55 L77 88 L50 67 L23 88 L34 55 L6 36 L39 34 Z" fill="#FF8A5B"/>
+      <circle cx="50" cy="42" r="3.5" fill="#E8672F"/>
+      <circle cx="40" cy="52" r="2.6" fill="#E8672F"/>
+      <circle cx="60" cy="52" r="2.6" fill="#E8672F"/>
+      <circle cx="44" cy="64" r="2.2" fill="#E8672F"/>
+      <circle cx="56" cy="64" r="2.2" fill="#E8672F"/>
+    </svg>
+  </div>
+  <div class="seafloor-item starfish" style="--left:74%;--rockdur:6.2s;--rockdelay:-3s;">
+    <svg viewBox="0 0 100 100" style="width:clamp(24px,3.4vw,42px);height:auto;transform:scaleX(-1) rotate(-8deg);" xmlns="http://www.w3.org/2000/svg">
+      <path d="M50 4 L61 34 L94 36 L66 55 L77 88 L50 67 L23 88 L34 55 L6 36 L39 34 Z" fill="#FFC24B"/>
+      <circle cx="50" cy="42" r="3.5" fill="#E89A1F"/>
+      <circle cx="40" cy="52" r="2.6" fill="#E89A1F"/>
+      <circle cx="60" cy="52" r="2.6" fill="#E89A1F"/>
+      <circle cx="44" cy="64" r="2.2" fill="#E89A1F"/>
+      <circle cx="56" cy="64" r="2.2" fill="#E89A1F"/>
+    </svg>
+  </div>
+
+  <!-- Seashells -->
+  <div class="seafloor-item" style="--left:33%;">
+    <svg viewBox="0 0 100 80" style="width:clamp(30px,4.4vw,54px);height:auto;" xmlns="http://www.w3.org/2000/svg">
+      <path d="M50 78 C20 78 5 48 10 28 C15 8 35 4 50 4 C65 4 85 8 90 28 C95 48 80 78 50 78Z" fill="#FFD9C2"/>
+      <path d="M50 74 L50 10 M37 71 L28 14 M63 71 L72 14 M25 63 L15 22 M75 63 L85 22" stroke="#F2A583" stroke-width="3" fill="none" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <div class="seafloor-item" style="--left:87%;">
+    <svg viewBox="0 0 100 80" style="width:clamp(26px,3.8vw,46px);height:auto;transform:rotate(10deg);" xmlns="http://www.w3.org/2000/svg">
+      <path d="M50 78 C20 78 5 48 10 28 C15 8 35 4 50 4 C65 4 85 8 90 28 C95 48 80 78 50 78Z" fill="#FFC9DE"/>
+      <path d="M50 74 L50 10 M37 71 L28 14 M63 71 L72 14 M25 63 L15 22 M75 63 L85 22" stroke="#E88BAE" stroke-width="3" fill="none" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <!-- Anchor -->
+  <div class="seafloor-item" style="--left:62%;">
+    <svg viewBox="0 0 80 120" style="width:clamp(30px,4.4vw,52px);height:auto;" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="40" cy="13" r="8" fill="none" stroke="#D7E6EC" stroke-width="6"/>
+      <line x1="40" y1="21" x2="40" y2="96" stroke="#D7E6EC" stroke-width="7" stroke-linecap="round"/>
+      <line x1="17" y1="42" x2="63" y2="42" stroke="#D7E6EC" stroke-width="6" stroke-linecap="round"/>
+      <path d="M40 96 Q10 96 12 74" stroke="#D7E6EC" stroke-width="7" fill="none" stroke-linecap="round"/>
+      <path d="M40 96 Q70 96 68 74" stroke="#D7E6EC" stroke-width="7" fill="none" stroke-linecap="round"/>
+      <path d="M6 73 L14 80 L19 69Z" fill="#D7E6EC"/>
+      <path d="M74 73 L66 80 L61 69Z" fill="#D7E6EC"/>
+    </svg>
+  </div>
+
+  <!-- Jellyfish, drifting through the water column between the fish -->
+  <div class="jellyfish" style="--top:12%;--size:clamp(30px,4.2vw,50px);--driftdur:8s;--driftdelay:-2s;--x:18vw;">
+    <svg viewBox="0 0 100 150" xmlns="http://www.w3.org/2000/svg">
+      <g class="jelly-bell">
+        <path d="M50 10 Q10 10 10 55 Q10 70 25 76 Q50 84 75 76 Q90 70 90 55 Q90 10 50 10Z" fill="#FF9FD1" opacity=".6"/>
+        <path d="M22 24 Q50 6 78 24" stroke="#FFFFFF" stroke-width="3" fill="none" opacity=".45" stroke-linecap="round"/>
+      </g>
+      <g class="jelly-tentacles" stroke="#FF9FD1" stroke-width="4" fill="none" stroke-linecap="round" opacity=".55">
+        <path d="M25 76 Q20 102 28 132" style="animation-delay:-.3s;"/>
+        <path d="M40 79 Q37 106 45 140" style="animation-delay:-1s;"/>
+        <path d="M60 79 Q63 106 55 140" style="animation-delay:-1.6s;"/>
+        <path d="M75 76 Q80 102 72 132" style="animation-delay:-.7s;"/>
+      </g>
+    </svg>
+  </div>
+  <div class="jellyfish" style="--top:58%;--size:clamp(26px,3.6vw,42px);--driftdur:10.5s;--driftdelay:-5s;--x:-14vw;">
+    <svg viewBox="0 0 100 150" xmlns="http://www.w3.org/2000/svg">
+      <g class="jelly-bell">
+        <path d="M50 10 Q10 10 10 55 Q10 70 25 76 Q50 84 75 76 Q90 70 90 55 Q90 10 50 10Z" fill="#B7E3FF" opacity=".65"/>
+        <path d="M22 24 Q50 6 78 24" stroke="#FFFFFF" stroke-width="3" fill="none" opacity=".5" stroke-linecap="round"/>
+      </g>
+      <g class="jelly-tentacles" stroke="#B7E3FF" stroke-width="4" fill="none" stroke-linecap="round" opacity=".6">
+        <path d="M25 76 Q20 102 28 132" style="animation-delay:-.6s;"/>
+        <path d="M40 79 Q37 106 45 140" style="animation-delay:-1.3s;"/>
+        <path d="M60 79 Q63 106 55 140" style="animation-delay:-.2s;"/>
+        <path d="M75 76 Q80 102 72 132" style="animation-delay:-1.8s;"/>
+      </g>
     </svg>
   </div>
 
