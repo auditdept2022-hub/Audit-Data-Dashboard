@@ -2665,7 +2665,7 @@ html.page-fade-ready body {
         #5a3f80 42%, #8a5aa8 49%, #c06a8f 56%,
         #d9678f 61%, #ef8a72 68%, #f7a97c 75%,
         #ffc98a 81%, #ffd89e 86%, #d9ecdf 91%, #bfe3d8 95%, #bfe3f2 100%);
-      animation: skyRise 5.2s cubic-bezier(.45, 0, .75, 1) forwards;
+      animation: skyRise 9s cubic-bezier(.45, 0, .75, 1) forwards;
       will-change: transform;
     }
     /* Starts showing the top of the strip (night colours) and pans down to
@@ -2678,7 +2678,7 @@ html.page-fade-ready body {
       position: absolute; width: 3px; height: 3px; border-radius: 50%;
       background: #fff; box-shadow: 0 0 4px 1px rgba(255,255,255,.8);
       opacity: 0;
-      animation: starTwinkle 5.2s ease-in forwards;
+      animation: starTwinkle 9s ease-in forwards;
     }
     /* Bright at the start (night), fades out as morning arrives. */
     @keyframes starTwinkle {
@@ -2690,7 +2690,7 @@ html.page-fade-ready body {
     }
     .loading-sun-moon { position: absolute; left: 50%; top: 46%; z-index: 1; filter: drop-shadow(0 0 14px rgba(255,220,140,.5)); }
     .loading-sun {
-      animation: sunPath 5.2s cubic-bezier(.45, 0, .75, 1) forwards;
+      animation: sunPath 9s cubic-bezier(.45, 0, .75, 1) forwards;
     }
     /* Below the horizon (hidden) while it's night, then rises into view as
        morning breaks — mirrors the sky strip and finishes at the same time. */
@@ -2702,7 +2702,7 @@ html.page-fade-ready body {
     }
     .loading-moon {
       filter: drop-shadow(0 0 10px rgba(200,210,255,.5));
-      animation: moonPath 5.2s ease-in forwards;
+      animation: moonPath 9s ease-in forwards;
     }
     /* Up in the night sky at the start, sets and fades out by morning. */
     @keyframes moonPath {
@@ -2751,23 +2751,55 @@ html.page-fade-ready body {
       0%   { transform: translateY(0) translateX(0); }
       100% { transform: translateY(480px) translateX(-24px); }
     }
-    /* Rain only becomes visible as the scene reaches "morning" (arriving
-       with the overcast dawn), never during the dark opening. */
+    /* The storm rains hard through the night, then eases off and clears
+       away as the sky rises into morning — the opposite of a "rain only
+       arrives at dawn" pattern, so it reads as "thunderstorm first, then
+       morning" rather than a rainy sunrise. */
     .loading-rainy .loading-rain {
-      animation: loadingRainFadeIn 5.2s ease-in forwards;
+      animation: loadingRainStorm 9s ease-in forwards;
     }
-    @keyframes loadingRainFadeIn {
-      0%, 55% { opacity: 0; }
-      78%     { opacity: .85; }
-      100%    { opacity: .7; }
+    @keyframes loadingRainStorm {
+      0%       { opacity: 0; }
+      6%       { opacity: .85; }
+      55%      { opacity: .85; }
+      75%      { opacity: .35; }
+      92%, 100% { opacity: 0; }
     }
-    /* Cooler, slightly desaturated wash over the sky + no sun peeking
-       through, so "morning" reads as overcast/rainy rather than the usual
-       clear golden sunrise. */
-    .loading-rainy .loading-scene-sky-strip { filter: saturate(.55) brightness(.9); }
-    .loading-rainy .loading-sun { opacity: 0 !important; }
+    /* Cooler, slightly desaturated wash over the sky while the storm is
+       raging, easing back to normal (letting the sun/gold tones through)
+       once the rain has cleared and morning has broken. */
+    .loading-rainy .loading-scene-sky-strip {
+      animation: skyRise 9s cubic-bezier(.45, 0, .75, 1) forwards,
+                 loadingStormClear 9s ease-in forwards;
+    }
+    @keyframes loadingStormClear {
+      0%, 70%  { filter: saturate(.55) brightness(.85); }
+      100%     { filter: saturate(1) brightness(1); }
+    }
+    /* Lightning: a few quick full-screen flashes during the storm portion
+       of the scene only (roughly the first 55% / ~5s of the 9s scene),
+       never once morning has arrived. */
+    .loading-lightning {
+      position: absolute; inset: 0; z-index: 3; background: #fff;
+      opacity: 0; pointer-events: none;
+      animation: loadingLightningFlash 9s linear forwards;
+    }
+    @keyframes loadingLightningFlash {
+      0%, 8%    { opacity: 0; }
+      8.4%      { opacity: .8; }
+      8.8%      { opacity: .1; }
+      9.4%      { opacity: .55; }
+      10%, 24%  { opacity: 0; }
+      24.4%     { opacity: .65; }
+      25%, 41%  { opacity: 0; }
+      41.3%     { opacity: .75; }
+      41.7%     { opacity: .15; }
+      42.3%     { opacity: .4; }
+      43%, 100% { opacity: 0; }
+    }
     @media (prefers-reduced-motion: reduce) {
-      .loading-rain, .loading-rain-drop, .loading-rainy .loading-rain { animation: none !important; opacity: 0 !important; }
+      .loading-rain, .loading-rain-drop, .loading-rainy .loading-rain,
+      .loading-lightning, .loading-rainy .loading-scene-sky-strip { animation: none !important; opacity: 0 !important; }
     }
 
     /* NOTE: intentionally no "overflow: hidden" here anymore. The rider
@@ -2793,7 +2825,7 @@ html.page-fade-ready body {
        close (see timing note above) — never looping past that point. */
     .loading-rig {
       position: absolute; bottom: 6%; left: 2%;
-      animation: loadingRigCruise 5.2s cubic-bezier(.5, 0, .75, 1) forwards,
+      animation: loadingRigCruise 9s cubic-bezier(.5, 0, .75, 1) forwards,
                  loadingRigBounce .3s ease-in-out infinite;
     }
     @keyframes loadingRigCruise {
@@ -2817,7 +2849,7 @@ html.page-fade-ready body {
       display: block; width: 150px; height: auto;
       transform-origin: 55% 92%;
       animation: loadingRigWobble .55s ease-in-out infinite,
-                 loadingRigLightSync 5.2s ease-in forwards;
+                 loadingRigLightSync 9s ease-in forwards;
     }
     @keyframes loadingRigWobble {
       0%, 100% { transform: rotate(-1.6deg) translateY(0); }
@@ -2896,6 +2928,7 @@ html.page-fade-ready body {
           <span class="loading-rain-drop" style="left:84%; animation-duration:.52s; animation-delay:-.28s;"></span>
           <span class="loading-rain-drop" style="left:92%; animation-duration:.6s; animation-delay:-.12s;"></span>
         </div>
+        <div class="loading-lightning" id="loadingLightning"></div>
       </div>
 
       <!-- Foreground road with the cartoon motorcycle rider -->
@@ -3315,18 +3348,20 @@ html.page-fade-ready body {
       const loadingStatusEl = document.getElementById('loadingStatusText');
       const loadingTitleEl = document.getElementById('loadingTitleText');
 
-      // About a third of loads get the rainy-morning variant instead of a
-      // clear sunrise (see .loading-rainy in the stylesheet). Decided once,
-      // before the scene has played at all, so it never changes mid-scene.
-      if (loadingScreen && Math.random() < 0.35) {
+      // Every load now opens on a night thunderstorm (rain + lightning)
+      // that clears into a bright morning by the end of the scene — always
+      // on, not random, so there's a full storm-to-sunrise story to watch
+      // every time.
+      if (loadingScreen) {
         loadingScreen.classList.add('loading-rainy');
       }
 
-      // The sunset -> sunrise scene (sky pan + motorcycle rider) needs a
-      // few seconds to actually read as an animation rather than a flash,
-      // so every loading screen — first sign-in or a manual retry — stays
-      // up for at least this long even if the data itself is ready sooner.
-      const MIN_LOADING_MS = 5200;
+      // The night-storm -> sunrise scene (sky pan, rain, lightning, and the
+      // motorcycle rider) needs enough time to actually read as a little
+      // story rather than a flash, so every loading screen — first sign-in
+      // or a manual retry — stays up for at least this long even if the
+      // data itself is ready sooner.
+      const MIN_LOADING_MS = 9000;
       const STATUS_MESSAGES = [
         'Connecting to secure server\u2026',
         'Fetching latest audit records\u2026',
