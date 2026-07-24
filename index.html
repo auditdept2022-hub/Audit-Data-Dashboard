@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head>
+<html lang="en" class="page-fade-ready"><head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
   <title>Audit Data Dashboard</title>
@@ -346,6 +346,44 @@
       box-shadow: 0 20px 40px -18px rgba(30, 41, 59, 0.22), 0 4px 10px -4px rgba(30, 41, 59, 0.08);
       border-color: rgba(79, 70, 229, 0.28);
     }
+
+    /* ---------- Data-visualization polish ---------- */
+    /* Glass-edge: a faint inner top highlight on every card, so cards
+       read as slightly raised glass panels rather than flat rectangles —
+       independent of hover, always present but very subtle. */
+    .bg-coolCard.border.border-coolBorder.rounded-2xl,
+    .bg-coolCard.border.border-coolBorder.rounded-xl {
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 1px 2px rgba(16,24,64,0.04);
+    }
+
+    /* KPI numbers get a soft color-matched glow (uses currentColor, so it
+       automatically follows each stat's own accent color) instead of
+       sitting completely flat — reinforces which numbers are the
+       headline figures at a glance. */
+    h3.font-extrabold, span#collectionStatusTotal, span#salesStatusTotal, span#serviceStatusTotal {
+      text-shadow: 0 0 18px currentColor;
+      filter: saturate(1.05);
+    }
+    /* Applied at low opacity via a layered pseudo would be ideal, but
+       text-shadow doesn't support that — so the glow itself is kept
+       faint (18px blur, default text color alpha) rather than tight and
+       harsh, and is skipped for near-black slate numbers where a glow
+       would just look like blur, not color. */
+    h3.font-extrabold.text-slate-900 { text-shadow: none; }
+
+    /* KPI icon badges: soft matching glow ring on hover, echoing the
+       group-hover color swap already in place. */
+    span.p-1\.5.rounded-lg {
+      transition: box-shadow .3s var(--ease-premium), transform .3s var(--ease-premium);
+    }
+    .group:hover span.p-1\.5.rounded-lg,
+    span.p-1\.5.rounded-lg:hover {
+      box-shadow: 0 0 16px 1px currentColor;
+      transform: scale(1.06);
+    }
+    /* Blur-only (no spread) so the glow fades to transparent at the
+       edges — reads as a soft halo rather than a hard-edged ring, even
+       though currentColor itself is opaque. */
 
     /* Buttons & interactive controls: crisper press feedback layered on
        top of whatever active:scale-* utility is already present. */
@@ -2053,6 +2091,80 @@ body.bg-coolDark{
 
 /* ---------- section headings ---------- */
 h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
+
+/* ---------- Header + whole-page effects ---------- */
+/* Header background slowly drifts through its own gradient instead of
+   sitting static — same three brand colors, just always gently in
+   motion. Purely decorative (background-position), so it never affects
+   layout or the header-ride removal above. */
+header.app-header-reveal {
+  background-size: 220% 220% !important;
+  animation: headerDropIn .55s cubic-bezier(.16,.8,.24,1) both,
+             headerGradientDrift 14s ease-in-out infinite;
+}
+@keyframes headerGradientDrift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+/* A soft diagonal light sweep glides across the header every few
+   seconds — subtle, not a flashy loading shimmer. */
+header.app-header-reveal { overflow: hidden; }
+header.app-header-reveal::after {
+  content: "";
+  position: absolute; top: -50%; left: -30%;
+  width: 40%; height: 200%;
+  background: linear-gradient(115deg, transparent, rgba(255,255,255,.14), transparent);
+  transform: skewX(-20deg);
+  pointer-events: none;
+  animation: headerSheen 7s ease-in-out infinite;
+  z-index: 1;
+}
+@keyframes headerSheen {
+  0%   { left: -30%; opacity: 0; }
+  8%   { opacity: .8; }
+  35%  { opacity: 0; }
+  100% { left: 130%; opacity: 0; }
+}
+header.app-header-reveal > * { position: relative; z-index: 2; }
+
+/* Whole document settles in with a soft fade + rise on first paint,
+   instead of just appearing. */
+html.page-fade-ready body {
+  animation: pageFadeIn .5s cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes pageFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* A slow-drifting ambient glow behind the whole page, layered under the
+   existing radial-gradient wash on body.bg-coolDark, for a subtle
+   "living" background instead of a flat one. */
+body.bg-coolDark::before {
+  content: "";
+  position: fixed; inset: -10%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(650px 420px at 20% 15%, rgba(91,61,240,0.10), transparent 60%),
+    radial-gradient(600px 380px at 82% 70%, rgba(14,165,199,0.09), transparent 60%);
+  animation: ambientDrift 20s ease-in-out infinite;
+}
+@keyframes ambientDrift {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(2%, -2%) scale(1.05); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  header.app-header-reveal,
+  header.app-header-reveal::after,
+  html.page-fade-ready body,
+  body.bg-coolDark::before {
+    animation: none !important;
+  }
+}
 </style>
 
 <style>
@@ -2302,6 +2414,12 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
     opacity: 0;
     pointer-events: none;
     transition: opacity .3s ease;
+    /* Requested removal: the road + motorcycle rider overlay no longer
+       shows on the header. Hidden outright rather than deleting the
+       markup/JS below, so playHeaderRide()'s timing logic (which keeps
+       "Update data" in sync with the real fetch) keeps working exactly
+       as before — it just has nothing to draw anymore. */
+    display: none !important;
   }
   #headerRideOverlay.header-ride-visible {
     opacity: 1;
@@ -2883,7 +3001,13 @@ h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
     }
     .loading-caption-card {
       position: relative; z-index: 3;
-      margin-top: auto; margin-bottom: 8%;
+      /* Moved up from the road/rider strip so it reads as "lower area of
+         the screen" rather than pinned to the very bottom edge — a fixed
+         viewport-height offset (rather than a %, which resolves against
+         width, not height) keeps this consistent across phone/desktop
+         sizes. Still well below dead-center, just no longer crowding the
+         bottom edge. */
+      margin-top: auto; margin-bottom: 22vh;
     }
     @media (prefers-reduced-motion: reduce) {
       .loading-scene-sky-strip, .loading-star, .loading-sun, .loading-moon, .loading-cloud,
