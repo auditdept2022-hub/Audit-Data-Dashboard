@@ -272,16 +272,12 @@
     }
 
     /* Small eyebrow/status dots (the tiny colored dots next to section
-       labels, list rows, legends) get a soft breathing glow instead of
-       sitting completely static — a small ambient detail that makes the
-       dashboard read as "live" data rather than a frozen screenshot. */
-    span.w-1.h-1.rounded-full, span.w-1\.5.h-1\.5.rounded-full {
-      animation: dotBreathe 2.6s ease-in-out infinite;
-    }
-    @keyframes dotBreathe {
-      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 currentColor; }
-      50% { opacity: .55; box-shadow: 0 0 4px 1px currentColor; }
-    }
+       labels, list rows, legends): kept crisp and static rather than
+       animating. An infinite per-dot box-shadow animation forces a
+       repaint (not just a cheap composite) on every dot, every ~16ms,
+       for as long as the page is open — with dozens of these dots
+       across a data-heavy dashboard that's a steady, unnecessary
+       rendering cost for a purely decorative flourish. */
 
     /* Table polish for the branch scorecard. */
     .dash-container table thead th {
@@ -297,156 +293,69 @@
     .dash-card-accent::before {
       content: '';
       position: absolute; top: 0; left: 0; right: 0; height: 3px;
-      background: linear-gradient(90deg, #4f46e5, #0891b2 55%, #059669);
-      background-size: 200% 100%;
-      opacity: .85;
-      animation: accentShimmer 6s ease-in-out infinite;
-    }
-    @keyframes accentShimmer {
-      0%, 100% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
+      background: linear-gradient(90deg, #1e3a8a, #0f766e 60%, #0d9488);
+      opacity: .9;
     }
 
     /* ============================================================
-       PREMIUM INTERACTION LAYER
-       A cohesive, performance-conscious pass over motion & feel:
-       smoother global easing, lifted/glowing cards on hover, tactile
-       buttons with a real ripple, and a refined focus/press language —
-       layered on top of the existing utility classes so none of the
-       underlying markup or logic has to change. Everything here is
-       GPU-friendly (transform/opacity only) and fully respects
-       prefers-reduced-motion.
+       PROFESSIONAL INTERACTION LAYER
+       A restrained, business-dashboard motion language: one property
+       animates at a time (transform OR box-shadow, rarely both), no
+       glow/ripple/filter effects, and every transition is cheap enough
+       to run on dozens of cards at once without dropping frames.
        ============================================================ */
     html { scroll-behavior: smooth; }
     :root {
-      --ease-premium: cubic-bezier(.22, 1, .36, 1);
-      --ease-snap: cubic-bezier(.34, 1.56, .64, 1);
+      --ease-standard: cubic-bezier(.4, 0, .2, 1);
     }
 
-    /* Re-time the existing Tailwind transition utilities with a softer,
-       more premium curve instead of the default linear/ease timing. */
     .transition-all, .transition-colors, .transition-transform, .transition-opacity {
-      transition-timing-function: var(--ease-premium);
+      transition-timing-function: var(--ease-standard);
     }
 
-    /* Primary content cards: gentle lift + soft glow + border brighten.
-       Targets the real card shells already used throughout the dashboard
-       (bg-coolCard + border + rounded-2xl/xl) without needing new classes
-       on every element in a 9000-line markup tree. */
+    /* Primary content cards: a small, quiet lift on hover — no glow,
+       no color-shifting border, just a slightly deeper shadow so the
+       card reads as "raised" for as long as the pointer is over it. */
     .bg-coolCard.border.border-coolBorder.rounded-2xl,
     .bg-coolCard.border.border-coolBorder.rounded-xl,
     .dash-card-accent {
-      transition: transform .38s var(--ease-premium), box-shadow .38s var(--ease-premium), border-color .38s var(--ease-premium);
-      will-change: transform;
+      transition: transform .18s var(--ease-standard), box-shadow .18s var(--ease-standard);
     }
     .bg-coolCard.border.border-coolBorder.rounded-2xl:hover,
     .bg-coolCard.border.border-coolBorder.rounded-xl:hover,
     .dash-card-accent:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 20px 40px -18px rgba(30, 41, 59, 0.22), 0 4px 10px -4px rgba(30, 41, 59, 0.08);
-      border-color: rgba(79, 70, 229, 0.28);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px -10px rgba(15, 23, 42, 0.18);
     }
 
-    /* ---------- Data-visualization polish ---------- */
-    /* Glass-edge: a faint inner top highlight on every card, so cards
-       read as slightly raised glass panels rather than flat rectangles —
-       independent of hover, always present but very subtle. */
-    .bg-coolCard.border.border-coolBorder.rounded-2xl,
-    .bg-coolCard.border.border-coolBorder.rounded-xl {
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 1px 2px rgba(16,24,64,0.04);
-    }
-
-    /* KPI numbers get a soft color-matched glow (uses currentColor, so it
-       automatically follows each stat's own accent color) instead of
-       sitting completely flat — reinforces which numbers are the
-       headline figures at a glance. */
-    h3.font-extrabold, span#collectionStatusTotal, span#salesStatusTotal, span#serviceStatusTotal {
-      text-shadow: 0 0 18px currentColor;
-      filter: saturate(1.05);
-    }
-    /* Applied at low opacity via a layered pseudo would be ideal, but
-       text-shadow doesn't support that — so the glow itself is kept
-       faint (18px blur, default text color alpha) rather than tight and
-       harsh, and is skipped for near-black slate numbers where a glow
-       would just look like blur, not color. */
-    h3.font-extrabold.text-slate-900 { text-shadow: none; }
-
-    /* KPI icon badges: soft matching glow ring on hover, echoing the
-       group-hover color swap already in place. */
-    span.p-1\.5.rounded-lg {
-      transition: box-shadow .3s var(--ease-premium), transform .3s var(--ease-premium);
-    }
-    .group:hover span.p-1\.5.rounded-lg,
-    span.p-1\.5.rounded-lg:hover {
-      box-shadow: 0 0 16px 1px currentColor;
-      transform: scale(1.06);
-    }
-    /* Blur-only (no spread) so the glow fades to transparent at the
-       edges — reads as a soft halo rather than a hard-edged ring, even
-       though currentColor itself is opaque. */
-
-    /* Buttons & interactive controls: crisper press feedback layered on
-       top of whatever active:scale-* utility is already present. */
-    button, [role="button"], .cursor-pointer {
-      transition-timing-function: var(--ease-snap);
-    }
+    /* Buttons & interactive controls: a simple, immediate press state. */
     button:active, [role="button"]:active {
-      filter: brightness(0.97);
+      transform: scale(0.98);
     }
 
-    /* Lightweight ripple: a single absolutely-positioned span injected on
-       pointerdown (see the script near the end of body). Pure CSS/opacity
-       animation — no layout thrash, no interference with click handlers. */
-    .btn-ripple-host { position: relative; overflow: hidden; }
-    .btn-ripple {
-      position: absolute;
-      border-radius: 9999px;
-      background: currentColor;
-      opacity: 0.28;
-      transform: scale(0);
-      pointer-events: none;
-      animation: rippleExpand .55s var(--ease-premium) forwards;
-    }
-    @keyframes rippleExpand {
-      to { transform: scale(2.6); opacity: 0; }
-    }
-
-    /* Sharper, more visible keyboard focus ring in the same accent
-       language as the rest of the dashboard. */
+    /* Clear, accessible keyboard focus ring. */
     a:focus-visible, button:focus-visible, [role="button"]:focus-visible,
     input:focus-visible, select:focus-visible, textarea:focus-visible {
-      outline: 2px solid rgba(37, 99, 235, 0.55);
+      outline: 2px solid rgba(30, 64, 175, 0.55);
       outline-offset: 2px;
       border-radius: 6px;
     }
 
-    /* Main data popup: a touch of rise + spring instead of a flat scale,
-       so opening/closing feels more like a physical object settling into
-       place rather than a plain fade. Overrides only the timing/transform
-       add-on — the base show/hide classes (hidden/opacity-0/scale-95)
-       already toggled by openModal()/closeModal() are untouched. */
+    /* Main data popup: quick, understated open/close — a small rise,
+       not a bounce. */
     #modalDialog {
-      transition: transform .32s var(--ease-snap), opacity .28s var(--ease-premium) !important;
+      transition: transform .2s var(--ease-standard), opacity .18s var(--ease-standard) !important;
     }
-    #modalDialog.scale-95 { transform: translateY(10px) scale(.96); opacity: 0; }
+    #modalDialog.scale-95 { transform: translateY(6px) scale(.98); opacity: 0; }
     #modalDialog.scale-100 { transform: translateY(0) scale(1); opacity: 1; }
-    #dataModal .absolute.inset-0.bg-slate-900\/40 {
-      transition: backdrop-filter .3s ease, background-color .3s ease;
-    }
 
-    /* Table rows: replace the flat hover tint with a subtle slide-in
-       accent bar, echoing the ranking-list hover treatment already used
-       elsewhere in the dashboard. */
+    /* Table rows: flat color-only hover, no shift/transform. */
     .dash-container table tbody tr {
-      transition: background-color .2s var(--ease-premium), transform .2s var(--ease-premium);
-    }
-    .dash-container table tbody tr:hover {
-      transform: translateX(1px);
+      transition: background-color .15s var(--ease-standard);
     }
 
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
-      .dash-card-accent::before { animation: none; }
       .bg-coolCard.border.border-coolBorder.rounded-2xl,
       .bg-coolCard.border.border-coolBorder.rounded-xl,
       .dash-card-accent,
@@ -454,7 +363,6 @@
         transition: none !important;
         transform: none !important;
       }
-      .btn-ripple { display: none; }
     }
   </style>
 
@@ -1659,45 +1567,47 @@ rect.legend-mouseover-inactive,
    ========================================================================= */
 
 :root{
-  --grad-1:#4f46e5;
-  --grad-2:#0891b2;
+  --grad-1:#1e3a8a;
+  --grad-2:#0f766e;
 }
 
 /* ---------- base canvas ---------- */
+/* A single flat surface instead of three stacked, overlapping radial
+   gradients — one paint layer instead of four, and a calmer, more
+   "reporting tool" backdrop instead of a colorful wash. */
 html{scroll-behavior:smooth;}
 body.bg-coolDark{
-  background:
-    radial-gradient(1100px 600px at 8% -10%, rgba(99,102,241,0.11), transparent 60%),
-    radial-gradient(900px 500px at 100% 0%, rgba(8,145,178,0.10), transparent 55%),
-    radial-gradient(800px 500px at 50% 110%, rgba(124,58,237,0.06), transparent 55%),
-    #e6e8f0 !important;
+  background:#eef1f6 !important;
   font-family:'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing:antialiased;
 }
 
-/* thin, elegant scrollbars */
+/* thin, understated scrollbars */
 ::-webkit-scrollbar{width:9px;height:9px;}
 ::-webkit-scrollbar-track{background:transparent;}
-::-webkit-scrollbar-thumb{background:rgba(79,70,229,0.28);border-radius:99px;}
-::-webkit-scrollbar-thumb:hover{background:rgba(79,70,229,0.48);}
+::-webkit-scrollbar-thumb{background:rgba(30,58,138,0.22);border-radius:99px;}
+::-webkit-scrollbar-thumb:hover{background:rgba(30,58,138,0.38);}
 
 /* ---------- header ---------- */
+/* Solid, single-tone navy instead of a multi-stop gradient — reads as a
+   corporate masthead rather than a marketing banner — and no
+   backdrop-filter, since blurring the header forces the browser to
+   recomposite everything scrolling underneath it on every frame. */
 header{
-  background:linear-gradient(100deg,#1e1b4b 0%,#3730a3 32%,#4f46e5 62%,#0891b2 100%) !important;
+  background:#0f2547 !important;
   border-bottom:none !important;
-  box-shadow:0 1px 0 rgba(255,255,255,0.06) inset, 0 10px 34px -14px rgba(30,27,75,0.55) !important;
-  backdrop-filter:blur(6px);
+  box-shadow:0 1px 0 rgba(255,255,255,0.05) inset, 0 6px 20px -12px rgba(15,23,42,0.45) !important;
 }
 header h1.text-white{
-  letter-spacing:-0.02em;
+  letter-spacing:-0.01em;
   position:relative;
   padding-left:14px;
 }
 header h1.text-white::before{
   content:"";
   position:absolute;left:0;top:50%;transform:translateY(-50%);
-  width:5px;height:22px;border-radius:99px;
-  background:linear-gradient(180deg,#67e8f9,#a5b4fc);
+  width:4px;height:20px;border-radius:2px;
+  background:#0f766e;
 }
 header .bg-white{
   background:rgba(255,255,255,0.96) !important;
@@ -1708,8 +1618,8 @@ header .bg-white:hover{
   box-shadow:0 6px 16px -4px rgba(15,23,42,0.30) !important;
   transform:translateY(-1px);
 }
-header .text-royalBlue{ color:#3730a3 !important; }
-header svg.text-royalBlue{ color:#3730a3 !important; }
+header .text-royalBlue{ color:#1e3a8a !important; }
+header svg.text-royalBlue{ color:#1e3a8a !important; }
 
 /* ---------- hamburger button ---------- */
 .hamburger-btn{
@@ -2081,52 +1991,14 @@ input#tableSearch:focus, select:focus{
 }
 
 
-body.bg-coolDark{
-  background:
-    radial-gradient(1200px 620px at 6% -12%, rgba(91,61,240,0.11), transparent 58%),
-    radial-gradient(1000px 560px at 102% -4%, rgba(14,165,199,0.10), transparent 55%),
-    radial-gradient(900px 520px at 50% 112%, rgba(124,58,237,0.07), transparent 55%),
-    #e6e8f0 !important;
-}
-
 /* ---------- section headings ---------- */
 h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
 
-/* ---------- Header + whole-page effects ---------- */
-/* A soft diagonal light sweep glides across the header every few
-   seconds — subtle, not a flashy loading shimmer. Animates `transform`
-   only (translateX), which is GPU-composited, instead of `left`, which
-   forces the browser to repaint on every frame — that repaint cost on a
-   sticky, full-width header was a real contributor to the page feeling
-   laggy. */
-header.app-header-reveal { overflow: hidden; }
-header.app-header-reveal::after {
-  content: "";
-  position: absolute; top: -50%; left: -30%;
-  width: 40%; height: 200%;
-  background: linear-gradient(115deg, transparent, rgba(255,255,255,.14), transparent);
-  transform: skewX(-20deg) translateX(0);
-  pointer-events: none;
-  animation: headerSheen 7s ease-in-out infinite;
-  z-index: 1;
-  will-change: transform;
-}
-@keyframes headerSheen {
-  0%   { transform: skewX(-20deg) translateX(0); opacity: 0; }
-  8%   { opacity: .8; }
-  35%  { opacity: 0; }
-  100% { transform: skewX(-20deg) translateX(400%); opacity: 0; }
-}
-header.app-header-reveal > * { position: relative; z-index: 2; }
-
-/* Whole document settles in with a soft fade on first paint. Opacity
-   only — NOT transform. A transform on <body> (even translateY(0) at
-   animation-end) creates a new containing block for every descendant
-   using position:fixed, so the loading screen / toasts / modals would
-   suddenly be positioned relative to body's full (very tall, scrollable)
-   box instead of the actual viewport — which is exactly what caused the
-   loading screen to render far below the fold with only its top "sky"
-   layer visible on screen. Opacity doesn't have this side effect. */
+/* Whole document settles in with a soft, one-time fade on first paint.
+   Opacity only — NOT transform, since a transform on <body> would create
+   a new containing block for every position:fixed descendant (the
+   loading screen, toasts, modals), knocking them out of viewport-relative
+   position. This runs once and costs nothing at rest. */
 html.page-fade-ready body {
   animation: pageFadeIn .5s ease both;
 }
@@ -2135,30 +2007,8 @@ html.page-fade-ready body {
   to   { opacity: 1; }
 }
 
-/* A slow-drifting ambient glow behind the whole page, layered under the
-   existing radial-gradient wash on body.bg-coolDark, for a subtle
-   "living" background instead of a flat one. */
-body.bg-coolDark::before {
-  content: "";
-  position: fixed; inset: -10%;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(650px 420px at 20% 15%, rgba(91,61,240,0.10), transparent 60%),
-    radial-gradient(600px 380px at 82% 70%, rgba(14,165,199,0.09), transparent 60%);
-  animation: ambientDrift 20s ease-in-out infinite;
-}
-@keyframes ambientDrift {
-  0%   { transform: translate(0, 0) scale(1); }
-  50%  { transform: translate(2%, -2%) scale(1.05); }
-  100% { transform: translate(0, 0) scale(1); }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  header.app-header-reveal,
-  header.app-header-reveal::after,
-  html.page-fade-ready body,
-  body.bg-coolDark::before {
+  html.page-fade-ready body {
     animation: none !important;
   }
 }
@@ -2231,9 +2081,8 @@ body.bg-coolDark::before {
      header ride-off animation finishes (see triggerDataBoomReveal()), so
      the payoff is felt exactly where the sync used to fall apart. */
   @keyframes dataBoomPulse {
-    0%   { opacity: .4; transform: scale(.985); filter: brightness(1.3) saturate(1.15); }
-    55%  { opacity: 1; transform: scale(1.006); }
-    100% { opacity: 1; transform: scale(1); filter: brightness(1) saturate(1); }
+    0%   { opacity: .5; transform: scale(.99); }
+    100% { opacity: 1; transform: scale(1); }
   }
   .data-boom-reveal { animation: dataBoomPulse .6s cubic-bezier(0.22, 1, 0.36, 1); }
   @media (prefers-reduced-motion: reduce) {
@@ -3835,7 +3684,7 @@ body.bg-coolDark::before {
     <span id="toast-message" class="text-sm font-semibold">Dashboard successfully updated from Web Link!</span>
   </div>
 
-  <header class="relative border-b border-blue-800 sticky top-0 z-40 shadow-md app-header-reveal" style="background: linear-gradient(115deg, #3730a3 0%, #4f46e5 45%, #0891b2 100%);">
+  <header class="relative border-b border-blue-800 sticky top-0 z-40 shadow-md app-header-reveal" style="background: #0f2547;">
 
     <!-- Plays over the header on every manual "Update data" click, in sync
          with the real data load: a little cartoon figure walks up, hops on
@@ -10580,34 +10429,4 @@ body.bg-coolDark::before {
   })();
 </script>
 
-<script>
-  // Lightweight tactile "ripple" for buttons and button-role controls.
-  // Purely visual (an absolutely-positioned span with a CSS animation) and
-  // attached via a single delegated, non-capturing listener — it never
-  // calls preventDefault/stopPropagation, so every existing onclick/handler
-  // across the dashboard keeps working exactly as before.
-  (function () {
-    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-    document.addEventListener('pointerdown', function (e) {
-      if (e.button !== undefined && e.button !== 0) return; // left click / primary touch only
-      const target = e.target.closest('button, [role="button"]');
-      if (!target || target.disabled) return;
-
-      const style = getComputedStyle(target);
-      if (style.position === 'static') target.classList.add('btn-ripple-host');
-      else target.classList.add('btn-ripple-host'); // overflow:hidden is what actually matters here
-
-      const rect = target.getBoundingClientRect();
-      const size = Math.max(rect.width, rect.height);
-      const span = document.createElement('span');
-      span.className = 'btn-ripple';
-      span.style.width = span.style.height = size + 'px';
-      span.style.left = (e.clientX - rect.left - size / 2) + 'px';
-      span.style.top = (e.clientY - rect.top - size / 2) + 'px';
-      target.appendChild(span);
-      span.addEventListener('animationend', function () { span.remove(); }, { once: true });
-    }, { passive: true });
-  })();
-</script>
 </body></html>
