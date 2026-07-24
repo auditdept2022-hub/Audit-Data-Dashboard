@@ -10429,4 +10429,51 @@ html.page-fade-ready body {
   })();
 </script>
 
+<script>
+  // ---------- global background-scroll lock ----------
+  // Several popups (the main data modal, side menu, mini calendar) already
+  // set body.style.overflow themselves, but a few — the export picker,
+  // the password gates, and the logout/exit confirm — didn't, so the
+  // dashboard behind them could still be scrolled while they were open.
+  // Rather than patch every individual open/close function (easy to miss
+  // one), this watches all popup containers at once and locks the body
+  // scroll whenever ANY of them is visible, unlocking only once none are.
+  (function() {
+    var overlayIds = [
+      'dataModal', 'exportPickerModal', 'exportPasswordModal',
+      'quickLinkPasswordModal', 'editAssignPasswordModal',
+      'exitConfirmModal', 'menuOverlay', 'miniCalendarPopup'
+    ];
+
+    function isVisible(el) {
+      return !!el && !el.classList.contains('hidden');
+    }
+
+    function syncScrollLock() {
+      var anyOpen = overlayIds.some(function(id) {
+        return isVisible(document.getElementById(id));
+      });
+      // Don't fight the auth gate's own overflow handling before login.
+      var authGateEl = document.getElementById('authGate');
+      if (isVisible(authGateEl)) return;
+      document.body.style.overflow = anyOpen ? 'hidden' : '';
+    }
+
+    function watch() {
+      overlayIds.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        new MutationObserver(syncScrollLock).observe(el, { attributes: true, attributeFilter: ['class'] });
+      });
+      syncScrollLock();
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', watch);
+    } else {
+      watch();
+    }
+  })();
+</script>
+
 </body></html>
