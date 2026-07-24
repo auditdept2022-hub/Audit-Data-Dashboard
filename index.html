@@ -2093,49 +2093,46 @@ body.bg-coolDark{
 h2.text-lg, h2.font-bold, .section-title{ letter-spacing:-0.01em; }
 
 /* ---------- Header + whole-page effects ---------- */
-/* Header background slowly drifts through its own gradient instead of
-   sitting static — same three brand colors, just always gently in
-   motion. Purely decorative (background-position), so it never affects
-   layout or the header-ride removal above. */
-header.app-header-reveal {
-  background-size: 220% 220% !important;
-  animation: headerDropIn .55s cubic-bezier(.16,.8,.24,1) both,
-             headerGradientDrift 14s ease-in-out infinite;
-}
-@keyframes headerGradientDrift {
-  0%   { background-position: 0% 50%; }
-  50%  { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
 /* A soft diagonal light sweep glides across the header every few
-   seconds — subtle, not a flashy loading shimmer. */
+   seconds — subtle, not a flashy loading shimmer. Animates `transform`
+   only (translateX), which is GPU-composited, instead of `left`, which
+   forces the browser to repaint on every frame — that repaint cost on a
+   sticky, full-width header was a real contributor to the page feeling
+   laggy. */
 header.app-header-reveal { overflow: hidden; }
 header.app-header-reveal::after {
   content: "";
   position: absolute; top: -50%; left: -30%;
   width: 40%; height: 200%;
   background: linear-gradient(115deg, transparent, rgba(255,255,255,.14), transparent);
-  transform: skewX(-20deg);
+  transform: skewX(-20deg) translateX(0);
   pointer-events: none;
   animation: headerSheen 7s ease-in-out infinite;
   z-index: 1;
+  will-change: transform;
 }
 @keyframes headerSheen {
-  0%   { left: -30%; opacity: 0; }
+  0%   { transform: skewX(-20deg) translateX(0); opacity: 0; }
   8%   { opacity: .8; }
   35%  { opacity: 0; }
-  100% { left: 130%; opacity: 0; }
+  100% { transform: skewX(-20deg) translateX(400%); opacity: 0; }
 }
 header.app-header-reveal > * { position: relative; z-index: 2; }
 
-/* Whole document settles in with a soft fade + rise on first paint,
-   instead of just appearing. */
+/* Whole document settles in with a soft fade on first paint. Opacity
+   only — NOT transform. A transform on <body> (even translateY(0) at
+   animation-end) creates a new containing block for every descendant
+   using position:fixed, so the loading screen / toasts / modals would
+   suddenly be positioned relative to body's full (very tall, scrollable)
+   box instead of the actual viewport — which is exactly what caused the
+   loading screen to render far below the fold with only its top "sky"
+   layer visible on screen. Opacity doesn't have this side effect. */
 html.page-fade-ready body {
-  animation: pageFadeIn .5s cubic-bezier(.22,1,.36,1) both;
+  animation: pageFadeIn .5s ease both;
 }
 @keyframes pageFadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 /* A slow-drifting ambient glow behind the whole page, layered under the
