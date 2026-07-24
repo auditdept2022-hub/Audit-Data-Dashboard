@@ -734,8 +734,12 @@
 
   table{width:100%;border-collapse:collapse;margin-top:4px;}
 
-  /* Scrollable table body for long lists (Transportation), header stays put */
-  .table-scroll{max-height:440px;overflow-y:auto;border-radius:6px;}
+  /* Scrollable table body for long lists (Transportation), header stays put.
+     overflow-x is added so wide fixed-width columns (Mode/Amount/OR No./Date)
+     scroll horizontally INSIDE the card on narrow phones instead of forcing
+     the whole page wider than the viewport (which is what made the entire
+     dashboard look "zoomed out" on mobile). */
+  .table-scroll{max-height:440px;overflow-y:auto;overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:6px;}
   .table-scroll table{margin-top:0;}
   .table-scroll thead th{
     position:sticky;top:0;
@@ -747,6 +751,12 @@
   .table-scroll-hint{
     font-size:12px;color:var(--muted);margin:6px 0 0;
     display:flex;align-items:center;gap:5px;
+  }
+  @media(max-width:640px){
+    /* On phones, let these column-heavy tables keep their natural width and
+       scroll horizontally inside .table-scroll rather than squeezing
+       columns until Amount/OR No./Date become unreadable or untappable. */
+    .table-scroll table{min-width:640px;}
   }
 
   /* Peso-prefixed numeric fields */
@@ -1570,11 +1580,11 @@
     <div class="opex-totals-group">
       <div class="opex-year-total" id="opexActualTotal" title="From the actual-spend OPEX sheet">
         <span class="oy-label" id="opexActualLabel">Operating Expense as of —</span>
-        <span class="oy-amount" id="opexActualAmount">—</span>
+        <span class="oy-amount" id="opexActualAmount">Loading…</span>
       </div>
       <div class="opex-year-total" id="opexYearTotal" title="From the OPEX EXPECTED planning sheet">
         <span class="oy-label" id="opexYearLabel">Operating Expense for the Year</span>
-        <span class="oy-amount" id="opexYearAmount">—</span>
+        <span class="oy-amount" id="opexYearAmount">Loading…</span>
       </div>
     </div>
   </div>
@@ -1729,6 +1739,7 @@
 
   <div class="card card-accent-amber">
     <div class="section-title"><span class="section-icon"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="13" rx="2"/><path d="M2.5 10h19"/><circle cx="17" cy="14.5" r="1.3"/></svg></span>Allowance</div>
+    <div class="table-scroll">
     <table>
       <thead>
         <tr>
@@ -1741,6 +1752,7 @@
       </thead>
       <tbody id="allowanceItems"></tbody>
     </table>
+    </div>
     <button class="add-row" id="addAllowanceRow">+ Add allowance line</button>
     <span id="allowLimitWarn" class="limit-warn"></span>
   </div>
@@ -2019,7 +2031,11 @@ function applyOpexActualData(data){
   const amountEl = document.getElementById('opexActualAmount');
   const labelEl = document.getElementById('opexActualLabel');
   const wrapEl = document.getElementById('opexActualTotal');
-  if(!amountEl || !labelEl || !wrapEl || !data || data.status !== 'success') return;
+  if(!amountEl || !labelEl || !wrapEl) return;
+  if(!data || data.status !== 'success'){
+    if(amountEl.textContent === 'Loading…') amountEl.textContent = '—';
+    return;
+  }
   const now = new Date();
   const stamp = now.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
   amountEl.textContent = fmtPeso(data.total);
@@ -2045,7 +2061,11 @@ function applyOpexYearData(data){
   const amountEl = document.getElementById('opexYearAmount');
   const labelEl = document.getElementById('opexYearLabel');
   const wrapEl = document.getElementById('opexYearTotal');
-  if(!amountEl || !labelEl || !wrapEl || !data || data.status !== 'success') return;
+  if(!amountEl || !labelEl || !wrapEl) return;
+  if(!data || data.status !== 'success'){
+    if(amountEl.textContent === 'Loading…') amountEl.textContent = '—';
+    return;
+  }
   amountEl.textContent = fmtPeso(data.total);
   labelEl.textContent = data.year ? `${data.label} ${data.year}` : data.label;
   wrapEl.title = `From "${data.sheetName}"`;
@@ -3320,17 +3340,18 @@ async function fetchNextReqNo(){
 // to preview until there's a branch to count. Purely instant/local now.
 document.getElementById('area').addEventListener('input', applyNextReqNoPreview);
 
-// Background auto-sync: keeps the cached Req No count (and line-item limits)
-// current in case someone else adds an entry to the sheet while this tab is
-// open, without ever blocking typing. Silent — no toast, no spinner; the
-// manual "Refresh" button (headerRefreshBtn) is still there for an on-demand
-// sync with visible feedback. 30 seconds is a reasonable default; lower it
-// (e.g. 5000 for 5s) if you want tighter multi-user sync, at the cost of more
-// requests to the Apps Script web app.
-const AUTO_SYNC_INTERVAL_MS = 30000;
+// Background auto-sync: keeps the cached Req No count, line-item limits, and
+// the two OPEX badges (as-of actual, for-the-year expected) current in case
+// someone else adds an entry to the sheet while this tab is open, without
+// ever blocking typing. Silent — no toast, no spinner; the manual "Refresh"
+// button (headerRefreshBtn) is still there for an on-demand sync with
+// visible feedback. Set to 2 seconds for tight multi-user sync (at the
+// cost of more requests to the Apps Script web app).
+const AUTO_SYNC_INTERVAL_MS = 2000;
 setInterval(()=>{
   fetchNextReqNo();
   fetchBudgetLimits();
+  fetchOpexBadges();
 }, AUTO_SYNC_INTERVAL_MS);
 
 // Shared by both the "Save request"/"Save changes" button and "Save as New".
