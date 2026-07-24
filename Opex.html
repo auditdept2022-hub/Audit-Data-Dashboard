@@ -113,6 +113,23 @@
     100%{ transform:translateY(-9px) rotate(-3deg) scaleX(1); }
   }
 
+  /* ----- Tail-beat: the caudal fin of a swimming fish flicks side to
+     side much faster than the slow body-bob above — that's what actually
+     reads as "swimming" rather than "floating with a wobble". Every
+     simple reef fish gets its tail fin isolated into <g class="tailwag">
+     so it can beat independently of the body glide. transform-box:fill-box
+     lets the rotation pivot sit at the fin's own base (where it meets the
+     body) instead of the whole SVG's corner. ----- */
+  .ocean-bg .tailwag{
+    transform-box:fill-box;
+    transform-origin:100% 50%;
+    animation:tailwag var(--tailspeed,.5s) ease-in-out infinite;
+  }
+  @keyframes tailwag{
+    0%,100%{ transform:rotate(-15deg); }
+    50%{ transform:rotate(15deg); }
+  }
+
   /* ----- Jellyfish: drifting bells, no "facing" so no mirroring needed ----- */
   .ocean-bg .jelly-outer{
     position:absolute;
@@ -359,6 +376,14 @@
     50%{ transform:translateY(12px) rotate(7deg); }
     75%{ transform:translateY(-5px) rotate(-2deg); }
     100%{ transform:translateY(12px) rotate(7deg); }
+  }
+
+  /* ---------- Whale: huge, slow, barely-there roll — reads as something
+     big cruising far below rather than bobbing like a reef fish. ---------- */
+  .ocean-bg .whale-inner{ animation-name:whale-glide; }
+  @keyframes whale-glide{
+    0%,100%{ transform:translateY(-6px) rotate(-1.2deg); }
+    50%{ transform:translateY(7px) rotate(1.2deg); }
   }
 
   /* ---------- Manta ray: big slow wing-beat rather than a tail-driven
@@ -1806,209 +1831,222 @@
        .face-left helper class in CSS (reverses travel + mirrors the art),
        so a creature can never appear to swim backwards/tail-first. -->
 
-  <div class="fish-outer" style="--hue:0deg;--sat:1.05;--top:4%;--size:clamp(44px,6.2vw,76px);--dur:42s;--delay:-10s;">
+  <div class="fish-outer" style="--hue:0deg;--sat:1.05;--top:4%;--size:clamp(44px,6.2vw,76px);--dur:28s;--delay:-10s;">
     <div class="fish-inner" style="--bobdur:4s;--bobdelay:-1s;"><div class="fish-flip">
       <svg viewBox="0 0 140 74" xmlns="http://www.w3.org/2000/svg">
-        <defs><linearGradient id="fA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFB25C"/><stop offset="55%" stop-color="#E4572E"/><stop offset="100%" stop-color="#B8391A"/></linearGradient></defs>
-        <path d="M18 37 L2 16 L11 37 L2 58 Z" fill="#B8391A"/>
-        <path d="M22 37 Q26 14 58 10 Q94 7 120 22 Q130 30 130 37 Q130 44 120 52 Q94 67 58 64 Q26 60 22 37Z" fill="url(#fA)"/>
-        <path d="M50 12 Q64 -7 82 4 Q96 12 102 20 Q78 12 50 12Z" fill="#B8391A" opacity=".92"/>
-        <path d="M56 62 Q66 77 80 70 Q92 64 98 56 Q76 66 56 62Z" fill="#B8391A" opacity=".85"/>
-        <path d="M48 40 Q34 52 40 63 Q52 57 56 44Z" fill="#FF9A3C" opacity=".82"/>
-        <path d="M40 20 Q46 37 40 54" stroke="#8A2A10" stroke-width="2" fill="none" opacity=".4"/>
-        <path d="M56 20 Q62 37 56 54" stroke="#FFD9B0" stroke-width="2" fill="none" opacity=".35"/>
-        <circle cx="108" cy="27" r="6.4" fill="#fff"/><circle cx="110" cy="27" r="3.4" fill="#1B2233"/><circle cx="111.4" cy="25.4" r="1.1" fill="#fff"/>
+        <defs><linearGradient id="fA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFB25C"/><stop offset="50%" stop-color="#E4572E"/><stop offset="100%" stop-color="#9C2E12"/></linearGradient></defs>
+        <g class="tailwag" style="--tailspeed:.46s;"><path d="M26 37 Q10 20 0 9 Q7 27 15 37 Q7 47 0 65 Q10 54 26 37Z" fill="#9C2E12"/></g>
+        <path d="M24 37 Q24 15 53 10 Q86 4 113 16 Q129 24 135 34 Q137 37 135 40 Q129 50 113 58 Q86 70 53 64 Q24 59 24 37Z" fill="url(#fA)"/>
+        <path d="M53 11 Q61 -9 81 1 Q95 8 101 15 Q78 9 53 11Z" fill="#9C2E12" opacity=".92"/>
+        <path d="M57 61 Q65 76 79 70 Q91 63 97 55 Q77 65 57 61Z" fill="#9C2E12" opacity=".85"/>
+        <path d="M50 39 Q37 50 42 61 Q54 55 58 42Z" fill="#FF9A3C" opacity=".82"/>
+        <path d="M104 19 Q111 37 104 55" stroke="#7A2409" stroke-width="2" fill="none" opacity=".45"/>
+        <path d="M42 22 Q48 37 42 52" stroke="#FFD9B0" stroke-width="1.6" fill="none" opacity=".35"/>
+        <path d="M62 18 Q68 37 62 56" stroke="#FFD9B0" stroke-width="1.4" fill="none" opacity=".26"/>
+        <circle cx="118" cy="27" r="6.3" fill="#fff"/><circle cx="120" cy="27" r="3.3" fill="#1B2233"/><circle cx="121.3" cy="25.4" r="1.1" fill="#fff"/>
       </svg>
     </div></div>
   </div>
 
-  <div class="fish-outer face-left" style="--hue:-24deg;--sat:1.1;--top:12%;--size:clamp(48px,6.8vw,84px);--dur:55s;--delay:-30s;">
+  <div class="fish-outer face-left" style="--hue:-24deg;--sat:1.1;--top:12%;--size:clamp(48px,6.8vw,84px);--dur:36s;--delay:-30s;">
     <div class="fish-inner" style="--bobdur:4.6s;--bobdelay:-2s;"><div class="fish-flip">
       <svg viewBox="0 0 120 52" xmlns="http://www.w3.org/2000/svg">
-        <defs><linearGradient id="fB" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8FE3FF"/><stop offset="55%" stop-color="#2C6FEE"/><stop offset="100%" stop-color="#123E9E"/></linearGradient></defs>
-        <path d="M16 26 L2 12 L7 26 L2 40 Z" fill="#123E9E"/>
-        <path d="M18 26 Q22 8 46 7 Q76 6 96 16 Q106 22 106 26 Q106 30 96 36 Q76 46 46 45 Q22 44 18 26Z" fill="url(#fB)"/>
-        <path d="M40 8 Q50 -4 64 2 Q74 8 78 14 Q58 8 40 8Z" fill="#123E9E" opacity=".85"/>
-        <path d="M44 44 Q52 54 64 48 Q74 42 78 38 Q60 46 44 44Z" fill="#123E9E" opacity=".75"/>
-        <path d="M34 30 Q26 38 30 46 Q40 42 42 32Z" fill="#5FA0FF" opacity=".78"/>
-        <path d="M60 10 Q70 26 60 42" stroke="#0B2C74" stroke-width="2.4" fill="none" opacity=".55"/>
-        <circle cx="88" cy="21" r="4.6" fill="#fff"/><circle cx="89.4" cy="21" r="2.5" fill="#1B2233"/><circle cx="90.2" cy="20" r=".8" fill="#fff"/>
+        <defs><linearGradient id="fB" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8FE3FF"/><stop offset="50%" stop-color="#2C6FEE"/><stop offset="100%" stop-color="#0B2C74"/></linearGradient></defs>
+        <g class="tailwag" style="--tailspeed:.42s;"><path d="M22 26 Q8 12 0 4 Q6 19 12 26 Q6 33 0 48 Q8 40 22 26Z" fill="#0B2C74"/></g>
+        <path d="M20 26 Q20 10 44 6 Q72 1 95 12 Q109 18 113 26 Q109 34 95 40 Q72 51 44 46 Q20 42 20 26Z" fill="url(#fB)"/>
+        <path d="M44 7 Q52 -8 68 -1 Q78 5 82 10 Q62 5 44 7Z" fill="#0B2C74" opacity=".88"/>
+        <path d="M46 45 Q54 57 68 51 Q78 44 82 39 Q62 48 46 45Z" fill="#0B2C74" opacity=".78"/>
+        <path d="M40 28 Q30 36 34 45 Q44 40 46 30Z" fill="#5FA0FF" opacity=".78"/>
+        <path d="M88 14 Q96 26 88 38" stroke="#082058" stroke-width="2" fill="none" opacity=".5"/>
+        <path d="M56 10 Q62 26 56 42" stroke="#BFE6FF" stroke-width="1.4" fill="none" opacity=".3"/>
+        <circle cx="100" cy="20" r="4.4" fill="#fff"/><circle cx="101.3" cy="20" r="2.4" fill="#1B2233"/><circle cx="102" cy="19" r=".7" fill="#fff"/>
       </svg>
     </div></div>
   </div>
 
-  <div class="fish-outer" style="--hue:36deg;--sat:1;--top:19%;--size:clamp(58px,8.2vw,98px);--dur:48s;--delay:-5s;">
+  <div class="fish-outer" style="--hue:36deg;--sat:1;--top:19%;--size:clamp(58px,8.2vw,98px);--dur:32s;--delay:-5s;">
     <div class="fish-inner" style="--bobdur:5s;--bobdelay:-3s;"><div class="fish-flip">
       <svg viewBox="0 0 116 116" xmlns="http://www.w3.org/2000/svg">
-        <defs><radialGradient id="fC" cx="42%" cy="35%" r="70%"><stop offset="0%" stop-color="#FFE45C"/><stop offset="65%" stop-color="#FFC629"/><stop offset="100%" stop-color="#D98F00"/></radialGradient></defs>
-        <path d="M58 8 Q26 26 22 58 Q26 90 58 108 Q46 82 46 58 Q46 34 58 8Z" fill="#D98F00" opacity=".9"/>
+        <defs><radialGradient id="fC" cx="42%" cy="35%" r="70%"><stop offset="0%" stop-color="#FFE45C"/><stop offset="60%" stop-color="#FFC629"/><stop offset="100%" stop-color="#B87400"/></radialGradient></defs>
+        <g class="tailwag" style="--tailspeed:.6s;" ><path d="M46 12 Q22 30 20 58 Q22 86 46 104 Q36 80 36 58 Q36 36 46 12Z" fill="#B87400" opacity=".92"/></g>
         <ellipse cx="66" cy="58" rx="34" ry="42" fill="url(#fC)"/>
-        <path d="M50 18 Q66 -6 82 18 Q68 20 50 18Z" fill="#D98F00"/>
-        <path d="M50 98 Q66 122 82 98 Q68 96 50 98Z" fill="#D98F00"/>
+        <path d="M50 18 Q66 -7 83 18 Q68 20 50 18Z" fill="#B87400"/>
+        <path d="M50 98 Q66 123 83 98 Q68 96 50 98Z" fill="#B87400" opacity=".92"/>
         <path d="M96 44 Q110 51 112 58 Q110 65 96 72 Q102 58 96 44Z" fill="url(#fC)"/>
-        <path d="M50 30 Q66 58 50 86" stroke="#B87400" stroke-width="2.4" fill="none" opacity=".4"/>
-        <path d="M100 54 L108 50 M100 62 L108 66" stroke="#8A5600" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M50 30 Q66 58 50 86" stroke="#8A5600" stroke-width="2.2" fill="none" opacity=".4"/>
+        <path d="M58 26 Q70 58 58 90" stroke="#FFF3C4" stroke-width="1.6" fill="none" opacity=".3"/>
+        <path d="M100 54 L108 50 M100 62 L108 66" stroke="#6B4300" stroke-width="2.4" stroke-linecap="round"/>
         <circle cx="90" cy="46" r="6" fill="#fff"/><circle cx="92" cy="46" r="3.2" fill="#1B2233"/><circle cx="93" cy="44.6" r="1" fill="#fff"/>
       </svg>
     </div></div>
   </div>
 
-  <div class="fish-outer" style="--top:27%;--size:clamp(50px,7.2vw,86px);--dur:60s;--delay:-40s;">
+  <div class="fish-outer" style="--top:27%;--size:clamp(50px,7.2vw,86px);--dur:40s;--delay:-40s;">
     <div class="fish-inner" style="--bobdur:4.2s;--bobdelay:-1.5s;"><div class="fish-flip">
       <svg viewBox="0 0 130 64" xmlns="http://www.w3.org/2000/svg">
-        <defs><linearGradient id="fD" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FF9A3C"/><stop offset="55%" stop-color="#E4572E"/><stop offset="100%" stop-color="#B8391A"/></linearGradient></defs>
-        <path d="M22 32 L2 14 L9 32 L2 50 Z" fill="#B8391A"/>
-        <path d="M24 32 Q28 12 56 10 Q86 8 108 20 Q118 26 118 32 Q118 38 108 44 Q86 56 56 54 Q28 52 24 32Z" fill="url(#fD)"/>
-        <path d="M40 12 L36 52" stroke="#1B2233" stroke-width="11" stroke-linecap="round" opacity=".2"/>
-        <path d="M40 12 L36 52" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
-        <path d="M68 10 L66 54" stroke="#1B2233" stroke-width="11" stroke-linecap="round" opacity=".2"/>
-        <path d="M68 10 L66 54" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
-        <path d="M50 12 Q64 -6 80 10 Q64 8 50 12Z" fill="#B8391A"/>
-        <path d="M52 54 Q64 68 80 54 Q64 52 52 54Z" fill="#B8391A" opacity=".9"/>
-        <circle cx="102" cy="24" r="5.6" fill="#fff"/><circle cx="104" cy="24" r="3" fill="#1B2233"/><circle cx="105" cy="22.6" r="1" fill="#fff"/>
+        <defs><linearGradient id="fD" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FF9A3C"/><stop offset="50%" stop-color="#E4572E"/><stop offset="100%" stop-color="#8A2A10"/></linearGradient></defs>
+        <g class="tailwag" style="--tailspeed:.44s;"><path d="M24 32 Q10 17 2 8 Q8 24 15 32 Q8 40 2 56 Q10 47 24 32Z" fill="#8A2A10"/></g>
+        <path d="M22 32 Q22 13 49 10 Q81 5 105 16 Q117 23 117 32 Q117 41 105 48 Q81 59 49 54 Q22 51 22 32Z" fill="url(#fD)"/>
+        <path d="M38 12 L34 52" stroke="#1B2233" stroke-width="10" stroke-linecap="round" opacity=".18"/>
+        <path d="M38 12 L34 52" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+        <path d="M64 10 L62 54" stroke="#1B2233" stroke-width="10" stroke-linecap="round" opacity=".18"/>
+        <path d="M64 10 L62 54" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+        <path d="M49 11 Q60 -7 78 7 Q64 5 49 11Z" fill="#8A2A10"/>
+        <path d="M50 53 Q60 68 78 54 Q62 51 50 53Z" fill="#8A2A10" opacity=".9"/>
+        <path d="M42 34 Q32 43 36 52" stroke="#FFB16A" stroke-width="1.6" fill="none" opacity=".4"/>
+        <circle cx="100" cy="23" r="5.6" fill="#fff"/><circle cx="102" cy="23" r="3" fill="#1B2233"/><circle cx="103" cy="21.6" r="1" fill="#fff"/>
       </svg>
     </div></div>
   </div>
 
-  <div class="fish-outer face-left" style="--hue:150deg;--sat:.95;--top:33%;--size:clamp(42px,6vw,72px);--dur:38s;--delay:-15s;">
+  <div class="fish-outer face-left" style="--hue:150deg;--sat:.95;--top:33%;--size:clamp(42px,6vw,72px);--dur:26s;--delay:-15s;">
     <div class="fish-inner" style="--bobdur:3.8s;--bobdelay:-.6s;"><div class="fish-flip">
       <svg viewBox="0 0 140 74" xmlns="http://www.w3.org/2000/svg">
-        <defs><linearGradient id="fA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFB25C"/><stop offset="55%" stop-color="#E4572E"/><stop offset="100%" stop-color="#B8391A"/></linearGradient></defs>
-        <path d="M18 37 L2 16 L11 37 L2 58 Z" fill="#B8391A"/>
-        <path d="M22 37 Q26 14 58 10 Q94 7 120 22 Q130 30 130 37 Q130 44 120 52 Q94 67 58 64 Q26 60 22 37Z" fill="url(#fA)"/>
-        <path d="M50 12 Q64 -7 82 4 Q96 12 102 20 Q78 12 50 12Z" fill="#B8391A" opacity=".92"/>
-        <path d="M56 62 Q66 77 80 70 Q92 64 98 56 Q76 66 56 62Z" fill="#B8391A" opacity=".85"/>
-        <path d="M48 40 Q34 52 40 63 Q52 57 56 44Z" fill="#FF9A3C" opacity=".82"/>
-        <path d="M40 20 Q46 37 40 54" stroke="#8A2A10" stroke-width="2" fill="none" opacity=".4"/>
-        <path d="M56 20 Q62 37 56 54" stroke="#FFD9B0" stroke-width="2" fill="none" opacity=".35"/>
-        <circle cx="108" cy="27" r="6.4" fill="#fff"/><circle cx="110" cy="27" r="3.4" fill="#1B2233"/><circle cx="111.4" cy="25.4" r="1.1" fill="#fff"/>
+        <defs><linearGradient id="fA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFB25C"/><stop offset="50%" stop-color="#E4572E"/><stop offset="100%" stop-color="#9C2E12"/></linearGradient></defs>
+        <g class="tailwag" style="--tailspeed:.46s;"><path d="M26 37 Q10 20 0 9 Q7 27 15 37 Q7 47 0 65 Q10 54 26 37Z" fill="#9C2E12"/></g>
+        <path d="M24 37 Q24 15 53 10 Q86 4 113 16 Q129 24 135 34 Q137 37 135 40 Q129 50 113 58 Q86 70 53 64 Q24 59 24 37Z" fill="url(#fA)"/>
+        <path d="M53 11 Q61 -9 81 1 Q95 8 101 15 Q78 9 53 11Z" fill="#9C2E12" opacity=".92"/>
+        <path d="M57 61 Q65 76 79 70 Q91 63 97 55 Q77 65 57 61Z" fill="#9C2E12" opacity=".85"/>
+        <path d="M50 39 Q37 50 42 61 Q54 55 58 42Z" fill="#FF9A3C" opacity=".82"/>
+        <path d="M104 19 Q111 37 104 55" stroke="#7A2409" stroke-width="2" fill="none" opacity=".45"/>
+        <path d="M42 22 Q48 37 42 52" stroke="#FFD9B0" stroke-width="1.6" fill="none" opacity=".35"/>
+        <path d="M62 18 Q68 37 62 56" stroke="#FFD9B0" stroke-width="1.4" fill="none" opacity=".26"/>
+        <circle cx="118" cy="27" r="6.3" fill="#fff"/><circle cx="120" cy="27" r="3.3" fill="#1B2233"/><circle cx="121.3" cy="25.4" r="1.1" fill="#fff"/>
       </svg>
     </div></div>
   </div>
 
-  <div class="fish-outer" style="--hue:-10deg;--sat:1;--top:40%;--size:clamp(40px,5.6vw,66px);--dur:50s;--delay:-22s;">
+  <div class="fish-outer" style="--hue:-10deg;--sat:1;--top:40%;--size:clamp(40px,5.6vw,66px);--dur:34s;--delay:-22s;">
     <div class="fish-inner" style="--bobdur:3.4s;--bobdelay:-1.2s;"><div class="fish-flip">
       <svg viewBox="0 0 120 52" xmlns="http://www.w3.org/2000/svg">
-        <defs><linearGradient id="fB" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8FE3FF"/><stop offset="55%" stop-color="#2C6FEE"/><stop offset="100%" stop-color="#123E9E"/></linearGradient></defs>
-        <path d="M16 26 L2 12 L7 26 L2 40 Z" fill="#123E9E"/>
-        <path d="M18 26 Q22 8 46 7 Q76 6 96 16 Q106 22 106 26 Q106 30 96 36 Q76 46 46 45 Q22 44 18 26Z" fill="url(#fB)"/>
-        <path d="M40 8 Q50 -4 64 2 Q74 8 78 14 Q58 8 40 8Z" fill="#123E9E" opacity=".85"/>
-        <path d="M44 44 Q52 54 64 48 Q74 42 78 38 Q60 46 44 44Z" fill="#123E9E" opacity=".75"/>
-        <path d="M34 30 Q26 38 30 46 Q40 42 42 32Z" fill="#5FA0FF" opacity=".78"/>
-        <path d="M60 10 Q70 26 60 42" stroke="#0B2C74" stroke-width="2.4" fill="none" opacity=".55"/>
-        <circle cx="88" cy="21" r="4.6" fill="#fff"/><circle cx="89.4" cy="21" r="2.5" fill="#1B2233"/><circle cx="90.2" cy="20" r=".8" fill="#fff"/>
+        <defs><linearGradient id="fB" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8FE3FF"/><stop offset="50%" stop-color="#2C6FEE"/><stop offset="100%" stop-color="#0B2C74"/></linearGradient></defs>
+        <g class="tailwag" style="--tailspeed:.42s;"><path d="M22 26 Q8 12 0 4 Q6 19 12 26 Q6 33 0 48 Q8 40 22 26Z" fill="#0B2C74"/></g>
+        <path d="M20 26 Q20 10 44 6 Q72 1 95 12 Q109 18 113 26 Q109 34 95 40 Q72 51 44 46 Q20 42 20 26Z" fill="url(#fB)"/>
+        <path d="M44 7 Q52 -8 68 -1 Q78 5 82 10 Q62 5 44 7Z" fill="#0B2C74" opacity=".88"/>
+        <path d="M46 45 Q54 57 68 51 Q78 44 82 39 Q62 48 46 45Z" fill="#0B2C74" opacity=".78"/>
+        <path d="M40 28 Q30 36 34 45 Q44 40 46 30Z" fill="#5FA0FF" opacity=".78"/>
+        <path d="M88 14 Q96 26 88 38" stroke="#082058" stroke-width="2" fill="none" opacity=".5"/>
+        <path d="M56 10 Q62 26 56 42" stroke="#BFE6FF" stroke-width="1.4" fill="none" opacity=".3"/>
+        <circle cx="100" cy="20" r="4.4" fill="#fff"/><circle cx="101.3" cy="20" r="2.4" fill="#1B2233"/><circle cx="102" cy="19" r=".7" fill="#fff"/>
       </svg>
     </div></div>
   </div>
 
-  <div class="fish-outer" style="--hue:-70deg;--sat:1;--top:47%;--size:clamp(60px,8.6vw,102px);--dur:65s;--delay:-8s;">
+  <div class="fish-outer" style="--hue:-70deg;--sat:1;--top:47%;--size:clamp(60px,8.6vw,102px);--dur:42s;--delay:-8s;">
     <div class="fish-inner" style="--bobdur:5.4s;--bobdelay:-2.4s;"><div class="fish-flip">
       <svg viewBox="0 0 116 116" xmlns="http://www.w3.org/2000/svg">
-        <defs><radialGradient id="fC" cx="42%" cy="35%" r="70%"><stop offset="0%" stop-color="#FFE45C"/><stop offset="65%" stop-color="#FFC629"/><stop offset="100%" stop-color="#D98F00"/></radialGradient></defs>
-        <path d="M58 8 Q26 26 22 58 Q26 90 58 108 Q46 82 46 58 Q46 34 58 8Z" fill="#D98F00" opacity=".9"/>
+        <defs><radialGradient id="fC" cx="42%" cy="35%" r="70%"><stop offset="0%" stop-color="#FFE45C"/><stop offset="60%" stop-color="#FFC629"/><stop offset="100%" stop-color="#B87400"/></radialGradient></defs>
+        <g class="tailwag" style="--tailspeed:.6s;" ><path d="M46 12 Q22 30 20 58 Q22 86 46 104 Q36 80 36 58 Q36 36 46 12Z" fill="#B87400" opacity=".92"/></g>
         <ellipse cx="66" cy="58" rx="34" ry="42" fill="url(#fC)"/>
-        <path d="M50 18 Q66 -6 82 18 Q68 20 50 18Z" fill="#D98F00"/>
-        <path d="M50 98 Q66 122 82 98 Q68 96 50 98Z" fill="#D98F00"/>
+        <path d="M50 18 Q66 -7 83 18 Q68 20 50 18Z" fill="#B87400"/>
+        <path d="M50 98 Q66 123 83 98 Q68 96 50 98Z" fill="#B87400" opacity=".92"/>
         <path d="M96 44 Q110 51 112 58 Q110 65 96 72 Q102 58 96 44Z" fill="url(#fC)"/>
-        <path d="M50 30 Q66 58 50 86" stroke="#B87400" stroke-width="2.4" fill="none" opacity=".4"/>
-        <path d="M100 54 L108 50 M100 62 L108 66" stroke="#8A5600" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M50 30 Q66 58 50 86" stroke="#8A5600" stroke-width="2.2" fill="none" opacity=".4"/>
+        <path d="M58 26 Q70 58 58 90" stroke="#FFF3C4" stroke-width="1.6" fill="none" opacity=".3"/>
+        <path d="M100 54 L108 50 M100 62 L108 66" stroke="#6B4300" stroke-width="2.4" stroke-linecap="round"/>
         <circle cx="90" cy="46" r="6" fill="#fff"/><circle cx="92" cy="46" r="3.2" fill="#1B2233"/><circle cx="93" cy="44.6" r="1" fill="#fff"/>
       </svg>
     </div></div>
   </div>
 
-  <div class="fish-outer face-left" style="--hue:210deg;--sat:.9;--top:53%;--size:clamp(46px,6.6vw,80px);--dur:44s;--delay:-33s;">
+  <div class="fish-outer face-left" style="--hue:210deg;--sat:.9;--top:53%;--size:clamp(46px,6.6vw,80px);--dur:30s;--delay:-33s;">
     <div class="fish-inner" style="--bobdur:4.1s;--bobdelay:-1.8s;"><div class="fish-flip">
       <svg viewBox="0 0 130 64" xmlns="http://www.w3.org/2000/svg">
-        <defs><linearGradient id="fD" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FF9A3C"/><stop offset="55%" stop-color="#E4572E"/><stop offset="100%" stop-color="#B8391A"/></linearGradient></defs>
-        <path d="M22 32 L2 14 L9 32 L2 50 Z" fill="#B8391A"/>
-        <path d="M24 32 Q28 12 56 10 Q86 8 108 20 Q118 26 118 32 Q118 38 108 44 Q86 56 56 54 Q28 52 24 32Z" fill="url(#fD)"/>
-        <path d="M40 12 L36 52" stroke="#1B2233" stroke-width="11" stroke-linecap="round" opacity=".2"/>
-        <path d="M40 12 L36 52" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
-        <path d="M68 10 L66 54" stroke="#1B2233" stroke-width="11" stroke-linecap="round" opacity=".2"/>
-        <path d="M68 10 L66 54" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
-        <path d="M50 12 Q64 -6 80 10 Q64 8 50 12Z" fill="#B8391A"/>
-        <path d="M52 54 Q64 68 80 54 Q64 52 52 54Z" fill="#B8391A" opacity=".9"/>
-        <circle cx="102" cy="24" r="5.6" fill="#fff"/><circle cx="104" cy="24" r="3" fill="#1B2233"/><circle cx="105" cy="22.6" r="1" fill="#fff"/>
+        <defs><linearGradient id="fD" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FF9A3C"/><stop offset="50%" stop-color="#E4572E"/><stop offset="100%" stop-color="#8A2A10"/></linearGradient></defs>
+        <g class="tailwag" style="--tailspeed:.44s;"><path d="M24 32 Q10 17 2 8 Q8 24 15 32 Q8 40 2 56 Q10 47 24 32Z" fill="#8A2A10"/></g>
+        <path d="M22 32 Q22 13 49 10 Q81 5 105 16 Q117 23 117 32 Q117 41 105 48 Q81 59 49 54 Q22 51 22 32Z" fill="url(#fD)"/>
+        <path d="M38 12 L34 52" stroke="#1B2233" stroke-width="10" stroke-linecap="round" opacity=".18"/>
+        <path d="M38 12 L34 52" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+        <path d="M64 10 L62 54" stroke="#1B2233" stroke-width="10" stroke-linecap="round" opacity=".18"/>
+        <path d="M64 10 L62 54" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+        <path d="M49 11 Q60 -7 78 7 Q64 5 49 11Z" fill="#8A2A10"/>
+        <path d="M50 53 Q60 68 78 54 Q62 51 50 53Z" fill="#8A2A10" opacity=".9"/>
+        <path d="M42 34 Q32 43 36 52" stroke="#FFB16A" stroke-width="1.6" fill="none" opacity=".4"/>
+        <circle cx="100" cy="23" r="5.6" fill="#fff"/><circle cx="102" cy="23" r="3" fill="#1B2233"/><circle cx="103" cy="21.6" r="1" fill="#fff"/>
       </svg>
     </div></div>
   </div>
 
-  <div class="fish-outer" style="--hue:280deg;--sat:1;--top:15%;--size:clamp(36px,5.2vw,60px);--dur:36s;--delay:-3s;">
+  <div class="fish-outer" style="--hue:280deg;--sat:1;--top:15%;--size:clamp(36px,5.2vw,60px);--dur:24s;--delay:-3s;">
     <div class="fish-inner" style="--bobdur:3s;--bobdelay:-.4s;"><div class="fish-flip">
       <svg viewBox="0 0 140 74" xmlns="http://www.w3.org/2000/svg">
-        <defs><linearGradient id="fA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFB25C"/><stop offset="55%" stop-color="#E4572E"/><stop offset="100%" stop-color="#B8391A"/></linearGradient></defs>
-        <path d="M18 37 L2 16 L11 37 L2 58 Z" fill="#B8391A"/>
-        <path d="M22 37 Q26 14 58 10 Q94 7 120 22 Q130 30 130 37 Q130 44 120 52 Q94 67 58 64 Q26 60 22 37Z" fill="url(#fA)"/>
-        <path d="M50 12 Q64 -7 82 4 Q96 12 102 20 Q78 12 50 12Z" fill="#B8391A" opacity=".92"/>
-        <path d="M56 62 Q66 77 80 70 Q92 64 98 56 Q76 66 56 62Z" fill="#B8391A" opacity=".85"/>
-        <path d="M48 40 Q34 52 40 63 Q52 57 56 44Z" fill="#FF9A3C" opacity=".82"/>
-        <path d="M40 20 Q46 37 40 54" stroke="#8A2A10" stroke-width="2" fill="none" opacity=".4"/>
-        <path d="M56 20 Q62 37 56 54" stroke="#FFD9B0" stroke-width="2" fill="none" opacity=".35"/>
-        <circle cx="108" cy="27" r="6.4" fill="#fff"/><circle cx="110" cy="27" r="3.4" fill="#1B2233"/><circle cx="111.4" cy="25.4" r="1.1" fill="#fff"/>
+        <defs><linearGradient id="fA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFB25C"/><stop offset="50%" stop-color="#E4572E"/><stop offset="100%" stop-color="#9C2E12"/></linearGradient></defs>
+        <g class="tailwag" style="--tailspeed:.46s;"><path d="M26 37 Q10 20 0 9 Q7 27 15 37 Q7 47 0 65 Q10 54 26 37Z" fill="#9C2E12"/></g>
+        <path d="M24 37 Q24 15 53 10 Q86 4 113 16 Q129 24 135 34 Q137 37 135 40 Q129 50 113 58 Q86 70 53 64 Q24 59 24 37Z" fill="url(#fA)"/>
+        <path d="M53 11 Q61 -9 81 1 Q95 8 101 15 Q78 9 53 11Z" fill="#9C2E12" opacity=".92"/>
+        <path d="M57 61 Q65 76 79 70 Q91 63 97 55 Q77 65 57 61Z" fill="#9C2E12" opacity=".85"/>
+        <path d="M50 39 Q37 50 42 61 Q54 55 58 42Z" fill="#FF9A3C" opacity=".82"/>
+        <path d="M104 19 Q111 37 104 55" stroke="#7A2409" stroke-width="2" fill="none" opacity=".45"/>
+        <path d="M42 22 Q48 37 42 52" stroke="#FFD9B0" stroke-width="1.6" fill="none" opacity=".35"/>
+        <path d="M62 18 Q68 37 62 56" stroke="#FFD9B0" stroke-width="1.4" fill="none" opacity=".26"/>
+        <circle cx="118" cy="27" r="6.3" fill="#fff"/><circle cx="120" cy="27" r="3.3" fill="#1B2233"/><circle cx="121.3" cy="25.4" r="1.1" fill="#fff"/>
       </svg>
     </div></div>
   </div>
 
-  <div class="fish-outer face-left" style="--hue:95deg;--sat:1;--top:59%;--size:clamp(38px,5.4vw,64px);--dur:58s;--delay:-18s;">
+  <div class="fish-outer face-left" style="--hue:95deg;--sat:1;--top:59%;--size:clamp(38px,5.4vw,64px);--dur:38s;--delay:-18s;">
     <div class="fish-inner" style="--bobdur:3.6s;--bobdelay:-2.6s;"><div class="fish-flip">
       <svg viewBox="0 0 120 52" xmlns="http://www.w3.org/2000/svg">
-        <defs><linearGradient id="fB" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8FE3FF"/><stop offset="55%" stop-color="#2C6FEE"/><stop offset="100%" stop-color="#123E9E"/></linearGradient></defs>
-        <path d="M16 26 L2 12 L7 26 L2 40 Z" fill="#123E9E"/>
-        <path d="M18 26 Q22 8 46 7 Q76 6 96 16 Q106 22 106 26 Q106 30 96 36 Q76 46 46 45 Q22 44 18 26Z" fill="url(#fB)"/>
-        <path d="M40 8 Q50 -4 64 2 Q74 8 78 14 Q58 8 40 8Z" fill="#123E9E" opacity=".85"/>
-        <path d="M44 44 Q52 54 64 48 Q74 42 78 38 Q60 46 44 44Z" fill="#123E9E" opacity=".75"/>
-        <path d="M34 30 Q26 38 30 46 Q40 42 42 32Z" fill="#5FA0FF" opacity=".78"/>
-        <path d="M60 10 Q70 26 60 42" stroke="#0B2C74" stroke-width="2.4" fill="none" opacity=".55"/>
-        <circle cx="88" cy="21" r="4.6" fill="#fff"/><circle cx="89.4" cy="21" r="2.5" fill="#1B2233"/><circle cx="90.2" cy="20" r=".8" fill="#fff"/>
+        <defs><linearGradient id="fB" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8FE3FF"/><stop offset="50%" stop-color="#2C6FEE"/><stop offset="100%" stop-color="#0B2C74"/></linearGradient></defs>
+        <g class="tailwag" style="--tailspeed:.42s;"><path d="M22 26 Q8 12 0 4 Q6 19 12 26 Q6 33 0 48 Q8 40 22 26Z" fill="#0B2C74"/></g>
+        <path d="M20 26 Q20 10 44 6 Q72 1 95 12 Q109 18 113 26 Q109 34 95 40 Q72 51 44 46 Q20 42 20 26Z" fill="url(#fB)"/>
+        <path d="M44 7 Q52 -8 68 -1 Q78 5 82 10 Q62 5 44 7Z" fill="#0B2C74" opacity=".88"/>
+        <path d="M46 45 Q54 57 68 51 Q78 44 82 39 Q62 48 46 45Z" fill="#0B2C74" opacity=".78"/>
+        <path d="M40 28 Q30 36 34 45 Q44 40 46 30Z" fill="#5FA0FF" opacity=".78"/>
+        <path d="M88 14 Q96 26 88 38" stroke="#082058" stroke-width="2" fill="none" opacity=".5"/>
+        <path d="M56 10 Q62 26 56 42" stroke="#BFE6FF" stroke-width="1.4" fill="none" opacity=".3"/>
+        <circle cx="100" cy="20" r="4.4" fill="#fff"/><circle cx="101.3" cy="20" r="2.4" fill="#1B2233"/><circle cx="102" cy="19" r=".7" fill="#fff"/>
       </svg>
     </div></div>
   </div>
 
-  <div class="fish-outer" style="--hue:-45deg;--sat:1;--top:7%;--size:clamp(34px,4.9vw,58px);--dur:33s;--delay:-6s;">
+  <div class="fish-outer" style="--hue:-45deg;--sat:1;--top:7%;--size:clamp(34px,4.9vw,58px);--dur:22s;--delay:-6s;">
     <div class="fish-inner" style="--bobdur:2.8s;--bobdelay:-1.6s;"><div class="fish-flip">
       <svg viewBox="0 0 130 64" xmlns="http://www.w3.org/2000/svg">
-        <defs><linearGradient id="fD" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FF9A3C"/><stop offset="55%" stop-color="#E4572E"/><stop offset="100%" stop-color="#B8391A"/></linearGradient></defs>
-        <path d="M22 32 L2 14 L9 32 L2 50 Z" fill="#B8391A"/>
-        <path d="M24 32 Q28 12 56 10 Q86 8 108 20 Q118 26 118 32 Q118 38 108 44 Q86 56 56 54 Q28 52 24 32Z" fill="url(#fD)"/>
-        <path d="M40 12 L36 52" stroke="#1B2233" stroke-width="11" stroke-linecap="round" opacity=".2"/>
-        <path d="M40 12 L36 52" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
-        <path d="M68 10 L66 54" stroke="#1B2233" stroke-width="11" stroke-linecap="round" opacity=".2"/>
-        <path d="M68 10 L66 54" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
-        <path d="M50 12 Q64 -6 80 10 Q64 8 50 12Z" fill="#B8391A"/>
-        <path d="M52 54 Q64 68 80 54 Q64 52 52 54Z" fill="#B8391A" opacity=".9"/>
-        <circle cx="102" cy="24" r="5.6" fill="#fff"/><circle cx="104" cy="24" r="3" fill="#1B2233"/><circle cx="105" cy="22.6" r="1" fill="#fff"/>
+        <defs><linearGradient id="fD" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FF9A3C"/><stop offset="50%" stop-color="#E4572E"/><stop offset="100%" stop-color="#8A2A10"/></linearGradient></defs>
+        <g class="tailwag" style="--tailspeed:.44s;"><path d="M24 32 Q10 17 2 8 Q8 24 15 32 Q8 40 2 56 Q10 47 24 32Z" fill="#8A2A10"/></g>
+        <path d="M22 32 Q22 13 49 10 Q81 5 105 16 Q117 23 117 32 Q117 41 105 48 Q81 59 49 54 Q22 51 22 32Z" fill="url(#fD)"/>
+        <path d="M38 12 L34 52" stroke="#1B2233" stroke-width="10" stroke-linecap="round" opacity=".18"/>
+        <path d="M38 12 L34 52" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+        <path d="M64 10 L62 54" stroke="#1B2233" stroke-width="10" stroke-linecap="round" opacity=".18"/>
+        <path d="M64 10 L62 54" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+        <path d="M49 11 Q60 -7 78 7 Q64 5 49 11Z" fill="#8A2A10"/>
+        <path d="M50 53 Q60 68 78 54 Q62 51 50 53Z" fill="#8A2A10" opacity=".9"/>
+        <path d="M42 34 Q32 43 36 52" stroke="#FFB16A" stroke-width="1.6" fill="none" opacity=".4"/>
+        <circle cx="100" cy="23" r="5.6" fill="#fff"/><circle cx="102" cy="23" r="3" fill="#1B2233"/><circle cx="103" cy="21.6" r="1" fill="#fff"/>
       </svg>
     </div></div>
   </div>
 
-  <div class="fish-outer" style="--hue:22deg;--sat:1;--top:45%;--size:clamp(52px,7.4vw,88px);--dur:46s;--delay:-25s;">
+  <div class="fish-outer" style="--hue:22deg;--sat:1;--top:45%;--size:clamp(52px,7.4vw,88px);--dur:30s;--delay:-25s;">
     <div class="fish-inner" style="--bobdur:4.4s;--bobdelay:-1s;"><div class="fish-flip">
       <svg viewBox="0 0 140 74" xmlns="http://www.w3.org/2000/svg">
-        <defs><linearGradient id="fA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFB25C"/><stop offset="55%" stop-color="#E4572E"/><stop offset="100%" stop-color="#B8391A"/></linearGradient></defs>
-        <path d="M18 37 L2 16 L11 37 L2 58 Z" fill="#B8391A"/>
-        <path d="M22 37 Q26 14 58 10 Q94 7 120 22 Q130 30 130 37 Q130 44 120 52 Q94 67 58 64 Q26 60 22 37Z" fill="url(#fA)"/>
-        <path d="M50 12 Q64 -7 82 4 Q96 12 102 20 Q78 12 50 12Z" fill="#B8391A" opacity=".92"/>
-        <path d="M56 62 Q66 77 80 70 Q92 64 98 56 Q76 66 56 62Z" fill="#B8391A" opacity=".85"/>
-        <path d="M48 40 Q34 52 40 63 Q52 57 56 44Z" fill="#FF9A3C" opacity=".82"/>
-        <path d="M40 20 Q46 37 40 54" stroke="#8A2A10" stroke-width="2" fill="none" opacity=".4"/>
-        <path d="M56 20 Q62 37 56 54" stroke="#FFD9B0" stroke-width="2" fill="none" opacity=".35"/>
-        <circle cx="108" cy="27" r="6.4" fill="#fff"/><circle cx="110" cy="27" r="3.4" fill="#1B2233"/><circle cx="111.4" cy="25.4" r="1.1" fill="#fff"/>
+        <defs><linearGradient id="fA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFB25C"/><stop offset="50%" stop-color="#E4572E"/><stop offset="100%" stop-color="#9C2E12"/></linearGradient></defs>
+        <g class="tailwag" style="--tailspeed:.46s;"><path d="M26 37 Q10 20 0 9 Q7 27 15 37 Q7 47 0 65 Q10 54 26 37Z" fill="#9C2E12"/></g>
+        <path d="M24 37 Q24 15 53 10 Q86 4 113 16 Q129 24 135 34 Q137 37 135 40 Q129 50 113 58 Q86 70 53 64 Q24 59 24 37Z" fill="url(#fA)"/>
+        <path d="M53 11 Q61 -9 81 1 Q95 8 101 15 Q78 9 53 11Z" fill="#9C2E12" opacity=".92"/>
+        <path d="M57 61 Q65 76 79 70 Q91 63 97 55 Q77 65 57 61Z" fill="#9C2E12" opacity=".85"/>
+        <path d="M50 39 Q37 50 42 61 Q54 55 58 42Z" fill="#FF9A3C" opacity=".82"/>
+        <path d="M104 19 Q111 37 104 55" stroke="#7A2409" stroke-width="2" fill="none" opacity=".45"/>
+        <path d="M42 22 Q48 37 42 52" stroke="#FFD9B0" stroke-width="1.6" fill="none" opacity=".35"/>
+        <path d="M62 18 Q68 37 62 56" stroke="#FFD9B0" stroke-width="1.4" fill="none" opacity=".26"/>
+        <circle cx="118" cy="27" r="6.3" fill="#fff"/><circle cx="120" cy="27" r="3.3" fill="#1B2233"/><circle cx="121.3" cy="25.4" r="1.1" fill="#fff"/>
       </svg>
     </div></div>
   </div>
 
-  <div class="fish-outer" style="--hue:200deg;--sat:.9;--top:23%;--size:clamp(44px,6.4vw,74px);--dur:41s;--delay:-12s;">
+  <div class="fish-outer" style="--hue:200deg;--sat:.9;--top:23%;--size:clamp(44px,6.4vw,74px);--dur:28s;--delay:-12s;">
     <div class="fish-inner" style="--bobdur:3.9s;--bobdelay:-2.2s;"><div class="fish-flip">
       <svg viewBox="0 0 120 52" xmlns="http://www.w3.org/2000/svg">
-        <defs><linearGradient id="fB" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8FE3FF"/><stop offset="55%" stop-color="#2C6FEE"/><stop offset="100%" stop-color="#123E9E"/></linearGradient></defs>
-        <path d="M16 26 L2 12 L7 26 L2 40 Z" fill="#123E9E"/>
-        <path d="M18 26 Q22 8 46 7 Q76 6 96 16 Q106 22 106 26 Q106 30 96 36 Q76 46 46 45 Q22 44 18 26Z" fill="url(#fB)"/>
-        <path d="M40 8 Q50 -4 64 2 Q74 8 78 14 Q58 8 40 8Z" fill="#123E9E" opacity=".85"/>
-        <path d="M44 44 Q52 54 64 48 Q74 42 78 38 Q60 46 44 44Z" fill="#123E9E" opacity=".75"/>
-        <path d="M34 30 Q26 38 30 46 Q40 42 42 32Z" fill="#5FA0FF" opacity=".78"/>
-        <path d="M60 10 Q70 26 60 42" stroke="#0B2C74" stroke-width="2.4" fill="none" opacity=".55"/>
-        <circle cx="88" cy="21" r="4.6" fill="#fff"/><circle cx="89.4" cy="21" r="2.5" fill="#1B2233"/><circle cx="90.2" cy="20" r=".8" fill="#fff"/>
+        <defs><linearGradient id="fB" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8FE3FF"/><stop offset="50%" stop-color="#2C6FEE"/><stop offset="100%" stop-color="#0B2C74"/></linearGradient></defs>
+        <g class="tailwag" style="--tailspeed:.42s;"><path d="M22 26 Q8 12 0 4 Q6 19 12 26 Q6 33 0 48 Q8 40 22 26Z" fill="#0B2C74"/></g>
+        <path d="M20 26 Q20 10 44 6 Q72 1 95 12 Q109 18 113 26 Q109 34 95 40 Q72 51 44 46 Q20 42 20 26Z" fill="url(#fB)"/>
+        <path d="M44 7 Q52 -8 68 -1 Q78 5 82 10 Q62 5 44 7Z" fill="#0B2C74" opacity=".88"/>
+        <path d="M46 45 Q54 57 68 51 Q78 44 82 39 Q62 48 46 45Z" fill="#0B2C74" opacity=".78"/>
+        <path d="M40 28 Q30 36 34 45 Q44 40 46 30Z" fill="#5FA0FF" opacity=".78"/>
+        <path d="M88 14 Q96 26 88 38" stroke="#082058" stroke-width="2" fill="none" opacity=".5"/>
+        <path d="M56 10 Q62 26 56 42" stroke="#BFE6FF" stroke-width="1.4" fill="none" opacity=".3"/>
+        <circle cx="100" cy="20" r="4.4" fill="#fff"/><circle cx="101.3" cy="20" r="2.4" fill="#1B2233"/><circle cx="102" cy="19" r=".7" fill="#fff"/>
       </svg>
     </div></div>
   </div>
@@ -2058,8 +2096,9 @@
     </div>
   </div>
 
-  <!-- ===== Sea turtle — same swim system, bigger + slower, flippers row ===== -->
-  <div class="fish-outer" style="--top:31%;--size:clamp(92px,11.5vw,150px);--dur:85s;--delay:-20s;">
+  <!-- ===== Sea turtle — same swim system, bigger + slower, flippers row.
+       Sized/positioned to stay fully inside the banner's clipped height. ===== -->
+  <div class="fish-outer" style="--top:28%;--size:clamp(64px,7.6vw,104px);--dur:58s;--delay:-14s;">
     <div class="fish-inner turtle-inner" style="--bobdur:6.5s;--bobdelay:-3s;"><div class="fish-flip">
       <svg viewBox="0 0 160 104" xmlns="http://www.w3.org/2000/svg">
         <defs><radialGradient id="shellg" cx="42%" cy="32%" r="75%"><stop offset="0%" stop-color="#9AD49B"/><stop offset="60%" stop-color="#4E9E5B"/><stop offset="100%" stop-color="#2C6B3A"/></radialGradient></defs>
@@ -2077,27 +2116,55 @@
     </div></div>
   </div>
 
-  <!-- ===== Shark — cruises slowly the other way, tail sweeps side to side ===== -->
-  <div class="fish-outer face-left" style="--top:37%;--size:clamp(130px,15vw,210px);--dur:95s;--delay:-50s;">
+  <!-- ===== Shark — cruises slowly the other way, tail sweeps side to side.
+       Previously oversized relative to the banner's short clipped height
+       (200-210px wide at an ~0.47 aspect ran taller than the banner
+       itself), so it was almost entirely cropped off. Rescaled + moved up
+       so the whole animal stays inside the visible strip. ===== -->
+  <div class="fish-outer face-left" style="--top:34%;--size:clamp(76px,8.4vw,116px);--dur:60s;--delay:-30s;">
     <div class="fish-inner shark-inner" style="--bobdur:7s;--bobdelay:-4s;"><div class="fish-flip">
       <svg viewBox="0 0 200 94" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="sharkg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8B9BB8"/><stop offset="50%" stop-color="#57647E"/><stop offset="100%" stop-color="#F4F6FA"/></linearGradient></defs>
-        <path class="tailfin" d="M28 47 Q14 20 4 10 Q18 30 22 47 Q18 64 4 84 Q14 74 28 47Z" fill="#3E4A63"/>
-        <path d="M22 50 Q18 30 40 22 Q60 8 110 12 Q150 15 182 40 Q192 45 192 50 Q192 55 182 60 Q150 78 110 80 Q65 82 42 66 Q20 58 22 50Z" fill="url(#sharkg)"/>
-        <path d="M96 16 Q114 -10 132 18 Q114 18 96 16Z" fill="#3E4A63"/>
-        <path d="M130 20 Q140 9 150 18 Q140 20 130 20Z" fill="#3E4A63" opacity=".8"/>
-        <path d="M150 62 Q142 78 128 76 Q142 66 150 62Z" fill="#333F55" opacity=".8"/>
-        <path d="M40 34 L44 48 M50 32 L55 48 M60 32 L66 48 M70 34 L77 48 M80 36 L88 49" stroke="#2B3548" stroke-width="2" opacity=".55"/>
-        <path d="M40 60 Q110 72 178 55" stroke="#fff" stroke-width="2" opacity=".2" fill="none"/>
-        <path d="M160 32 Q182 38 190 47 Q182 56 160 62 Q170 47 160 32Z" fill="url(#sharkg)"/>
-        <circle cx="176" cy="43" r="3.2" fill="#1B2233"/>
-        <path d="M172 40 Q176 39 180 41" stroke="#1B2233" stroke-width="1.4" fill="none" opacity=".6"/>
+        <path class="tailfin" d="M30 47 Q14 18 2 6 Q10 28 20 47 Q10 66 2 88 Q14 76 30 47Z" fill="#333F55"/>
+        <path d="M20 49 Q16 28 42 20 Q64 6 112 11 Q152 15 184 39 Q194 44 194 49 Q194 54 184 59 Q152 78 112 79 Q64 84 42 68 Q18 58 20 49Z" fill="url(#sharkg)"/>
+        <path d="M96 15 Q116 -12 134 17 Q116 17 96 15Z" fill="#333F55"/>
+        <path d="M132 19 Q142 8 152 17 Q142 19 132 19Z" fill="#333F55" opacity=".82"/>
+        <path d="M150 63 Q142 80 126 77 Q142 66 150 63Z" fill="#2B3548" opacity=".82"/>
+        <path d="M40 33 L44 48 M50 31 L56 48 M60 31 L67 48 M71 33 L79 48 M82 35 L91 49" stroke="#2B3548" stroke-width="2" opacity=".55"/>
+        <path d="M38 62 Q110 73 180 54" stroke="#fff" stroke-width="2" opacity=".22" fill="none"/>
+        <path d="M162 31 Q186 37 194 47 Q186 57 162 63 Q173 47 162 31Z" fill="url(#sharkg)"/>
+        <circle cx="178" cy="42" r="3.2" fill="#1B2233"/>
+        <path d="M174 39 Q178 38 182 40" stroke="#1B2233" stroke-width="1.4" fill="none" opacity=".6"/>
+      </svg>
+    </div></div>
+  </div>
+
+  <!-- ===== Humpback whale — the header previously had no whale at all
+       (only the post-refresh celebration overlay did). Big, slow, deep
+       background swimmer: gentle body roll plus a slow two-lobed fluke
+       beat, kept small/dim enough to read as "far below" rather than
+       crowding the smaller reef fish in front of it. ===== -->
+  <div class="fish-outer" style="--top:54%;--size:clamp(72px,8vw,112px);--dur:130s;--delay:-40s;">
+    <div class="fish-inner whale-inner" style="--bobdur:9s;--bobdelay:-2s;"><div class="fish-flip">
+      <svg viewBox="0 0 220 90" xmlns="http://www.w3.org/2000/svg">
+        <defs><linearGradient id="whaleg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#6785A0"/><stop offset="55%" stop-color="#3B5068"/><stop offset="100%" stop-color="#1B2733"/></linearGradient></defs>
+        <g class="tailwag" style="--tailspeed:1.7s;">
+          <path d="M32 45 Q12 20 0 4 Q5 28 15 45 Q5 62 0 86 Q12 70 32 45Z" fill="#1B2733"/>
+        </g>
+        <path d="M30 45 Q32 15 64 7 Q112 -5 162 13 Q200 27 216 45 Q200 63 162 77 Q112 95 64 83 Q32 75 30 45Z" fill="url(#whaleg)"/>
+        <path d="M96 9 Q104 -8 115 7 Q106 11 96 9Z" fill="#1B2733" opacity=".88"/>
+        <path d="M62 58 Q32 79 12 73 Q35 66 54 51Z" fill="#1B2733" opacity=".85"/>
+        <path d="M66 20 Q122 11 184 26" stroke="#9FB6C8" stroke-width="2" fill="none" opacity=".38"/>
+        <path d="M60 30 Q120 22 190 37" stroke="#9FB6C8" stroke-width="1.6" fill="none" opacity=".3"/>
+        <path d="M56 40 Q116 33 194 46" stroke="#9FB6C8" stroke-width="1.4" fill="none" opacity=".24"/>
+        <ellipse cx="58" cy="15" rx="3.4" ry="2.2" fill="#0C121C" opacity=".75"/>
+        <circle cx="198" cy="39" r="2.8" fill="#0C121C"/>
       </svg>
     </div></div>
   </div>
 
   <!-- ===== Angelfish — tall, striped, flowing fins ===== -->
-  <div class="fish-outer" style="--top:8%;--size:clamp(46px,6.4vw,78px);--dur:52s;--delay:-6s;">
+  <div class="fish-outer" style="--top:8%;--size:clamp(46px,6.4vw,78px);--dur:38s;--delay:-6s;">
     <div class="fish-inner" style="--bobdur:4.4s;--bobdelay:-2.2s;"><div class="fish-flip">
       <svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="ang1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFE45C"/><stop offset="100%" stop-color="#FF9A3C"/></linearGradient></defs>
@@ -2111,7 +2178,7 @@
   </div>
 
   <!-- ===== Pufferfish — round, spiky, drifts along slower ===== -->
-  <div class="fish-outer face-left" style="--top:23%;--size:clamp(36px,5vw,58px);--dur:66s;--delay:-24s;">
+  <div class="fish-outer face-left" style="--top:23%;--size:clamp(36px,5vw,58px);--dur:54s;--delay:-24s;">
     <div class="fish-inner" style="--bobdur:5.6s;--bobdelay:-1.4s;"><div class="fish-flip">
       <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
         <defs><radialGradient id="puf1" cx="40%" cy="35%" r="65%"><stop offset="0%" stop-color="#FFF3A0"/><stop offset="100%" stop-color="#FFC629"/></radialGradient></defs>
@@ -2128,7 +2195,7 @@
   </div>
 
   <!-- ===== Stingray — flat glide, whip tail sweeps like the shark's ===== -->
-  <div class="fish-outer" style="--top:63%;--size:clamp(78px,10.5vw,138px);--dur:78s;--delay:-16s;">
+  <div class="fish-outer" style="--top:63%;--size:clamp(78px,10.5vw,138px);--dur:62s;--delay:-16s;">
     <div class="fish-inner ray-inner" style="--bobdur:6.2s;--bobdelay:-2.8s;"><div class="fish-flip">
       <svg viewBox="0 0 190 90" xmlns="http://www.w3.org/2000/svg">
         <defs><radialGradient id="ray1" cx="38%" cy="35%" r="70%"><stop offset="0%" stop-color="#9FB6D9"/><stop offset="100%" stop-color="#4C5F82"/></radialGradient></defs>
@@ -2142,7 +2209,7 @@
   </div>
 
   <!-- ===== Seahorse — upright drifter, curled tail ===== -->
-  <div class="fish-outer face-left" style="--hue:180deg;--top:70%;--size:clamp(34px,4.6vw,52px);--dur:70s;--delay:-38s;">
+  <div class="fish-outer face-left" style="--hue:180deg;--top:70%;--size:clamp(34px,4.6vw,52px);--dur:56s;--delay:-38s;">
     <div class="fish-inner" style="--bobdur:5s;--bobdelay:-.8s;"><div class="fish-flip">
       <svg viewBox="0 0 70 130" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="sea1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FF9EC4"/><stop offset="100%" stop-color="#E0245E"/></linearGradient></defs>
@@ -2155,55 +2222,58 @@
   </div>
 
   <!-- ===== A few extra small schooling fish for a fuller, busier tank ===== -->
-  <div class="fish-outer face-left" style="--hue:60deg;--sat:1.1;--top:44%;--size:clamp(30px,4.2vw,50px);--dur:34s;--delay:-9s;">
+  <div class="fish-outer face-left" style="--hue:60deg;--sat:1.1;--top:44%;--size:clamp(30px,4.2vw,50px);--dur:22s;--delay:-9s;">
     <div class="fish-inner" style="--bobdur:3.2s;--bobdelay:-.5s;"><div class="fish-flip">
       <svg viewBox="0 0 120 52" xmlns="http://www.w3.org/2000/svg">
-        <defs><linearGradient id="fB" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8FE3FF"/><stop offset="55%" stop-color="#2C6FEE"/><stop offset="100%" stop-color="#123E9E"/></linearGradient></defs>
-        <path d="M16 26 L2 12 L7 26 L2 40 Z" fill="#123E9E"/>
-        <path d="M18 26 Q22 8 46 7 Q76 6 96 16 Q106 22 106 26 Q106 30 96 36 Q76 46 46 45 Q22 44 18 26Z" fill="url(#fB)"/>
-        <path d="M40 8 Q50 -4 64 2 Q74 8 78 14 Q58 8 40 8Z" fill="#123E9E" opacity=".85"/>
-        <path d="M44 44 Q52 54 64 48 Q74 42 78 38 Q60 46 44 44Z" fill="#123E9E" opacity=".75"/>
-        <path d="M34 30 Q26 38 30 46 Q40 42 42 32Z" fill="#5FA0FF" opacity=".78"/>
-        <path d="M60 10 Q70 26 60 42" stroke="#0B2C74" stroke-width="2.4" fill="none" opacity=".55"/>
-        <circle cx="88" cy="21" r="4.6" fill="#fff"/><circle cx="89.4" cy="21" r="2.5" fill="#1B2233"/><circle cx="90.2" cy="20" r=".8" fill="#fff"/>
+        <defs><linearGradient id="fB" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8FE3FF"/><stop offset="50%" stop-color="#2C6FEE"/><stop offset="100%" stop-color="#0B2C74"/></linearGradient></defs>
+        <g class="tailwag" style="--tailspeed:.42s;"><path d="M22 26 Q8 12 0 4 Q6 19 12 26 Q6 33 0 48 Q8 40 22 26Z" fill="#0B2C74"/></g>
+        <path d="M20 26 Q20 10 44 6 Q72 1 95 12 Q109 18 113 26 Q109 34 95 40 Q72 51 44 46 Q20 42 20 26Z" fill="url(#fB)"/>
+        <path d="M44 7 Q52 -8 68 -1 Q78 5 82 10 Q62 5 44 7Z" fill="#0B2C74" opacity=".88"/>
+        <path d="M46 45 Q54 57 68 51 Q78 44 82 39 Q62 48 46 45Z" fill="#0B2C74" opacity=".78"/>
+        <path d="M40 28 Q30 36 34 45 Q44 40 46 30Z" fill="#5FA0FF" opacity=".78"/>
+        <path d="M88 14 Q96 26 88 38" stroke="#082058" stroke-width="2" fill="none" opacity=".5"/>
+        <path d="M56 10 Q62 26 56 42" stroke="#BFE6FF" stroke-width="1.4" fill="none" opacity=".3"/>
+        <circle cx="100" cy="20" r="4.4" fill="#fff"/><circle cx="101.3" cy="20" r="2.4" fill="#1B2233"/><circle cx="102" cy="19" r=".7" fill="#fff"/>
       </svg>
     </div></div>
   </div>
 
-  <div class="fish-outer" style="--hue:320deg;--sat:1.05;--top:50%;--size:clamp(32px,4.6vw,54px);--dur:40s;--delay:-27s;">
+  <div class="fish-outer" style="--hue:320deg;--sat:1.05;--top:50%;--size:clamp(32px,4.6vw,54px);--dur:26s;--delay:-27s;">
     <div class="fish-inner" style="--bobdur:3.6s;--bobdelay:-1.9s;"><div class="fish-flip">
       <svg viewBox="0 0 140 74" xmlns="http://www.w3.org/2000/svg">
-        <defs><linearGradient id="fA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFB25C"/><stop offset="55%" stop-color="#E4572E"/><stop offset="100%" stop-color="#B8391A"/></linearGradient></defs>
-        <path d="M18 37 L2 16 L11 37 L2 58 Z" fill="#B8391A"/>
-        <path d="M22 37 Q26 14 58 10 Q94 7 120 22 Q130 30 130 37 Q130 44 120 52 Q94 67 58 64 Q26 60 22 37Z" fill="url(#fA)"/>
-        <path d="M50 12 Q64 -7 82 4 Q96 12 102 20 Q78 12 50 12Z" fill="#B8391A" opacity=".92"/>
-        <path d="M56 62 Q66 77 80 70 Q92 64 98 56 Q76 66 56 62Z" fill="#B8391A" opacity=".85"/>
-        <path d="M48 40 Q34 52 40 63 Q52 57 56 44Z" fill="#FF9A3C" opacity=".82"/>
-        <path d="M40 20 Q46 37 40 54" stroke="#8A2A10" stroke-width="2" fill="none" opacity=".4"/>
-        <path d="M56 20 Q62 37 56 54" stroke="#FFD9B0" stroke-width="2" fill="none" opacity=".35"/>
-        <circle cx="108" cy="27" r="6.4" fill="#fff"/><circle cx="110" cy="27" r="3.4" fill="#1B2233"/><circle cx="111.4" cy="25.4" r="1.1" fill="#fff"/>
+        <defs><linearGradient id="fA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFB25C"/><stop offset="50%" stop-color="#E4572E"/><stop offset="100%" stop-color="#9C2E12"/></linearGradient></defs>
+        <g class="tailwag" style="--tailspeed:.46s;"><path d="M26 37 Q10 20 0 9 Q7 27 15 37 Q7 47 0 65 Q10 54 26 37Z" fill="#9C2E12"/></g>
+        <path d="M24 37 Q24 15 53 10 Q86 4 113 16 Q129 24 135 34 Q137 37 135 40 Q129 50 113 58 Q86 70 53 64 Q24 59 24 37Z" fill="url(#fA)"/>
+        <path d="M53 11 Q61 -9 81 1 Q95 8 101 15 Q78 9 53 11Z" fill="#9C2E12" opacity=".92"/>
+        <path d="M57 61 Q65 76 79 70 Q91 63 97 55 Q77 65 57 61Z" fill="#9C2E12" opacity=".85"/>
+        <path d="M50 39 Q37 50 42 61 Q54 55 58 42Z" fill="#FF9A3C" opacity=".82"/>
+        <path d="M104 19 Q111 37 104 55" stroke="#7A2409" stroke-width="2" fill="none" opacity=".45"/>
+        <path d="M42 22 Q48 37 42 52" stroke="#FFD9B0" stroke-width="1.6" fill="none" opacity=".35"/>
+        <path d="M62 18 Q68 37 62 56" stroke="#FFD9B0" stroke-width="1.4" fill="none" opacity=".26"/>
+        <circle cx="118" cy="27" r="6.3" fill="#fff"/><circle cx="120" cy="27" r="3.3" fill="#1B2233"/><circle cx="121.3" cy="25.4" r="1.1" fill="#fff"/>
       </svg>
     </div></div>
   </div>
 
-  <div class="fish-outer face-left" style="--hue:-40deg;--sat:1.1;--top:2%;--size:clamp(30px,4.2vw,48px);--dur:46s;--delay:-19s;">
+  <div class="fish-outer face-left" style="--hue:-40deg;--sat:1.1;--top:2%;--size:clamp(30px,4.2vw,48px);--dur:30s;--delay:-19s;">
     <div class="fish-inner" style="--bobdur:3.4s;--bobdelay:-2.7s;"><div class="fish-flip">
       <svg viewBox="0 0 116 116" xmlns="http://www.w3.org/2000/svg">
-        <defs><radialGradient id="fC" cx="42%" cy="35%" r="70%"><stop offset="0%" stop-color="#FFE45C"/><stop offset="65%" stop-color="#FFC629"/><stop offset="100%" stop-color="#D98F00"/></radialGradient></defs>
-        <path d="M58 8 Q26 26 22 58 Q26 90 58 108 Q46 82 46 58 Q46 34 58 8Z" fill="#D98F00" opacity=".9"/>
+        <defs><radialGradient id="fC" cx="42%" cy="35%" r="70%"><stop offset="0%" stop-color="#FFE45C"/><stop offset="60%" stop-color="#FFC629"/><stop offset="100%" stop-color="#B87400"/></radialGradient></defs>
+        <g class="tailwag" style="--tailspeed:.6s;" ><path d="M46 12 Q22 30 20 58 Q22 86 46 104 Q36 80 36 58 Q36 36 46 12Z" fill="#B87400" opacity=".92"/></g>
         <ellipse cx="66" cy="58" rx="34" ry="42" fill="url(#fC)"/>
-        <path d="M50 18 Q66 -6 82 18 Q68 20 50 18Z" fill="#D98F00"/>
-        <path d="M50 98 Q66 122 82 98 Q68 96 50 98Z" fill="#D98F00"/>
+        <path d="M50 18 Q66 -7 83 18 Q68 20 50 18Z" fill="#B87400"/>
+        <path d="M50 98 Q66 123 83 98 Q68 96 50 98Z" fill="#B87400" opacity=".92"/>
         <path d="M96 44 Q110 51 112 58 Q110 65 96 72 Q102 58 96 44Z" fill="url(#fC)"/>
-        <path d="M50 30 Q66 58 50 86" stroke="#B87400" stroke-width="2.4" fill="none" opacity=".4"/>
-        <path d="M100 54 L108 50 M100 62 L108 66" stroke="#8A5600" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M50 30 Q66 58 50 86" stroke="#8A5600" stroke-width="2.2" fill="none" opacity=".4"/>
+        <path d="M58 26 Q70 58 58 90" stroke="#FFF3C4" stroke-width="1.6" fill="none" opacity=".3"/>
+        <path d="M100 54 L108 50 M100 62 L108 66" stroke="#6B4300" stroke-width="2.4" stroke-linecap="round"/>
         <circle cx="90" cy="46" r="6" fill="#fff"/><circle cx="92" cy="46" r="3.2" fill="#1B2233"/><circle cx="93" cy="44.6" r="1" fill="#fff"/>
       </svg>
     </div></div>
   </div>
 
   <!-- ===== Octopus — jets slowly along, each arm rippling on its own ===== -->
-  <div class="fish-outer face-left" style="--top:56%;--size:clamp(46px,6.4vw,80px);--dur:72s;--delay:-28s;">
+  <div class="fish-outer face-left" style="--top:56%;--size:clamp(46px,6.4vw,80px);--dur:58s;--delay:-28s;">
     <div class="fish-inner octo-inner" style="--bobdur:5s;--bobdelay:-1.6s;"><div class="fish-flip">
       <svg viewBox="0 0 140 130" xmlns="http://www.w3.org/2000/svg">
         <defs><radialGradient id="octo1" cx="40%" cy="30%" r="70%"><stop offset="0%" stop-color="#FF9EC4"/><stop offset="100%" stop-color="#C2317E"/></radialGradient></defs>
@@ -2230,7 +2300,7 @@
   </div>
 
   <!-- ===== Dolphin — porpoises through in a rolling arc, not a level glide ===== -->
-  <div class="fish-outer" style="--top:29%;--size:clamp(90px,11vw,148px);--dur:58s;--delay:-14s;">
+  <div class="fish-outer" style="--top:29%;--size:clamp(90px,11vw,148px);--dur:42s;--delay:-14s;">
     <div class="fish-inner dolphin-inner" style="--bobdur:2.6s;--bobdelay:-1s;"><div class="fish-flip">
       <svg viewBox="0 0 190 80" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="dolph1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#B9C7DE"/><stop offset="55%" stop-color="#7C8CA8"/><stop offset="100%" stop-color="#F4F6FA"/></linearGradient></defs>
@@ -2243,8 +2313,10 @@
     </div></div>
   </div>
 
-  <!-- ===== Manta ray — big, slow wing-beat glide ===== -->
-  <div class="fish-outer face-left" style="--top:66%;--size:clamp(110px,13.5vw,182px);--dur:100s;--delay:-45s;">
+  <!-- ===== Manta ray — big, slow wing-beat glide. Rescaled/moved up from
+       its original --top:66% + 182px size, which ran taller than the
+       banner itself and clipped off the bottom half. ===== -->
+  <div class="fish-outer face-left" style="--top:50%;--size:clamp(74px,8.6vw,122px);--dur:64s;--delay:-30s;">
     <div class="fish-inner manta-inner" style="--bobdur:7.4s;--bobdelay:-3s;"><div class="fish-flip">
       <svg viewBox="0 0 220 100" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="manta1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#5E6E8C"/><stop offset="55%" stop-color="#2E3A52"/><stop offset="100%" stop-color="#171E2C"/></linearGradient></defs>
@@ -2261,36 +2333,36 @@
 
   <!-- ===== Schools of fish — small silhouettes traveling together as one
        formation, graduating small to large across the group. ===== -->
-  <div class="school-outer" style="--top:17%;--size:clamp(150px,20vw,270px);--dur:30s;--delay:-6s;">
-    <div class="school-fish" style="--sfleft:0%;--sfsize:26%;--sfbottom:8%;--bobdur:2.6s;--bobdelay:-.2s;--sfhue:0deg;"><div class="school-flip">
-      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><path d="M8 15 L1 8 L4 15 L1 22Z" fill="#B8391A"/><path d="M9 15 Q12 4 30 4 Q48 4 56 15 Q48 26 30 26 Q12 26 9 15Z" fill="#E4572E"/><circle cx="46" cy="12" r="2.4" fill="#1B2233"/></svg>
+  <div class="school-outer" style="--top:17%;--size:clamp(150px,20vw,270px);--dur:16s;--delay:-6s;">
+    <div class="school-fish" style="--sfleft:0%;--sfsize:16%;--sfbottom:9%;--bobdur:1.8s;--bobdelay:-.2s;--sfhue:0deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><circle cx="48" cy="12.4" r="2.3" fill="#1B2233"/></svg>
     </div></div>
-    <div class="school-fish" style="--sfleft:16%;--sfsize:34%;--sfbottom:0%;--bobdur:3s;--bobdelay:-1.1s;--sfhue:-8deg;"><div class="school-flip">
-      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><path d="M8 15 L1 8 L4 15 L1 22Z" fill="#B8391A"/><path d="M9 15 Q12 4 30 4 Q48 4 56 15 Q48 26 30 26 Q12 26 9 15Z" fill="#E4572E"/><circle cx="46" cy="12" r="2.4" fill="#1B2233"/></svg>
+    <div class="school-fish" style="--sfleft:14%;--sfsize:24%;--sfbottom:0%;--bobdur:2.1s;--bobdelay:-1.1s;--sfhue:-8deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><circle cx="48" cy="12.4" r="2.3" fill="#1B2233"/></svg>
     </div></div>
-    <div class="school-fish" style="--sfleft:34%;--sfsize:44%;--sfbottom:10%;--bobdur:2.4s;--bobdelay:-.6s;--sfhue:6deg;"><div class="school-flip">
-      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><path d="M8 15 L1 8 L4 15 L1 22Z" fill="#B8391A"/><path d="M9 15 Q12 4 30 4 Q48 4 56 15 Q48 26 30 26 Q12 26 9 15Z" fill="#E4572E"/><circle cx="46" cy="12" r="2.4" fill="#1B2233"/></svg>
+    <div class="school-fish" style="--sfleft:32%;--sfsize:38%;--sfbottom:11%;--bobdur:1.7s;--bobdelay:-.6s;--sfhue:6deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><circle cx="48" cy="12.4" r="2.3" fill="#1B2233"/></svg>
     </div></div>
-    <div class="school-fish" style="--sfleft:56%;--sfsize:56%;--sfbottom:2%;--bobdur:3.4s;--bobdelay:-1.8s;--sfhue:-4deg;"><div class="school-flip">
-      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><path d="M8 15 L1 8 L4 15 L1 22Z" fill="#B8391A"/><path d="M9 15 Q12 4 30 4 Q48 4 56 15 Q48 26 30 26 Q12 26 9 15Z" fill="#E4572E"/><circle cx="46" cy="12" r="2.4" fill="#1B2233"/></svg>
+    <div class="school-fish" style="--sfleft:54%;--sfsize:58%;--sfbottom:2%;--bobdur:2.4s;--bobdelay:-1.8s;--sfhue:-4deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><circle cx="48" cy="12.4" r="2.3" fill="#1B2233"/></svg>
     </div></div>
-    <div class="school-fish" style="--sfleft:80%;--sfsize:70%;--sfbottom:8%;--bobdur:2.8s;--bobdelay:-.9s;--sfhue:4deg;"><div class="school-flip">
-      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><path d="M8 15 L1 8 L4 15 L1 22Z" fill="#B8391A"/><path d="M9 15 Q12 4 30 4 Q48 4 56 15 Q48 26 30 26 Q12 26 9 15Z" fill="#E4572E"/><circle cx="46" cy="12" r="2.4" fill="#1B2233"/></svg>
+    <div class="school-fish" style="--sfleft:78%;--sfsize:88%;--sfbottom:9%;--bobdur:2s;--bobdelay:-.9s;--sfhue:4deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><circle cx="48" cy="12.4" r="2.3" fill="#1B2233"/></svg>
     </div></div>
   </div>
 
-  <div class="school-outer face-left" style="--top:61%;--size:clamp(130px,17vw,230px);--dur:26s;--delay:-18s;">
-    <div class="school-fish" style="--sfleft:2%;--sfsize:30%;--sfbottom:4%;--bobdur:2.2s;--bobdelay:-.4s;--sfhue:190deg;"><div class="school-flip">
-      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><path d="M8 15 L1 8 L4 15 L1 22Z" fill="#123E9E"/><path d="M9 15 Q12 4 30 4 Q48 4 56 15 Q48 26 30 26 Q12 26 9 15Z" fill="#2C6FEE"/><circle cx="46" cy="12" r="2.4" fill="#1B2233"/></svg>
+  <div class="school-outer face-left" style="--top:61%;--size:clamp(130px,17vw,230px);--dur:14s;--delay:-8s;">
+    <div class="school-fish" style="--sfleft:2%;--sfsize:18%;--sfbottom:4%;--bobdur:1.9s;--bobdelay:-.4s;--sfhue:190deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><circle cx="48" cy="12.4" r="2.3" fill="#1B2233"/></svg>
     </div></div>
-    <div class="school-fish" style="--sfleft:22%;--sfsize:40%;--sfbottom:10%;--bobdur:2.7s;--bobdelay:-1.3s;--sfhue:170deg;"><div class="school-flip">
-      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><path d="M8 15 L1 8 L4 15 L1 22Z" fill="#123E9E"/><path d="M9 15 Q12 4 30 4 Q48 4 56 15 Q48 26 30 26 Q12 26 9 15Z" fill="#2C6FEE"/><circle cx="46" cy="12" r="2.4" fill="#1B2233"/></svg>
+    <div class="school-fish" style="--sfleft:20%;--sfsize:30%;--sfbottom:10%;--bobdur:2.3s;--bobdelay:-1.3s;--sfhue:170deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><circle cx="48" cy="12.4" r="2.3" fill="#1B2233"/></svg>
     </div></div>
-    <div class="school-fish" style="--sfleft:44%;--sfsize:52%;--sfbottom:0%;--bobdur:3.1s;--bobdelay:-.7s;--sfhue:200deg;"><div class="school-flip">
-      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><path d="M8 15 L1 8 L4 15 L1 22Z" fill="#123E9E"/><path d="M9 15 Q12 4 30 4 Q48 4 56 15 Q48 26 30 26 Q12 26 9 15Z" fill="#2C6FEE"/><circle cx="46" cy="12" r="2.4" fill="#1B2233"/></svg>
+    <div class="school-fish" style="--sfleft:42%;--sfsize:48%;--sfbottom:0%;--bobdur:2.6s;--bobdelay:-.7s;--sfhue:200deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><circle cx="48" cy="12.4" r="2.3" fill="#1B2233"/></svg>
     </div></div>
-    <div class="school-fish" style="--sfleft:70%;--sfsize:64%;--sfbottom:8%;--bobdur:2.5s;--bobdelay:-1.6s;--sfhue:180deg;"><div class="school-flip">
-      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><path d="M8 15 L1 8 L4 15 L1 22Z" fill="#123E9E"/><path d="M9 15 Q12 4 30 4 Q48 4 56 15 Q48 26 30 26 Q12 26 9 15Z" fill="#2C6FEE"/><circle cx="46" cy="12" r="2.4" fill="#1B2233"/></svg>
+    <div class="school-fish" style="--sfleft:68%;--sfsize:76%;--sfbottom:8%;--bobdur:2.1s;--bobdelay:-1.6s;--sfhue:180deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><circle cx="48" cy="12.4" r="2.3" fill="#1B2233"/></svg>
     </div></div>
   </div>
 
