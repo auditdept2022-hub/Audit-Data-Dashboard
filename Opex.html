@@ -158,7 +158,17 @@
   }
 
   /* ----- Turtle & shark: use the same fish-outer travel system, just
-     bigger/slower, plus their own limb animations ----- */
+     bigger/slower, plus their own limb animations. They override the
+     generic .fish-inner "bob" (which tail-beat-wiggles via scaleX) with
+     gentler, non-squashing motion of their own — a rigid shark body and a
+     shelled turtle shouldn't flex like a fish's midsection. */
+  .ocean-bg .turtle-inner{
+    animation-name:turtle-glide;
+  }
+  @keyframes turtle-glide{
+    0%,100%{ transform:translateY(-8px) rotate(-2deg); }
+    50%{ transform:translateY(9px) rotate(2deg); }
+  }
   .ocean-bg .turtle-inner .flipper{
     animation:flap 1.6s ease-in-out infinite;
     transform-origin:50% 30%;
@@ -168,6 +178,13 @@
     0%,100%{ transform:rotate(-16deg); }
     50%{ transform:rotate(14deg); }
   }
+  .ocean-bg .shark-inner{
+    animation-name:shark-glide;
+  }
+  @keyframes shark-glide{
+    0%,100%{ transform:translateY(-6px) rotate(-1.4deg); }
+    50%{ transform:translateY(7px) rotate(1.4deg); }
+  }
   .ocean-bg .shark-inner .tailfin{
     animation:tailsweep 1.8s ease-in-out infinite;
     transform-origin:100% 50%;
@@ -175,6 +192,10 @@
   @keyframes tailsweep{
     0%,100%{ transform:rotate(-8deg); }
     50%{ transform:rotate(8deg); }
+  }
+  .ocean-bg .ray-inner .raytail{
+    animation:tailsweep 2.2s ease-in-out infinite;
+    transform-origin:0% 50%;
   }
 
   /* ---------- Underwater light -- soft moving caustic patches drifting over the
@@ -199,6 +220,103 @@
   @keyframes caustics{
     0%,100%{ transform:translate(0,0) scale(1); opacity:.65; }
     50%{ transform:translate(3%,5%) scale(1.1); opacity:1; }
+  }
+
+  /* ---------- Day / night cycle ----------
+     Four full-cover tint layers take turns fading in/out on one shared
+     48s loop (day -> sunset -> night -> dawn -> day), each offset by a
+     quarter cycle via animation-delay so only one is ever prominent at a
+     time. They sit first in the DOM among the z-index:auto layer, so they
+     render behind every creature and below the caustics shimmer — the
+     mood of the water shifts, the tank life stays crisp on top of it. */
+  .ocean-bg .tod-layer{
+    position:absolute;
+    inset:0;
+    opacity:0;
+    animation:tod-fade 48s ease-in-out infinite;
+    pointer-events:none;
+  }
+  .ocean-bg .tod-day{
+    background:linear-gradient(180deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,0) 45%);
+    mix-blend-mode:overlay;
+    animation-delay:0s;
+  }
+  .ocean-bg .tod-sunset{
+    background:linear-gradient(160deg, rgba(255,158,90,.4) 0%, rgba(255,108,96,.22) 42%, rgba(120,58,96,.28) 100%);
+    mix-blend-mode:overlay;
+    animation-delay:-12s;
+  }
+  .ocean-bg .tod-night{
+    background:linear-gradient(165deg, rgba(6,14,42,.62) 0%, rgba(8,20,52,.58) 48%, rgba(4,9,28,.68) 100%);
+    mix-blend-mode:multiply;
+    animation-delay:-24s;
+  }
+  .ocean-bg .tod-dawn{
+    background:linear-gradient(160deg, rgba(255,214,196,.3) 0%, rgba(190,206,255,.22) 50%, rgba(150,178,255,.2) 100%);
+    mix-blend-mode:overlay;
+    animation-delay:-36s;
+  }
+  @keyframes tod-fade{
+    0%{ opacity:0; }
+    3%{ opacity:1; }
+    22%{ opacity:1; }
+    27%{ opacity:0; }
+    100%{ opacity:0; }
+  }
+
+  /* Sun and moon share one arc across the sky; the moon runs the same arc
+     delayed by half the cycle so it rises opposite the sun, and each
+     fades with its matching tod layer via the same tod-fade keyframes. */
+  .ocean-bg .celestial{
+    position:absolute;
+    width:22px;height:22px;
+    border-radius:50%;
+    animation:celestial-arc 48s linear infinite, tod-fade 48s ease-in-out infinite;
+    pointer-events:none;
+  }
+  .ocean-bg .celestial.sun{
+    background:radial-gradient(circle at 35% 30%, #FFF7D6, #FFC629 55%, #FF9A3C 100%);
+    box-shadow:0 0 26px 9px rgba(255,198,41,.5);
+    animation-delay:0s,0s;
+  }
+  .ocean-bg .celestial.moon{
+    background:radial-gradient(circle at 35% 30%, #F6F9FF, #CBD6EE 55%, #8EA0C6 100%);
+    box-shadow:0 0 18px 6px rgba(190,208,255,.45);
+    animation-delay:-24s,-24s;
+  }
+  @keyframes celestial-arc{
+    0%{ left:-6%; top:66%; }
+    25%{ left:27%; top:10%; }
+    50%{ left:58%; top:2%; }
+    75%{ left:85%; top:16%; }
+    100%{ left:112%; top:66%; }
+  }
+
+  .ocean-bg .stars{
+    position:absolute;
+    inset:0;
+    opacity:0;
+    animation:tod-fade 48s ease-in-out infinite;
+    animation-delay:-24s;
+    pointer-events:none;
+  }
+  .ocean-bg .star{
+    position:absolute;
+    width:2.4px;height:2.4px;
+    border-radius:50%;
+    background:#fff;
+    top:var(--stop);
+    left:var(--sleft);
+    box-shadow:0 0 4px 1px rgba(255,255,255,.8);
+    animation:star-twinkle var(--tdur) ease-in-out infinite;
+    animation-delay:var(--tdelay);
+  }
+  @keyframes star-twinkle{
+    0%,100%{ opacity:.25; }
+    50%{ opacity:1; }
+  }
+  @media(prefers-reduced-motion:reduce){
+    .ocean-bg .tod-layer, .ocean-bg .celestial, .ocean-bg .stars, .ocean-bg .star{ animation:none; opacity:0; }
   }
 
   /* ---------- Seafloor decor: corals, seagrass, bubbles ---------- */
@@ -271,19 +389,19 @@
       radial-gradient(560px 320px at 10% -25%, rgba(255,255,255,.95), rgba(255,255,255,.22) 42%, transparent 68%),
       linear-gradient(160deg, #EAFDFF 0%, #B4EFF4 16%, #67D6E4 38%, #22B4CE 60%, #1495B8 80%, #0C6E8C 100%);
     border-radius:10px;
-    padding:26px 26px;
-    min-height:clamp(150px,20vw,230px);
+    padding:14px 26px;
+    min-height:clamp(104px,13vw,148px);
     overflow:hidden;
     margin-bottom:20px;
     display:flex;
-    align-items:center;
+    align-items:flex-start;
     justify-content:space-between;
     gap:16px;
     box-shadow:0 10px 26px rgba(9,60,80,.32);
     border-bottom:2px solid var(--flag-red);
   }
   @media(max-width:640px){
-    .banner{ min-height:clamp(130px,34vw,190px); }
+    .banner{ min-height:clamp(96px,26vw,130px); padding:12px 18px; }
   }
   .banner::before{
     content:'';
@@ -310,12 +428,12 @@
     background:radial-gradient(circle, rgba(255,255,255,.5), transparent 70%);
     pointer-events:none;
   }
-  .banner .title-block{position:relative;z-index:1;}
+  .banner .title-block{position:relative;z-index:1;margin-top:2px;}
   .banner .title-block h1{
     margin:0;
     font-family:'Oswald',sans-serif;
     font-weight:600;
-    font-size:23px;
+    font-size:20px;
     letter-spacing:1.6px;
     text-transform:uppercase;
     color:#fff;
@@ -332,9 +450,9 @@
     vertical-align:middle;
   }
   .banner .title-block p{
-    margin:4px 0 0 17px;
+    margin:3px 0 0 17px;
     color:#F3FBFF;
-    font-size:13px;
+    font-size:12px;
     letter-spacing:.2px;
     text-shadow:0 1px 3px rgba(3,22,32,.65), 0 0 10px rgba(3,22,32,.3);
   }
@@ -1344,6 +1462,28 @@
   <div class="banner">
 <div class="ocean-bg" aria-hidden="true">
 
+  <!-- ===== Day / night cycle: four cross-fading sky tints + a sun/moon
+       pair sharing one arc + stars that surface at night. Purely
+       decorative, sits behind every creature (see CSS notes). ===== -->
+  <div class="tod-layer tod-day"></div>
+  <div class="tod-layer tod-sunset"></div>
+  <div class="tod-layer tod-night"></div>
+  <div class="tod-layer tod-dawn"></div>
+  <div class="celestial sun"></div>
+  <div class="celestial moon"></div>
+  <div class="stars">
+    <div class="star" style="--stop:8%;--sleft:6%;--tdur:2.4s;--tdelay:-0.4s;"></div>
+    <div class="star" style="--stop:14%;--sleft:18%;--tdur:3.1s;--tdelay:-1.6s;"></div>
+    <div class="star" style="--stop:5%;--sleft:31%;--tdur:2.7s;--tdelay:-0.9s;"></div>
+    <div class="star" style="--stop:20%;--sleft:44%;--tdur:3.4s;--tdelay:-2.1s;"></div>
+    <div class="star" style="--stop:9%;--sleft:58%;--tdur:2.5s;--tdelay:-1.1s;"></div>
+    <div class="star" style="--stop:16%;--sleft:71%;--tdur:3.0s;--tdelay:-0.3s;"></div>
+    <div class="star" style="--stop:6%;--sleft:83%;--tdur:2.8s;--tdelay:-1.9s;"></div>
+    <div class="star" style="--stop:22%;--sleft:92%;--tdur:3.3s;--tdelay:-0.7s;"></div>
+    <div class="star" style="--stop:12%;--sleft:12%;--tdur:2.9s;--tdelay:-2.4s;"></div>
+    <div class="star" style="--stop:18%;--sleft:65%;--tdur:2.6s;--tdelay:-1.3s;"></div>
+  </div>
+
   <!-- ===== Reusable creature artwork ===== every fish/turtle/shark below is
        drawn FACING RIGHT. Swim direction is controlled purely by the
        .face-left helper class in CSS (reverses travel + mirrors the art),
@@ -1578,6 +1718,98 @@
         <path d="M140 38 L146 52 M150 36 L156 52 M160 36 L165 50" stroke="#2B3548" stroke-width="2" opacity=".6"/>
         <path d="M158 34 Q178 40 188 47 Q178 54 158 60 Q168 47 158 34Z" fill="url(#sharkg)"/>
         <circle cx="174" cy="43" r="3.4" fill="#1B2233"/>
+      </svg>
+    </div></div>
+  </div>
+
+  <!-- ===== Angelfish — tall, striped, flowing fins ===== -->
+  <div class="fish-outer" style="--top:8%;--size:clamp(46px,6.4vw,78px);--dur:52s;--delay:-6s;">
+    <div class="fish-inner" style="--bobdur:4.4s;--bobdelay:-2.2s;"><div class="fish-flip">
+      <svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg">
+        <defs><linearGradient id="ang1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFE45C"/><stop offset="100%" stop-color="#FF9A3C"/></linearGradient></defs>
+        <path d="M50 8 Q10 30 10 65 Q10 100 50 122 Q90 100 90 65 Q90 30 50 8Z" fill="url(#ang1)"/>
+        <path d="M50 8 Q30 40 30 65 Q30 90 50 122 M50 8 Q70 40 70 65 Q70 90 50 122" stroke="#1B2233" stroke-width="4" fill="none" opacity=".75"/>
+        <path d="M14 40 Q-6 30 -8 65 Q-6 100 14 90 Q8 65 14 40Z" fill="#1B2233" opacity=".85"/>
+        <path d="M90 55 Q108 60 110 65 Q108 70 90 75 Q98 65 90 55Z" fill="#FF7A00"/>
+        <circle cx="66" cy="42" r="5.6" fill="#fff"/><circle cx="68" cy="42" r="3" fill="#1B2233"/>
+      </svg>
+    </div></div>
+  </div>
+
+  <!-- ===== Pufferfish — round, spiky, drifts along slower ===== -->
+  <div class="fish-outer face-left" style="--top:23%;--size:clamp(36px,5vw,58px);--dur:66s;--delay:-24s;">
+    <div class="fish-inner" style="--bobdur:5.6s;--bobdelay:-1.4s;"><div class="fish-flip">
+      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <defs><radialGradient id="puf1" cx="40%" cy="35%" r="65%"><stop offset="0%" stop-color="#FFF3A0"/><stop offset="100%" stop-color="#FFC629"/></radialGradient></defs>
+        <g stroke="#C9971F" stroke-width="3" stroke-linecap="round">
+          <path d="M50 6 L50 -6M74 12 L82 2M90 32 L102 26M94 54 L106 54M86 74 L96 82M64 90 L68 102M34 90 L30 102M14 74 L4 82M8 54 L-4 54M12 32 L0 26M28 12 L20 2"/>
+        </g>
+        <circle cx="50" cy="50" r="40" fill="url(#puf1)" stroke="#C9971F" stroke-width="2.5"/>
+        <circle cx="35" cy="6" r="0" fill="none"/>
+        <circle cx="40" cy="38" r="7" fill="#fff"/><circle cx="42" cy="38" r="3.6" fill="#1B2233"/>
+        <path d="M58 58 Q50 66 42 58" stroke="#B8811A" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <circle cx="24" cy="52" r="3" fill="#E8A400" opacity=".7"/><circle cx="62" cy="64" r="3" fill="#E8A400" opacity=".7"/><circle cx="58" cy="30" r="2.4" fill="#E8A400" opacity=".7"/>
+      </svg>
+    </div></div>
+  </div>
+
+  <!-- ===== Stingray — flat glide, whip tail sweeps like the shark's ===== -->
+  <div class="fish-outer" style="--top:63%;--size:clamp(78px,10.5vw,138px);--dur:78s;--delay:-16s;">
+    <div class="fish-inner ray-inner" style="--bobdur:6.2s;--bobdelay:-2.8s;"><div class="fish-flip">
+      <svg viewBox="0 0 190 90" xmlns="http://www.w3.org/2000/svg">
+        <defs><radialGradient id="ray1" cx="38%" cy="35%" r="70%"><stop offset="0%" stop-color="#9FB6D9"/><stop offset="100%" stop-color="#4C5F82"/></radialGradient></defs>
+        <path class="raytail" d="M118 46 Q160 50 182 70" stroke="#4C5F82" stroke-width="5" fill="none" stroke-linecap="round"/>
+        <path d="M100 6 Q10 20 4 46 Q10 72 100 86 Q140 74 140 46 Q140 18 100 6Z" fill="url(#ray1)"/>
+        <circle cx="112" cy="34" r="8" fill="#fff" opacity=".18"/><circle cx="112" cy="58" r="8" fill="#fff" opacity=".18"/>
+        <circle cx="70" cy="36" r="9" fill="#2E3A52" opacity=".55"/><circle cx="70" cy="56" r="9" fill="#2E3A52" opacity=".55"/>
+        <circle cx="118" cy="40" r="3.4" fill="#1B2233"/><circle cx="118" cy="52" r="3.4" fill="#1B2233"/>
+      </svg>
+    </div></div>
+  </div>
+
+  <!-- ===== Seahorse — upright drifter, curled tail ===== -->
+  <div class="fish-outer face-left" style="--hue:180deg;--top:70%;--size:clamp(34px,4.6vw,52px);--dur:70s;--delay:-38s;">
+    <div class="fish-inner" style="--bobdur:5s;--bobdelay:-.8s;"><div class="fish-flip">
+      <svg viewBox="0 0 70 130" xmlns="http://www.w3.org/2000/svg">
+        <defs><linearGradient id="sea1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FF9EC4"/><stop offset="100%" stop-color="#E0245E"/></linearGradient></defs>
+        <path d="M34 8 Q54 8 54 26 Q54 42 40 48 Q56 52 56 70 Q56 88 40 92 Q52 98 44 116 Q38 128 26 122 Q18 118 22 106 Q10 100 10 84 Q10 68 24 62 Q10 56 10 40 Q10 20 34 8Z" fill="url(#sea1)"/>
+        <path d="M20 24 Q10 20 6 28 Q14 30 20 24Z" fill="#C21C4E"/>
+        <path d="M14 46 L26 46 M14 62 L28 62 M16 78 L30 78" stroke="#C21C4E" stroke-width="3" opacity=".5"/>
+        <circle cx="42" cy="22" r="4.6" fill="#fff"/><circle cx="43.5" cy="22" r="2.4" fill="#1B2233"/>
+      </svg>
+    </div></div>
+  </div>
+
+  <!-- ===== A few extra small schooling fish for a fuller, busier tank ===== -->
+  <div class="fish-outer face-left" style="--hue:60deg;--sat:1.1;--top:44%;--size:clamp(30px,4.2vw,50px);--dur:34s;--delay:-9s;">
+    <div class="fish-inner" style="--bobdur:3.2s;--bobdelay:-.5s;"><div class="fish-flip">
+      <svg viewBox="0 0 120 52" xmlns="http://www.w3.org/2000/svg">
+        <path d="M24 26 L2 10 L8 26 L2 42 Z" fill="#2C6FEE"/>
+        <ellipse cx="66" cy="26" rx="42" ry="15" fill="#8FE3FF"/>
+        <path d="M100 15 Q116 20 118 26 Q116 32 100 37 Q108 26 100 15Z" fill="#8FE3FF"/>
+        <circle cx="96" cy="20" r="4.5" fill="#fff"/><circle cx="97.5" cy="20" r="2.4" fill="#1B2233"/>
+      </svg>
+    </div></div>
+  </div>
+
+  <div class="fish-outer" style="--hue:320deg;--sat:1.05;--top:50%;--size:clamp(32px,4.6vw,54px);--dur:40s;--delay:-27s;">
+    <div class="fish-inner" style="--bobdur:3.6s;--bobdelay:-1.9s;"><div class="fish-flip">
+      <svg viewBox="0 0 140 74" xmlns="http://www.w3.org/2000/svg">
+        <path d="M28 37 L2 14 L10 37 L2 60 Z" fill="#E4572E"/>
+        <ellipse cx="78" cy="37" rx="46" ry="24" fill="#FF9A3C"/>
+        <path d="M118 24 Q136 30 138 37 Q136 44 118 50 Q128 37 118 24Z" fill="#FF9A3C"/>
+        <circle cx="112" cy="30" r="6" fill="#fff"/><circle cx="114" cy="30" r="3.2" fill="#1B2233"/>
+      </svg>
+    </div></div>
+  </div>
+
+  <div class="fish-outer face-left" style="--hue:-40deg;--sat:1.1;--top:2%;--size:clamp(30px,4.2vw,48px);--dur:46s;--delay:-19s;">
+    <div class="fish-inner" style="--bobdur:3.4s;--bobdelay:-2.7s;"><div class="fish-flip">
+      <svg viewBox="0 0 116 116" xmlns="http://www.w3.org/2000/svg">
+        <path d="M56 8 Q20 30 20 58 Q20 86 56 108 Q40 78 40 58 Q40 38 56 8Z" fill="#FF7A00" opacity=".9"/>
+        <ellipse cx="66" cy="58" rx="34" ry="42" fill="#FFD23F"/>
+        <path d="M96 42 Q112 50 114 58 Q112 66 96 74 Q104 58 96 42Z" fill="#FFD23F"/>
+        <circle cx="90" cy="46" r="6" fill="#fff"/><circle cx="92" cy="46" r="3" fill="#1B2233"/>
       </svg>
     </div></div>
   </div>
