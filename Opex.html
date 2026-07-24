@@ -1110,6 +1110,54 @@
 </style>
 </head>
 <body class="budget-mode">
+<style>
+  #opexAuthGate{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(180deg,#eef2ff 0%,#dbeafe 100%);padding:20px;}
+  #opexAuthGate.hidden{display:none;}
+  #opexAuthCard{background:#fff;border-radius:1.1rem;box-shadow:0 25px 60px -12px rgba(15,23,42,.25);
+    padding:2.25rem 2rem;max-width:22rem;width:100%;font-family:'Inter',ui-sans-serif,system-ui,sans-serif;}
+  #opexAuthCard h1{margin:0 0 .25rem;font-size:1.15rem;font-weight:700;color:#1A2C8C;}
+  #opexAuthCard p.sub{margin:0 0 1.25rem;font-size:.8rem;color:#64748b;}
+  #opexAuthCard label{display:block;font-size:.72rem;font-weight:600;color:#334155;margin:.6rem 0 .25rem;}
+  #opexAuthCard input{width:100%;box-sizing:border-box;padding:.6rem .75rem;border:1px solid #cbd5e1;
+    border-radius:.5rem;font-size:.85rem;}
+  #opexAuthCard input:focus{outline:none;border-color:#3B57D6;box-shadow:0 0 0 3px rgba(59,87,214,.15);}
+  #opexAuthSubmit{width:100%;margin-top:1.1rem;padding:.7rem 1rem;border:none;border-radius:.6rem;
+    background:linear-gradient(to right,#233CB0,#3B57D6);color:#fff;font-weight:700;font-size:.85rem;
+    cursor:pointer;}
+  #opexAuthSubmit:disabled{opacity:.6;cursor:default;}
+  #opexAuthError{display:none;margin-top:.75rem;font-size:.78rem;color:#b91c1c;background:#fee2e2;
+    border-radius:.5rem;padding:.5rem .65rem;}
+  #opexSignedInBar{position:fixed;top:0;left:0;right:0;z-index:99998;display:none;align-items:center;
+    justify-content:flex-end;gap:.6rem;padding:.4rem .9rem;background:rgba(255,255,255,.9);
+    backdrop-filter:blur(6px);font-family:'Inter',ui-sans-serif,system-ui,sans-serif;font-size:.75rem;
+    color:#334155;border-bottom:1px solid rgba(15,23,42,.08);}
+  #opexSignedInBar button{border:none;background:#f1f5f9;color:#334155;border-radius:.4rem;
+    padding:.25rem .6rem;font-size:.72rem;font-weight:600;cursor:pointer;}
+  #opexMainContent{display:none;}
+</style>
+
+<div id="opexAuthGate">
+  <div id="opexAuthCard">
+    <h1>Audit Opex &mdash; Sign in</h1>
+    <p class="sub">Use your audit dashboard account to continue.</p>
+    <form id="opexAuthForm">
+      <label for="opexAuthEmail">Email</label>
+      <input id="opexAuthEmail" type="email" autocomplete="username" required>
+      <label for="opexAuthPassword">Password</label>
+      <input id="opexAuthPassword" type="password" autocomplete="current-password" required>
+      <div id="opexAuthError"></div>
+      <button id="opexAuthSubmit" type="submit">Sign In</button>
+    </form>
+  </div>
+</div>
+
+<div id="opexSignedInBar">
+  <span id="opexSignedInEmail"></span>
+  <button id="opexSignOutBtn" type="button">Log out</button>
+</div>
+
+<div id="opexMainContent">
 <div class="toast-wrap" id="toastWrap">
   <span class="toast-icon" id="toastIcon">&#10003;</span>
   <span id="toastMsg"></span>
@@ -3478,5 +3526,126 @@ updateVoucherTabState();
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</div><!-- /#opexMainContent -->
+
+<!-- ================= FIREBASE AUTH GATE =================
+     Same Firebase project/config as the main index.html dashboard, so
+     only accounts that already exist there (the same allow-listed audit
+     accounts) can sign in here. On top of that, ALLOWED_EMAILS below is
+     checked client-side after sign-in as a second layer — anyone who
+     signs in with a Firebase account that isn't on this list is
+     immediately signed back out and shown an error instead of seeing the
+     page content. This mirrors the QUICKLINKS_ALLOWED_EMAILS check the
+     Apps Script backend already does for this same link on the main
+     dashboard.
+     NOTE: this only gates what's shown in the browser tab. The Opex
+     Apps Script backend (DEFAULT_WEB_APP_URL above) does not itself
+     check a secret/idToken the way the main dashboard's backend does,
+     so anyone who already knows that Apps Script URL directly could
+     still call it without going through this login screen. If that
+     matters, the Opex Apps Script backend should be updated to require
+     the same secret+idToken check as Code.gs before it's fully secure
+     end-to-end. -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import {
+    getAuth,
+    signInWithEmailAndPassword,
+    onAuthStateChanged,
+    setPersistence,
+    browserLocalPersistence,
+    signOut
+  } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+  // Same Firebase project as index.html — only accounts registered there
+  // can sign in at all.
+  const firebaseConfig = {
+    apiKey: "AIzaSyCuntpbNHmez53kWE9nyORhNC62W_FvrTU",
+    authDomain: "audit-dashboard-4ca4a.firebaseapp.com",
+    projectId: "audit-dashboard-4ca4a",
+    storageBucket: "audit-dashboard-4ca4a.firebasestorage.app",
+    messagingSenderId: "508009297337",
+    appId: "1:508009297337:web:b31255a81546216d703268"
+  };
+
+  // Second layer: only these accounts may actually view this page, even
+  // if other accounts exist in the Firebase project for other purposes.
+  // Matches QUICKLINKS_ALLOWED_EMAILS in the merged Apps Script backend.
+  const ALLOWED_EMAILS = [
+    "karljenard@gmail.com",
+    "auditdept2022@gmail.com"
+  ];
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+
+  setPersistence(auth, browserLocalPersistence).catch(function (err) {
+    console.warn("Could not set auth persistence:", err);
+  });
+
+  const gate = document.getElementById('opexAuthGate');
+  const mainContent = document.getElementById('opexMainContent');
+  const signedInBar = document.getElementById('opexSignedInBar');
+  const signedInEmail = document.getElementById('opexSignedInEmail');
+  const form = document.getElementById('opexAuthForm');
+  const emailInput = document.getElementById('opexAuthEmail');
+  const passwordInput = document.getElementById('opexAuthPassword');
+  const errorBox = document.getElementById('opexAuthError');
+  const submitBtn = document.getElementById('opexAuthSubmit');
+  const signOutBtn = document.getElementById('opexSignOutBtn');
+
+  function showError(msg) {
+    errorBox.textContent = msg;
+    errorBox.style.display = 'block';
+  }
+
+  function isAllowedEmail(email) {
+    const normalized = (email || '').toLowerCase().trim();
+    return ALLOWED_EMAILS.indexOf(normalized) !== -1;
+  }
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    errorBox.style.display = 'none';
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Signing in\u2026';
+    try {
+      await signInWithEmailAndPassword(auth, emailInput.value.trim(), passwordInput.value);
+      // onAuthStateChanged below reveals the page (after the allow-list check).
+    } catch (err) {
+      console.error('Sign-in failed:', err);
+      showError('Invalid email or password.');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Sign In';
+    }
+  });
+
+  signOutBtn.addEventListener('click', function () {
+    signOut(auth);
+  });
+
+  onAuthStateChanged(auth, function (user) {
+    if (user && isAllowedEmail(user.email)) {
+      gate.classList.add('hidden');
+      mainContent.style.display = 'block';
+      signedInBar.style.display = 'flex';
+      signedInEmail.textContent = user.email || '';
+      passwordInput.value = '';
+    } else if (user) {
+      // Signed in, but not on the allow-list for this page — sign out
+      // immediately and explain why, rather than showing any content.
+      mainContent.style.display = 'none';
+      signedInBar.style.display = 'none';
+      gate.classList.remove('hidden');
+      showError('This account is not authorized to view Audit Opex.');
+      signOut(auth);
+    } else {
+      mainContent.style.display = 'none';
+      signedInBar.style.display = 'none';
+      gate.classList.remove('hidden');
+    }
+  });
+</script>
 </body>
 </html>
