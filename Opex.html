@@ -2100,6 +2100,87 @@
        just moving the same whitespace from CSS padding to page margin. */
     @page{margin:4mm;}
   }
+
+  /* ============================================================
+     RESPONSIVE — screen automatically adapts between phone,
+     tablet and desktop widths (in addition to the max-width:640/
+     700/1000px rules already defined above).
+     ============================================================ */
+
+  /* Tablet: give the 4-across grids more breathing room before they
+     go fully vertical on phones. Scoped to 701–900px so it doesn't
+     fight the max-width:700px single-column rule above it. */
+  @media(min-width:701px) and (max-width:900px){
+    .grid-4{ grid-template-columns:1fr 1fr; }
+  }
+
+  @media(max-width:900px){
+    body{ padding:16px 12px 60px; }
+    .card{ padding:16px; }
+  }
+
+  @media(max-width:640px){
+    body{ padding:12px 10px 74px; }
+    .wrap{ max-width:100%; }
+    .card{ padding:14px; border-radius:10px; }
+
+    /* Banner: stack title above actions instead of squeezing both
+       onto one row; buttons wrap and become full-width tap targets */
+    .banner{
+      flex-direction:column;
+      align-items:stretch;
+      gap:12px;
+      padding:14px 16px;
+      min-height:0;
+    }
+    .banner .title-block h1{ font-size:16px; letter-spacing:1px; }
+    .banner .title-block p{ font-size:11px; margin-left:15px; }
+    .banner-right{ align-items:stretch; width:100%; gap:10px; }
+    .banner-actions{ flex-wrap:wrap; width:100%; gap:8px; }
+    .banner-btn{ flex:1 1 auto; justify-content:center; padding:9px 10px; font-size:12.5px; }
+    .banner .datetime{
+      text-align:left;
+      border-left:none;
+      border-top:1px solid rgba(255,255,255,.22);
+      padding-left:0;
+      padding-top:8px;
+      margin-left:0;
+      width:100%;
+    }
+    .sync-status{ margin-top:2px; }
+
+    /* Tabs: scroll horizontally instead of overlapping the totals;
+       the OPEX total badges drop to their own row underneath */
+    .tabs{
+      flex-wrap:wrap;
+      gap:14px;
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
+    }
+    .tab{ flex-shrink:0; font-size:12.5px; }
+    .opex-totals-group{
+      margin-left:0;
+      width:100%;
+      justify-content:space-between;
+      padding-right:0;
+      order:10;
+      border-top:1px solid var(--border);
+      padding-top:8px;
+      margin-top:2px;
+    }
+    .opex-year-total .oy-amount{ font-size:14.5px; }
+
+    .grid{ gap:10px; }
+    .two-col{ gap:10px; }
+    .totals-row{ gap:10px; }
+    .pd-sign{ padding:0 12px; }
+  }
+
+  @media(max-width:420px){
+    .banner .title-block h1{ font-size:14px; }
+    .totals-row{ grid-template-columns:1fr; }
+    .stat-box .amount{ font-size:17px; }
+  }
 </style>
 </head>
 <body class="budget-mode">
