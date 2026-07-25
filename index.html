@@ -2645,10 +2645,10 @@ html.page-fade-ready body {
        the rider are layered on top so the whole loading wait becomes a tiny
        scene instead of a bare progress indicator.
 
-       Timing: every animation below runs ONCE (no "infinite"), lasts 5.2s,
+       Timing: every animation below runs ONCE (no "infinite"), lasts 1.8s,
        and holds its final frame (fill-mode: forwards) until the screen is
-       dismissed. That 5.2s must match MIN_LOADING_MS in the loading-screen
-       script further down (both currently 5.2s / 5200ms) so the sky finishes
+       dismissed. That 1.8s must match MIN_LOADING_MS in the loading-screen
+       script further down (both currently 1.8s / 1800ms) so the sky finishes
        rising to "morning" and the rider finishes reaching the end of the
        road at the same moment the loading screen is allowed to close — i.e.
        real data readiness and the animation's finish line are always in
@@ -2665,7 +2665,7 @@ html.page-fade-ready body {
         #5a3f80 42%, #8a5aa8 49%, #c06a8f 56%,
         #d9678f 61%, #ef8a72 68%, #f7a97c 75%,
         #ffc98a 81%, #ffd89e 86%, #d9ecdf 91%, #bfe3d8 95%, #bfe3f2 100%);
-      animation: skyRise 9s cubic-bezier(.45, 0, .75, 1) forwards;
+      animation: skyRise 1.8s cubic-bezier(.45, 0, .75, 1) forwards;
       will-change: transform;
     }
     /* Starts showing the top of the strip (night colours) and pans down to
@@ -2678,7 +2678,7 @@ html.page-fade-ready body {
       position: absolute; width: 3px; height: 3px; border-radius: 50%;
       background: #fff; box-shadow: 0 0 4px 1px rgba(255,255,255,.8);
       opacity: 0;
-      animation: starTwinkle 9s ease-in forwards;
+      animation: starTwinkle 1.8s ease-in forwards;
     }
     /* Bright at the start (night), fades out as morning arrives. */
     @keyframes starTwinkle {
@@ -2690,7 +2690,7 @@ html.page-fade-ready body {
     }
     .loading-sun-moon { position: absolute; left: 50%; top: 46%; z-index: 1; filter: drop-shadow(0 0 14px rgba(255,220,140,.5)); }
     .loading-sun {
-      animation: sunPath 9s cubic-bezier(.45, 0, .75, 1) forwards;
+      animation: sunPath 1.8s cubic-bezier(.45, 0, .75, 1) forwards;
     }
     /* Below the horizon (hidden) while it's night, then rises into view as
        morning breaks — mirrors the sky strip and finishes at the same time. */
@@ -2702,7 +2702,7 @@ html.page-fade-ready body {
     }
     .loading-moon {
       filter: drop-shadow(0 0 10px rgba(200,210,255,.5));
-      animation: moonPath 9s ease-in forwards;
+      animation: moonPath 1.8s ease-in forwards;
     }
     /* Up in the night sky at the start, sets and fades out by morning. */
     @keyframes moonPath {
@@ -2756,7 +2756,7 @@ html.page-fade-ready body {
        arrives at dawn" pattern, so it reads as "thunderstorm first, then
        morning" rather than a rainy sunrise. */
     .loading-rainy .loading-rain {
-      animation: loadingRainStorm 9s ease-in forwards;
+      animation: loadingRainStorm 1.8s ease-in forwards;
     }
     @keyframes loadingRainStorm {
       0%       { opacity: 0; }
@@ -2769,20 +2769,20 @@ html.page-fade-ready body {
        raging, easing back to normal (letting the sun/gold tones through)
        once the rain has cleared and morning has broken. */
     .loading-rainy .loading-scene-sky-strip {
-      animation: skyRise 9s cubic-bezier(.45, 0, .75, 1) forwards,
-                 loadingStormClear 9s ease-in forwards;
+      animation: skyRise 1.8s cubic-bezier(.45, 0, .75, 1) forwards,
+                 loadingStormClear 1.8s ease-in forwards;
     }
     @keyframes loadingStormClear {
       0%, 70%  { filter: saturate(.55) brightness(.85); }
       100%     { filter: saturate(1) brightness(1); }
     }
     /* Lightning: a few quick full-screen flashes during the storm portion
-       of the scene only (roughly the first 55% / ~5s of the 9s scene),
+       of the scene only (roughly the first 55% / ~1s of the 1.8s scene),
        never once morning has arrived. */
     .loading-lightning {
       position: absolute; inset: 0; z-index: 3; background: #fff;
       opacity: 0; pointer-events: none;
-      animation: loadingLightningFlash 9s linear forwards;
+      animation: loadingLightningFlash 1.8s linear forwards;
     }
     @keyframes loadingLightningFlash {
       0%, 8%    { opacity: 0; }
@@ -2825,7 +2825,7 @@ html.page-fade-ready body {
        close (see timing note above) — never looping past that point. */
     .loading-rig {
       position: absolute; bottom: 6%; left: 2%;
-      animation: loadingRigCruise 9s cubic-bezier(.5, 0, .75, 1) forwards,
+      animation: loadingRigCruise 1.8s cubic-bezier(.5, 0, .75, 1) forwards,
                  loadingRigBounce .3s ease-in-out infinite;
     }
     @keyframes loadingRigCruise {
@@ -2849,7 +2849,7 @@ html.page-fade-ready body {
       display: block; width: 150px; height: auto;
       transform-origin: 55% 92%;
       animation: loadingRigWobble .55s ease-in-out infinite,
-                 loadingRigLightSync 9s ease-in forwards;
+                 loadingRigLightSync 1.8s ease-in forwards;
     }
     @keyframes loadingRigWobble {
       0%, 100% { transform: rotate(-1.6deg) translateY(0); }
@@ -3361,7 +3361,7 @@ html.page-fade-ready body {
       // story rather than a flash, so every loading screen — first sign-in
       // or a manual retry — stays up for at least this long even if the
       // data itself is ready sooner.
-      const MIN_LOADING_MS = 9000;
+      const MIN_LOADING_MS = 1800;
       const STATUS_MESSAGES = [
         'Connecting to secure server\u2026',
         'Fetching latest audit records\u2026',
