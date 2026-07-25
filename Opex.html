@@ -426,38 +426,6 @@
     50%{ transform:rotate(9deg); }
   }
 
-  /* ---------- Dolphin: porpoises in a rolling arc instead of a level
-     glide, the way a real dolphin surfaces and dives — now with a body
-     flex (scaleX) woven into the arc itself, plus an independently
-     beating tail fluke and pectoral fin layered on top, so the whole
-     animal reads as one continuous swimming motion instead of a single
-     rigid shape bouncing straight up and down. ---------- */
-  .ocean-bg .dolphin-inner{ animation-name:dolphin-arc; }
-  @keyframes dolphin-arc{
-    0%{ transform:translateY(13px) rotate(8deg) scaleX(1); }
-    15%{ transform:translateY(-2px) rotate(-2deg) scaleX(.97); }
-    25%{ transform:translateY(-16px) rotate(-10deg) scaleX(1.04); }
-    38%{ transform:translateY(-4px) rotate(-3deg) scaleX(.98); }
-    50%{ transform:translateY(13px) rotate(8deg) scaleX(1); }
-    63%{ transform:translateY(2px) rotate(1deg) scaleX(.97); }
-    75%{ transform:translateY(-6px) rotate(-2deg) scaleX(1.02); }
-    88%{ transform:translateY(6px) rotate(4deg) scaleX(.98); }
-    100%{ transform:translateY(13px) rotate(8deg) scaleX(1); }
-  }
-  .ocean-bg .dolphin-inner .pecfin{
-    animation:pecsway 1.3s ease-in-out infinite;
-    transform-origin:50% 10%;
-    transform-box:fill-box;
-  }
-
-  /* ---------- Whale: huge, slow, barely-there roll — reads as something
-     big cruising far below rather than bobbing like a reef fish. ---------- */
-  .ocean-bg .whale-inner{ animation-name:whale-glide; }
-  @keyframes whale-glide{
-    0%,100%{ transform:translateY(-6px) rotate(-1.2deg); }
-    50%{ transform:translateY(7px) rotate(1.2deg); }
-  }
-
   /* ---------- Manta ray: big slow wing-beat rather than a tail-driven
      swim. ---------- */
   .ocean-bg .manta-inner{ animation-name:manta-glide; }
@@ -692,53 +660,6 @@
     100%{ transform:rotate(6deg) scaleY(1); }
   }
 
-  /* ----- Coral: rigid stony branches don't billow like seagrass, so they
-     get a much smaller-amplitude version of the same current-driven sway
-     (barely-there, just enough to read as "alive" rather than a painted
-     backdrop), plus a soft ambient glow pulsing behind the whole cluster
-     and individually-pulsing polyp dots at the branch tips (like a coral
-     head's polyps opening and closing to feed). ----- */
-  .ocean-bg .coral-item{
-    transform-origin:bottom center;
-    animation:coral-sway var(--cdur,7s) ease-in-out infinite alternate;
-    animation-delay:var(--cdelay,0s);
-    filter:drop-shadow(0 5px 7px rgba(10,20,50,.2));
-  }
-  @keyframes coral-sway{
-    0%{ transform:rotate(-1.6deg) scaleY(1); }
-    50%{ transform:rotate(.4deg) scaleY(1.006); }
-    100%{ transform:rotate(2deg) scaleY(1); }
-  }
-  .ocean-bg .coral-item .polyp{
-    animation:polyp-pulse var(--pdur,3.2s) ease-in-out infinite;
-    animation-delay:var(--pdelay,0s);
-    transform-box:fill-box;
-    transform-origin:50% 50%;
-  }
-  @keyframes polyp-pulse{
-    0%,100%{ transform:scale(.85); opacity:.7; }
-    50%{ transform:scale(1.2); opacity:1; }
-  }
-  .ocean-bg .reef-glow{
-    position:absolute;
-    bottom:-10px;
-    left:var(--gleft,50%);
-    width:var(--gsize,140px);
-    height:calc(var(--gsize,140px) * .5);
-    transform:translateX(-50%);
-    border-radius:50%;
-    background:radial-gradient(ellipse at center, var(--gcolor,rgba(255,158,90,.4)), transparent 72%);
-    mix-blend-mode:screen;
-    filter:blur(3px);
-    animation:reef-glow-pulse var(--gdur,5s) ease-in-out infinite;
-    animation-delay:var(--gdelay,0s);
-    pointer-events:none;
-  }
-  @keyframes reef-glow-pulse{
-    0%,100%{ opacity:.35; transform:translateX(-50%) scale(1); }
-    50%{ opacity:.7; transform:translateX(-50%) scale(1.12); }
-  }
-
   /* ----- Sea anemone: a ring of tentacles, each waving on its own
      slightly-offset cycle (like the seagrass/octopus pattern) so the
      whole crown ripples rather than swaying as one rigid unit — the
@@ -757,6 +678,10 @@
     animation:polyp-pulse 4.2s ease-in-out infinite;
     transform-box:fill-box;
     transform-origin:50% 100%;
+  }
+  @keyframes polyp-pulse{
+    0%,100%{ transform:scale(.85); opacity:.7; }
+    50%{ transform:scale(1.2); opacity:1; }
   }
   .ocean-bg .bubble{
     position:absolute;
@@ -787,16 +712,113 @@
     0%,100%{ opacity:.88; filter:brightness(1); }
     50%{ opacity:1; filter:brightness(1.3); }
   }
+
+  /* ----- Treasure chest: a hinged lid that swings open on its back
+     corner, holds open long enough to show the coins inside glowing,
+     then eases shut — with a burst of bubbles escaping right as the
+     seal breaks and the lid lifts, the way trapped air really would. */
+  .ocean-bg .chest-item .chest-lid{
+    animation:chest-open var(--chestdur,9s) ease-in-out infinite;
+    animation-delay:var(--chestdelay,0s);
+    filter:drop-shadow(0 5px 8px rgba(10,20,50,.28));
+  }
+  /* Pure 2D rotation about the hinge line at the back of the box — no
+     3D/perspective tricks (those render as a flat vertical squash on SVG
+     in most browsers). The lid swings back past vertical to a resting
+     open position, the way a real trunk lid tips back against its own
+     hinge stop, then eases shut the same way. */
+  @keyframes chest-open{
+    0%,10%{ transform:rotate(0deg); }
+    28%{ transform:rotate(-72deg); }
+    40%,62%{ transform:rotate(-104deg); }
+    80%{ transform:rotate(-72deg); }
+    92%,100%{ transform:rotate(0deg); }
+  }
+  /* The lid's ornate outer face and plain inner (underside) face are two
+     stacked layers inside the same rotating group; crossfading between
+     them in sync with the swing sells the illusion that you're seeing
+     the underside once it lifts, not just the same face spinning. */
+  .ocean-bg .chest-item .lid-face-outer{
+    animation:lid-face-out var(--chestdur,9s) ease-in-out infinite;
+    animation-delay:var(--chestdelay,0s);
+  }
+  .ocean-bg .chest-item .lid-face-inner{
+    animation:lid-face-in var(--chestdur,9s) ease-in-out infinite;
+    animation-delay:var(--chestdelay,0s);
+  }
+  @keyframes lid-face-out{
+    0%,14%{ opacity:1; } 30%,60%{ opacity:0; } 86%,100%{ opacity:1; }
+  }
+  @keyframes lid-face-in{
+    0%,14%{ opacity:0; } 30%,60%{ opacity:1; } 86%,100%{ opacity:0; }
+  }
+  .ocean-bg .chest-item .chest-treasure{
+    animation:chest-glow var(--chestdur,9s) ease-in-out infinite;
+    animation-delay:var(--chestdelay,0s);
+  }
+  @keyframes chest-glow{
+    0%,12%{ opacity:.12; }
+    34%{ opacity:1; }
+    64%{ opacity:1; }
+    86%,100%{ opacity:.12; }
+  }
+  .ocean-bg .chest-item .chest-bubble{
+    animation:chest-bubble-burst var(--chestdur,9s) ease-in-out infinite;
+    animation-delay:calc(var(--chestdelay,0s) + var(--bstagger,0s));
+    transform-box:fill-box;
+  }
+  @keyframes chest-bubble-burst{
+    0%,30%{ opacity:0; transform:translateY(0) scale(.5); }
+    34%{ opacity:1; transform:translateY(-10px) scale(.8); }
+    55%{ opacity:.85; transform:translateY(-48px) scale(1); }
+    75%{ opacity:.35; transform:translateY(-88px) scale(1.1); }
+    100%{ opacity:0; transform:translateY(-125px) scale(1.1); }
+  }
+
+  /* ----- Pink shells: a two-valve clam hinged at the back, clapping
+     open and shut on its own steady rhythm (unlike the chest's long
+     hold-open cycle) with a light, continuous stream of bubbles from
+     the mouth the whole time — a filter-feeder always sipping water. */
+  .ocean-bg .shell-item .shell-lid{
+    animation:shell-clap var(--clapdur,4.6s) ease-in-out infinite;
+    animation-delay:var(--clapdelay,0s);
+    filter:drop-shadow(0 2px 4px rgba(10,20,50,.18));
+  }
+  @keyframes shell-clap{
+    0%,100%{ transform:rotate(-3deg); }
+    50%{ transform:rotate(-36deg); }
+  }
+  .ocean-bg .shell-item .shell-glow{
+    animation:shell-glow-pulse var(--clapdur,4.6s) ease-in-out infinite;
+    animation-delay:var(--clapdelay,0s);
+  }
+  @keyframes shell-glow-pulse{
+    0%,100%{ opacity:.1; }
+    50%{ opacity:.8; }
+  }
+  .ocean-bg .shell-item .shell-bubble{
+    animation:shell-bubble-rise var(--bubdur,3.2s) ease-in infinite;
+    animation-delay:var(--bubdelay,0s);
+    transform-box:fill-box;
+  }
+  @keyframes shell-bubble-rise{
+    0%{ opacity:0; transform:translateY(0) scale(.5); }
+    12%{ opacity:.9; transform:translateY(-7px) scale(.7); }
+    60%{ opacity:.6; transform:translateY(-48px) scale(1); }
+    100%{ opacity:0; transform:translateY(-92px) scale(1.1); }
+  }
   @media(prefers-reduced-motion:reduce){
     .ocean-bg .seagrass, .ocean-bg .bubble, .ocean-bg .treasure-sparkle,
-    .ocean-bg .coral-item, .ocean-bg .coral-item .polyp, .ocean-bg .reef-glow,
-    .ocean-bg .anemone-item .tentacle, .ocean-bg .anemone-item .anem-body{ animation:none; }
+    .ocean-bg .anemone-item .tentacle, .ocean-bg .anemone-item .anem-body,
+    .ocean-bg .chest-item .chest-lid, .ocean-bg .chest-item .chest-treasure,
+    .ocean-bg .chest-item .lid-face-outer, .ocean-bg .chest-item .lid-face-inner,
+    .ocean-bg .chest-item .chest-bubble, .ocean-bg .shell-item .shell-lid,
+    .ocean-bg .shell-item .shell-glow, .ocean-bg .shell-item .shell-bubble{ animation:none; }
     .ocean-bg::before{ animation:none; }
     .ocean-bg .fish-outer, .ocean-bg .fish-inner,
     .ocean-bg .jelly-outer, .ocean-bg .jelly-inner, .ocean-bg .jelly-tentacle,
     .ocean-bg .turtle-inner .flipper, .ocean-bg .shark-inner .tailfin,
-    .ocean-bg .shark-inner .pecfin, .ocean-bg .orca-inner, .ocean-bg .wake-bubble,
-    .ocean-bg .dolphin-inner .pecfin{ animation:none; }
+    .ocean-bg .shark-inner .pecfin, .ocean-bg .orca-inner, .ocean-bg .wake-bubble{ animation:none; }
   }
   @media(max-width:640px){
     .ocean-bg{ opacity:.35; }
@@ -1886,6 +1908,22 @@
   <div class="banner">
 <div class="ocean-bg" aria-hidden="true">
 
+  <!-- ===== Global reusable defs: a tiled scale-texture pattern layered
+       over every fish body (at low opacity) so skin reads as overlapping
+       scales rather than a flat cartoon fill, plus a soft caustic-light
+       pattern reused by larger creatures. ===== -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <pattern id="scalePattern" width="9" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(2)">
+        <path d="M0 7 Q4.5 0 9 7" fill="none" stroke="#ffffff" stroke-width="1" opacity=".55"/>
+      </pattern>
+      <pattern id="scalePatternDark" width="9" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(2)">
+        <path d="M0 7 Q4.5 0 9 7" fill="none" stroke="#0B1626" stroke-width=".9" opacity=".4"/>
+      </pattern>
+    </defs>
+  </svg>
+
+
   <!-- ===== Day / night cycle: four cross-fading sky tints + a sun/moon
        pair sharing one arc + stars that surface at night. Purely
        decorative, sits behind every creature (see CSS notes). ===== -->
@@ -1979,7 +2017,7 @@
       <svg viewBox="0 0 140 74" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="fA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFB25C"/><stop offset="50%" stop-color="#E4572E"/><stop offset="100%" stop-color="#9C2E12"/></linearGradient></defs>
         <g class="tailwag" style="--tailspeed:.46s;"><path d="M26 37 Q10 20 0 9 Q7 27 15 37 Q7 47 0 65 Q10 54 26 37Z" fill="#9C2E12"/></g>
-        <path d="M24 37 Q24 15 53 10 Q86 4 113 16 Q129 24 135 34 Q137 37 135 40 Q129 50 113 58 Q86 70 53 64 Q24 59 24 37Z" fill="url(#fA)"/>
+        <path d="M24 37 Q24 15 53 10 Q86 4 113 16 Q129 24 135 34 Q137 37 135 40 Q129 50 113 58 Q86 70 53 64 Q24 59 24 37Z" fill="url(#fA)"/><path d="M24 37 Q24 15 53 10 Q86 4 113 16 Q129 24 135 34 Q137 37 135 40 Q129 50 113 58 Q86 70 53 64 Q24 59 24 37Z" fill="url(#scalePattern)" opacity=".32"/><path d="M39.2 34.0 Q77.0 36.8 114.8 34.0" stroke="#ffffff" stroke-width="1.7" fill="none" opacity=".38" stroke-linecap="round"/><path d="M105.4 24.8 Q102.6 31.4 105.4 38.1" stroke="#000" stroke-width="1.4" fill="none" opacity=".28" stroke-linecap="round"/><path d="M101.5 24.8 Q98.7 31.4 101.5 38.1" stroke="#000" stroke-width="1.4" fill="none" opacity=".28" stroke-linecap="round"/><path d="M97.6 24.8 Q94.8 31.4 97.6 38.1" stroke="#000" stroke-width="1.4" fill="none" opacity=".28" stroke-linecap="round"/>
         <path d="M53 11 Q61 -9 81 1 Q95 8 101 15 Q78 9 53 11Z" fill="#9C2E12" opacity=".92"/>
         <path d="M57 61 Q65 76 79 70 Q91 63 97 55 Q77 65 57 61Z" fill="#9C2E12" opacity=".85"/>
         <path d="M50 39 Q37 50 42 61 Q54 55 58 42Z" fill="#FF9A3C" opacity=".82"/>
@@ -1996,7 +2034,7 @@
       <svg viewBox="0 0 120 52" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="fB" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8FE3FF"/><stop offset="50%" stop-color="#2C6FEE"/><stop offset="100%" stop-color="#0B2C74"/></linearGradient></defs>
         <g class="tailwag" style="--tailspeed:.42s;"><path d="M22 26 Q8 12 0 4 Q6 19 12 26 Q6 33 0 48 Q8 40 22 26Z" fill="#0B2C74"/></g>
-        <path d="M20 26 Q20 10 44 6 Q72 1 95 12 Q109 18 113 26 Q109 34 95 40 Q72 51 44 46 Q20 42 20 26Z" fill="url(#fB)"/>
+        <path d="M20 26 Q20 10 44 6 Q72 1 95 12 Q109 18 113 26 Q109 34 95 40 Q72 51 44 46 Q20 42 20 26Z" fill="url(#fB)"/><path d="M20 26 Q20 10 44 6 Q72 1 95 12 Q109 18 113 26 Q109 34 95 40 Q72 51 44 46 Q20 42 20 26Z" fill="url(#scalePattern)" opacity=".32"/><path d="M33.6 23.9 Q66.0 25.8 98.4 23.9" stroke="#ffffff" stroke-width="1.4" fill="none" opacity=".38" stroke-linecap="round"/><path d="M89.2 18.4 Q86.8 23.1 89.2 27.8" stroke="#000" stroke-width="1.2" fill="none" opacity=".28" stroke-linecap="round"/><path d="M85.8 18.4 Q83.4 23.1 85.8 27.8" stroke="#000" stroke-width="1.2" fill="none" opacity=".28" stroke-linecap="round"/><path d="M82.5 18.4 Q80.1 23.1 82.5 27.8" stroke="#000" stroke-width="1.2" fill="none" opacity=".28" stroke-linecap="round"/>
         <path d="M44 7 Q52 -8 68 -1 Q78 5 82 10 Q62 5 44 7Z" fill="#0B2C74" opacity=".88"/>
         <path d="M46 45 Q54 57 68 51 Q78 44 82 39 Q62 48 46 45Z" fill="#0B2C74" opacity=".78"/>
         <path d="M40 28 Q30 36 34 45 Q44 40 46 30Z" fill="#5FA0FF" opacity=".78"/>
@@ -2012,7 +2050,7 @@
       <svg viewBox="0 0 116 116" xmlns="http://www.w3.org/2000/svg">
         <defs><radialGradient id="fC" cx="42%" cy="35%" r="70%"><stop offset="0%" stop-color="#FFE45C"/><stop offset="60%" stop-color="#FFC629"/><stop offset="100%" stop-color="#B87400"/></radialGradient></defs>
         <g class="tailwag" style="--tailspeed:.6s;" ><path d="M46 12 Q22 30 20 58 Q22 86 46 104 Q36 80 36 58 Q36 36 46 12Z" fill="#B87400" opacity=".92"/></g>
-        <ellipse cx="66" cy="58" rx="34" ry="42" fill="url(#fC)"/>
+        <ellipse cx="66" cy="58" rx="34" ry="42" fill="url(#fC)"/><ellipse cx="66" cy="58" rx="34" ry="42" fill="url(#scalePattern)" opacity=".32"/><path d="M40 30 Q66 58 40 86" stroke="#ffffff" stroke-width="1.4" fill="none" opacity=".4" stroke-linecap="round"/><path d="M78 38 Q72 47 78 56M78 60 Q72 69 78 78" stroke="#000" stroke-width="1.1" fill="none" opacity=".28" stroke-linecap="round"/>
         <path d="M50 18 Q66 -7 83 18 Q68 20 50 18Z" fill="#B87400"/>
         <path d="M50 98 Q66 123 83 98 Q68 96 50 98Z" fill="#B87400" opacity=".92"/>
         <path d="M96 44 Q110 51 112 58 Q110 65 96 72 Q102 58 96 44Z" fill="url(#fC)"/>
@@ -2029,7 +2067,7 @@
       <svg viewBox="0 0 130 64" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="fD" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FF9A3C"/><stop offset="50%" stop-color="#E4572E"/><stop offset="100%" stop-color="#8A2A10"/></linearGradient></defs>
         <g class="tailwag" style="--tailspeed:.44s;"><path d="M24 32 Q10 17 2 8 Q8 24 15 32 Q8 40 2 56 Q10 47 24 32Z" fill="#8A2A10"/></g>
-        <path d="M22 32 Q22 13 49 10 Q81 5 105 16 Q117 23 117 32 Q117 41 105 48 Q81 59 49 54 Q22 51 22 32Z" fill="url(#fD)"/>
+        <path d="M22 32 Q22 13 49 10 Q81 5 105 16 Q117 23 117 32 Q117 41 105 48 Q81 59 49 54 Q22 51 22 32Z" fill="url(#fD)"/><path d="M22 32 Q22 13 49 10 Q81 5 105 16 Q117 23 117 32 Q117 41 105 48 Q81 59 49 54 Q22 51 22 32Z" fill="url(#scalePattern)" opacity=".32"/><path d="M32.5 53.4 Q63.8 57.6 95.1 53.4" stroke="#ffffff" stroke-width="1.4" fill="none" opacity=".38" stroke-linecap="round"/><path d="M89.6 19.5 Q87.2 30.0 89.6 40.4" stroke="#000" stroke-width="1.2" fill="none" opacity=".28" stroke-linecap="round"/><path d="M86.3 19.5 Q84.0 30.0 86.3 40.4" stroke="#000" stroke-width="1.2" fill="none" opacity=".28" stroke-linecap="round"/><path d="M83.1 19.5 Q80.7 30.0 83.1 40.4" stroke="#000" stroke-width="1.2" fill="none" opacity=".28" stroke-linecap="round"/>
         <path d="M38 12 L34 52" stroke="#1B2233" stroke-width="10" stroke-linecap="round" opacity=".18"/>
         <path d="M38 12 L34 52" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
         <path d="M64 10 L62 54" stroke="#1B2233" stroke-width="10" stroke-linecap="round" opacity=".18"/>
@@ -2047,7 +2085,7 @@
       <svg viewBox="0 0 140 74" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="fA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFB25C"/><stop offset="50%" stop-color="#E4572E"/><stop offset="100%" stop-color="#9C2E12"/></linearGradient></defs>
         <g class="tailwag" style="--tailspeed:.46s;"><path d="M26 37 Q10 20 0 9 Q7 27 15 37 Q7 47 0 65 Q10 54 26 37Z" fill="#9C2E12"/></g>
-        <path d="M24 37 Q24 15 53 10 Q86 4 113 16 Q129 24 135 34 Q137 37 135 40 Q129 50 113 58 Q86 70 53 64 Q24 59 24 37Z" fill="url(#fA)"/>
+        <path d="M24 37 Q24 15 53 10 Q86 4 113 16 Q129 24 135 34 Q137 37 135 40 Q129 50 113 58 Q86 70 53 64 Q24 59 24 37Z" fill="url(#fA)"/><path d="M24 37 Q24 15 53 10 Q86 4 113 16 Q129 24 135 34 Q137 37 135 40 Q129 50 113 58 Q86 70 53 64 Q24 59 24 37Z" fill="url(#scalePattern)" opacity=".32"/><path d="M39.2 34.0 Q77.0 36.8 114.8 34.0" stroke="#ffffff" stroke-width="1.7" fill="none" opacity=".38" stroke-linecap="round"/><path d="M105.4 24.8 Q102.6 31.4 105.4 38.1" stroke="#000" stroke-width="1.4" fill="none" opacity=".28" stroke-linecap="round"/><path d="M101.5 24.8 Q98.7 31.4 101.5 38.1" stroke="#000" stroke-width="1.4" fill="none" opacity=".28" stroke-linecap="round"/><path d="M97.6 24.8 Q94.8 31.4 97.6 38.1" stroke="#000" stroke-width="1.4" fill="none" opacity=".28" stroke-linecap="round"/>
         <path d="M53 11 Q61 -9 81 1 Q95 8 101 15 Q78 9 53 11Z" fill="#9C2E12" opacity=".92"/>
         <path d="M57 61 Q65 76 79 70 Q91 63 97 55 Q77 65 57 61Z" fill="#9C2E12" opacity=".85"/>
         <path d="M50 39 Q37 50 42 61 Q54 55 58 42Z" fill="#FF9A3C" opacity=".82"/>
@@ -2064,7 +2102,7 @@
       <svg viewBox="0 0 120 52" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="fB" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8FE3FF"/><stop offset="50%" stop-color="#2C6FEE"/><stop offset="100%" stop-color="#0B2C74"/></linearGradient></defs>
         <g class="tailwag" style="--tailspeed:.42s;"><path d="M22 26 Q8 12 0 4 Q6 19 12 26 Q6 33 0 48 Q8 40 22 26Z" fill="#0B2C74"/></g>
-        <path d="M20 26 Q20 10 44 6 Q72 1 95 12 Q109 18 113 26 Q109 34 95 40 Q72 51 44 46 Q20 42 20 26Z" fill="url(#fB)"/>
+        <path d="M20 26 Q20 10 44 6 Q72 1 95 12 Q109 18 113 26 Q109 34 95 40 Q72 51 44 46 Q20 42 20 26Z" fill="url(#fB)"/><path d="M20 26 Q20 10 44 6 Q72 1 95 12 Q109 18 113 26 Q109 34 95 40 Q72 51 44 46 Q20 42 20 26Z" fill="url(#scalePattern)" opacity=".32"/><path d="M33.6 23.9 Q66.0 25.8 98.4 23.9" stroke="#ffffff" stroke-width="1.4" fill="none" opacity=".38" stroke-linecap="round"/><path d="M89.2 18.4 Q86.8 23.1 89.2 27.8" stroke="#000" stroke-width="1.2" fill="none" opacity=".28" stroke-linecap="round"/><path d="M85.8 18.4 Q83.4 23.1 85.8 27.8" stroke="#000" stroke-width="1.2" fill="none" opacity=".28" stroke-linecap="round"/><path d="M82.5 18.4 Q80.1 23.1 82.5 27.8" stroke="#000" stroke-width="1.2" fill="none" opacity=".28" stroke-linecap="round"/>
         <path d="M44 7 Q52 -8 68 -1 Q78 5 82 10 Q62 5 44 7Z" fill="#0B2C74" opacity=".88"/>
         <path d="M46 45 Q54 57 68 51 Q78 44 82 39 Q62 48 46 45Z" fill="#0B2C74" opacity=".78"/>
         <path d="M40 28 Q30 36 34 45 Q44 40 46 30Z" fill="#5FA0FF" opacity=".78"/>
@@ -2080,7 +2118,7 @@
       <svg viewBox="0 0 116 116" xmlns="http://www.w3.org/2000/svg">
         <defs><radialGradient id="fC" cx="42%" cy="35%" r="70%"><stop offset="0%" stop-color="#FFE45C"/><stop offset="60%" stop-color="#FFC629"/><stop offset="100%" stop-color="#B87400"/></radialGradient></defs>
         <g class="tailwag" style="--tailspeed:.6s;" ><path d="M46 12 Q22 30 20 58 Q22 86 46 104 Q36 80 36 58 Q36 36 46 12Z" fill="#B87400" opacity=".92"/></g>
-        <ellipse cx="66" cy="58" rx="34" ry="42" fill="url(#fC)"/>
+        <ellipse cx="66" cy="58" rx="34" ry="42" fill="url(#fC)"/><ellipse cx="66" cy="58" rx="34" ry="42" fill="url(#scalePattern)" opacity=".32"/><path d="M40 30 Q66 58 40 86" stroke="#ffffff" stroke-width="1.4" fill="none" opacity=".4" stroke-linecap="round"/><path d="M78 38 Q72 47 78 56M78 60 Q72 69 78 78" stroke="#000" stroke-width="1.1" fill="none" opacity=".28" stroke-linecap="round"/>
         <path d="M50 18 Q66 -7 83 18 Q68 20 50 18Z" fill="#B87400"/>
         <path d="M50 98 Q66 123 83 98 Q68 96 50 98Z" fill="#B87400" opacity=".92"/>
         <path d="M96 44 Q110 51 112 58 Q110 65 96 72 Q102 58 96 44Z" fill="url(#fC)"/>
@@ -2097,7 +2135,7 @@
       <svg viewBox="0 0 130 64" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="fD" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FF9A3C"/><stop offset="50%" stop-color="#E4572E"/><stop offset="100%" stop-color="#8A2A10"/></linearGradient></defs>
         <g class="tailwag" style="--tailspeed:.44s;"><path d="M24 32 Q10 17 2 8 Q8 24 15 32 Q8 40 2 56 Q10 47 24 32Z" fill="#8A2A10"/></g>
-        <path d="M22 32 Q22 13 49 10 Q81 5 105 16 Q117 23 117 32 Q117 41 105 48 Q81 59 49 54 Q22 51 22 32Z" fill="url(#fD)"/>
+        <path d="M22 32 Q22 13 49 10 Q81 5 105 16 Q117 23 117 32 Q117 41 105 48 Q81 59 49 54 Q22 51 22 32Z" fill="url(#fD)"/><path d="M22 32 Q22 13 49 10 Q81 5 105 16 Q117 23 117 32 Q117 41 105 48 Q81 59 49 54 Q22 51 22 32Z" fill="url(#scalePattern)" opacity=".32"/><path d="M32.5 53.4 Q63.8 57.6 95.1 53.4" stroke="#ffffff" stroke-width="1.4" fill="none" opacity=".38" stroke-linecap="round"/><path d="M89.6 19.5 Q87.2 30.0 89.6 40.4" stroke="#000" stroke-width="1.2" fill="none" opacity=".28" stroke-linecap="round"/><path d="M86.3 19.5 Q84.0 30.0 86.3 40.4" stroke="#000" stroke-width="1.2" fill="none" opacity=".28" stroke-linecap="round"/><path d="M83.1 19.5 Q80.7 30.0 83.1 40.4" stroke="#000" stroke-width="1.2" fill="none" opacity=".28" stroke-linecap="round"/>
         <path d="M38 12 L34 52" stroke="#1B2233" stroke-width="10" stroke-linecap="round" opacity=".18"/>
         <path d="M38 12 L34 52" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
         <path d="M64 10 L62 54" stroke="#1B2233" stroke-width="10" stroke-linecap="round" opacity=".18"/>
@@ -2115,7 +2153,7 @@
       <svg viewBox="0 0 140 74" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="fA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFB25C"/><stop offset="50%" stop-color="#E4572E"/><stop offset="100%" stop-color="#9C2E12"/></linearGradient></defs>
         <g class="tailwag" style="--tailspeed:.46s;"><path d="M26 37 Q10 20 0 9 Q7 27 15 37 Q7 47 0 65 Q10 54 26 37Z" fill="#9C2E12"/></g>
-        <path d="M24 37 Q24 15 53 10 Q86 4 113 16 Q129 24 135 34 Q137 37 135 40 Q129 50 113 58 Q86 70 53 64 Q24 59 24 37Z" fill="url(#fA)"/>
+        <path d="M24 37 Q24 15 53 10 Q86 4 113 16 Q129 24 135 34 Q137 37 135 40 Q129 50 113 58 Q86 70 53 64 Q24 59 24 37Z" fill="url(#fA)"/><path d="M24 37 Q24 15 53 10 Q86 4 113 16 Q129 24 135 34 Q137 37 135 40 Q129 50 113 58 Q86 70 53 64 Q24 59 24 37Z" fill="url(#scalePattern)" opacity=".32"/><path d="M39.2 34.0 Q77.0 36.8 114.8 34.0" stroke="#ffffff" stroke-width="1.7" fill="none" opacity=".38" stroke-linecap="round"/><path d="M105.4 24.8 Q102.6 31.4 105.4 38.1" stroke="#000" stroke-width="1.4" fill="none" opacity=".28" stroke-linecap="round"/><path d="M101.5 24.8 Q98.7 31.4 101.5 38.1" stroke="#000" stroke-width="1.4" fill="none" opacity=".28" stroke-linecap="round"/><path d="M97.6 24.8 Q94.8 31.4 97.6 38.1" stroke="#000" stroke-width="1.4" fill="none" opacity=".28" stroke-linecap="round"/>
         <path d="M53 11 Q61 -9 81 1 Q95 8 101 15 Q78 9 53 11Z" fill="#9C2E12" opacity=".92"/>
         <path d="M57 61 Q65 76 79 70 Q91 63 97 55 Q77 65 57 61Z" fill="#9C2E12" opacity=".85"/>
         <path d="M50 39 Q37 50 42 61 Q54 55 58 42Z" fill="#FF9A3C" opacity=".82"/>
@@ -2132,7 +2170,7 @@
       <svg viewBox="0 0 120 52" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="fB" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8FE3FF"/><stop offset="50%" stop-color="#2C6FEE"/><stop offset="100%" stop-color="#0B2C74"/></linearGradient></defs>
         <g class="tailwag" style="--tailspeed:.42s;"><path d="M22 26 Q8 12 0 4 Q6 19 12 26 Q6 33 0 48 Q8 40 22 26Z" fill="#0B2C74"/></g>
-        <path d="M20 26 Q20 10 44 6 Q72 1 95 12 Q109 18 113 26 Q109 34 95 40 Q72 51 44 46 Q20 42 20 26Z" fill="url(#fB)"/>
+        <path d="M20 26 Q20 10 44 6 Q72 1 95 12 Q109 18 113 26 Q109 34 95 40 Q72 51 44 46 Q20 42 20 26Z" fill="url(#fB)"/><path d="M20 26 Q20 10 44 6 Q72 1 95 12 Q109 18 113 26 Q109 34 95 40 Q72 51 44 46 Q20 42 20 26Z" fill="url(#scalePattern)" opacity=".32"/><path d="M33.6 23.9 Q66.0 25.8 98.4 23.9" stroke="#ffffff" stroke-width="1.4" fill="none" opacity=".38" stroke-linecap="round"/><path d="M89.2 18.4 Q86.8 23.1 89.2 27.8" stroke="#000" stroke-width="1.2" fill="none" opacity=".28" stroke-linecap="round"/><path d="M85.8 18.4 Q83.4 23.1 85.8 27.8" stroke="#000" stroke-width="1.2" fill="none" opacity=".28" stroke-linecap="round"/><path d="M82.5 18.4 Q80.1 23.1 82.5 27.8" stroke="#000" stroke-width="1.2" fill="none" opacity=".28" stroke-linecap="round"/>
         <path d="M44 7 Q52 -8 68 -1 Q78 5 82 10 Q62 5 44 7Z" fill="#0B2C74" opacity=".88"/>
         <path d="M46 45 Q54 57 68 51 Q78 44 82 39 Q62 48 46 45Z" fill="#0B2C74" opacity=".78"/>
         <path d="M40 28 Q30 36 34 45 Q44 40 46 30Z" fill="#5FA0FF" opacity=".78"/>
@@ -2148,7 +2186,7 @@
       <svg viewBox="0 0 130 64" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="fD" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FF9A3C"/><stop offset="50%" stop-color="#E4572E"/><stop offset="100%" stop-color="#8A2A10"/></linearGradient></defs>
         <g class="tailwag" style="--tailspeed:.44s;"><path d="M24 32 Q10 17 2 8 Q8 24 15 32 Q8 40 2 56 Q10 47 24 32Z" fill="#8A2A10"/></g>
-        <path d="M22 32 Q22 13 49 10 Q81 5 105 16 Q117 23 117 32 Q117 41 105 48 Q81 59 49 54 Q22 51 22 32Z" fill="url(#fD)"/>
+        <path d="M22 32 Q22 13 49 10 Q81 5 105 16 Q117 23 117 32 Q117 41 105 48 Q81 59 49 54 Q22 51 22 32Z" fill="url(#fD)"/><path d="M22 32 Q22 13 49 10 Q81 5 105 16 Q117 23 117 32 Q117 41 105 48 Q81 59 49 54 Q22 51 22 32Z" fill="url(#scalePattern)" opacity=".32"/><path d="M36.4 29.4 Q71.5 31.8 106.6 29.4" stroke="#ffffff" stroke-width="1.6" fill="none" opacity=".38" stroke-linecap="round"/><path d="M88.3 21.1 Q85.7 26.8 88.3 32.6" stroke="#000" stroke-width="1.3" fill="none" opacity=".28" stroke-linecap="round"/><path d="M84.7 21.1 Q82.1 26.8 84.7 32.6" stroke="#000" stroke-width="1.3" fill="none" opacity=".28" stroke-linecap="round"/><path d="M81.0 21.1 Q78.4 26.8 81.0 32.6" stroke="#000" stroke-width="1.3" fill="none" opacity=".28" stroke-linecap="round"/>
         <path d="M38 12 L34 52" stroke="#1B2233" stroke-width="10" stroke-linecap="round" opacity=".18"/>
         <path d="M38 12 L34 52" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
         <path d="M64 10 L62 54" stroke="#1B2233" stroke-width="10" stroke-linecap="round" opacity=".18"/>
@@ -2166,7 +2204,7 @@
       <svg viewBox="0 0 140 74" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="fA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFB25C"/><stop offset="50%" stop-color="#E4572E"/><stop offset="100%" stop-color="#9C2E12"/></linearGradient></defs>
         <g class="tailwag" style="--tailspeed:.46s;"><path d="M26 37 Q10 20 0 9 Q7 27 15 37 Q7 47 0 65 Q10 54 26 37Z" fill="#9C2E12"/></g>
-        <path d="M24 37 Q24 15 53 10 Q86 4 113 16 Q129 24 135 34 Q137 37 135 40 Q129 50 113 58 Q86 70 53 64 Q24 59 24 37Z" fill="url(#fA)"/>
+        <path d="M24 37 Q24 15 53 10 Q86 4 113 16 Q129 24 135 34 Q137 37 135 40 Q129 50 113 58 Q86 70 53 64 Q24 59 24 37Z" fill="url(#fA)"/><path d="M24 37 Q24 15 53 10 Q86 4 113 16 Q129 24 135 34 Q137 37 135 40 Q129 50 113 58 Q86 70 53 64 Q24 59 24 37Z" fill="url(#scalePattern)" opacity=".32"/><path d="M39.2 34.0 Q77.0 36.8 114.8 34.0" stroke="#ffffff" stroke-width="1.7" fill="none" opacity=".38" stroke-linecap="round"/><path d="M105.4 24.8 Q102.6 31.4 105.4 38.1" stroke="#000" stroke-width="1.4" fill="none" opacity=".28" stroke-linecap="round"/><path d="M101.5 24.8 Q98.7 31.4 101.5 38.1" stroke="#000" stroke-width="1.4" fill="none" opacity=".28" stroke-linecap="round"/><path d="M97.6 24.8 Q94.8 31.4 97.6 38.1" stroke="#000" stroke-width="1.4" fill="none" opacity=".28" stroke-linecap="round"/>
         <path d="M53 11 Q61 -9 81 1 Q95 8 101 15 Q78 9 53 11Z" fill="#9C2E12" opacity=".92"/>
         <path d="M57 61 Q65 76 79 70 Q91 63 97 55 Q77 65 57 61Z" fill="#9C2E12" opacity=".85"/>
         <path d="M50 39 Q37 50 42 61 Q54 55 58 42Z" fill="#FF9A3C" opacity=".82"/>
@@ -2183,7 +2221,7 @@
       <svg viewBox="0 0 120 52" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="fB" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8FE3FF"/><stop offset="50%" stop-color="#2C6FEE"/><stop offset="100%" stop-color="#0B2C74"/></linearGradient></defs>
         <g class="tailwag" style="--tailspeed:.42s;"><path d="M22 26 Q8 12 0 4 Q6 19 12 26 Q6 33 0 48 Q8 40 22 26Z" fill="#0B2C74"/></g>
-        <path d="M20 26 Q20 10 44 6 Q72 1 95 12 Q109 18 113 26 Q109 34 95 40 Q72 51 44 46 Q20 42 20 26Z" fill="url(#fB)"/>
+        <path d="M20 26 Q20 10 44 6 Q72 1 95 12 Q109 18 113 26 Q109 34 95 40 Q72 51 44 46 Q20 42 20 26Z" fill="url(#fB)"/><path d="M20 26 Q20 10 44 6 Q72 1 95 12 Q109 18 113 26 Q109 34 95 40 Q72 51 44 46 Q20 42 20 26Z" fill="url(#scalePattern)" opacity=".32"/><path d="M33.6 23.9 Q66.0 25.8 98.4 23.9" stroke="#ffffff" stroke-width="1.4" fill="none" opacity=".38" stroke-linecap="round"/><path d="M89.2 18.4 Q86.8 23.1 89.2 27.8" stroke="#000" stroke-width="1.2" fill="none" opacity=".28" stroke-linecap="round"/><path d="M85.8 18.4 Q83.4 23.1 85.8 27.8" stroke="#000" stroke-width="1.2" fill="none" opacity=".28" stroke-linecap="round"/><path d="M82.5 18.4 Q80.1 23.1 82.5 27.8" stroke="#000" stroke-width="1.2" fill="none" opacity=".28" stroke-linecap="round"/>
         <path d="M44 7 Q52 -8 68 -1 Q78 5 82 10 Q62 5 44 7Z" fill="#0B2C74" opacity=".88"/>
         <path d="M46 45 Q54 57 68 51 Q78 44 82 39 Q62 48 46 45Z" fill="#0B2C74" opacity=".78"/>
         <path d="M40 28 Q30 36 34 45 Q44 40 46 30Z" fill="#5FA0FF" opacity=".78"/>
@@ -2194,14 +2232,17 @@
     </div></div>
   </div>
 
-  <!-- ===== Jellyfish — no facing direction, so they drift + pulse only ===== -->
-  <div class="jelly-outer" style="--hue:0deg;--top:2%;--size:clamp(46px,6.4vw,72px);--dur:42s;--delay:-14s;">
-    <div class="jelly-inner" style="--pulsedur:2.8s;--pulsedelay:-1s;">
+  <!-- ===== Jellyfish — no facing direction, so they drift + pulse only.
+       Bell markings are radial canals branching down from the crown (real
+       jellyfish anatomy), not a horizontal double-arc — nothing here should
+       ever read as a face. ===== -->
+  <div class="jelly-outer drift-left" style="--hue:150deg;--top:57%;--size:clamp(38px,5.4vw,60px);--dur:50s;--delay:-30s;">
+    <div class="jelly-inner" style="--pulsedur:3.3s;--pulsedelay:-2s;">
       <svg viewBox="0 0 90 130" xmlns="http://www.w3.org/2000/svg">
-        <defs><radialGradient id="jg1" cx="50%" cy="30%" r="70%"><stop offset="0%" stop-color="#FFF0FC" stop-opacity=".95"/><stop offset="100%" stop-color="#C77DFF" stop-opacity=".5"/></radialGradient></defs>
+        <defs><radialGradient id="jg1" cx="50%" cy="30%" r="70%"><stop offset="0%" stop-color="#FFF0FC" stop-opacity=".95"/><stop offset="100%" stop-color="#C77DFF" stop-opacity=".38"/></radialGradient></defs>
         <path d="M8 44 Q4 2 45 2 Q86 2 82 44 Q83 53 73 55 Q64 60 54 54 Q45 60 36 54 Q26 60 17 55 Q7 53 8 44Z" fill="url(#jg1)" stroke="#E0AAFF" stroke-width="2"/>
-        <path d="M20 30 Q45 44 70 30" stroke="#fff" stroke-width="2" fill="none" opacity=".4"/>
-        <path d="M18 16 Q45 28 72 16" stroke="#fff" stroke-width="1.6" fill="none" opacity=".3"/>
+        <path d="M45 6 L45 48 M45 20 Q28 30 22 46 M45 20 Q62 30 68 46 M45 32 Q34 40 30 50 M45 32 Q56 40 60 50" stroke="#fff" stroke-width="1.3" fill="none" opacity=".32" stroke-linecap="round"/>
+        <path d="M20 8 Q45 -2 70 8" stroke="#fff" stroke-width="1.4" fill="none" opacity=".22"/>
         <g stroke="#E0AAFF" stroke-width="2" fill="none" stroke-linecap="round" opacity=".85">
           <path class="jelly-tentacle" d="M38 56 Q35 76 39 96"/>
           <path class="jelly-tentacle" d="M45 57 Q44 80 46 100"/>
@@ -2217,13 +2258,13 @@
     </div>
   </div>
 
-  <div class="jelly-outer drift-left" style="--hue:150deg;--top:57%;--size:clamp(38px,5.4vw,60px);--dur:50s;--delay:-30s;">
-    <div class="jelly-inner" style="--pulsedur:3.3s;--pulsedelay:-2s;">
+  <div class="jelly-outer" style="--hue:205deg;--top:35%;--size:clamp(34px,4.8vw,54px);--dur:46s;--delay:-6s;">
+    <div class="jelly-inner" style="--pulsedur:3.1s;--pulsedelay:-.4s;">
       <svg viewBox="0 0 90 130" xmlns="http://www.w3.org/2000/svg">
-        <defs><radialGradient id="jg1" cx="50%" cy="30%" r="70%"><stop offset="0%" stop-color="#FFF0FC" stop-opacity=".95"/><stop offset="100%" stop-color="#C77DFF" stop-opacity=".5"/></radialGradient></defs>
+        <defs><radialGradient id="jg1" cx="50%" cy="30%" r="70%"><stop offset="0%" stop-color="#FFF0FC" stop-opacity=".95"/><stop offset="100%" stop-color="#C77DFF" stop-opacity=".38"/></radialGradient></defs>
         <path d="M8 44 Q4 2 45 2 Q86 2 82 44 Q83 53 73 55 Q64 60 54 54 Q45 60 36 54 Q26 60 17 55 Q7 53 8 44Z" fill="url(#jg1)" stroke="#E0AAFF" stroke-width="2"/>
-        <path d="M20 30 Q45 44 70 30" stroke="#fff" stroke-width="2" fill="none" opacity=".4"/>
-        <path d="M18 16 Q45 28 72 16" stroke="#fff" stroke-width="1.6" fill="none" opacity=".3"/>
+        <path d="M45 6 L45 48 M45 20 Q28 30 22 46 M45 20 Q62 30 68 46 M45 32 Q34 40 30 50 M45 32 Q56 40 60 50" stroke="#fff" stroke-width="1.3" fill="none" opacity=".32" stroke-linecap="round"/>
+        <path d="M20 8 Q45 -2 70 8" stroke="#fff" stroke-width="1.4" fill="none" opacity=".22"/>
         <g stroke="#E0AAFF" stroke-width="2" fill="none" stroke-linecap="round" opacity=".85">
           <path class="jelly-tentacle" d="M38 56 Q35 76 39 96"/>
           <path class="jelly-tentacle" d="M45 57 Q44 80 46 100"/>
@@ -2234,6 +2275,36 @@
           <path class="jelly-tentacle" d="M33 58 Q30 96 35 128"/>
           <path class="jelly-tentacle" d="M57 58 Q60 96 55 128"/>
           <path class="jelly-tentacle" d="M70 56 Q76 90 68 122"/>
+        </g>
+      </svg>
+    </div>
+  </div>
+
+  <!-- ===== Moon jellyfish — a genuinely different species from the two
+       bell jellies above: flatter saucer-shaped dome, four horseshoe
+       gonad rings visible through the translucent bell (real moon-jelly
+       anatomy), and a dense fringe of short frilly tentacles all round
+       the rim instead of a few long trailing ones. ===== -->
+  <div class="jelly-outer" style="--hue:0deg;--top:46%;--size:clamp(40px,5.6vw,64px);--dur:54s;--delay:-18s;">
+    <div class="jelly-inner" style="--pulsedur:3.6s;--pulsedelay:-1.1s;">
+      <svg viewBox="0 0 100 90" xmlns="http://www.w3.org/2000/svg">
+        <defs><radialGradient id="jgMoon" cx="50%" cy="25%" r="75%"><stop offset="0%" stop-color="#FFFFFF" stop-opacity=".95"/><stop offset="100%" stop-color="#BFE6FF" stop-opacity=".4"/></radialGradient></defs>
+        <path d="M6 34 Q2 4 50 4 Q98 4 94 34 Q96 44 84 48 Q50 56 16 48 Q4 44 6 34Z" fill="url(#jgMoon)" stroke="#8FD3FF" stroke-width="2"/>
+        <path d="M28 20 Q24 32 30 40 Q22 30 24 18Z" fill="none" stroke="#8FD3FF" stroke-width="2" opacity=".55"/>
+        <path d="M46 16 Q42 30 48 40 Q40 30 42 14Z" fill="none" stroke="#8FD3FF" stroke-width="2" opacity=".55"/>
+        <path d="M64 16 Q60 30 66 40 Q58 30 60 14Z" fill="none" stroke="#8FD3FF" stroke-width="2" opacity=".55"/>
+        <path d="M78 20 Q74 32 80 40 Q72 30 74 18Z" fill="none" stroke="#8FD3FF" stroke-width="2" opacity=".55"/>
+        <path d="M20 8 Q50 -2 80 8" stroke="#fff" stroke-width="1.4" fill="none" opacity=".3"/>
+        <g stroke="#BFE6FF" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".8">
+          <path class="jelly-tentacle" d="M16 48 Q13 62 17 74"/>
+          <path class="jelly-tentacle" d="M25 51 Q23 66 27 78"/>
+          <path class="jelly-tentacle" d="M34 53 Q33 68 36 80"/>
+          <path class="jelly-tentacle" d="M43 54 Q43 70 45 82"/>
+          <path class="jelly-tentacle" d="M50 55 Q50 71 50 83"/>
+          <path class="jelly-tentacle" d="M57 54 Q57 70 55 82"/>
+          <path class="jelly-tentacle" d="M66 53 Q67 68 64 80"/>
+          <path class="jelly-tentacle" d="M75 51 Q77 66 73 78"/>
+          <path class="jelly-tentacle" d="M84 48 Q87 62 83 74"/>
         </g>
       </svg>
     </div>
@@ -2361,30 +2432,6 @@
     <span class="wake-bubble" style="--wdur:2.1s;--wdelay:-1.1s;"></span>
   </div>
 
-  <!-- ===== Humpback whale — the header previously had no whale at all
-       (only the post-refresh celebration overlay did). Big, slow, deep
-       background swimmer: gentle body roll plus a slow two-lobed fluke
-       beat, kept small/dim enough to read as "far below" rather than
-       crowding the smaller reef fish in front of it. ===== -->
-  <div class="fish-outer" style="--top:54%;--size:clamp(72px,8vw,112px);--dur:130s;--delay:-40s;">
-    <div class="fish-inner whale-inner" style="--bobdur:9s;--bobdelay:-2s;"><div class="fish-flip">
-      <svg viewBox="0 0 220 90" xmlns="http://www.w3.org/2000/svg">
-        <defs><linearGradient id="whaleg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#6785A0"/><stop offset="55%" stop-color="#3B5068"/><stop offset="100%" stop-color="#1B2733"/></linearGradient></defs>
-        <g class="tailwag" style="--tailspeed:1.7s;">
-          <path d="M32 45 Q12 20 0 4 Q5 28 15 45 Q5 62 0 86 Q12 70 32 45Z" fill="#1B2733"/>
-        </g>
-        <path d="M30 45 Q32 15 64 7 Q112 -5 162 13 Q200 27 216 45 Q200 63 162 77 Q112 95 64 83 Q32 75 30 45Z" fill="url(#whaleg)"/>
-        <path d="M96 9 Q104 -8 115 7 Q106 11 96 9Z" fill="#1B2733" opacity=".88"/>
-        <path d="M62 58 Q32 79 12 73 Q35 66 54 51Z" fill="#1B2733" opacity=".85"/>
-        <path d="M66 20 Q122 11 184 26" stroke="#9FB6C8" stroke-width="2" fill="none" opacity=".38"/>
-        <path d="M60 30 Q120 22 190 37" stroke="#9FB6C8" stroke-width="1.6" fill="none" opacity=".3"/>
-        <path d="M56 40 Q116 33 194 46" stroke="#9FB6C8" stroke-width="1.4" fill="none" opacity=".24"/>
-        <ellipse cx="58" cy="15" rx="3.4" ry="2.2" fill="#0C121C" opacity=".75"/>
-        <circle cx="198" cy="39" r="2.8" fill="#0C121C"/>
-      </svg>
-    </div></div>
-  </div>
-
   <!-- ===== Killer whale (orca) — the header previously had no orca:
        black/white countershading, tall triangular dorsal fin, grey
        saddle patch and white eye patch, leaner + faster than the
@@ -2415,7 +2462,7 @@
     <div class="fish-inner" style="--bobdur:4.4s;--bobdelay:-2.2s;"><div class="fish-flip">
       <svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="ang1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFE45C"/><stop offset="100%" stop-color="#FF9A3C"/></linearGradient></defs>
-        <path d="M50 8 Q10 30 10 65 Q10 100 50 122 Q90 100 90 65 Q90 30 50 8Z" fill="url(#ang1)"/>
+        <path d="M50 8 Q10 30 10 65 Q10 100 50 122 Q90 100 90 65 Q90 30 50 8Z" fill="url(#ang1)"/><path d="M50 8 Q10 30 10 65 Q10 100 50 122 Q90 100 90 65 Q90 30 50 8Z" fill="url(#scalePattern)" opacity=".32"/><path d="M28.0 59.8 Q55.0 64.6 82.0 59.8" stroke="#ffffff" stroke-width="1.2" fill="none" opacity=".38" stroke-linecap="round"/><path d="M57.0 38.1 Q55.0 49.8 57.0 61.5" stroke="#000" stroke-width="1.0" fill="none" opacity=".28" stroke-linecap="round"/><path d="M54.2 38.1 Q52.2 49.8 54.2 61.5" stroke="#000" stroke-width="1.0" fill="none" opacity=".28" stroke-linecap="round"/><path d="M51.4 38.1 Q49.4 49.8 51.4 61.5" stroke="#000" stroke-width="1.0" fill="none" opacity=".28" stroke-linecap="round"/>
         <path d="M50 8 Q30 40 30 65 Q30 90 50 122 M50 8 Q70 40 70 65 Q70 90 50 122" stroke="#1B2233" stroke-width="4" fill="none" opacity=".75"/>
         <path d="M14 40 Q-6 30 -8 65 Q-6 100 14 90 Q8 65 14 40Z" fill="#1B2233" opacity=".85"/>
         <path d="M90 55 Q108 60 110 65 Q108 70 90 75 Q98 65 90 55Z" fill="#FF7A00"/>
@@ -2432,7 +2479,7 @@
         <g stroke="#C9971F" stroke-width="3" stroke-linecap="round">
           <path d="M50 6 L50 -6M74 12 L82 2M90 32 L102 26M94 54 L106 54M86 74 L96 82M64 90 L68 102M34 90 L30 102M14 74 L4 82M8 54 L-4 54M12 32 L0 26M28 12 L20 2"/>
         </g>
-        <circle cx="50" cy="50" r="40" fill="url(#puf1)" stroke="#C9971F" stroke-width="2.5"/>
+        <circle cx="50" cy="50" r="40" fill="url(#puf1)" stroke="#C9971F" stroke-width="2.5"/><circle cx="50" cy="50" r="40" fill="url(#scalePattern)" opacity=".3"/><path d="M20 40 Q50 60 80 40" stroke="#ffffff" stroke-width="1.4" fill="none" opacity=".35" stroke-linecap="round"/><path d="M62 42 Q56 50 62 58M68 44 Q62 52 68 60" stroke="#8A5F0A" stroke-width="1.1" fill="none" opacity=".3" stroke-linecap="round"/>
         <circle cx="35" cy="6" r="0" fill="none"/>
         <circle cx="40" cy="38" r="7" fill="#fff"/><circle cx="42" cy="38" r="3.6" fill="#1B2233"/>
         <path d="M58 58 Q50 66 42 58" stroke="#B8811A" stroke-width="3" fill="none" stroke-linecap="round"/>
@@ -2460,7 +2507,7 @@
     <div class="fish-inner" style="--bobdur:5s;--bobdelay:-.8s;"><div class="fish-flip">
       <svg viewBox="0 0 70 130" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="sea1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FF9EC4"/><stop offset="100%" stop-color="#E0245E"/></linearGradient></defs>
-        <path d="M34 8 Q54 8 54 26 Q54 42 40 48 Q56 52 56 70 Q56 88 40 92 Q52 98 44 116 Q38 128 26 122 Q18 118 22 106 Q10 100 10 84 Q10 68 24 62 Q10 56 10 40 Q10 20 34 8Z" fill="url(#sea1)"/>
+        <path d="M34 8 Q54 8 54 26 Q54 42 40 48 Q56 52 56 70 Q56 88 40 92 Q52 98 44 116 Q38 128 26 122 Q18 118 22 106 Q10 100 10 84 Q10 68 24 62 Q10 56 10 40 Q10 20 34 8Z" fill="url(#sea1)"/><path d="M34 8 Q54 8 54 26 Q54 42 40 48 Q56 52 56 70 Q56 88 40 92 Q52 98 44 116 Q38 128 26 122 Q18 118 22 106 Q10 100 10 84 Q10 68 24 62 Q10 56 10 40 Q10 20 34 8Z" fill="url(#scalePattern)" opacity=".32"/><path d="M28.0 46.0 Q55.0 49.7 82.0 46.0" stroke="#ffffff" stroke-width="1.2" fill="none" opacity=".38" stroke-linecap="round"/><path d="M33.0 19.0 Q31.0 28.0 33.0 37.0" stroke="#000" stroke-width="1.0" fill="none" opacity=".28" stroke-linecap="round"/><path d="M30.2 19.0 Q28.2 28.0 30.2 37.0" stroke="#000" stroke-width="1.0" fill="none" opacity=".28" stroke-linecap="round"/><path d="M27.4 19.0 Q25.4 28.0 27.4 37.0" stroke="#000" stroke-width="1.0" fill="none" opacity=".28" stroke-linecap="round"/>
         <path d="M20 24 Q10 20 6 28 Q14 30 20 24Z" fill="#C21C4E"/>
         <path d="M14 46 L26 46 M14 62 L28 62 M16 78 L30 78" stroke="#C21C4E" stroke-width="3" opacity=".5"/>
         <circle cx="42" cy="22" r="4.6" fill="#fff"/><circle cx="43.5" cy="22" r="2.4" fill="#1B2233"/>
@@ -2474,7 +2521,7 @@
       <svg viewBox="0 0 120 52" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="fB" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8FE3FF"/><stop offset="50%" stop-color="#2C6FEE"/><stop offset="100%" stop-color="#0B2C74"/></linearGradient></defs>
         <g class="tailwag" style="--tailspeed:.42s;"><path d="M22 26 Q8 12 0 4 Q6 19 12 26 Q6 33 0 48 Q8 40 22 26Z" fill="#0B2C74"/></g>
-        <path d="M20 26 Q20 10 44 6 Q72 1 95 12 Q109 18 113 26 Q109 34 95 40 Q72 51 44 46 Q20 42 20 26Z" fill="url(#fB)"/>
+        <path d="M20 26 Q20 10 44 6 Q72 1 95 12 Q109 18 113 26 Q109 34 95 40 Q72 51 44 46 Q20 42 20 26Z" fill="url(#fB)"/><path d="M20 26 Q20 10 44 6 Q72 1 95 12 Q109 18 113 26 Q109 34 95 40 Q72 51 44 46 Q20 42 20 26Z" fill="url(#scalePattern)" opacity=".32"/><path d="M33.6 23.9 Q66.0 25.8 98.4 23.9" stroke="#ffffff" stroke-width="1.4" fill="none" opacity=".38" stroke-linecap="round"/><path d="M89.2 18.4 Q86.8 23.1 89.2 27.8" stroke="#000" stroke-width="1.2" fill="none" opacity=".28" stroke-linecap="round"/><path d="M85.8 18.4 Q83.4 23.1 85.8 27.8" stroke="#000" stroke-width="1.2" fill="none" opacity=".28" stroke-linecap="round"/><path d="M82.5 18.4 Q80.1 23.1 82.5 27.8" stroke="#000" stroke-width="1.2" fill="none" opacity=".28" stroke-linecap="round"/>
         <path d="M44 7 Q52 -8 68 -1 Q78 5 82 10 Q62 5 44 7Z" fill="#0B2C74" opacity=".88"/>
         <path d="M46 45 Q54 57 68 51 Q78 44 82 39 Q62 48 46 45Z" fill="#0B2C74" opacity=".78"/>
         <path d="M40 28 Q30 36 34 45 Q44 40 46 30Z" fill="#5FA0FF" opacity=".78"/>
@@ -2490,7 +2537,7 @@
       <svg viewBox="0 0 140 74" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="fA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFB25C"/><stop offset="50%" stop-color="#E4572E"/><stop offset="100%" stop-color="#9C2E12"/></linearGradient></defs>
         <g class="tailwag" style="--tailspeed:.46s;"><path d="M26 37 Q10 20 0 9 Q7 27 15 37 Q7 47 0 65 Q10 54 26 37Z" fill="#9C2E12"/></g>
-        <path d="M24 37 Q24 15 53 10 Q86 4 113 16 Q129 24 135 34 Q137 37 135 40 Q129 50 113 58 Q86 70 53 64 Q24 59 24 37Z" fill="url(#fA)"/>
+        <path d="M24 37 Q24 15 53 10 Q86 4 113 16 Q129 24 135 34 Q137 37 135 40 Q129 50 113 58 Q86 70 53 64 Q24 59 24 37Z" fill="url(#fA)"/><path d="M24 37 Q24 15 53 10 Q86 4 113 16 Q129 24 135 34 Q137 37 135 40 Q129 50 113 58 Q86 70 53 64 Q24 59 24 37Z" fill="url(#scalePattern)" opacity=".32"/><path d="M39.2 34.0 Q77.0 36.8 114.8 34.0" stroke="#ffffff" stroke-width="1.7" fill="none" opacity=".38" stroke-linecap="round"/><path d="M105.4 24.8 Q102.6 31.4 105.4 38.1" stroke="#000" stroke-width="1.4" fill="none" opacity=".28" stroke-linecap="round"/><path d="M101.5 24.8 Q98.7 31.4 101.5 38.1" stroke="#000" stroke-width="1.4" fill="none" opacity=".28" stroke-linecap="round"/><path d="M97.6 24.8 Q94.8 31.4 97.6 38.1" stroke="#000" stroke-width="1.4" fill="none" opacity=".28" stroke-linecap="round"/>
         <path d="M53 11 Q61 -9 81 1 Q95 8 101 15 Q78 9 53 11Z" fill="#9C2E12" opacity=".92"/>
         <path d="M57 61 Q65 76 79 70 Q91 63 97 55 Q77 65 57 61Z" fill="#9C2E12" opacity=".85"/>
         <path d="M50 39 Q37 50 42 61 Q54 55 58 42Z" fill="#FF9A3C" opacity=".82"/>
@@ -2507,7 +2554,7 @@
       <svg viewBox="0 0 116 116" xmlns="http://www.w3.org/2000/svg">
         <defs><radialGradient id="fC" cx="42%" cy="35%" r="70%"><stop offset="0%" stop-color="#FFE45C"/><stop offset="60%" stop-color="#FFC629"/><stop offset="100%" stop-color="#B87400"/></radialGradient></defs>
         <g class="tailwag" style="--tailspeed:.6s;" ><path d="M46 12 Q22 30 20 58 Q22 86 46 104 Q36 80 36 58 Q36 36 46 12Z" fill="#B87400" opacity=".92"/></g>
-        <ellipse cx="66" cy="58" rx="34" ry="42" fill="url(#fC)"/>
+        <ellipse cx="66" cy="58" rx="34" ry="42" fill="url(#fC)"/><ellipse cx="66" cy="58" rx="34" ry="42" fill="url(#scalePattern)" opacity=".32"/><path d="M40 30 Q66 58 40 86" stroke="#ffffff" stroke-width="1.4" fill="none" opacity=".4" stroke-linecap="round"/><path d="M78 38 Q72 47 78 56M78 60 Q72 69 78 78" stroke="#000" stroke-width="1.1" fill="none" opacity=".28" stroke-linecap="round"/>
         <path d="M50 18 Q66 -7 83 18 Q68 20 50 18Z" fill="#B87400"/>
         <path d="M50 98 Q66 123 83 98 Q68 96 50 98Z" fill="#B87400" opacity=".92"/>
         <path d="M96 44 Q110 51 112 58 Q110 65 96 72 Q102 58 96 44Z" fill="url(#fC)"/>
@@ -2519,45 +2566,55 @@
     </div></div>
   </div>
 
-  <!-- ===== Octopus — jets slowly along, each arm rippling on its own ===== -->
-  <div class="fish-outer face-left" style="--top:56%;--size:clamp(46px,6.4vw,80px);--dur:58s;--delay:-28s;">
+  <!-- ===== Octopus — realistic build (not a jellyfish silhouette): a
+       squat mottled mantle sitting low over 8 tapering, sucker-lined
+       arms that fan and curl independently, plus slit-pupil eyes set
+       low on the mantle near the arm bases, the way a real octopus's
+       face reads, rather than a smooth dome floating high above them. ===== -->
+  <div class="fish-outer face-left" style="--top:56%;--size:clamp(58px,7.6vw,98px);--dur:58s;--delay:-28s;">
     <div class="fish-inner octo-inner" style="--bobdur:5s;--bobdelay:-1.6s;"><div class="fish-flip">
-      <svg viewBox="0 0 140 130" xmlns="http://www.w3.org/2000/svg">
-        <defs><radialGradient id="octo1" cx="40%" cy="30%" r="70%"><stop offset="0%" stop-color="#FF9EC4"/><stop offset="100%" stop-color="#C2317E"/></radialGradient></defs>
-        <g stroke="#C2317E" stroke-width="9" stroke-linecap="round" fill="none">
-          <path class="arm" d="M46 78 Q34 100 44 122"/>
-          <path class="arm" d="M56 84 Q48 108 54 128"/>
-          <path class="arm" d="M66 88 Q62 112 64 130"/>
-          <path class="arm" d="M76 88 Q80 112 78 130"/>
-          <path class="arm" d="M86 84 Q94 108 90 128"/>
-          <path class="arm" d="M96 78 Q108 100 100 122"/>
+      <svg viewBox="0 0 215 175" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="octoBody" cx="38%" cy="25%" r="75%"><stop offset="0%" stop-color="#D9A06B"/><stop offset="55%" stop-color="#9C5A2E"/><stop offset="100%" stop-color="#5E3316"/></radialGradient>
+        </defs>
+        <g fill="#7A431F" stroke="#4A280F" stroke-width="1.4">
+          <path class="arm" d="M48 74 Q6 102 22 138 Q38 124 62 82 Z"/>
+          <path class="arm" d="M62 84 Q22 120 40 156 Q50 142 76 90 Z"/>
+          <path class="arm" d="M76 90 Q48 128 62 162 Q70 150 88 95 Z"/>
+          <path class="arm" d="M90 95 Q72 132 84 166 Q90 155 100 98 Z"/>
+          <path class="arm" d="M120 95 Q138 132 126 166 Q120 155 110 98 Z"/>
+          <path class="arm" d="M134 90 Q162 128 148 162 Q140 150 122 95 Z"/>
+          <path class="arm" d="M148 84 Q188 120 170 156 Q160 142 134 90 Z"/>
+          <path class="arm" d="M162 74 Q204 102 188 138 Q172 124 148 82 Z"/>
         </g>
-        <g stroke="#E0559E" stroke-width="5" stroke-linecap="round" fill="none" opacity=".7">
-          <path class="arm" d="M46 78 Q34 100 44 122"/>
-          <path class="arm" d="M66 88 Q62 112 64 130"/>
-          <path class="arm" d="M96 78 Q108 100 100 122"/>
+        <g fill="#E8C39A" opacity=".5">
+          <circle cx="52" cy="95" r="3"/><circle cx="40" cy="112" r="2.3"/><circle cx="28" cy="128" r="1.6"/>
+          <circle cx="70" cy="105" r="3"/><circle cx="58" cy="122" r="2.3"/><circle cx="46" cy="140" r="1.6"/>
+          <circle cx="82" cy="112" r="2.6"/><circle cx="72" cy="130" r="2"/><circle cx="64" cy="148" r="1.4"/>
+          <circle cx="95" cy="118" r="2.3"/><circle cx="88" cy="138" r="1.8"/><circle cx="85" cy="155" r="1.3"/>
+          <circle cx="120" cy="118" r="2.3"/><circle cx="127" cy="138" r="1.8"/><circle cx="130" cy="155" r="1.3"/>
+          <circle cx="133" cy="112" r="2.6"/><circle cx="143" cy="130" r="2"/><circle cx="151" cy="148" r="1.4"/>
+          <circle cx="145" cy="105" r="3"/><circle cx="157" cy="122" r="2.3"/><circle cx="169" cy="140" r="1.6"/>
+          <circle cx="163" cy="95" r="3"/><circle cx="175" cy="112" r="2.3"/><circle cx="187" cy="128" r="1.6"/>
         </g>
-        <ellipse cx="70" cy="54" rx="50" ry="42" fill="url(#octo1)"/>
-        <ellipse cx="52" cy="34" rx="9" ry="6" fill="#fff" opacity=".18"/>
-        <circle cx="52" cy="46" r="8" fill="#fff"/><circle cx="54" cy="46" r="4.2" fill="#1B2233"/><circle cx="55.4" cy="44.2" r="1.4" fill="#fff"/>
-        <circle cx="86" cy="46" r="8" fill="#fff"/><circle cx="88" cy="46" r="4.2" fill="#1B2233"/><circle cx="89.4" cy="44.2" r="1.4" fill="#fff"/>
-        <path d="M56 66 Q70 74 84 66" stroke="#8A1D57" stroke-width="2.6" fill="none" stroke-linecap="round" opacity=".6"/>
-      </svg>
-    </div></div>
-  </div>
-
-  <!-- ===== Dolphin — porpoises through in a rolling arc, not a level glide ===== -->
-  <div class="fish-outer" style="--top:29%;--size:clamp(90px,11vw,148px);--dur:42s;--delay:-14s;">
-    <div class="fish-inner dolphin-inner" style="--bobdur:2.6s;--bobdelay:-1s;"><div class="fish-flip">
-      <svg viewBox="0 0 190 80" xmlns="http://www.w3.org/2000/svg">
-        <defs><linearGradient id="dolph1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#B9C7DE"/><stop offset="55%" stop-color="#7C8CA8"/><stop offset="100%" stop-color="#F4F6FA"/></linearGradient></defs>
-        <path d="M20 44 Q30 20 60 14 Q110 4 160 24 Q182 33 186 44 Q182 40 168 42 Q176 50 172 60 Q160 52 152 44 Q120 56 70 52 Q30 50 18 46Z" fill="url(#dolph1)"/>
-        <path class="tailwag" style="--tailspeed:.85s;" d="M26 44 Q9 27 0 15 Q7 32 14 44 Q7 56 0 73 Q9 61 26 44Z" fill="url(#dolph1)"/>
-        <path class="pecfin" d="M62 50 Q52 68 40 68 Q52 58 58 46Z" fill="#7C8CA8"/>
-        <path d="M96 12 Q108 -8 118 10 Q108 14 96 12Z" fill="#7C8CA8"/>
-        <path d="M60 50 Q68 62 78 54" stroke="#5E6E8C" stroke-width="2" fill="none" opacity=".5"/>
-        <circle cx="166" cy="34" r="3.2" fill="#1B2233"/>
-        <path d="M158 30 Q166 28 172 31" stroke="#5E6E8C" stroke-width="1.6" fill="none" opacity=".6"/>
+        <path d="M55 60 Q48 12 105 6 Q162 12 155 60 Q160 82 138 92 Q120 100 105 98 Q90 100 72 92 Q50 82 55 60Z" fill="url(#octoBody)" stroke="#5E3316" stroke-width="2"/>
+        <g fill="#4A280F">
+          <ellipse cx="80" cy="30" rx="10" ry="7" opacity=".25"/>
+          <ellipse cx="125" cy="26" rx="9" ry="6" opacity=".22"/>
+          <ellipse cx="70" cy="55" rx="8" ry="10" opacity=".2"/>
+          <ellipse cx="140" cy="50" rx="7" ry="9" opacity=".2"/>
+        </g>
+        <g fill="#E8C39A">
+          <ellipse cx="95" cy="40" rx="6" ry="4" opacity=".18"/>
+          <ellipse cx="120" cy="60" rx="5" ry="4" opacity=".18"/>
+        </g>
+        <circle cx="83" cy="58" r="9" fill="#D9A03C" stroke="#5E3316" stroke-width="1.2"/>
+        <ellipse cx="83" cy="58" rx="6" ry="2.2" fill="#1B1208"/>
+        <circle cx="80.5" cy="55.5" r="1.1" fill="#fff" opacity=".85"/>
+        <circle cx="127" cy="58" r="9" fill="#D9A03C" stroke="#5E3316" stroke-width="1.2"/>
+        <ellipse cx="127" cy="58" rx="6" ry="2.2" fill="#1B1208"/>
+        <circle cx="124.5" cy="55.5" r="1.1" fill="#fff" opacity=".85"/>
+        <path d="M100 90 Q105 96 110 90 Q105 92 100 90Z" fill="#2A160A"/>
       </svg>
     </div></div>
   </div>
@@ -2584,34 +2641,34 @@
        formation, graduating small to large across the group. ===== -->
   <div class="school-outer" style="--top:17%;--size:clamp(150px,20vw,270px);--dur:16s;--delay:-6s;">
     <div class="school-fish" style="--sfleft:0%;--sfsize:16%;--sfbottom:9%;--bobdur:1.8s;--bobdelay:-.2s;--sfhue:0deg;"><div class="school-flip">
-      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><circle cx="48" cy="12.4" r="2.3" fill="#1B2233"/></svg>
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#FF9A3C" opacity=".82"/><path d="M47 9 Q45 15 47 21" stroke="#7A2409" stroke-width="1" fill="none" opacity=".45" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#7A2409" stroke-width=".8" fill="none" opacity=".38" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
     </div></div>
     <div class="school-fish" style="--sfleft:14%;--sfsize:24%;--sfbottom:0%;--bobdur:2.1s;--bobdelay:-1.1s;--sfhue:-8deg;"><div class="school-flip">
-      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><circle cx="48" cy="12.4" r="2.3" fill="#1B2233"/></svg>
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#FF9A3C" opacity=".82"/><path d="M47 9 Q45 15 47 21" stroke="#7A2409" stroke-width="1" fill="none" opacity=".45" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#7A2409" stroke-width=".8" fill="none" opacity=".38" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
     </div></div>
     <div class="school-fish" style="--sfleft:32%;--sfsize:38%;--sfbottom:11%;--bobdur:1.7s;--bobdelay:-.6s;--sfhue:6deg;"><div class="school-flip">
-      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><circle cx="48" cy="12.4" r="2.3" fill="#1B2233"/></svg>
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#FF9A3C" opacity=".82"/><path d="M47 9 Q45 15 47 21" stroke="#7A2409" stroke-width="1" fill="none" opacity=".45" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#7A2409" stroke-width=".8" fill="none" opacity=".38" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
     </div></div>
     <div class="school-fish" style="--sfleft:54%;--sfsize:58%;--sfbottom:2%;--bobdur:2.4s;--bobdelay:-1.8s;--sfhue:-4deg;"><div class="school-flip">
-      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><circle cx="48" cy="12.4" r="2.3" fill="#1B2233"/></svg>
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#FF9A3C" opacity=".82"/><path d="M47 9 Q45 15 47 21" stroke="#7A2409" stroke-width="1" fill="none" opacity=".45" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#7A2409" stroke-width=".8" fill="none" opacity=".38" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
     </div></div>
     <div class="school-fish" style="--sfleft:78%;--sfsize:88%;--sfbottom:9%;--bobdur:2s;--bobdelay:-.9s;--sfhue:4deg;"><div class="school-flip">
-      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><circle cx="48" cy="12.4" r="2.3" fill="#1B2233"/></svg>
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#FF9A3C" opacity=".82"/><path d="M47 9 Q45 15 47 21" stroke="#7A2409" stroke-width="1" fill="none" opacity=".45" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#7A2409" stroke-width=".8" fill="none" opacity=".38" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
     </div></div>
   </div>
 
   <div class="school-outer face-left" style="--top:61%;--size:clamp(130px,17vw,230px);--dur:14s;--delay:-8s;">
     <div class="school-fish" style="--sfleft:2%;--sfsize:18%;--sfbottom:4%;--bobdur:1.9s;--bobdelay:-.4s;--sfhue:190deg;"><div class="school-flip">
-      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><circle cx="48" cy="12.4" r="2.3" fill="#1B2233"/></svg>
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#5FA0FF" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#082058" stroke-width="1" fill="none" opacity=".5" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#082058" stroke-width=".8" fill="none" opacity=".42" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
     </div></div>
     <div class="school-fish" style="--sfleft:20%;--sfsize:30%;--sfbottom:10%;--bobdur:2.3s;--bobdelay:-1.3s;--sfhue:170deg;"><div class="school-flip">
-      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><circle cx="48" cy="12.4" r="2.3" fill="#1B2233"/></svg>
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#5FA0FF" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#082058" stroke-width="1" fill="none" opacity=".5" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#082058" stroke-width=".8" fill="none" opacity=".42" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
     </div></div>
     <div class="school-fish" style="--sfleft:42%;--sfsize:48%;--sfbottom:0%;--bobdur:2.6s;--bobdelay:-.7s;--sfhue:200deg;"><div class="school-flip">
-      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><circle cx="48" cy="12.4" r="2.3" fill="#1B2233"/></svg>
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#5FA0FF" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#082058" stroke-width="1" fill="none" opacity=".5" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#082058" stroke-width=".8" fill="none" opacity=".42" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
     </div></div>
     <div class="school-fish" style="--sfleft:68%;--sfsize:76%;--sfbottom:8%;--bobdur:2.1s;--bobdelay:-1.6s;--sfhue:180deg;"><div class="school-flip">
-      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><circle cx="48" cy="12.4" r="2.3" fill="#1B2233"/></svg>
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#5FA0FF" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#082058" stroke-width="1" fill="none" opacity=".5" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#082058" stroke-width=".8" fill="none" opacity=".42" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
     </div></div>
   </div>
 
@@ -2632,87 +2689,8 @@
   <div class="bubble" style="--left:44.9%;--bsize:17.8px;--risedur:15.5s;--risedelay:-7.6s;--drift:6.6px;"></div>
 
 
-  <!-- ===== Staghorn coral (red) — gradient-shaded branches instead of a
-       flat silhouette, polyp dots at every tip that pulse like feeding
-       coral polyps, a whole-cluster current-sway, and a soft ambient
-       glow pulsing on the sand behind it. ===== -->
-  <div class="reef-glow" style="--gleft:11%;--gsize:150px;--gcolor:rgba(255,111,89,.38);--gdur:4.6s;--gdelay:-1s;"></div>
-  <div class="seafloor-item coral-item" style="--left:2%;--cdur:6.4s;--cdelay:-1.2s;">
-    <svg viewBox="0 0 120 140" style="width:clamp(46px,7vw,100px);height:auto;" xmlns="http://www.w3.org/2000/svg">
-      <defs><linearGradient id="staghorn1" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#B8321E"/><stop offset="55%" stop-color="#FF6F59"/><stop offset="100%" stop-color="#FFB199"/></linearGradient></defs>
-      <g fill="url(#staghorn1)">
-        <path d="M60 140 L55 90 Q40 70 30 40 Q28 30 35 25 Q40 45 55 60 L58 90 L60 140Z"/>
-        <path d="M60 140 L63 85 Q75 60 85 30 Q90 20 82 15 Q78 40 65 55 L62 90 L60 140Z"/>
-        <path d="M60 140 L58 100 Q50 90 45 70 Q60 80 62 100 L60 140Z"/>
-      </g>
-      <path d="M56 92 L58 140 M62 88 L60 140" stroke="#7A2110" stroke-width="1.6" opacity=".4" fill="none"/>
-      <circle class="polyp" cx="35" cy="26" r="4.2" fill="#FFD9CC" style="--pdur:2.6s;--pdelay:0s;"/>
-      <circle class="polyp" cx="82" cy="16" r="4.2" fill="#FFD9CC" style="--pdur:2.6s;--pdelay:-.8s;"/>
-      <circle class="polyp" cx="46" cy="70" r="3.4" fill="#FFD9CC" style="--pdur:2.6s;--pdelay:-1.5s;"/>
-      <circle class="polyp" cx="55" cy="58" r="3" fill="#FFD9CC" style="--pdur:2.6s;--pdelay:-2s;"/>
-    </svg>
-  </div>
-
-  <!-- ===== Brain coral — radial-gradient dome with a maze groove
-       pattern (paler ridges catching light) instead of flat pink, plus
-       faint pulsing polyp flecks across the surface. ===== -->
-  <div class="reef-glow" style="--gleft:20%;--gsize:170px;--gcolor:rgba(232,93,154,.36);--gdur:5.4s;--gdelay:-2.4s;"></div>
-  <div class="seafloor-item coral-item" style="--left:16%;--cdur:8s;--cdelay:-3s;">
-    <svg viewBox="0 0 140 100" style="width:clamp(54px,8vw,120px);height:auto;" xmlns="http://www.w3.org/2000/svg">
-      <defs><radialGradient id="brain1" cx="42%" cy="30%" r="75%"><stop offset="0%" stop-color="#FFB3D3"/><stop offset="55%" stop-color="#E85D9A"/><stop offset="100%" stop-color="#9C3D6B"/></radialGradient></defs>
-      <path d="M70 100 Q10 100 10 55 Q10 15 45 10 Q55 25 70 25 Q85 25 95 10 Q130 15 130 55 Q130 100 70 100Z" fill="url(#brain1)"/>
-      <path d="M25 90 Q20 60 35 40" stroke="#B03E76" stroke-width="4" fill="none" stroke-linecap="round"/>
-      <path d="M50 92 Q48 55 55 30" stroke="#B03E76" stroke-width="4" fill="none" stroke-linecap="round"/>
-      <path d="M90 92 Q92 55 85 30" stroke="#B03E76" stroke-width="4" fill="none" stroke-linecap="round"/>
-      <path d="M115 90 Q120 60 105 40" stroke="#B03E76" stroke-width="4" fill="none" stroke-linecap="round"/>
-      <path d="M38 78 Q46 68 40 55 M63 82 Q70 65 62 48 M100 80 Q106 66 98 50" stroke="#FFC9E1" stroke-width="2" fill="none" opacity=".55"/>
-      <circle class="polyp" cx="42" cy="30" r="2.6" fill="#FFE3F0" style="--pdur:3.6s;--pdelay:0s;"/>
-      <circle class="polyp" cx="78" cy="26" r="2.6" fill="#FFE3F0" style="--pdur:3.6s;--pdelay:-1.4s;"/>
-      <circle class="polyp" cx="105" cy="60" r="2.6" fill="#FFE3F0" style="--pdur:3.6s;--pdelay:-2.4s;"/>
-    </svg>
-  </div>
-
-  <!-- ===== Finger/pillar coral — gradient tubes with glowing tips that
-       pulse like bioluminescent polyps opening and closing. ===== -->
-  <div class="reef-glow" style="--gleft:60%;--gsize:150px;--gcolor:rgba(156,107,255,.4);--gdur:5s;--gdelay:-.6s;"></div>
-  <div class="seafloor-item coral-item" style="--left:57%;--cdur:7.2s;--cdelay:-2s;">
-    <svg viewBox="0 0 120 130" style="width:clamp(48px,7.5vw,105px);height:auto;" xmlns="http://www.w3.org/2000/svg">
-      <defs><linearGradient id="finger1" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#5A2FCC"/><stop offset="60%" stop-color="#7C4DFF"/><stop offset="100%" stop-color="#C6AEFF"/></linearGradient></defs>
-      <g fill="url(#finger1)">
-        <rect x="15" y="50" width="14" height="80" rx="7"/>
-        <rect x="35" y="30" width="14" height="100" rx="7"/>
-        <rect x="55" y="45" width="14" height="85" rx="7"/>
-        <rect x="75" y="20" width="14" height="110" rx="7"/>
-        <rect x="95" y="55" width="14" height="75" rx="7"/>
-      </g>
-      <circle class="polyp" cx="22" cy="48" r="7" fill="#D9C8FF" style="--pdur:2.4s;--pdelay:0s;"/>
-      <circle class="polyp" cx="42" cy="28" r="7" fill="#D9C8FF" style="--pdur:2.4s;--pdelay:-.5s;"/>
-      <circle class="polyp" cx="62" cy="43" r="7" fill="#D9C8FF" style="--pdur:2.4s;--pdelay:-1s;"/>
-      <circle class="polyp" cx="82" cy="18" r="7" fill="#D9C8FF" style="--pdur:2.4s;--pdelay:-1.5s;"/>
-      <circle class="polyp" cx="102" cy="53" r="7" fill="#D9C8FF" style="--pdur:2.4s;--pdelay:-2s;"/>
-    </svg>
-  </div>
-
-  <!-- ===== Staghorn coral (amber), mirrored ===== -->
-  <div class="reef-glow" style="--gleft:84%;--gsize:130px;--gcolor:rgba(255,148,87,.36);--gdur:4.8s;--gdelay:-3.4s;"></div>
-  <div class="seafloor-item coral-item" style="--left:80%;--cdur:6.8s;--cdelay:-4s;">
-    <svg viewBox="0 0 120 140" style="width:clamp(44px,6.5vw,95px);height:auto;transform:scaleX(-1);" xmlns="http://www.w3.org/2000/svg">
-      <defs><linearGradient id="staghorn2" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#C4601C"/><stop offset="55%" stop-color="#FF9457"/><stop offset="100%" stop-color="#FFD1AC"/></linearGradient></defs>
-      <g fill="url(#staghorn2)">
-        <path d="M60 140 L55 90 Q40 70 30 40 Q28 30 35 25 Q40 45 55 60 L58 90 L60 140Z"/>
-        <path d="M60 140 L63 85 Q75 60 85 30 Q90 20 82 15 Q78 40 65 55 L62 90 L60 140Z"/>
-        <path d="M60 140 L58 100 Q50 90 45 70 Q60 80 62 100 L60 140Z"/>
-      </g>
-      <circle class="polyp" cx="35" cy="26" r="4" fill="#FFE7D2" style="--pdur:2.8s;--pdelay:-.3s;"/>
-      <circle class="polyp" cx="82" cy="16" r="4" fill="#FFE7D2" style="--pdur:2.8s;--pdelay:-1.1s;"/>
-      <circle class="polyp" cx="46" cy="70" r="3.2" fill="#FFE7D2" style="--pdur:2.8s;--pdelay:-1.8s;"/>
-    </svg>
-  </div>
-
-  <!-- ===== Sea anemone — a clownfish-host reef centerpiece: a crown of
-       tentacles waving independently around a soft pulsing base, sitting
-       on a small rock outcrop. ===== -->
-  <div class="reef-glow" style="--gleft:50%;--gsize:130px;--gcolor:rgba(120,200,255,.36);--gdur:5.2s;--gdelay:-1.8s;"></div>
+  <!-- ===== Sea anemone — a crown of tentacles waving independently
+       around a soft pulsing base, sitting on a small rock outcrop. ===== -->
   <div class="seafloor-item anemone-item" style="--left:47%;">
     <svg viewBox="0 0 140 120" style="width:clamp(50px,7.4vw,110px);height:auto;" xmlns="http://www.w3.org/2000/svg">
       <defs>
@@ -2737,21 +2715,54 @@
   </div>
 
 
-  <!-- ===== Rock outcrop — grounds the seafloor with texture beyond
-       coral/grass, a small barnacle-crusted shell catching a soft glint. ===== -->
-  <div class="seafloor-item" style="--left:34%;">
-    <svg viewBox="0 0 140 70" style="width:clamp(50px,7.2vw,104px);height:auto;" xmlns="http://www.w3.org/2000/svg">
-      <defs><linearGradient id="rock1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8A93A6"/><stop offset="100%" stop-color="#4E5568"/></linearGradient></defs>
-      <path d="M2 70 Q0 40 22 32 Q30 14 52 20 Q66 6 86 18 Q112 14 122 34 Q140 40 136 58 Q138 70 130 70Z" fill="url(#rock1)"/>
-      <path d="M30 70 Q28 50 40 42 M70 70 Q72 48 84 40 M100 70 Q104 52 116 46" stroke="#3A4052" stroke-width="2.4" opacity=".5" fill="none"/>
-      <ellipse cx="52" cy="24" rx="7" ry="4" fill="#6B7488" opacity=".7"/><ellipse cx="94" cy="20" rx="6" ry="3.6" fill="#6B7488" opacity=".7"/>
+  <!-- ===== Pink shells — two-valve clams hinged at the back-left point.
+       The top valve claps open and shut on its own steady rhythm while a
+       light, continuous stream of bubbles rises from the mouth, the way
+       a filter-feeder keeps drawing water through. ===== -->
+  <div class="seafloor-item shell-item" style="--left:38.5%;--clapdur:4.6s;--clapdelay:0s;">
+    <svg viewBox="0 0 90 60" style="width:clamp(30px,4.4vw,54px);height:auto;overflow:visible;" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="shellPinkA" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#FFD3EA"/><stop offset="100%" stop-color="#D63384"/></linearGradient>
+        <linearGradient id="shellPinkB" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stop-color="#FFE3F2"/><stop offset="100%" stop-color="#E85CA6"/></linearGradient>
+        <radialGradient id="shellGlowPink" cx="50%" cy="50%" r="60%"><stop offset="0%" stop-color="#FFE9F5" stop-opacity=".9"/><stop offset="100%" stop-color="#FFE9F5" stop-opacity="0"/></radialGradient>
+      </defs>
+      <ellipse class="shell-glow" cx="42" cy="34" rx="24" ry="9" fill="url(#shellGlowPink)"/>
+      <path d="M8 34 Q10 50 40 54 Q70 50 80 34 Q70 40 40 42 Q10 40 8 34Z" fill="url(#shellPinkA)" stroke="#A61E63" stroke-width="1.4"/>
+      <g stroke="#A61E63" stroke-width=".9" opacity=".4">
+        <path d="M14 36 Q35 46 60 40"/><path d="M20 38 Q40 48 66 38"/><path d="M28 40 Q45 49 72 36"/>
+      </g>
+      <g class="shell-lid" style="transform-origin:8px 34px;">
+        <path d="M8 34 Q10 18 40 14 Q70 18 80 34 Q70 28 40 26 Q10 28 8 34Z" fill="url(#shellPinkB)" stroke="#A61E63" stroke-width="1.4"/>
+        <g stroke="#A61E63" stroke-width=".9" opacity=".4">
+          <path d="M14 32 Q35 22 60 28"/><path d="M20 30 Q40 20 66 30"/><path d="M28 28 Q45 19 72 32"/>
+        </g>
+      </g>
+      <circle class="shell-bubble" cx="78" cy="30" r="2.4" fill="rgba(255,255,255,.9)" style="--bubdur:2.8s;--bubdelay:0s;"/>
+      <circle class="shell-bubble" cx="76" cy="34" r="1.8" fill="rgba(255,255,255,.85)" style="--bubdur:3.2s;--bubdelay:-1s;"/>
+      <circle class="shell-bubble" cx="80" cy="36" r="1.4" fill="rgba(255,255,255,.8)" style="--bubdur:2.4s;--bubdelay:-1.9s;"/>
     </svg>
   </div>
-  <div class="seafloor-item treasure-sparkle" style="--left:38.5%;--twdur:3.4s;--twdelay:-1.2s;">
-    <svg viewBox="0 0 60 34" style="width:clamp(22px,3.2vw,40px);height:auto;transform:rotate(6deg);" xmlns="http://www.w3.org/2000/svg">
-      <path d="M30 4 Q52 10 52 22 Q30 32 8 22 Q8 10 30 4Z" fill="#F4F6FA" stroke="#C7CEDC" stroke-width="2"/>
-      <path d="M30 4 Q46 9 50 18 M30 4 Q14 9 10 18" stroke="#C7CEDC" stroke-width="1.4" fill="none" opacity=".7"/>
-      <ellipse cx="24" cy="12" rx="6" ry="2.6" fill="#fff" opacity=".8"/>
+  <div class="seafloor-item shell-item" style="--left:44%;--clapdur:5.3s;--clapdelay:-2.1s;">
+    <svg viewBox="0 0 90 60" style="width:clamp(24px,3.6vw,44px);height:auto;overflow:visible;transform:scaleX(-1);" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="shellPinkC" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#FFC8E8"/><stop offset="100%" stop-color="#C2317E"/></linearGradient>
+        <linearGradient id="shellPinkD" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stop-color="#FFDCEE"/><stop offset="100%" stop-color="#E0559E"/></linearGradient>
+        <radialGradient id="shellGlowPink2" cx="50%" cy="50%" r="60%"><stop offset="0%" stop-color="#FFE9F5" stop-opacity=".9"/><stop offset="100%" stop-color="#FFE9F5" stop-opacity="0"/></radialGradient>
+      </defs>
+      <ellipse class="shell-glow" cx="42" cy="34" rx="24" ry="9" fill="url(#shellGlowPink2)"/>
+      <path d="M8 34 Q10 50 40 54 Q70 50 80 34 Q70 40 40 42 Q10 40 8 34Z" fill="url(#shellPinkC)" stroke="#8A1D57" stroke-width="1.4"/>
+      <g stroke="#8A1D57" stroke-width=".9" opacity=".4">
+        <path d="M14 36 Q35 46 60 40"/><path d="M20 38 Q40 48 66 38"/><path d="M28 40 Q45 49 72 36"/>
+      </g>
+      <g class="shell-lid" style="transform-origin:8px 34px;">
+        <path d="M8 34 Q10 18 40 14 Q70 18 80 34 Q70 28 40 26 Q10 28 8 34Z" fill="url(#shellPinkD)" stroke="#8A1D57" stroke-width="1.4"/>
+        <g stroke="#8A1D57" stroke-width=".9" opacity=".4">
+          <path d="M14 32 Q35 22 60 28"/><path d="M20 30 Q40 20 66 30"/><path d="M28 28 Q45 19 72 32"/>
+        </g>
+      </g>
+      <circle class="shell-bubble" cx="78" cy="30" r="2.1" fill="rgba(255,255,255,.9)" style="--bubdur:3s;--bubdelay:-.6s;"/>
+      <circle class="shell-bubble" cx="76" cy="34" r="1.6" fill="rgba(255,255,255,.85)" style="--bubdur:2.6s;--bubdelay:-1.6s;"/>
+      <circle class="shell-bubble" cx="80" cy="36" r="1.3" fill="rgba(255,255,255,.8)" style="--bubdur:3.4s;--bubdelay:-2.4s;"/>
     </svg>
   </div>
 
@@ -2813,27 +2824,128 @@
     </svg>
   </div>
 
-  <div class="seafloor-item" style="--left:5%;">
-    <svg viewBox="0 0 220 160" style="width:clamp(90px,13vw,190px);height:auto;" xmlns="http://www.w3.org/2000/svg">
+  <!-- ===== Big anchor — half-buried, sitting behind the treasure chest.
+       Static (no sway) since it's heavy iron, not something the current
+       would move. ===== -->
+  <div class="seafloor-item" style="--left:2%;">
+    <svg viewBox="0 0 130 190" style="width:clamp(64px,9.5vw,145px);height:auto;" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="anchorMetal" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#3C4048"/>
+          <stop offset="45%" stop-color="#6B7280"/>
+          <stop offset="100%" stop-color="#2A2E36"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="65" cy="184" rx="46" ry="8" fill="#0A1626" opacity=".3"/>
+      <!-- ring -->
+      <circle cx="65" cy="18" r="16" fill="none" stroke="url(#anchorMetal)" stroke-width="9"/>
+      <!-- shank -->
+      <rect x="58" y="30" width="14" height="118" rx="6" fill="url(#anchorMetal)"/>
+      <!-- stock (crossbar) -->
+      <rect x="24" y="54" width="82" height="12" rx="6" fill="url(#anchorMetal)"/>
+      <circle cx="24" cy="60" r="7" fill="url(#anchorMetal)"/>
+      <circle cx="106" cy="60" r="7" fill="url(#anchorMetal)"/>
+      <!-- flukes -->
+      <path d="M65 140 Q18 138 6 172 Q26 170 36 156 Q40 172 28 186 Q56 180 65 150Z" fill="url(#anchorMetal)"/>
+      <path d="M65 140 Q112 138 124 172 Q104 170 94 156 Q90 172 102 186 Q74 180 65 150Z" fill="url(#anchorMetal)"/>
+      <!-- rust patches -->
+      <ellipse cx="60" cy="90" rx="7" ry="12" fill="#7A4A28" opacity=".38"/>
+      <ellipse cx="70" cy="112" rx="6" ry="10" fill="#7A4A28" opacity=".3"/>
+      <ellipse cx="40" cy="60" rx="5" ry="4" fill="#7A4A28" opacity=".32"/>
+      <!-- highlight -->
+      <rect x="59" y="32" width="4" height="112" rx="2" fill="#9AA3AF" opacity=".5"/>
+    </svg>
+  </div>
+
+  <!-- ===== Treasure chest — realistic pirate chest: domed ribbed lid,
+       brass bands and corner brackets, a front hasp/lock, and a hinge
+       at the back. The lid's outer (ornate) face crossfades with a
+       plain "underside" face as it swings open, so the interior really
+       reads as revealed rather than the same face just spinning. ===== -->
+  <div class="seafloor-item chest-item" style="--left:5%;--chestdur:9s;--chestdelay:-1.5s;">
+    <svg viewBox="0 0 220 175" style="width:clamp(90px,13vw,190px);height:auto;overflow:visible;" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <radialGradient id="goldGlow" cx="50%" cy="40%" r="60%">
           <stop offset="0%" stop-color="#FFF3B0" stop-opacity=".9"/>
           <stop offset="100%" stop-color="#FFD54A" stop-opacity="0"/>
         </radialGradient>
+        <linearGradient id="chestWoodBase" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#9C6B39"/><stop offset="100%" stop-color="#5E3A1C"/>
+        </linearGradient>
+        <linearGradient id="chestWoodLid" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0%" stop-color="#A9713C"/><stop offset="100%" stop-color="#C68A4E"/>
+        </linearGradient>
+        <linearGradient id="chestWoodInner" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0%" stop-color="#3C260F"/><stop offset="100%" stop-color="#583817"/>
+        </linearGradient>
+        <linearGradient id="brassBand" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#FFE9A8"/><stop offset="50%" stop-color="#D9A234"/><stop offset="100%" stop-color="#93641A"/>
+        </linearGradient>
       </defs>
-      <path d="M40 70 Q110 -10 180 70 L180 90 Q110 20 40 90 Z" fill="#8B5A2B" stroke="#5C3B1E" stroke-width="4"/>
-      <ellipse cx="110" cy="75" rx="70" ry="30" fill="url(#goldGlow)"/>
-      <circle cx="70" cy="80" r="14" fill="#FFD54A" stroke="#C9971F" stroke-width="3"/>
-      <circle cx="95" cy="70" r="14" fill="#FFE27A" stroke="#C9971F" stroke-width="3"/>
-      <circle cx="120" cy="76" r="14" fill="#FFD54A" stroke="#C9971F" stroke-width="3"/>
-      <circle cx="145" cy="70" r="14" fill="#FFE27A" stroke="#C9971F" stroke-width="3"/>
-      <circle cx="160" cy="82" r="12" fill="#FFD54A" stroke="#C9971F" stroke-width="3"/>
-      <rect x="35" y="90" width="150" height="60" rx="8" fill="#8B5A2B" stroke="#5C3B1E" stroke-width="4"/>
-      <rect x="35" y="90" width="150" height="14" fill="#6E4420"/>
-      <rect x="35" y="90" width="14" height="60" fill="#C9971F"/>
-      <rect x="171" y="90" width="14" height="60" fill="#C9971F"/>
-      <rect x="95" y="90" width="30" height="60" fill="#C9971F" opacity=".85"/>
-      <rect x="100" y="98" width="20" height="18" rx="4" fill="#FFD54A" stroke="#8A6200" stroke-width="3"/>
+
+      <!-- fixed base -->
+      <g class="chest-base">
+        <rect x="32" y="104" width="156" height="54" rx="6" fill="url(#chestWoodBase)" stroke="#3D2510" stroke-width="4"/>
+        <path d="M32 122 L188 122 M32 140 L188 140" stroke="#3D2510" stroke-width="1.6" opacity=".3"/>
+        <rect x="32" y="100" width="156" height="8" fill="#3D2510"/>
+        <!-- iron straps -->
+        <rect x="64" y="104" width="13" height="54" fill="url(#brassBand)"/>
+        <rect x="143" y="104" width="13" height="54" fill="url(#brassBand)"/>
+        <circle cx="70.5" cy="114" r="2.4" fill="#6E4A16"/><circle cx="70.5" cy="148" r="2.4" fill="#6E4A16"/>
+        <circle cx="149.5" cy="114" r="2.4" fill="#6E4A16"/><circle cx="149.5" cy="148" r="2.4" fill="#6E4A16"/>
+        <!-- corner brackets -->
+        <path d="M32 104 L48 104 L48 110 L38 110 L38 118 L32 118Z" fill="url(#brassBand)"/>
+        <path d="M188 104 L172 104 L172 110 L182 110 L182 118 L188 118Z" fill="url(#brassBand)"/>
+        <path d="M32 158 L48 158 L48 152 L38 152 L38 144 L32 144Z" fill="url(#brassBand)"/>
+        <path d="M188 158 L172 158 L172 152 L182 152 L182 144 L188 144Z" fill="url(#brassBand)"/>
+        <!-- fixed hasp staple -->
+        <path d="M101 100 Q101 90 110 90 Q119 90 119 100" fill="none" stroke="#7A5116" stroke-width="6"/>
+        <!-- hinge plates (visual anchor for the pivot) -->
+        <rect x="50" y="98" width="16" height="7" rx="1.5" fill="#7A5116"/>
+        <rect x="154" y="98" width="16" height="7" rx="1.5" fill="#7A5116"/>
+      </g>
+
+      <!-- coins + glow, revealed as the lid lifts -->
+      <g class="chest-treasure">
+        <ellipse cx="110" cy="96" rx="70" ry="30" fill="url(#goldGlow)"/>
+        <circle cx="70" cy="102" r="14" fill="#FFD54A" stroke="#C9971F" stroke-width="3"/>
+        <circle cx="95" cy="94" r="14" fill="#FFE27A" stroke="#C9971F" stroke-width="3"/>
+        <circle cx="120" cy="100" r="14" fill="#FFD54A" stroke="#C9971F" stroke-width="3"/>
+        <circle cx="145" cy="94" r="14" fill="#FFE27A" stroke="#C9971F" stroke-width="3"/>
+        <circle cx="160" cy="104" r="12" fill="#FFD54A" stroke="#C9971F" stroke-width="3"/>
+      </g>
+
+      <!-- bubbles bursting out as the lid cracks open -->
+      <g class="chest-bubbles">
+        <circle class="chest-bubble" cx="108" cy="84" r="4" fill="rgba(255,255,255,.9)" style="--bstagger:0s;"/>
+        <circle class="chest-bubble" cx="120" cy="80" r="3" fill="rgba(255,255,255,.85)" style="--bstagger:.18s;"/>
+        <circle class="chest-bubble" cx="96" cy="78" r="2.6" fill="rgba(255,255,255,.85)" style="--bstagger:.34s;"/>
+        <circle class="chest-bubble" cx="132" cy="86" r="3.4" fill="rgba(255,255,255,.8)" style="--bstagger:.5s;"/>
+        <circle class="chest-bubble" cx="86" cy="86" r="2.2" fill="rgba(255,255,255,.8)" style="--bstagger:.65s;"/>
+      </g>
+
+      <!-- hinged lid: pivots open on the back hinge line (matches the
+           fixed hinge plates drawn on the base above) -->
+      <g class="chest-lid" style="transform-origin:110px 101px;">
+        <!-- outer (ornate) face — visible while closed/opening -->
+        <g class="lid-face lid-face-outer">
+          <path d="M32 104 Q30 28 110 16 Q190 28 188 104 Z" fill="url(#chestWoodLid)" stroke="#3D2510" stroke-width="4"/>
+          <path d="M48 92 Q110 52 172 92" stroke="url(#brassBand)" stroke-width="8" fill="none" stroke-linecap="round"/>
+          <path d="M40 74 Q110 26 180 74" stroke="url(#brassBand)" stroke-width="6" fill="none" stroke-linecap="round"/>
+          <path d="M110 16 L110 90" stroke="url(#brassBand)" stroke-width="9" fill="none"/>
+          <circle cx="48" cy="92" r="4.2" fill="#7A5116"/><circle cx="172" cy="92" r="4.2" fill="#7A5116"/>
+          <circle cx="40" cy="74" r="3.6" fill="#7A5116"/><circle cx="180" cy="74" r="3.6" fill="#7A5116"/>
+          <!-- lock plate (moves with the lid, separates from the staple as it opens) -->
+          <rect x="97" y="94" width="26" height="20" rx="3" fill="url(#brassBand)" stroke="#7A5116" stroke-width="2"/>
+          <circle cx="110" cy="102" r="3.4" fill="#5A3B10"/>
+          <rect x="108.5" y="102" width="3" height="7" fill="#5A3B10"/>
+        </g>
+        <!-- inner (plain) face — the underside, crossfades in as it opens -->
+        <g class="lid-face lid-face-inner">
+          <path d="M32 104 Q30 28 110 16 Q190 28 188 104 Z" fill="url(#chestWoodInner)" stroke="#2A1B0B" stroke-width="4"/>
+          <path d="M50 96 Q110 60 170 96 M42 78 Q110 34 178 78" stroke="#2A1B0B" stroke-width="1.4" fill="none" opacity=".4"/>
+        </g>
+      </g>
     </svg>
   </div>
 
