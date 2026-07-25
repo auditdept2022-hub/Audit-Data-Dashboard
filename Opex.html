@@ -113,6 +113,61 @@
     100%{ transform:translateY(-9px) rotate(-3deg) scaleX(1); }
   }
 
+  /* ----- Swim variants -----
+     "bob" above is the baseline. These give other fish a genuinely
+     different swim FEEL (not just a different timing on the same curve)
+     so a busy tank doesn't read as one fish shape repeated at different
+     sizes. Applied by adding one of these classes alongside .fish-inner. */
+
+  /* Long, low, confident glide — minimal squash, a lazy roll rather than a
+     bob. Good for bigger/calmer reef fish. */
+  .ocean-bg .swim-glide{ animation-name:swim-glide; }
+  @keyframes swim-glide{
+    0%{ transform:translateY(-5px) rotate(-1.5deg) scaleX(1); }
+    50%{ transform:translateY(6px) rotate(1.5deg) scaleX(1.015); }
+    100%{ transform:translateY(-5px) rotate(-1.5deg) scaleX(1); }
+  }
+
+  /* Quick, energetic flutter — a fast little double-bounce rather than one
+     smooth arc, like a small fast fish darting to keep pace. */
+  .ocean-bg .swim-flutter{ animation-name:swim-flutter; }
+  @keyframes swim-flutter{
+    0%{ transform:translateY(-8px) rotate(-4deg) scaleX(1); }
+    16%{ transform:translateY(-11px) rotate(-5deg) scaleX(.95); }
+    34%{ transform:translateY(-1px) rotate(0deg) scaleX(1.02); }
+    50%{ transform:translateY(7px) rotate(4deg) scaleX(.96); }
+    66%{ transform:translateY(10px) rotate(5deg) scaleX(1.02); }
+    84%{ transform:translateY(1px) rotate(0deg) scaleX(.98); }
+    100%{ transform:translateY(-8px) rotate(-4deg) scaleX(1); }
+  }
+
+  /* Broader side-to-side sway with a slower vertical drift — suits a tall,
+     flat-bodied fish (angelfish) whose fins ripple more than its body
+     flexes. */
+  .ocean-bg .swim-sway{ animation-name:swim-sway; }
+  @keyframes swim-sway{
+    0%{ transform:translateY(-7px) rotate(-5deg) scaleX(1.02); }
+    30%{ transform:translateY(-1px) rotate(3deg) scaleX(.98); }
+    60%{ transform:translateY(8px) rotate(-2deg) scaleX(1.02); }
+    100%{ transform:translateY(-7px) rotate(-5deg) scaleX(1.02); }
+  }
+
+  /* Near-motionless float with only a faint rise/fall and no body-flex —
+     suits a round, rigid-bodied drifter like a pufferfish. */
+  .ocean-bg .swim-float{ animation-name:swim-float; }
+  @keyframes swim-float{
+    0%,100%{ transform:translateY(-6px) rotate(-1deg); }
+    50%{ transform:translateY(7px) rotate(1deg); }
+  }
+
+  /* Mostly-vertical bobbing with almost no rotation and no horizontal
+     squash — a seahorse swims upright, not tail-flexing like a fish. */
+  .ocean-bg .swim-upright{ animation-name:swim-upright; }
+  @keyframes swim-upright{
+    0%,100%{ transform:translateY(-8px) rotate(-1.5deg); }
+    50%{ transform:translateY(9px) rotate(1.5deg); }
+  }
+
   /* ----- Tail-beat: the caudal fin of a swimming fish flicks side to
      side much faster than the slow body-bob above — that's what actually
      reads as "swimming" rather than "floating with a wobble". Every
@@ -202,6 +257,30 @@
     0%,100%{ transform:translateY(-6px) rotate(-1.4deg); }
     50%{ transform:translateY(7px) rotate(1.4deg); }
   }
+  /* Great white: bulkier, so it rolls through a deeper, slower arc rather
+     than the reef shark's quick sweep. */
+  .ocean-bg .shark-inner.shark-power{ animation-name:shark-glide-power; }
+  @keyframes shark-glide-power{
+    0%,100%{ transform:translateY(-9px) rotate(-2.2deg); }
+    50%{ transform:translateY(10px) rotate(2.2deg); }
+  }
+  /* Tiger shark: leaner and quicker, snappier back-and-forth. */
+  .ocean-bg .shark-inner.shark-swift{ animation-name:shark-glide-swift; }
+  @keyframes shark-glide-swift{
+    0%{ transform:translateY(-6px) rotate(-2deg); }
+    28%{ transform:translateY(-8px) rotate(-2.6deg); }
+    50%{ transform:translateY(5px) rotate(1.8deg); }
+    78%{ transform:translateY(8px) rotate(2.4deg); }
+    100%{ transform:translateY(-6px) rotate(-2deg); }
+  }
+  /* Hammerhead: the wide cephalofoil head gives it a distinct side-to-side
+     yaw on top of the usual rise/fall. */
+  .ocean-bg .shark-inner.shark-hammer{ animation-name:shark-glide-hammer; }
+  @keyframes shark-glide-hammer{
+    0%{ transform:translateY(-5px) rotate(-3.4deg); }
+    50%{ transform:translateY(6px) rotate(3.4deg); }
+    100%{ transform:translateY(-5px) rotate(-3.4deg); }
+  }
   .ocean-bg .shark-inner .tailfin{
     animation:tailsweep 1.5s ease-in-out infinite;
     transform-origin:100% 50%;
@@ -210,6 +289,8 @@
     0%,100%{ transform:rotate(-11deg); }
     50%{ transform:rotate(11deg); }
   }
+  .ocean-bg .shark-inner.shark-swift .tailfin{ animation-duration:1.05s; }
+  .ocean-bg .shark-inner.shark-power .tailfin{ animation-duration:2s; }
   .ocean-bg .shark-inner .pecfin{
     animation:pecsway 2.3s ease-in-out infinite;
     transform-origin:50% 15%;
@@ -393,9 +474,25 @@
     bottom:var(--sfbottom,0);
     left:var(--sfleft);
     width:var(--sfsize);
-    animation:bob var(--bobdur) ease-in-out infinite;
+    animation:school-dart var(--bobdur) ease-in-out infinite;
     animation-delay:var(--bobdelay);
     transform-origin:50% 50%;
+  }
+  /* Small schooling fish get quick, slightly erratic multi-axis darts —
+     a different feel from the slow graceful "bob" the solo fish use —
+     so a school reads as many small fish jostling together rather than
+     clones of the bigger fish's swim cycle. */
+  @keyframes school-dart{
+    0%{ transform:translate(0,0) rotate(0deg) scaleX(1); }
+    8%{ transform:translate(1px,-6px) rotate(-4deg) scaleX(.97); }
+    18%{ transform:translate(-1.5px,-8px) rotate(-2deg) scaleX(1); }
+    30%{ transform:translate(2px,-1px) rotate(2deg) scaleX(1.03); }
+    44%{ transform:translate(-2px,5px) rotate(3deg) scaleX(.97); }
+    57%{ transform:translate(1px,8px) rotate(1deg) scaleX(1); }
+    70%{ transform:translate(-1.5px,3px) rotate(-2deg) scaleX(1.03); }
+    83%{ transform:translate(2px,-3px) rotate(-1deg) scaleX(.97); }
+    93%{ transform:translate(-1px,-5px) rotate(2deg) scaleX(1); }
+    100%{ transform:translate(0,0) rotate(0deg) scaleX(1); }
   }
   .ocean-bg .school-flip{ display:block; transform-origin:50% 50%; }
   .ocean-bg .school-outer.face-left .school-flip{ transform:scaleX(-1); }
@@ -460,7 +557,7 @@
 
   @media(prefers-reduced-motion:reduce){
     .ocean-bg .ray-beam, .ocean-bg .current-flow, .ocean-bg .snowbit,
-    .ocean-bg .school-outer, .ocean-bg .school-fish,
+    .ocean-bg .school-outer, .ocean-bg .school-fish, .ocean-bg .school-fish *,
     .ocean-bg .octo-inner .arm, .ocean-bg .crab-item, .ocean-bg .crab-item .claw{ animation:none; }
   }
 
@@ -842,7 +939,9 @@
     .ocean-bg .fish-outer, .ocean-bg .fish-inner,
     .ocean-bg .jelly-outer, .ocean-bg .jelly-inner, .ocean-bg .jelly-tentacle,
     .ocean-bg .turtle-inner .flipper, .ocean-bg .shark-inner .tailfin,
-    .ocean-bg .shark-inner .pecfin, .ocean-bg .orca-inner, .ocean-bg .wake-bubble{ animation:none; }
+    .ocean-bg .shark-inner .pecfin, .ocean-bg .orca-inner, .ocean-bg .wake-bubble,
+    .ocean-bg .shark-inner.shark-power, .ocean-bg .shark-inner.shark-swift,
+    .ocean-bg .shark-inner.shark-hammer{ animation:none; }
   }
   @media(max-width:640px){
     .ocean-bg{ opacity:.35; }
@@ -2037,7 +2136,7 @@
        so a creature can never appear to swim backwards/tail-first. -->
 
   <div class="fish-outer" style="--hue:0deg;--sat:1.05;--top:4%;--size:clamp(44px,6.2vw,76px);--dur:28s;--delay:-10s;">
-    <div class="fish-inner" style="--bobdur:4s;--bobdelay:-1s;"><div class="fish-flip">
+    <div class="fish-inner swim-glide" style="--bobdur:4s;--bobdelay:-1s;"><div class="fish-flip">
       <svg viewBox="0 0 140 74" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="fA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFB25C"/><stop offset="50%" stop-color="#E4572E"/><stop offset="100%" stop-color="#9C2E12"/></linearGradient></defs>
         <g class="tailwag" style="--tailspeed:.46s;"><path d="M26 37 Q10 20 0 9 Q7 27 15 37 Q7 47 0 65 Q10 54 26 37Z" fill="#9C2E12"/></g>
@@ -2054,7 +2153,7 @@
   </div>
 
   <div class="fish-outer face-left" style="--hue:-24deg;--sat:1.1;--top:12%;--size:clamp(48px,6.8vw,84px);--dur:36s;--delay:-30s;">
-    <div class="fish-inner" style="--bobdur:4.6s;--bobdelay:-2s;"><div class="fish-flip">
+    <div class="fish-inner swim-flutter" style="--bobdur:4.6s;--bobdelay:-2s;"><div class="fish-flip">
       <svg viewBox="0 0 120 52" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="fB" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8FE3FF"/><stop offset="50%" stop-color="#2C6FEE"/><stop offset="100%" stop-color="#0B2C74"/></linearGradient></defs>
         <g class="tailwag" style="--tailspeed:.42s;"><path d="M22 26 Q8 12 0 4 Q6 19 12 26 Q6 33 0 48 Q8 40 22 26Z" fill="#0B2C74"/></g>
@@ -2087,7 +2186,7 @@
   </div>
 
   <div class="fish-outer" style="--top:27%;--size:clamp(50px,7.2vw,86px);--dur:40s;--delay:-40s;">
-    <div class="fish-inner" style="--bobdur:4.2s;--bobdelay:-1.5s;"><div class="fish-flip">
+    <div class="fish-inner swim-glide" style="--bobdur:4.2s;--bobdelay:-1.5s;"><div class="fish-flip">
       <svg viewBox="0 0 130 64" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="fD" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FF9A3C"/><stop offset="50%" stop-color="#E4572E"/><stop offset="100%" stop-color="#8A2A10"/></linearGradient></defs>
         <g class="tailwag" style="--tailspeed:.44s;"><path d="M24 32 Q10 17 2 8 Q8 24 15 32 Q8 40 2 56 Q10 47 24 32Z" fill="#8A2A10"/></g>
@@ -2105,7 +2204,7 @@
   </div>
 
   <div class="fish-outer face-left" style="--hue:150deg;--sat:.95;--top:33%;--size:clamp(42px,6vw,72px);--dur:26s;--delay:-15s;">
-    <div class="fish-inner" style="--bobdur:3.8s;--bobdelay:-.6s;"><div class="fish-flip">
+    <div class="fish-inner swim-flutter" style="--bobdur:3.8s;--bobdelay:-.6s;"><div class="fish-flip">
       <svg viewBox="0 0 140 74" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="fA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFB25C"/><stop offset="50%" stop-color="#E4572E"/><stop offset="100%" stop-color="#9C2E12"/></linearGradient></defs>
         <g class="tailwag" style="--tailspeed:.46s;"><path d="M26 37 Q10 20 0 9 Q7 27 15 37 Q7 47 0 65 Q10 54 26 37Z" fill="#9C2E12"/></g>
@@ -2138,7 +2237,7 @@
   </div>
 
   <div class="fish-outer" style="--hue:-70deg;--sat:1;--top:47%;--size:clamp(60px,8.6vw,102px);--dur:42s;--delay:-8s;">
-    <div class="fish-inner" style="--bobdur:5.4s;--bobdelay:-2.4s;"><div class="fish-flip">
+    <div class="fish-inner swim-sway" style="--bobdur:5.4s;--bobdelay:-2.4s;"><div class="fish-flip">
       <svg viewBox="0 0 116 116" xmlns="http://www.w3.org/2000/svg">
         <defs><radialGradient id="fC" cx="42%" cy="35%" r="70%"><stop offset="0%" stop-color="#FFE45C"/><stop offset="60%" stop-color="#FFC629"/><stop offset="100%" stop-color="#B87400"/></radialGradient></defs>
         <g class="tailwag" style="--tailspeed:.6s;" ><path d="M46 12 Q22 30 20 58 Q22 86 46 104 Q36 80 36 58 Q36 36 46 12Z" fill="#B87400" opacity=".92"/></g>
@@ -2155,7 +2254,7 @@
   </div>
 
   <div class="fish-outer face-left" style="--hue:210deg;--sat:.9;--top:53%;--size:clamp(46px,6.6vw,80px);--dur:30s;--delay:-33s;">
-    <div class="fish-inner" style="--bobdur:4.1s;--bobdelay:-1.8s;"><div class="fish-flip">
+    <div class="fish-inner swim-glide" style="--bobdur:4.1s;--bobdelay:-1.8s;"><div class="fish-flip">
       <svg viewBox="0 0 130 64" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="fD" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FF9A3C"/><stop offset="50%" stop-color="#E4572E"/><stop offset="100%" stop-color="#8A2A10"/></linearGradient></defs>
         <g class="tailwag" style="--tailspeed:.44s;"><path d="M24 32 Q10 17 2 8 Q8 24 15 32 Q8 40 2 56 Q10 47 24 32Z" fill="#8A2A10"/></g>
@@ -2173,7 +2272,7 @@
   </div>
 
   <div class="fish-outer" style="--hue:280deg;--sat:1;--top:15%;--size:clamp(36px,5.2vw,60px);--dur:24s;--delay:-3s;">
-    <div class="fish-inner" style="--bobdur:3s;--bobdelay:-.4s;"><div class="fish-flip">
+    <div class="fish-inner swim-flutter" style="--bobdur:3s;--bobdelay:-.4s;"><div class="fish-flip">
       <svg viewBox="0 0 140 74" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="fA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFB25C"/><stop offset="50%" stop-color="#E4572E"/><stop offset="100%" stop-color="#9C2E12"/></linearGradient></defs>
         <g class="tailwag" style="--tailspeed:.46s;"><path d="M26 37 Q10 20 0 9 Q7 27 15 37 Q7 47 0 65 Q10 54 26 37Z" fill="#9C2E12"/></g>
@@ -2206,7 +2305,7 @@
   </div>
 
   <div class="fish-outer" style="--hue:-45deg;--sat:1;--top:7%;--size:clamp(34px,4.9vw,58px);--dur:22s;--delay:-6s;">
-    <div class="fish-inner" style="--bobdur:2.8s;--bobdelay:-1.6s;"><div class="fish-flip">
+    <div class="fish-inner swim-flutter" style="--bobdur:2.8s;--bobdelay:-1.6s;"><div class="fish-flip">
       <svg viewBox="0 0 130 64" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="fD" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FF9A3C"/><stop offset="50%" stop-color="#E4572E"/><stop offset="100%" stop-color="#8A2A10"/></linearGradient></defs>
         <g class="tailwag" style="--tailspeed:.44s;"><path d="M24 32 Q10 17 2 8 Q8 24 15 32 Q8 40 2 56 Q10 47 24 32Z" fill="#8A2A10"/></g>
@@ -2224,7 +2323,7 @@
   </div>
 
   <div class="fish-outer" style="--hue:22deg;--sat:1;--top:45%;--size:clamp(52px,7.4vw,88px);--dur:30s;--delay:-25s;">
-    <div class="fish-inner" style="--bobdur:4.4s;--bobdelay:-1s;"><div class="fish-flip">
+    <div class="fish-inner swim-glide" style="--bobdur:4.4s;--bobdelay:-1s;"><div class="fish-flip">
       <svg viewBox="0 0 140 74" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="fA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFB25C"/><stop offset="50%" stop-color="#E4572E"/><stop offset="100%" stop-color="#9C2E12"/></linearGradient></defs>
         <g class="tailwag" style="--tailspeed:.46s;"><path d="M26 37 Q10 20 0 9 Q7 27 15 37 Q7 47 0 65 Q10 54 26 37Z" fill="#9C2E12"/></g>
@@ -2384,7 +2483,7 @@
        countershaded body, blunt conical snout, darker slate back. Same
        shark-glide travel + tailsweep/pecfin system as the base shark. ===== -->
   <div class="fish-outer" style="--top:66%;--size:clamp(70px,8vw,108px);--dur:50s;--delay:-9s;">
-    <div class="fish-inner shark-inner" style="--bobdur:6.4s;--bobdelay:-2.6s;"><div class="fish-flip">
+    <div class="fish-inner shark-inner shark-power" style="--bobdur:6.4s;--bobdelay:-2.6s;"><div class="fish-flip">
       <svg viewBox="0 0 200 94" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="gwsharkg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#5C6B7E"/><stop offset="48%" stop-color="#3A4756"/><stop offset="100%" stop-color="#F4F6FA"/></linearGradient></defs>
         <path class="tailfin" d="M32 47 Q16 16 4 4 Q11 28 21 47 Q11 66 4 90 Q16 78 32 47Z" fill="#232C36"/>
@@ -2408,7 +2507,7 @@
   <!-- ===== Hammerhead shark — T-shaped cephalofoil head with an eye at
        each tip, olive-grey countershading. Same shark swim system. ===== -->
   <div class="fish-outer face-left" style="--top:41%;--size:clamp(66px,7.6vw,102px);--dur:48s;--delay:-22s;">
-    <div class="fish-inner shark-inner" style="--bobdur:6.8s;--bobdelay:-1.6s;"><div class="fish-flip">
+    <div class="fish-inner shark-inner shark-hammer" style="--bobdur:6.8s;--bobdelay:-1.6s;"><div class="fish-flip">
       <svg viewBox="0 0 200 94" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="hammerg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#9FAE8B"/><stop offset="48%" stop-color="#5F6E52"/><stop offset="100%" stop-color="#F4F6FA"/></linearGradient></defs>
         <path class="tailfin" d="M30 47 Q14 18 2 6 Q10 28 20 47 Q10 66 2 88 Q14 76 30 47Z" fill="#3E4A32"/>
@@ -2431,7 +2530,7 @@
   <!-- ===== Tiger shark — striped variant: broad body, faint vertical
        tiger stripes down the flank, blunt snout. Same shark system. ===== -->
   <div class="fish-outer" style="--top:11%;--size:clamp(68px,7.8vw,106px);--dur:52s;--delay:-38s;">
-    <div class="fish-inner shark-inner" style="--bobdur:7.4s;--bobdelay:-3.4s;"><div class="fish-flip">
+    <div class="fish-inner shark-inner shark-swift" style="--bobdur:7.4s;--bobdelay:-3.4s;"><div class="fish-flip">
       <svg viewBox="0 0 200 94" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="tigerg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#A6AC8E"/><stop offset="50%" stop-color="#6E7A5A"/><stop offset="100%" stop-color="#F4F6FA"/></linearGradient></defs>
         <path class="tailfin" d="M30 47 Q14 18 2 6 Q10 28 20 47 Q10 66 2 88 Q14 76 30 47Z" fill="#40492F"/>
@@ -2483,7 +2582,7 @@
 
   <!-- ===== Angelfish — tall, striped, flowing fins ===== -->
   <div class="fish-outer" style="--top:8%;--size:clamp(46px,6.4vw,78px);--dur:38s;--delay:-6s;">
-    <div class="fish-inner" style="--bobdur:4.4s;--bobdelay:-2.2s;"><div class="fish-flip">
+    <div class="fish-inner swim-sway" style="--bobdur:4.4s;--bobdelay:-2.2s;"><div class="fish-flip">
       <svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="ang1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFE45C"/><stop offset="100%" stop-color="#FF9A3C"/></linearGradient></defs>
         <path d="M50 8 Q10 30 10 65 Q10 100 50 122 Q90 100 90 65 Q90 30 50 8Z" fill="url(#ang1)"/><path d="M50 8 Q10 30 10 65 Q10 100 50 122 Q90 100 90 65 Q90 30 50 8Z" fill="url(#scalePattern)" opacity=".32"/><path d="M28.0 59.8 Q55.0 64.6 82.0 59.8" stroke="#ffffff" stroke-width="1.2" fill="none" opacity=".38" stroke-linecap="round"/><path d="M57.0 38.1 Q55.0 49.8 57.0 61.5" stroke="#000" stroke-width="1.0" fill="none" opacity=".28" stroke-linecap="round"/><path d="M54.2 38.1 Q52.2 49.8 54.2 61.5" stroke="#000" stroke-width="1.0" fill="none" opacity=".28" stroke-linecap="round"/><path d="M51.4 38.1 Q49.4 49.8 51.4 61.5" stroke="#000" stroke-width="1.0" fill="none" opacity=".28" stroke-linecap="round"/>
@@ -2497,7 +2596,7 @@
 
   <!-- ===== Pufferfish — round, spiky, drifts along slower ===== -->
   <div class="fish-outer face-left" style="--top:23%;--size:clamp(36px,5vw,58px);--dur:54s;--delay:-24s;">
-    <div class="fish-inner" style="--bobdur:5.6s;--bobdelay:-1.4s;"><div class="fish-flip">
+    <div class="fish-inner swim-float" style="--bobdur:5.6s;--bobdelay:-1.4s;"><div class="fish-flip">
       <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
         <defs><radialGradient id="puf1" cx="62%" cy="38%" r="70%"><stop offset="0%" stop-color="#FFF3A0"/><stop offset="100%" stop-color="#FFC629"/></radialGradient></defs>
         <!-- small paddle tail at the back, so the body reads as a fish with a
@@ -2536,7 +2635,7 @@
 
   <!-- ===== Seahorse — upright drifter, curled tail ===== -->
   <div class="fish-outer face-left" style="--hue:180deg;--top:70%;--size:clamp(34px,4.6vw,52px);--dur:56s;--delay:-38s;">
-    <div class="fish-inner" style="--bobdur:5s;--bobdelay:-.8s;"><div class="fish-flip">
+    <div class="fish-inner swim-upright" style="--bobdur:5s;--bobdelay:-.8s;"><div class="fish-flip">
       <svg viewBox="0 0 70 130" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="sea1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FF9EC4"/><stop offset="100%" stop-color="#E0245E"/></linearGradient></defs>
         <path d="M34 8 Q54 8 54 26 Q54 42 40 48 Q56 52 56 70 Q56 88 40 92 Q52 98 44 116 Q38 128 26 122 Q18 118 22 106 Q10 100 10 84 Q10 68 24 62 Q10 56 10 40 Q10 20 34 8Z" fill="url(#sea1)"/><path d="M34 8 Q54 8 54 26 Q54 42 40 48 Q56 52 56 70 Q56 88 40 92 Q52 98 44 116 Q38 128 26 122 Q18 118 22 106 Q10 100 10 84 Q10 68 24 62 Q10 56 10 40 Q10 20 34 8Z" fill="url(#scalePattern)" opacity=".32"/><path d="M28.0 46.0 Q55.0 49.7 82.0 46.0" stroke="#ffffff" stroke-width="1.2" fill="none" opacity=".38" stroke-linecap="round"/><path d="M33.0 19.0 Q31.0 28.0 33.0 37.0" stroke="#000" stroke-width="1.0" fill="none" opacity=".28" stroke-linecap="round"/><path d="M30.2 19.0 Q28.2 28.0 30.2 37.0" stroke="#000" stroke-width="1.0" fill="none" opacity=".28" stroke-linecap="round"/><path d="M27.4 19.0 Q25.4 28.0 27.4 37.0" stroke="#000" stroke-width="1.0" fill="none" opacity=".28" stroke-linecap="round"/>
@@ -2549,7 +2648,7 @@
 
   <!-- ===== A few extra small schooling fish for a fuller, busier tank ===== -->
   <div class="fish-outer face-left" style="--hue:60deg;--sat:1.1;--top:44%;--size:clamp(30px,4.2vw,50px);--dur:22s;--delay:-9s;">
-    <div class="fish-inner" style="--bobdur:3.2s;--bobdelay:-.5s;"><div class="fish-flip">
+    <div class="fish-inner swim-flutter" style="--bobdur:3.2s;--bobdelay:-.5s;"><div class="fish-flip">
       <svg viewBox="0 0 120 52" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="fB" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8FE3FF"/><stop offset="50%" stop-color="#2C6FEE"/><stop offset="100%" stop-color="#0B2C74"/></linearGradient></defs>
         <g class="tailwag" style="--tailspeed:.42s;"><path d="M22 26 Q8 12 0 4 Q6 19 12 26 Q6 33 0 48 Q8 40 22 26Z" fill="#0B2C74"/></g>
@@ -2565,7 +2664,7 @@
   </div>
 
   <div class="fish-outer" style="--hue:320deg;--sat:1.05;--top:50%;--size:clamp(32px,4.6vw,54px);--dur:26s;--delay:-27s;">
-    <div class="fish-inner" style="--bobdur:3.6s;--bobdelay:-1.9s;"><div class="fish-flip">
+    <div class="fish-inner swim-glide" style="--bobdur:3.6s;--bobdelay:-1.9s;"><div class="fish-flip">
       <svg viewBox="0 0 140 74" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="fA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFB25C"/><stop offset="50%" stop-color="#E4572E"/><stop offset="100%" stop-color="#9C2E12"/></linearGradient></defs>
         <g class="tailwag" style="--tailspeed:.46s;"><path d="M26 37 Q10 20 0 9 Q7 27 15 37 Q7 47 0 65 Q10 54 26 37Z" fill="#9C2E12"/></g>
@@ -2652,37 +2751,112 @@
   </div>
 
   <!-- ===== Schools of fish — small silhouettes traveling together as one
-       formation, graduating small to large across the group. ===== -->
+       formation, sizes mixed at random within each group (not a small-to-
+       large gradient) so it reads like a real cluster of fish rather than
+       a sorted row. Several schools at different depths/speeds/directions
+       fill out the water column so the tank reads as a busy ocean. ===== -->
   <div class="school-outer" style="--top:17%;--size:clamp(150px,20vw,270px);--dur:16s;--delay:-6s;">
-    <div class="school-fish" style="--sfleft:0%;--sfsize:16%;--sfbottom:9%;--bobdur:1.8s;--bobdelay:-.2s;--sfhue:0deg;"><div class="school-flip">
+    <div class="school-fish" style="--sfleft:0%;--sfsize:34%;--sfbottom:9%;--bobdur:1.8s;--bobdelay:-.2s;--sfhue:0deg;"><div class="school-flip">
       <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#FF9A3C" opacity=".82"/><path d="M47 9 Q45 15 47 21" stroke="#7A2409" stroke-width="1" fill="none" opacity=".45" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#7A2409" stroke-width=".8" fill="none" opacity=".38" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
     </div></div>
-    <div class="school-fish" style="--sfleft:14%;--sfsize:24%;--sfbottom:0%;--bobdur:2.1s;--bobdelay:-1.1s;--sfhue:-8deg;"><div class="school-flip">
+    <div class="school-fish" style="--sfleft:14%;--sfsize:19%;--sfbottom:0%;--bobdur:2.1s;--bobdelay:-1.1s;--sfhue:-8deg;"><div class="school-flip">
       <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#FF9A3C" opacity=".82"/><path d="M47 9 Q45 15 47 21" stroke="#7A2409" stroke-width="1" fill="none" opacity=".45" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#7A2409" stroke-width=".8" fill="none" opacity=".38" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
     </div></div>
-    <div class="school-fish" style="--sfleft:32%;--sfsize:38%;--sfbottom:11%;--bobdur:1.7s;--bobdelay:-.6s;--sfhue:6deg;"><div class="school-flip">
+    <div class="school-fish" style="--sfleft:32%;--sfsize:56%;--sfbottom:11%;--bobdur:1.7s;--bobdelay:-.6s;--sfhue:6deg;"><div class="school-flip">
       <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#FF9A3C" opacity=".82"/><path d="M47 9 Q45 15 47 21" stroke="#7A2409" stroke-width="1" fill="none" opacity=".45" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#7A2409" stroke-width=".8" fill="none" opacity=".38" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
     </div></div>
-    <div class="school-fish" style="--sfleft:54%;--sfsize:58%;--sfbottom:2%;--bobdur:2.4s;--bobdelay:-1.8s;--sfhue:-4deg;"><div class="school-flip">
+    <div class="school-fish" style="--sfleft:54%;--sfsize:22%;--sfbottom:2%;--bobdur:2.4s;--bobdelay:-1.8s;--sfhue:-4deg;"><div class="school-flip">
       <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#FF9A3C" opacity=".82"/><path d="M47 9 Q45 15 47 21" stroke="#7A2409" stroke-width="1" fill="none" opacity=".45" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#7A2409" stroke-width=".8" fill="none" opacity=".38" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
     </div></div>
-    <div class="school-fish" style="--sfleft:78%;--sfsize:88%;--sfbottom:9%;--bobdur:2s;--bobdelay:-.9s;--sfhue:4deg;"><div class="school-flip">
+    <div class="school-fish" style="--sfleft:78%;--sfsize:44%;--sfbottom:9%;--bobdur:2s;--bobdelay:-.9s;--sfhue:4deg;"><div class="school-flip">
       <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#FF9A3C" opacity=".82"/><path d="M47 9 Q45 15 47 21" stroke="#7A2409" stroke-width="1" fill="none" opacity=".45" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#7A2409" stroke-width=".8" fill="none" opacity=".38" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
     </div></div>
   </div>
 
   <div class="school-outer face-left" style="--top:61%;--size:clamp(130px,17vw,230px);--dur:14s;--delay:-8s;">
-    <div class="school-fish" style="--sfleft:2%;--sfsize:18%;--sfbottom:4%;--bobdur:1.9s;--bobdelay:-.4s;--sfhue:190deg;"><div class="school-flip">
+    <div class="school-fish" style="--sfleft:2%;--sfsize:40%;--sfbottom:4%;--bobdur:1.9s;--bobdelay:-.4s;--sfhue:190deg;"><div class="school-flip">
       <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#5FA0FF" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#082058" stroke-width="1" fill="none" opacity=".5" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#082058" stroke-width=".8" fill="none" opacity=".42" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
     </div></div>
-    <div class="school-fish" style="--sfleft:20%;--sfsize:30%;--sfbottom:10%;--bobdur:2.3s;--bobdelay:-1.3s;--sfhue:170deg;"><div class="school-flip">
+    <div class="school-fish" style="--sfleft:20%;--sfsize:20%;--sfbottom:10%;--bobdur:2.3s;--bobdelay:-1.3s;--sfhue:170deg;"><div class="school-flip">
       <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#5FA0FF" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#082058" stroke-width="1" fill="none" opacity=".5" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#082058" stroke-width=".8" fill="none" opacity=".42" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
     </div></div>
-    <div class="school-fish" style="--sfleft:42%;--sfsize:48%;--sfbottom:0%;--bobdur:2.6s;--bobdelay:-.7s;--sfhue:200deg;"><div class="school-flip">
+    <div class="school-fish" style="--sfleft:42%;--sfsize:33%;--sfbottom:0%;--bobdur:2.6s;--bobdelay:-.7s;--sfhue:200deg;"><div class="school-flip">
       <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#5FA0FF" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#082058" stroke-width="1" fill="none" opacity=".5" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#082058" stroke-width=".8" fill="none" opacity=".42" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
     </div></div>
-    <div class="school-fish" style="--sfleft:68%;--sfsize:76%;--sfbottom:8%;--bobdur:2.1s;--bobdelay:-1.6s;--sfhue:180deg;"><div class="school-flip">
+    <div class="school-fish" style="--sfleft:68%;--sfsize:25%;--sfbottom:8%;--bobdur:2.1s;--bobdelay:-1.6s;--sfhue:180deg;"><div class="school-flip">
       <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#5FA0FF" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#082058" stroke-width="1" fill="none" opacity=".5" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#082058" stroke-width=".8" fill="none" opacity=".42" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
+    </div></div>
+  </div>
+
+  <div class="school-outer" style="--top:6%;--size:clamp(90px,12vw,160px);--dur:19s;--delay:-3s;">
+    <div class="school-fish" style="--sfleft:6%;--sfsize:20%;--sfbottom:9%;--bobdur:1.7s;--bobdelay:-1.2s;--sfhue:47deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#FF9A3C" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#7A2409" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#7A2409" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
+    </div></div>
+    <div class="school-fish" style="--sfleft:19%;--sfsize:68%;--sfbottom:6%;--bobdur:2.1s;--bobdelay:-1.9s;--sfhue:13deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#FF9A3C" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#7A2409" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#7A2409" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
+    </div></div>
+    <div class="school-fish" style="--sfleft:41%;--sfsize:50%;--sfbottom:0%;--bobdur:1.9s;--bobdelay:-1.3s;--sfhue:42deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#FF9A3C" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#7A2409" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#7A2409" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
+    </div></div>
+    <div class="school-fish" style="--sfleft:50%;--sfsize:22%;--sfbottom:3%;--bobdur:2.3s;--bobdelay:-1.2s;--sfhue:23deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#FF9A3C" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#7A2409" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#7A2409" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
+    </div></div>
+    <div class="school-fish" style="--sfleft:83%;--sfsize:39%;--sfbottom:0%;--bobdur:1.7s;--bobdelay:-0.2s;--sfhue:12deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#FF9A3C" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#7A2409" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#7A2409" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
+    </div></div>
+  </div>
+
+  <div class="school-outer face-left" style="--top:26%;--size:clamp(110px,15vw,190px);--dur:20s;--delay:-12s;">
+    <div class="school-fish" style="--sfleft:17%;--sfsize:50%;--sfbottom:4%;--bobdur:2.0s;--bobdelay:-1.4s;--sfhue:163deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#5FA0FF" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#082058" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#082058" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
+    </div></div>
+    <div class="school-fish" style="--sfleft:18%;--sfsize:23%;--sfbottom:3%;--bobdur:2.3s;--bobdelay:-0.9s;--sfhue:153deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#5FA0FF" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#082058" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#082058" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
+    </div></div>
+    <div class="school-fish" style="--sfleft:37%;--sfsize:52%;--sfbottom:12%;--bobdur:1.7s;--bobdelay:-0.7s;--sfhue:214deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#5FA0FF" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#082058" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#082058" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
+    </div></div>
+    <div class="school-fish" style="--sfleft:53%;--sfsize:35%;--sfbottom:2%;--bobdur:1.7s;--bobdelay:-1.2s;--sfhue:213deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#5FA0FF" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#082058" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#082058" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
+    </div></div>
+    <div class="school-fish" style="--sfleft:71%;--sfsize:51%;--sfbottom:11%;--bobdur:1.8s;--bobdelay:-1.0s;--sfhue:164deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#5FA0FF" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#082058" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#082058" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
+    </div></div>
+  </div>
+
+  <div class="school-outer face-left" style="--top:72%;--size:clamp(140px,18vw,240px);--dur:15s;--delay:-4s;">
+    <div class="school-fish" style="--sfleft:10%;--sfsize:37%;--sfbottom:1%;--bobdur:2.7s;--bobdelay:-1.7s;--sfhue:-15deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#FF9A3C" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#7A2409" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#7A2409" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
+    </div></div>
+    <div class="school-fish" style="--sfleft:31%;--sfsize:62%;--sfbottom:4%;--bobdur:2.1s;--bobdelay:-0.7s;--sfhue:35deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#FF9A3C" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#7A2409" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#7A2409" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
+    </div></div>
+    <div class="school-fish" style="--sfleft:38%;--sfsize:44%;--sfbottom:7%;--bobdur:2.8s;--bobdelay:-0.8s;--sfhue:23deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#FF9A3C" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#7A2409" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#7A2409" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
+    </div></div>
+    <div class="school-fish" style="--sfleft:63%;--sfsize:34%;--sfbottom:11%;--bobdur:1.7s;--bobdelay:-1.0s;--sfhue:-9deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#FF9A3C" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#7A2409" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#7A2409" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
+    </div></div>
+    <div class="school-fish" style="--sfleft:67%;--sfsize:54%;--sfbottom:10%;--bobdur:2.3s;--bobdelay:-1.6s;--sfhue:13deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#FF9A3C" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#7A2409" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#7A2409" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
+    </div></div>
+    <div class="school-fish" style="--sfleft:73%;--sfsize:20%;--sfbottom:1%;--bobdur:2.5s;--bobdelay:-0.2s;--sfhue:-11deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#FF9A3C" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#7A2409" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#7A2409" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
+    </div></div>
+  </div>
+
+  <div class="school-outer" style="--top:85%;--size:clamp(80px,10vw,140px);--dur:24s;--delay:-15s;">
+    <div class="school-fish" style="--sfleft:7%;--sfsize:59%;--sfbottom:6%;--bobdur:1.6s;--bobdelay:-0.2s;--sfhue:251deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#5FA0FF" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#082058" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#082058" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
+    </div></div>
+    <div class="school-fish" style="--sfleft:39%;--sfsize:68%;--sfbottom:7%;--bobdur:2.2s;--bobdelay:-1.6s;--sfhue:209deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#5FA0FF" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#082058" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#082058" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
+    </div></div>
+    <div class="school-fish" style="--sfleft:73%;--sfsize:44%;--sfbottom:1%;--bobdur:1.8s;--bobdelay:-0.3s;--sfhue:245deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#5FA0FF" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#082058" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#082058" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
+    </div></div>
+    <div class="school-fish" style="--sfleft:82%;--sfsize:34%;--sfbottom:2%;--bobdur:1.7s;--bobdelay:-0.6s;--sfhue:204deg;"><div class="school-flip">
+      <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#5FA0FF" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#082058" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#082058" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
     </div></div>
   </div>
 
