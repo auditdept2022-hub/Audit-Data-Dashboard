@@ -30,12 +30,15 @@
     --stat-bg:#EDF0F5;
   }
   *{box-sizing:border-box;}
+  html{ overflow-x:hidden; }
   body{
     margin:0;
     background:var(--bg);
     font-family:'Inter',system-ui,sans-serif;
     color:var(--text);
     padding:24px 20px 60px;
+    overflow-x:hidden;
+    max-width:100vw;
   }
   .wrap{max-width:1360px;margin:0 auto;counter-reset:stepnum;position:relative;z-index:1;}
   @media(min-width:1500px){ .wrap{max-width:1480px;} }
@@ -1364,7 +1367,8 @@
 
   /* Accommodation + Allowance sit side-by-side as two equal, uniform cards. */
   .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:stretch;}
-  .two-col > .card{margin-bottom:0;}
+  .two-col > .card{margin-bottom:0;min-width:0;}
+  .card{min-width:0;}
   @media(max-width:1000px){.two-col{grid-template-columns:1fr;}}
   #accTable{width:100%;}
 
@@ -1751,7 +1755,7 @@
   .stat-box.variance-over .label{ color:var(--err); }
   .stat-box.variance-over .amount{ color:var(--err); }
 
-  .btn-row{display:flex;gap:12px;}
+  .btn-row{display:flex;gap:12px;flex-wrap:wrap;}
   .submit-btn{
     padding:12px 24px;
     background:linear-gradient(120deg, var(--amber-dark), var(--amber));
@@ -2174,6 +2178,11 @@
     .two-col{ gap:10px; }
     .totals-row{ gap:10px; }
     .pd-sign{ padding:0 12px; }
+
+    /* Action buttons: full-width stacked rows instead of a cramped
+       single line that runs off the right edge of the screen */
+    .btn-row{ gap:8px; }
+    .btn-row button{ flex:1 1 calc(50% - 4px); min-width:120px; }
   }
 
   @media(max-width:420px){
