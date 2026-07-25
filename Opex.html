@@ -752,6 +752,16 @@
   @keyframes lid-face-in{
     0%,14%{ opacity:0; } 30%,60%{ opacity:1; } 86%,100%{ opacity:0; }
   }
+  /* Bands fade much faster than the wood face itself — gone well before
+     the lid reaches any noticeable swing angle, back well after it's
+     nearly closed again — so they never get a chance to sweep sideways. */
+  .ocean-bg .chest-item .lid-bands{
+    animation:lid-bands-fade var(--chestdur,9s) ease-in-out infinite;
+    animation-delay:var(--chestdelay,0s);
+  }
+  @keyframes lid-bands-fade{
+    0%,9%{ opacity:1; } 13%{ opacity:0; } 95%{ opacity:0; } 99%,100%{ opacity:1; }
+  }
   .ocean-bg .chest-item .chest-treasure{
     animation:chest-glow var(--chestdur,9s) ease-in-out infinite;
     animation-delay:var(--chestdelay,0s);
@@ -761,6 +771,19 @@
     34%{ opacity:1; }
     64%{ opacity:1; }
     86%,100%{ opacity:.12; }
+  }
+  .ocean-bg .chest-item .chest-glint{
+    animation:chest-glint-twinkle var(--chestdur,9s) ease-in-out infinite;
+    animation-delay:calc(var(--chestdelay,0s) + var(--gstagger,0s));
+    transform-box:fill-box;
+    transform-origin:50% 50%;
+  }
+  @keyframes chest-glint-twinkle{
+    0%,30%{ opacity:0; transform:scale(.4) rotate(0deg); }
+    38%{ opacity:1; transform:scale(1) rotate(20deg); }
+    46%{ opacity:0; transform:scale(.5) rotate(40deg); }
+    58%{ opacity:1; transform:scale(1.05) rotate(0deg); }
+    66%,100%{ opacity:0; transform:scale(.4) rotate(-20deg); }
   }
   .ocean-bg .chest-item .chest-bubble{
     animation:chest-bubble-burst var(--chestdur,9s) ease-in-out infinite;
@@ -812,6 +835,7 @@
     .ocean-bg .anemone-item .tentacle, .ocean-bg .anemone-item .anem-body,
     .ocean-bg .chest-item .chest-lid, .ocean-bg .chest-item .chest-treasure,
     .ocean-bg .chest-item .lid-face-outer, .ocean-bg .chest-item .lid-face-inner,
+    .ocean-bg .chest-item .lid-bands, .ocean-bg .chest-item .chest-glint,
     .ocean-bg .chest-item .chest-bubble, .ocean-bg .shell-item .shell-lid,
     .ocean-bg .shell-item .shell-glow, .ocean-bg .shell-item .shell-bubble{ animation:none; }
     .ocean-bg::before{ animation:none; }
@@ -2364,7 +2388,7 @@
       <svg viewBox="0 0 200 94" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="gwsharkg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#5C6B7E"/><stop offset="48%" stop-color="#3A4756"/><stop offset="100%" stop-color="#F4F6FA"/></linearGradient></defs>
         <path class="tailfin" d="M32 47 Q16 16 4 4 Q11 28 21 47 Q11 66 4 90 Q16 78 32 47Z" fill="#232C36"/>
-        <path d="M18 49 Q15 27 44 19 Q66 4 114 10 Q154 14 186 39 Q196 44 196 49 Q196 54 186 59 Q154 78 114 80 Q66 86 44 71 Q17 60 18 49Z" fill="url(#gwsharkg)"/>
+        <path d="M18 49 Q15 27 44 19 Q66 4 114 10 Q154 14 186 39 Q196 44 196 49 Q196 54 186 59 Q154 78 114 80 Q66 86 44 71 Q17 60 18 49Z" fill="url(#gwsharkg)" stroke="#2E3844" stroke-width="1.6" stroke-opacity=".45"/>
         <path d="M98 14 Q120 -14 138 16 Q120 17 98 14Z" fill="#232C36"/>
         <path d="M136 19 Q147 7 158 17 Q147 20 136 19Z" fill="#232C36" opacity=".82"/>
         <path d="M152 64 Q144 82 127 78 Q144 67 152 64Z" fill="#1B222A" opacity=".82"/>
@@ -2448,8 +2472,8 @@
         <path d="M58 58 Q30 79 10 73 Q34 66 52 51Z" fill="#14171D" opacity=".9"/>
         <path d="M110 14 Q140 10 154 25 Q132 31 114 27Z" fill="#7C828C" opacity=".55"/>
         <path d="M62 51 Q104 68 154 57 Q142 76 100 80 Q70 76 62 51Z" fill="#F4F6FA" opacity=".95"/>
-        <ellipse cx="192" cy="34" rx="9" ry="5" fill="#F4F6FA" transform="rotate(-16 192 34)"/>
-        <circle cx="200" cy="38" r="2.8" fill="#0C0E12"/>
+        <ellipse cx="192" cy="34" rx="9" ry="5" fill="#F4F6FA" stroke="#14171D" stroke-width="1" stroke-opacity=".35" transform="rotate(-16 192 34)"/>
+        <circle cx="200" cy="38" r="3.6" fill="#0C0E12"/><circle cx="201.2" cy="36.6" r="1" fill="#fff" opacity=".8"/>
       </svg>
     </div></div>
     <span class="wake-bubble" style="--wdur:2.4s;--wdelay:0s;"></span>
@@ -2475,29 +2499,37 @@
   <div class="fish-outer face-left" style="--top:23%;--size:clamp(36px,5vw,58px);--dur:54s;--delay:-24s;">
     <div class="fish-inner" style="--bobdur:5.6s;--bobdelay:-1.4s;"><div class="fish-flip">
       <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <defs><radialGradient id="puf1" cx="40%" cy="35%" r="65%"><stop offset="0%" stop-color="#FFF3A0"/><stop offset="100%" stop-color="#FFC629"/></radialGradient></defs>
-        <g stroke="#C9971F" stroke-width="3" stroke-linecap="round">
-          <path d="M50 6 L50 -6M74 12 L82 2M90 32 L102 26M94 54 L106 54M86 74 L96 82M64 90 L68 102M34 90 L30 102M14 74 L4 82M8 54 L-4 54M12 32 L0 26M28 12 L20 2"/>
+        <defs><radialGradient id="puf1" cx="62%" cy="38%" r="70%"><stop offset="0%" stop-color="#FFF3A0"/><stop offset="100%" stop-color="#FFC629"/></radialGradient></defs>
+        <!-- small paddle tail at the back, so the body reads as a fish with a
+             direction of travel rather than a direction-less ball -->
+        <path d="M14 54 Q2 44 -2 34 Q6 52 6 54 Q6 56 -2 74 Q2 64 14 54Z" fill="#C9971F"/>
+        <!-- spines: short triangular spikes clustered over the back 3/4 of the
+             body only (not a full 360° ring), leaving the face/belly smooth —
+             a ring of even pin-like spikes all around is what reads as a
+             virus/germ icon, so the front (mouth+eye) side stays bare -->
+        <g fill="#E8A400" stroke="#C9971F" stroke-width="1.2" stroke-linejoin="round">
+          <polygon points="50.0,84.6 46.5,94.5 44.1,84.1"/>
+          <polygon points="33.0,80.5 24.8,88.2 28.1,77.4"/>
+          <polygon points="20.6,69.3 9.6,71.8 18.1,64.5"/>
+          <polygon points="16.1,56.7 5.2,54.4 16.1,51.3"/>
+          <polygon points="18.1,43.5 9.6,37.2 20.6,38.7"/>
+          <polygon points="28.1,30.6 24.8,20.8 33.0,27.5"/>
+          <polygon points="41.2,24.4 42.2,14.3 47.0,23.5"/>
+          <polygon points="55.9,23.9 60.9,15.0 61.6,25.2"/>
         </g>
-        <circle cx="50" cy="50" r="40" fill="url(#puf1)" stroke="#C9971F" stroke-width="2.5"/><circle cx="50" cy="50" r="40" fill="url(#scalePattern)" opacity=".3"/><path d="M20 40 Q50 60 80 40" stroke="#ffffff" stroke-width="1.4" fill="none" opacity=".35" stroke-linecap="round"/><path d="M62 42 Q56 50 62 58M68 44 Q62 52 68 60" stroke="#8A5F0A" stroke-width="1.1" fill="none" opacity=".3" stroke-linecap="round"/>
-        <circle cx="35" cy="6" r="0" fill="none"/>
-        <circle cx="40" cy="38" r="7" fill="#fff"/><circle cx="42" cy="38" r="3.6" fill="#1B2233"/>
-        <path d="M58 58 Q50 66 42 58" stroke="#B8811A" stroke-width="3" fill="none" stroke-linecap="round"/>
-        <circle cx="24" cy="52" r="3" fill="#E8A400" opacity=".7"/><circle cx="62" cy="64" r="3" fill="#E8A400" opacity=".7"/><circle cx="58" cy="30" r="2.4" fill="#E8A400" opacity=".7"/>
-      </svg>
-    </div></div>
-  </div>
-
-  <!-- ===== Stingray — flat glide, whip tail sweeps like the shark's ===== -->
-  <div class="fish-outer" style="--top:63%;--size:clamp(78px,10.5vw,138px);--dur:62s;--delay:-16s;">
-    <div class="fish-inner ray-inner" style="--bobdur:6.2s;--bobdelay:-2.8s;"><div class="fish-flip">
-      <svg viewBox="0 0 190 90" xmlns="http://www.w3.org/2000/svg">
-        <defs><radialGradient id="ray1" cx="38%" cy="35%" r="70%"><stop offset="0%" stop-color="#9FB6D9"/><stop offset="100%" stop-color="#4C5F82"/></radialGradient></defs>
-        <path class="raytail" d="M118 46 Q160 50 182 70" stroke="#4C5F82" stroke-width="5" fill="none" stroke-linecap="round"/>
-        <path d="M100 6 Q10 20 4 46 Q10 72 100 86 Q140 74 140 46 Q140 18 100 6Z" fill="url(#ray1)"/>
-        <circle cx="112" cy="34" r="8" fill="#fff" opacity=".18"/><circle cx="112" cy="58" r="8" fill="#fff" opacity=".18"/>
-        <circle cx="70" cy="36" r="9" fill="#2E3A52" opacity=".55"/><circle cx="70" cy="56" r="9" fill="#2E3A52" opacity=".55"/>
-        <circle cx="118" cy="40" r="3.4" fill="#1B2233"/><circle cx="118" cy="52" r="3.4" fill="#1B2233"/>
+        <!-- body: slightly egg-shaped rather than a perfect circle, wider
+             toward the tail so it has an implied front/back -->
+        <ellipse cx="50" cy="54" rx="35" ry="32" fill="url(#puf1)" stroke="#C9971F" stroke-width="2.5"/>
+        <ellipse cx="50" cy="54" rx="35" ry="32" fill="url(#scalePattern)" opacity=".3"/>
+        <ellipse cx="52" cy="70" rx="22" ry="11" fill="#fff" opacity=".14"/>
+        <path d="M22 46 Q50 64 78 46" stroke="#ffffff" stroke-width="1.4" fill="none" opacity=".35" stroke-linecap="round"/>
+        <path d="M60 46 Q54 54 60 62M66 48 Q60 56 66 64" stroke="#8A5F0A" stroke-width="1.1" fill="none" opacity=".3" stroke-linecap="round"/>
+        <!-- small pectoral fin -->
+        <path d="M46 78 Q40 90 30 92 Q40 82 40 76Z" fill="#D9A234" opacity=".85"/>
+        <!-- blunt beak-like snout on the leading (right) side -->
+        <path d="M82 52 Q92 52 92 58 Q92 62 82 60Z" fill="#B8811A"/>
+        <path d="M78 58 Q72 64 64 60" stroke="#8A5F0A" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+        <circle cx="66" cy="36" r="7" fill="#fff"/><circle cx="68.4" cy="36" r="3.6" fill="#1B2233"/><circle cx="69.6" cy="34" r="1.2" fill="#fff"/>
       </svg>
     </div></div>
   </div>
@@ -2615,24 +2647,6 @@
         <ellipse cx="127" cy="58" rx="6" ry="2.2" fill="#1B1208"/>
         <circle cx="124.5" cy="55.5" r="1.1" fill="#fff" opacity=".85"/>
         <path d="M100 90 Q105 96 110 90 Q105 92 100 90Z" fill="#2A160A"/>
-      </svg>
-    </div></div>
-  </div>
-
-  <!-- ===== Manta ray — big, slow wing-beat glide. Rescaled/moved up from
-       its original --top:66% + 182px size, which ran taller than the
-       banner itself and clipped off the bottom half. ===== -->
-  <div class="fish-outer face-left" style="--top:50%;--size:clamp(74px,8.6vw,122px);--dur:64s;--delay:-30s;">
-    <div class="fish-inner manta-inner" style="--bobdur:7.4s;--bobdelay:-3s;"><div class="fish-flip">
-      <svg viewBox="0 0 220 100" xmlns="http://www.w3.org/2000/svg">
-        <defs><linearGradient id="manta1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#5E6E8C"/><stop offset="55%" stop-color="#2E3A52"/><stop offset="100%" stop-color="#171E2C"/></linearGradient></defs>
-        <path d="M110 50 Q170 66 214 92" stroke="#171E2C" stroke-width="5" fill="none" stroke-linecap="round"/>
-        <path d="M110 6 Q4 18 6 50 Q4 82 110 94 Q94 74 92 50 Q94 26 110 6Z" fill="url(#manta1)"/>
-        <path d="M110 6 Q216 18 214 50 Q216 82 110 94 Q126 74 128 50 Q126 26 110 6Z" fill="url(#manta1)" opacity=".92"/>
-        <path d="M84 22 Q64 12 44 18 Q64 22 76 34Z" fill="#171E2C"/>
-        <path d="M84 78 Q64 88 44 82 Q64 78 76 66Z" fill="#171E2C" opacity=".9"/>
-        <ellipse cx="110" cy="50" rx="22" ry="26" fill="#2E3A52"/>
-        <circle cx="100" cy="40" r="3" fill="#0C121C"/><circle cx="120" cy="40" r="3" fill="#0C121C"/>
       </svg>
     </div></div>
   </div>
@@ -2893,16 +2907,19 @@
         <rect x="143" y="104" width="13" height="54" fill="url(#brassBand)"/>
         <circle cx="70.5" cy="114" r="2.4" fill="#6E4A16"/><circle cx="70.5" cy="148" r="2.4" fill="#6E4A16"/>
         <circle cx="149.5" cy="114" r="2.4" fill="#6E4A16"/><circle cx="149.5" cy="148" r="2.4" fill="#6E4A16"/>
+        <!-- decorative brass medallion on the right wood panel, to balance
+             the plain panel between the right strap and the corner bracket -->
+        <g class="chest-medallion">
+          <circle cx="167" cy="131" r="11" fill="url(#brassBand)" stroke="#6E4A16" stroke-width="1.6"/>
+          <circle cx="167" cy="131" r="6.4" fill="none" stroke="#6E4A16" stroke-width="1.2"/>
+          <path d="M167 122 L167 140M158 131 L176 131M160.4 124.4 L173.6 137.6M160.4 137.6 L173.6 124.4" stroke="#6E4A16" stroke-width="1" opacity=".55"/>
+          <circle cx="167" cy="131" r="2.2" fill="#6E4A16"/>
+        </g>
         <!-- corner brackets -->
         <path d="M32 104 L48 104 L48 110 L38 110 L38 118 L32 118Z" fill="url(#brassBand)"/>
         <path d="M188 104 L172 104 L172 110 L182 110 L182 118 L188 118Z" fill="url(#brassBand)"/>
         <path d="M32 158 L48 158 L48 152 L38 152 L38 144 L32 144Z" fill="url(#brassBand)"/>
         <path d="M188 158 L172 158 L172 152 L182 152 L182 144 L188 144Z" fill="url(#brassBand)"/>
-        <!-- fixed hasp staple -->
-        <path d="M101 100 Q101 90 110 90 Q119 90 119 100" fill="none" stroke="#7A5116" stroke-width="6"/>
-        <!-- hinge plates (visual anchor for the pivot) -->
-        <rect x="50" y="98" width="16" height="7" rx="1.5" fill="#7A5116"/>
-        <rect x="154" y="98" width="16" height="7" rx="1.5" fill="#7A5116"/>
       </g>
 
       <!-- coins + glow, revealed as the lid lifts -->
@@ -2913,6 +2930,17 @@
         <circle cx="120" cy="100" r="14" fill="#FFD54A" stroke="#C9971F" stroke-width="3"/>
         <circle cx="145" cy="94" r="14" fill="#FFE27A" stroke="#C9971F" stroke-width="3"/>
         <circle cx="160" cy="104" r="12" fill="#FFD54A" stroke="#C9971F" stroke-width="3"/>
+        <!-- glints: small twinkling star flashes across the coins while the
+             chest sits open -->
+        <g class="chest-glint" fill="#FFFDF2" style="--gstagger:0s;">
+          <path d="M78 90 L80 96 L86 98 L80 100 L78 106 L76 100 L70 98 L76 96Z"/>
+        </g>
+        <g class="chest-glint" fill="#FFFDF2" style="--gstagger:.4s;">
+          <path d="M138 86 L139.6 90.8 L144.4 92.4 L139.6 94 L138 98.8 L136.4 94 L131.6 92.4 L136.4 90.8Z"/>
+        </g>
+        <g class="chest-glint" fill="#FFFDF2" style="--gstagger:.8s;">
+          <path d="M112 88 L113.4 92.2 L117.6 93.6 L113.4 95 L112 99.2 L110.6 95 L106.4 93.6 L110.6 92.2Z"/>
+        </g>
       </g>
 
       <!-- bubbles bursting out as the lid cracks open -->
@@ -2930,15 +2958,19 @@
         <!-- outer (ornate) face — visible while closed/opening -->
         <g class="lid-face lid-face-outer">
           <path d="M32 104 Q30 28 110 16 Q190 28 188 104 Z" fill="url(#chestWoodLid)" stroke="#3D2510" stroke-width="4"/>
-          <path d="M48 92 Q110 52 172 92" stroke="url(#brassBand)" stroke-width="8" fill="none" stroke-linecap="round"/>
-          <path d="M40 74 Q110 26 180 74" stroke="url(#brassBand)" stroke-width="6" fill="none" stroke-linecap="round"/>
-          <path d="M110 16 L110 90" stroke="url(#brassBand)" stroke-width="9" fill="none"/>
-          <circle cx="48" cy="92" r="4.2" fill="#7A5116"/><circle cx="172" cy="92" r="4.2" fill="#7A5116"/>
-          <circle cx="40" cy="74" r="3.6" fill="#7A5116"/><circle cx="180" cy="74" r="3.6" fill="#7A5116"/>
-          <!-- lock plate (moves with the lid, separates from the staple as it opens) -->
-          <rect x="97" y="94" width="26" height="20" rx="3" fill="url(#brassBand)" stroke="#7A5116" stroke-width="2"/>
-          <circle cx="110" cy="102" r="3.4" fill="#5A3B10"/>
-          <rect x="108.5" y="102" width="3" height="7" fill="#5A3B10"/>
+          <!-- brass bands + lock: grouped separately from the wood so they can
+               fade out fast, right as the lid begins to lift. They sit far
+               from the hinge, so if they stayed visible through the swing
+               (like the wood face does) they'd sweep dramatically sideways
+               across the treasure — reads as a strap "flying off" rather
+               than a lid opening. Fading them out early avoids that. -->
+          <g class="lid-bands">
+            <path d="M48 92 Q110 52 172 92" stroke="url(#brassBand)" stroke-width="8" fill="none" stroke-linecap="round"/>
+            <path d="M40 74 Q110 26 180 74" stroke="url(#brassBand)" stroke-width="6" fill="none" stroke-linecap="round"/>
+            <path d="M110 16 L110 90" stroke="url(#brassBand)" stroke-width="9" fill="none"/>
+            <circle cx="48" cy="92" r="4.2" fill="#7A5116"/><circle cx="172" cy="92" r="4.2" fill="#7A5116"/>
+            <circle cx="40" cy="74" r="3.6" fill="#7A5116"/><circle cx="180" cy="74" r="3.6" fill="#7A5116"/>
+          </g>
         </g>
         <!-- inner (plain) face — the underside, crossfades in as it opens -->
         <g class="lid-face lid-face-inner">
