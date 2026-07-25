@@ -178,6 +178,7 @@
   .ocean-bg .tailwag{
     transform-box:fill-box;
     transform-origin:100% 50%;
+    will-change:transform;
     animation:tailwag var(--tailspeed,.5s) ease-in-out infinite;
   }
   @keyframes tailwag{
@@ -465,7 +466,12 @@
     width:var(--size);
     height:calc(var(--size) * .42);
     will-change:transform;
-    animation:swim-r var(--dur) linear infinite;
+    /* Smooth acceleration curve — the school eases in slowly, then
+       gathers speed toward the far side of the tank, rather than
+       crossing at one constant linear speed. The jump back to the
+       (off-screen) start point at loop restart isn't visible since
+       both ends sit well outside the viewport. */
+    animation:swim-r var(--dur) cubic-bezier(.56,.03,.88,.31) infinite;
     animation-delay:var(--delay);
   }
   .ocean-bg .school-outer.face-left{ animation-direction:reverse; }
@@ -474,24 +480,25 @@
     bottom:var(--sfbottom,0);
     left:var(--sfleft);
     width:var(--sfsize);
+    will-change:transform;
     animation:school-dart var(--bobdur) ease-in-out infinite;
     animation-delay:var(--bobdelay);
     transform-origin:50% 50%;
+    backface-visibility:hidden;
   }
-  /* Small schooling fish get quick, slightly erratic multi-axis darts —
-     a different feel from the slow graceful "bob" the solo fish use —
-     so a school reads as many small fish jostling together rather than
-     clones of the bigger fish's swim cycle. */
+  /* Small schooling fish get a quick, lightly erratic dart — a different
+     feel from the slow graceful "bob" the solo fish use — but with evenly
+     spaced, moderate keyframes (rather than sharp, widely-spaced jumps)
+     so it reads as a fast fluid dart instead of a choppy jitter. */
   @keyframes school-dart{
     0%{ transform:translate(0,0) rotate(0deg) scaleX(1); }
-    8%{ transform:translate(1px,-6px) rotate(-4deg) scaleX(.97); }
-    18%{ transform:translate(-1.5px,-8px) rotate(-2deg) scaleX(1); }
-    30%{ transform:translate(2px,-1px) rotate(2deg) scaleX(1.03); }
-    44%{ transform:translate(-2px,5px) rotate(3deg) scaleX(.97); }
-    57%{ transform:translate(1px,8px) rotate(1deg) scaleX(1); }
-    70%{ transform:translate(-1.5px,3px) rotate(-2deg) scaleX(1.03); }
-    83%{ transform:translate(2px,-3px) rotate(-1deg) scaleX(.97); }
-    93%{ transform:translate(-1px,-5px) rotate(2deg) scaleX(1); }
+    12.5%{ transform:translate(1.5px,-4px) rotate(-2.5deg) scaleX(.98); }
+    25%{ transform:translate(-1px,-6px) rotate(-1deg) scaleX(1.01); }
+    37.5%{ transform:translate(1.5px,-1px) rotate(1.5deg) scaleX(1.02); }
+    50%{ transform:translate(-1px,3px) rotate(2deg) scaleX(.99); }
+    62.5%{ transform:translate(1px,5.5px) rotate(.5deg) scaleX(1.01); }
+    75%{ transform:translate(-1.5px,2px) rotate(-1.5deg) scaleX(1.02); }
+    87.5%{ transform:translate(1px,-2px) rotate(-.5deg) scaleX(.98); }
     100%{ transform:translate(0,0) rotate(0deg) scaleX(1); }
   }
   .ocean-bg .school-flip{ display:block; transform-origin:50% 50%; }
@@ -500,7 +507,12 @@
     display:block;
     width:100%;
     height:auto;
-    filter:hue-rotate(var(--sfhue,0deg)) drop-shadow(0 3px 5px rgba(10,20,50,.2));
+    /* No drop-shadow here on purpose — with up to 29 of these animating
+       at once, a blurred filter per fish was the single biggest cost on
+       the frame. hue-rotate alone still gives each fish its color variety
+       for a fraction of the render cost, and a shadow isn't visible at
+       this size anyway. */
+    filter:hue-rotate(var(--sfhue,0deg));
   }
 
   /* ---------- Octopus: jet-drifts with rippling, independently-waving
@@ -555,9 +567,78 @@
     50%{ transform:rotate(10deg); }
   }
 
+  /* ---------- School of squid — small, glassy, jet-propelled swimmers.
+     Reuses the swim-r travel system (same outer/flip mirroring contract
+     as the fish schools) but with their own motion entirely: a quick jet
+     "burst" (fast forward snap + mantle squeeze) followed by a slow drift
+     before the next pulse, plus independently rippling trailing arms and
+     softly beating fins — nothing here reuses the fish tail-beat or the
+     school-fish dart. Rendered at lower opacity with pale, light-passing
+     fills so the mantle reads as translucent instead of solid-bodied. ---------- */
+  .ocean-bg .squid-outer{
+    position:absolute;
+    top:var(--top);
+    left:0;
+    width:var(--size);
+    height:calc(var(--size) * .38);
+    will-change:transform;
+    animation:swim-r var(--dur) linear infinite;
+    animation-delay:var(--delay);
+  }
+  .ocean-bg .squid-outer.face-left{ animation-direction:reverse; }
+  .ocean-bg .squid-fish{
+    position:absolute;
+    bottom:var(--sqbottom,0);
+    left:var(--sqleft);
+    width:var(--sqsize);
+    animation:squid-jet var(--jetdur,1.3s) ease-in-out infinite;
+    animation-delay:var(--jetdelay,0s);
+    transform-origin:50% 50%;
+  }
+  .ocean-bg .squid-flip{ display:block; transform-origin:50% 50%; }
+  .ocean-bg .squid-outer.face-left .squid-flip{ transform:scaleX(-1); }
+  .ocean-bg .squid-fish svg{
+    display:block;
+    width:100%;
+    height:auto;
+    opacity:.8;
+    filter:hue-rotate(var(--sqhue,0deg)) drop-shadow(0 3px 6px rgba(10,20,50,.15));
+  }
+  @keyframes squid-jet{
+    0%{ transform:translate(0,0) scaleX(1) rotate(0deg); }
+    6%{ transform:translate(3px,-1px) scaleX(.86) rotate(-2deg); }
+    14%{ transform:translate(5px,-2px) scaleX(1.05) rotate(1deg); }
+    32%{ transform:translate(2px,1px) scaleX(1) rotate(0deg); }
+    58%{ transform:translate(0,3px) scaleX(.98) rotate(-1deg); }
+    100%{ transform:translate(0,0) scaleX(1) rotate(0deg); }
+  }
+  .ocean-bg .squid-fish .tentacle{
+    transform-box:fill-box;
+    transform-origin:0% 50%;
+    animation:tentacle-ripple .9s ease-in-out infinite;
+  }
+  .ocean-bg .squid-fish .tentacle:nth-child(2n){ animation-delay:-.2s; }
+  .ocean-bg .squid-fish .tentacle:nth-child(3n){ animation-delay:-.45s; }
+  .ocean-bg .squid-fish .tentacle:nth-child(4n){ animation-delay:-.65s; }
+  @keyframes tentacle-ripple{
+    0%,100%{ transform:rotate(-6deg); }
+    50%{ transform:rotate(6deg); }
+  }
+  .ocean-bg .squid-fish .sqfin{
+    transform-box:fill-box;
+    transform-origin:100% 50%;
+    animation:sqfin-wave 1.3s ease-in-out infinite;
+  }
+  .ocean-bg .squid-fish .sqfin-bot{ animation-direction:reverse; animation-delay:-.3s; }
+  @keyframes sqfin-wave{
+    0%,100%{ transform:rotate(-8deg); }
+    50%{ transform:rotate(8deg); }
+  }
+
   @media(prefers-reduced-motion:reduce){
     .ocean-bg .ray-beam, .ocean-bg .current-flow, .ocean-bg .snowbit,
     .ocean-bg .school-outer, .ocean-bg .school-fish, .ocean-bg .school-fish *,
+    .ocean-bg .squid-outer, .ocean-bg .squid-fish, .ocean-bg .squid-fish *,
     .ocean-bg .octo-inner .arm, .ocean-bg .crab-item, .ocean-bg .crab-item .claw{ animation:none; }
   }
 
@@ -2755,7 +2836,7 @@
        large gradient) so it reads like a real cluster of fish rather than
        a sorted row. Several schools at different depths/speeds/directions
        fill out the water column so the tank reads as a busy ocean. ===== -->
-  <div class="school-outer" style="--top:17%;--size:clamp(150px,20vw,270px);--dur:16s;--delay:-6s;">
+  <div class="school-outer" style="--top:17%;--size:clamp(150px,20vw,270px);--dur:9s;--delay:-3s;">
     <div class="school-fish" style="--sfleft:0%;--sfsize:34%;--sfbottom:9%;--bobdur:1.8s;--bobdelay:-.2s;--sfhue:0deg;"><div class="school-flip">
       <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#FF9A3C" opacity=".82"/><path d="M47 9 Q45 15 47 21" stroke="#7A2409" stroke-width="1" fill="none" opacity=".45" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#7A2409" stroke-width=".8" fill="none" opacity=".38" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
     </div></div>
@@ -2773,7 +2854,7 @@
     </div></div>
   </div>
 
-  <div class="school-outer face-left" style="--top:61%;--size:clamp(130px,17vw,230px);--dur:14s;--delay:-8s;">
+  <div class="school-outer face-left" style="--top:61%;--size:clamp(130px,17vw,230px);--dur:8s;--delay:-4.5s;">
     <div class="school-fish" style="--sfleft:2%;--sfsize:40%;--sfbottom:4%;--bobdur:1.9s;--bobdelay:-.4s;--sfhue:190deg;"><div class="school-flip">
       <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#5FA0FF" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#082058" stroke-width="1" fill="none" opacity=".5" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#082058" stroke-width=".8" fill="none" opacity=".42" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
     </div></div>
@@ -2788,7 +2869,7 @@
     </div></div>
   </div>
 
-  <div class="school-outer" style="--top:6%;--size:clamp(90px,12vw,160px);--dur:19s;--delay:-3s;">
+  <div class="school-outer" style="--top:6%;--size:clamp(90px,12vw,160px);--dur:11s;--delay:-2s;">
     <div class="school-fish" style="--sfleft:6%;--sfsize:20%;--sfbottom:9%;--bobdur:1.7s;--bobdelay:-1.2s;--sfhue:47deg;"><div class="school-flip">
       <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#FF9A3C" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#7A2409" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#7A2409" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
     </div></div>
@@ -2806,7 +2887,7 @@
     </div></div>
   </div>
 
-  <div class="school-outer face-left" style="--top:26%;--size:clamp(110px,15vw,190px);--dur:20s;--delay:-12s;">
+  <div class="school-outer face-left" style="--top:26%;--size:clamp(110px,15vw,190px);--dur:11.5s;--delay:-7s;">
     <div class="school-fish" style="--sfleft:17%;--sfsize:50%;--sfbottom:4%;--bobdur:2.0s;--bobdelay:-1.4s;--sfhue:163deg;"><div class="school-flip">
       <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#5FA0FF" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#082058" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#082058" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
     </div></div>
@@ -2824,7 +2905,7 @@
     </div></div>
   </div>
 
-  <div class="school-outer face-left" style="--top:72%;--size:clamp(140px,18vw,240px);--dur:15s;--delay:-4s;">
+  <div class="school-outer face-left" style="--top:72%;--size:clamp(140px,18vw,240px);--dur:9s;--delay:-2.5s;">
     <div class="school-fish" style="--sfleft:10%;--sfsize:37%;--sfbottom:1%;--bobdur:2.7s;--bobdelay:-1.7s;--sfhue:-15deg;"><div class="school-flip">
       <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#8A2510"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#E4572E"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#8A2510" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#8A2510" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#FF9A3C" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#7A2409" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#7A2409" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
     </div></div>
@@ -2845,7 +2926,7 @@
     </div></div>
   </div>
 
-  <div class="school-outer" style="--top:85%;--size:clamp(80px,10vw,140px);--dur:24s;--delay:-15s;">
+  <div class="school-outer" style="--top:85%;--size:clamp(80px,10vw,140px);--dur:13s;--delay:-8s;">
     <div class="school-fish" style="--sfleft:7%;--sfsize:59%;--sfbottom:6%;--bobdur:1.6s;--bobdelay:-0.2s;--sfhue:251deg;"><div class="school-flip">
       <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#5FA0FF" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#082058" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#082058" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
     </div></div>
@@ -2857,6 +2938,49 @@
     </div></div>
     <div class="school-fish" style="--sfleft:82%;--sfsize:34%;--sfbottom:2%;--bobdur:1.7s;--bobdelay:-0.6s;--sfhue:204deg;"><div class="school-flip">
       <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg"><g class="tailwag" style="--tailspeed:.3s;"><path d="M10 15 Q3 8 0 3 Q2 11 5 15 Q2 19 0 27 Q3 22 10 15Z" fill="#0B2C74"/></g><path d="M9 15 Q10 5 27 4 Q45 3 55 12 Q59 14 59 15 Q59 16 55 18 Q45 27 27 26 Q10 25 9 15Z" fill="#2C6FEE"/><path d="M27 5 Q33 -4 42 2Q34 4 27 5Z" fill="#0B2C74" opacity=".85"/><path d="M28 26 Q34 33 42 27 Q34 25 28 26Z" fill="#0B2C74" opacity=".75"/><path d="M22 16 Q15 22 18 27 Q26 24 27 17Z" fill="#5FA0FF" opacity=".8"/><path d="M47 9 Q45 15 47 21" stroke="#082058" stroke-width="1" fill="none" opacity=".48" stroke-linecap="round"/><path d="M44 9.5 Q42.2 15 44 20.5" stroke="#082058" stroke-width=".8" fill="none" opacity=".4" stroke-linecap="round"/><circle cx="48" cy="12.4" r="3" fill="#fff"/><circle cx="49" cy="12.4" r="1.7" fill="#1B2233"/><circle cx="49.6" cy="11.6" r=".5" fill="#fff"/></svg>
+    </div></div>
+  </div>
+
+  <!-- ===== School of squid — small, softly translucent jet-propelled
+       swimmers (glassy pale-blue mantles, faint pigment speckles, long
+       trailing arms) drifting through open water at two depths. ===== -->
+
+  <div class="squid-outer" style="--top:38%;--size:clamp(120px,16vw,210px);--dur:34s;--delay:-11s;">
+    <div class="squid-fish" style="--sqleft:3%;--sqsize:18%;--sqbottom:3%;--jetdur:1.46s;--jetdelay:-0.46s;--sqhue:186deg;"><div class="squid-flip">
+      <svg viewBox="0 0 108 40" xmlns="http://www.w3.org/2000/svg"><path class="sqfin sqfin-top" d="M22 10 Q8 2 2 8 Q12 13 22 14Z" fill="#A9D8EE" fill-opacity=".45"/><path class="sqfin sqfin-bot" d="M22 30 Q8 38 2 32 Q12 27 22 26Z" fill="#A9D8EE" fill-opacity=".45"/><path d="M20 20 Q22 7 46 5 Q72 3 80 12 Q85 16 85 20 Q85 24 80 28 Q72 37 46 35 Q22 33 20 20Z" fill="#CFEAF7" fill-opacity=".55"/><path d="M30 12 Q46 8 64 11" stroke="#FFFFFF" stroke-width="1.6" fill="none" opacity=".5" stroke-linecap="round"/><circle cx="35" cy="16" r="1" fill="#C97C55" opacity=".28"/><circle cx="46" cy="24" r=".8" fill="#C97C55" opacity=".22"/><circle cx="58" cy="14" r=".9" fill="#C97C55" opacity=".25"/><circle cx="62" cy="26" r=".7" fill="#C97C55" opacity=".2"/><circle cx="40" cy="27" r=".7" fill="#C97C55" opacity=".2"/><circle cx="75" cy="15.5" r="3.1" fill="#fff" opacity=".9"/><circle cx="76.1" cy="15.5" r="1.6" fill="#1B2233"/><g stroke="#9FCBE0" stroke-width="1.3" fill="none" stroke-linecap="round" opacity=".65"><path class="tentacle" d="M83 12 Q92 8 97 4"/><path class="tentacle" d="M84 15 Q94 12 99 9"/><path class="tentacle" d="M85 18 Q96 17 101 16"/><path class="tentacle" d="M85 22 Q96 23 101 24"/><path class="tentacle" d="M84 25 Q94 28 99 31"/><path class="tentacle" d="M83 28 Q92 32 97 36"/></g><g stroke="#8FC0D8" stroke-width="1" fill="none" stroke-linecap="round" opacity=".55"><path class="tentacle tentacle-long" d="M84 17 Q98 18 105 20"/><path class="tentacle tentacle-long" d="M84 23 Q98 22 105 20"/></g><circle cx="105" cy="20" r="1.4" fill="#8FC0D8" opacity=".5"/></svg>
+    </div></div>
+    <div class="squid-fish" style="--sqleft:14%;--sqsize:17%;--sqbottom:12%;--jetdur:1.44s;--jetdelay:-1.23s;--sqhue:185deg;"><div class="squid-flip">
+      <svg viewBox="0 0 108 40" xmlns="http://www.w3.org/2000/svg"><path class="sqfin sqfin-top" d="M22 10 Q8 2 2 8 Q12 13 22 14Z" fill="#A9D8EE" fill-opacity=".45"/><path class="sqfin sqfin-bot" d="M22 30 Q8 38 2 32 Q12 27 22 26Z" fill="#A9D8EE" fill-opacity=".45"/><path d="M20 20 Q22 7 46 5 Q72 3 80 12 Q85 16 85 20 Q85 24 80 28 Q72 37 46 35 Q22 33 20 20Z" fill="#CFEAF7" fill-opacity=".55"/><path d="M30 12 Q46 8 64 11" stroke="#FFFFFF" stroke-width="1.6" fill="none" opacity=".5" stroke-linecap="round"/><circle cx="35" cy="16" r="1" fill="#C97C55" opacity=".28"/><circle cx="46" cy="24" r=".8" fill="#C97C55" opacity=".22"/><circle cx="58" cy="14" r=".9" fill="#C97C55" opacity=".25"/><circle cx="62" cy="26" r=".7" fill="#C97C55" opacity=".2"/><circle cx="40" cy="27" r=".7" fill="#C97C55" opacity=".2"/><circle cx="75" cy="15.5" r="3.1" fill="#fff" opacity=".9"/><circle cx="76.1" cy="15.5" r="1.6" fill="#1B2233"/><g stroke="#9FCBE0" stroke-width="1.3" fill="none" stroke-linecap="round" opacity=".65"><path class="tentacle" d="M83 12 Q92 8 97 4"/><path class="tentacle" d="M84 15 Q94 12 99 9"/><path class="tentacle" d="M85 18 Q96 17 101 16"/><path class="tentacle" d="M85 22 Q96 23 101 24"/><path class="tentacle" d="M84 25 Q94 28 99 31"/><path class="tentacle" d="M83 28 Q92 32 97 36"/></g><g stroke="#8FC0D8" stroke-width="1" fill="none" stroke-linecap="round" opacity=".55"><path class="tentacle tentacle-long" d="M84 17 Q98 18 105 20"/><path class="tentacle tentacle-long" d="M84 23 Q98 22 105 20"/></g><circle cx="105" cy="20" r="1.4" fill="#8FC0D8" opacity=".5"/></svg>
+    </div></div>
+    <div class="squid-fish" style="--sqleft:28%;--sqsize:31%;--sqbottom:5%;--jetdur:1.53s;--jetdelay:-1.09s;--sqhue:187deg;"><div class="squid-flip">
+      <svg viewBox="0 0 108 40" xmlns="http://www.w3.org/2000/svg"><path class="sqfin sqfin-top" d="M22 10 Q8 2 2 8 Q12 13 22 14Z" fill="#A9D8EE" fill-opacity=".45"/><path class="sqfin sqfin-bot" d="M22 30 Q8 38 2 32 Q12 27 22 26Z" fill="#A9D8EE" fill-opacity=".45"/><path d="M20 20 Q22 7 46 5 Q72 3 80 12 Q85 16 85 20 Q85 24 80 28 Q72 37 46 35 Q22 33 20 20Z" fill="#CFEAF7" fill-opacity=".55"/><path d="M30 12 Q46 8 64 11" stroke="#FFFFFF" stroke-width="1.6" fill="none" opacity=".5" stroke-linecap="round"/><circle cx="35" cy="16" r="1" fill="#C97C55" opacity=".28"/><circle cx="46" cy="24" r=".8" fill="#C97C55" opacity=".22"/><circle cx="58" cy="14" r=".9" fill="#C97C55" opacity=".25"/><circle cx="62" cy="26" r=".7" fill="#C97C55" opacity=".2"/><circle cx="40" cy="27" r=".7" fill="#C97C55" opacity=".2"/><circle cx="75" cy="15.5" r="3.1" fill="#fff" opacity=".9"/><circle cx="76.1" cy="15.5" r="1.6" fill="#1B2233"/><g stroke="#9FCBE0" stroke-width="1.3" fill="none" stroke-linecap="round" opacity=".65"><path class="tentacle" d="M83 12 Q92 8 97 4"/><path class="tentacle" d="M84 15 Q94 12 99 9"/><path class="tentacle" d="M85 18 Q96 17 101 16"/><path class="tentacle" d="M85 22 Q96 23 101 24"/><path class="tentacle" d="M84 25 Q94 28 99 31"/><path class="tentacle" d="M83 28 Q92 32 97 36"/></g><g stroke="#8FC0D8" stroke-width="1" fill="none" stroke-linecap="round" opacity=".55"><path class="tentacle tentacle-long" d="M84 17 Q98 18 105 20"/><path class="tentacle tentacle-long" d="M84 23 Q98 22 105 20"/></g><circle cx="105" cy="20" r="1.4" fill="#8FC0D8" opacity=".5"/></svg>
+    </div></div>
+    <div class="squid-fish" style="--sqleft:31%;--sqsize:16%;--sqbottom:1%;--jetdur:1.52s;--jetdelay:-0.31s;--sqhue:191deg;"><div class="squid-flip">
+      <svg viewBox="0 0 108 40" xmlns="http://www.w3.org/2000/svg"><path class="sqfin sqfin-top" d="M22 10 Q8 2 2 8 Q12 13 22 14Z" fill="#A9D8EE" fill-opacity=".45"/><path class="sqfin sqfin-bot" d="M22 30 Q8 38 2 32 Q12 27 22 26Z" fill="#A9D8EE" fill-opacity=".45"/><path d="M20 20 Q22 7 46 5 Q72 3 80 12 Q85 16 85 20 Q85 24 80 28 Q72 37 46 35 Q22 33 20 20Z" fill="#CFEAF7" fill-opacity=".55"/><path d="M30 12 Q46 8 64 11" stroke="#FFFFFF" stroke-width="1.6" fill="none" opacity=".5" stroke-linecap="round"/><circle cx="35" cy="16" r="1" fill="#C97C55" opacity=".28"/><circle cx="46" cy="24" r=".8" fill="#C97C55" opacity=".22"/><circle cx="58" cy="14" r=".9" fill="#C97C55" opacity=".25"/><circle cx="62" cy="26" r=".7" fill="#C97C55" opacity=".2"/><circle cx="40" cy="27" r=".7" fill="#C97C55" opacity=".2"/><circle cx="75" cy="15.5" r="3.1" fill="#fff" opacity=".9"/><circle cx="76.1" cy="15.5" r="1.6" fill="#1B2233"/><g stroke="#9FCBE0" stroke-width="1.3" fill="none" stroke-linecap="round" opacity=".65"><path class="tentacle" d="M83 12 Q92 8 97 4"/><path class="tentacle" d="M84 15 Q94 12 99 9"/><path class="tentacle" d="M85 18 Q96 17 101 16"/><path class="tentacle" d="M85 22 Q96 23 101 24"/><path class="tentacle" d="M84 25 Q94 28 99 31"/><path class="tentacle" d="M83 28 Q92 32 97 36"/></g><g stroke="#8FC0D8" stroke-width="1" fill="none" stroke-linecap="round" opacity=".55"><path class="tentacle tentacle-long" d="M84 17 Q98 18 105 20"/><path class="tentacle tentacle-long" d="M84 23 Q98 22 105 20"/></g><circle cx="105" cy="20" r="1.4" fill="#8FC0D8" opacity=".5"/></svg>
+    </div></div>
+    <div class="squid-fish" style="--sqleft:35%;--sqsize:32%;--sqbottom:1%;--jetdur:1.35s;--jetdelay:-0.65s;--sqhue:192deg;"><div class="squid-flip">
+      <svg viewBox="0 0 108 40" xmlns="http://www.w3.org/2000/svg"><path class="sqfin sqfin-top" d="M22 10 Q8 2 2 8 Q12 13 22 14Z" fill="#A9D8EE" fill-opacity=".45"/><path class="sqfin sqfin-bot" d="M22 30 Q8 38 2 32 Q12 27 22 26Z" fill="#A9D8EE" fill-opacity=".45"/><path d="M20 20 Q22 7 46 5 Q72 3 80 12 Q85 16 85 20 Q85 24 80 28 Q72 37 46 35 Q22 33 20 20Z" fill="#CFEAF7" fill-opacity=".55"/><path d="M30 12 Q46 8 64 11" stroke="#FFFFFF" stroke-width="1.6" fill="none" opacity=".5" stroke-linecap="round"/><circle cx="35" cy="16" r="1" fill="#C97C55" opacity=".28"/><circle cx="46" cy="24" r=".8" fill="#C97C55" opacity=".22"/><circle cx="58" cy="14" r=".9" fill="#C97C55" opacity=".25"/><circle cx="62" cy="26" r=".7" fill="#C97C55" opacity=".2"/><circle cx="40" cy="27" r=".7" fill="#C97C55" opacity=".2"/><circle cx="75" cy="15.5" r="3.1" fill="#fff" opacity=".9"/><circle cx="76.1" cy="15.5" r="1.6" fill="#1B2233"/><g stroke="#9FCBE0" stroke-width="1.3" fill="none" stroke-linecap="round" opacity=".65"><path class="tentacle" d="M83 12 Q92 8 97 4"/><path class="tentacle" d="M84 15 Q94 12 99 9"/><path class="tentacle" d="M85 18 Q96 17 101 16"/><path class="tentacle" d="M85 22 Q96 23 101 24"/><path class="tentacle" d="M84 25 Q94 28 99 31"/><path class="tentacle" d="M83 28 Q92 32 97 36"/></g><g stroke="#8FC0D8" stroke-width="1" fill="none" stroke-linecap="round" opacity=".55"><path class="tentacle tentacle-long" d="M84 17 Q98 18 105 20"/><path class="tentacle tentacle-long" d="M84 23 Q98 22 105 20"/></g><circle cx="105" cy="20" r="1.4" fill="#8FC0D8" opacity=".5"/></svg>
+    </div></div>
+    <div class="squid-fish" style="--sqleft:81%;--sqsize:27%;--sqbottom:6%;--jetdur:1.37s;--jetdelay:-0.46s;--sqhue:201deg;"><div class="squid-flip">
+      <svg viewBox="0 0 108 40" xmlns="http://www.w3.org/2000/svg"><path class="sqfin sqfin-top" d="M22 10 Q8 2 2 8 Q12 13 22 14Z" fill="#A9D8EE" fill-opacity=".45"/><path class="sqfin sqfin-bot" d="M22 30 Q8 38 2 32 Q12 27 22 26Z" fill="#A9D8EE" fill-opacity=".45"/><path d="M20 20 Q22 7 46 5 Q72 3 80 12 Q85 16 85 20 Q85 24 80 28 Q72 37 46 35 Q22 33 20 20Z" fill="#CFEAF7" fill-opacity=".55"/><path d="M30 12 Q46 8 64 11" stroke="#FFFFFF" stroke-width="1.6" fill="none" opacity=".5" stroke-linecap="round"/><circle cx="35" cy="16" r="1" fill="#C97C55" opacity=".28"/><circle cx="46" cy="24" r=".8" fill="#C97C55" opacity=".22"/><circle cx="58" cy="14" r=".9" fill="#C97C55" opacity=".25"/><circle cx="62" cy="26" r=".7" fill="#C97C55" opacity=".2"/><circle cx="40" cy="27" r=".7" fill="#C97C55" opacity=".2"/><circle cx="75" cy="15.5" r="3.1" fill="#fff" opacity=".9"/><circle cx="76.1" cy="15.5" r="1.6" fill="#1B2233"/><g stroke="#9FCBE0" stroke-width="1.3" fill="none" stroke-linecap="round" opacity=".65"><path class="tentacle" d="M83 12 Q92 8 97 4"/><path class="tentacle" d="M84 15 Q94 12 99 9"/><path class="tentacle" d="M85 18 Q96 17 101 16"/><path class="tentacle" d="M85 22 Q96 23 101 24"/><path class="tentacle" d="M84 25 Q94 28 99 31"/><path class="tentacle" d="M83 28 Q92 32 97 36"/></g><g stroke="#8FC0D8" stroke-width="1" fill="none" stroke-linecap="round" opacity=".55"><path class="tentacle tentacle-long" d="M84 17 Q98 18 105 20"/><path class="tentacle tentacle-long" d="M84 23 Q98 22 105 20"/></g><circle cx="105" cy="20" r="1.4" fill="#8FC0D8" opacity=".5"/></svg>
+    </div></div>
+  </div>
+
+  <div class="squid-outer face-left" style="--top:64%;--size:clamp(90px,12vw,160px);--dur:29s;--delay:-6s;">
+    <div class="squid-fish" style="--sqleft:12%;--sqsize:15%;--sqbottom:4%;--jetdur:1.47s;--jetdelay:-0.4s;--sqhue:172deg;"><div class="squid-flip">
+      <svg viewBox="0 0 108 40" xmlns="http://www.w3.org/2000/svg"><path class="sqfin sqfin-top" d="M22 10 Q8 2 2 8 Q12 13 22 14Z" fill="#A9D8EE" fill-opacity=".45"/><path class="sqfin sqfin-bot" d="M22 30 Q8 38 2 32 Q12 27 22 26Z" fill="#A9D8EE" fill-opacity=".45"/><path d="M20 20 Q22 7 46 5 Q72 3 80 12 Q85 16 85 20 Q85 24 80 28 Q72 37 46 35 Q22 33 20 20Z" fill="#CFEAF7" fill-opacity=".55"/><path d="M30 12 Q46 8 64 11" stroke="#FFFFFF" stroke-width="1.6" fill="none" opacity=".5" stroke-linecap="round"/><circle cx="35" cy="16" r="1" fill="#C97C55" opacity=".28"/><circle cx="46" cy="24" r=".8" fill="#C97C55" opacity=".22"/><circle cx="58" cy="14" r=".9" fill="#C97C55" opacity=".25"/><circle cx="62" cy="26" r=".7" fill="#C97C55" opacity=".2"/><circle cx="40" cy="27" r=".7" fill="#C97C55" opacity=".2"/><circle cx="75" cy="15.5" r="3.1" fill="#fff" opacity=".9"/><circle cx="76.1" cy="15.5" r="1.6" fill="#1B2233"/><g stroke="#9FCBE0" stroke-width="1.3" fill="none" stroke-linecap="round" opacity=".65"><path class="tentacle" d="M83 12 Q92 8 97 4"/><path class="tentacle" d="M84 15 Q94 12 99 9"/><path class="tentacle" d="M85 18 Q96 17 101 16"/><path class="tentacle" d="M85 22 Q96 23 101 24"/><path class="tentacle" d="M84 25 Q94 28 99 31"/><path class="tentacle" d="M83 28 Q92 32 97 36"/></g><g stroke="#8FC0D8" stroke-width="1" fill="none" stroke-linecap="round" opacity=".55"><path class="tentacle tentacle-long" d="M84 17 Q98 18 105 20"/><path class="tentacle tentacle-long" d="M84 23 Q98 22 105 20"/></g><circle cx="105" cy="20" r="1.4" fill="#8FC0D8" opacity=".5"/></svg>
+    </div></div>
+    <div class="squid-fish" style="--sqleft:33%;--sqsize:28%;--sqbottom:7%;--jetdur:1.62s;--jetdelay:-0.48s;--sqhue:187deg;"><div class="squid-flip">
+      <svg viewBox="0 0 108 40" xmlns="http://www.w3.org/2000/svg"><path class="sqfin sqfin-top" d="M22 10 Q8 2 2 8 Q12 13 22 14Z" fill="#A9D8EE" fill-opacity=".45"/><path class="sqfin sqfin-bot" d="M22 30 Q8 38 2 32 Q12 27 22 26Z" fill="#A9D8EE" fill-opacity=".45"/><path d="M20 20 Q22 7 46 5 Q72 3 80 12 Q85 16 85 20 Q85 24 80 28 Q72 37 46 35 Q22 33 20 20Z" fill="#CFEAF7" fill-opacity=".55"/><path d="M30 12 Q46 8 64 11" stroke="#FFFFFF" stroke-width="1.6" fill="none" opacity=".5" stroke-linecap="round"/><circle cx="35" cy="16" r="1" fill="#C97C55" opacity=".28"/><circle cx="46" cy="24" r=".8" fill="#C97C55" opacity=".22"/><circle cx="58" cy="14" r=".9" fill="#C97C55" opacity=".25"/><circle cx="62" cy="26" r=".7" fill="#C97C55" opacity=".2"/><circle cx="40" cy="27" r=".7" fill="#C97C55" opacity=".2"/><circle cx="75" cy="15.5" r="3.1" fill="#fff" opacity=".9"/><circle cx="76.1" cy="15.5" r="1.6" fill="#1B2233"/><g stroke="#9FCBE0" stroke-width="1.3" fill="none" stroke-linecap="round" opacity=".65"><path class="tentacle" d="M83 12 Q92 8 97 4"/><path class="tentacle" d="M84 15 Q94 12 99 9"/><path class="tentacle" d="M85 18 Q96 17 101 16"/><path class="tentacle" d="M85 22 Q96 23 101 24"/><path class="tentacle" d="M84 25 Q94 28 99 31"/><path class="tentacle" d="M83 28 Q92 32 97 36"/></g><g stroke="#8FC0D8" stroke-width="1" fill="none" stroke-linecap="round" opacity=".55"><path class="tentacle tentacle-long" d="M84 17 Q98 18 105 20"/><path class="tentacle tentacle-long" d="M84 23 Q98 22 105 20"/></g><circle cx="105" cy="20" r="1.4" fill="#8FC0D8" opacity=".5"/></svg>
+    </div></div>
+    <div class="squid-fish" style="--sqleft:44%;--sqsize:31%;--sqbottom:10%;--jetdur:1.45s;--jetdelay:-0.2s;--sqhue:179deg;"><div class="squid-flip">
+      <svg viewBox="0 0 108 40" xmlns="http://www.w3.org/2000/svg"><path class="sqfin sqfin-top" d="M22 10 Q8 2 2 8 Q12 13 22 14Z" fill="#A9D8EE" fill-opacity=".45"/><path class="sqfin sqfin-bot" d="M22 30 Q8 38 2 32 Q12 27 22 26Z" fill="#A9D8EE" fill-opacity=".45"/><path d="M20 20 Q22 7 46 5 Q72 3 80 12 Q85 16 85 20 Q85 24 80 28 Q72 37 46 35 Q22 33 20 20Z" fill="#CFEAF7" fill-opacity=".55"/><path d="M30 12 Q46 8 64 11" stroke="#FFFFFF" stroke-width="1.6" fill="none" opacity=".5" stroke-linecap="round"/><circle cx="35" cy="16" r="1" fill="#C97C55" opacity=".28"/><circle cx="46" cy="24" r=".8" fill="#C97C55" opacity=".22"/><circle cx="58" cy="14" r=".9" fill="#C97C55" opacity=".25"/><circle cx="62" cy="26" r=".7" fill="#C97C55" opacity=".2"/><circle cx="40" cy="27" r=".7" fill="#C97C55" opacity=".2"/><circle cx="75" cy="15.5" r="3.1" fill="#fff" opacity=".9"/><circle cx="76.1" cy="15.5" r="1.6" fill="#1B2233"/><g stroke="#9FCBE0" stroke-width="1.3" fill="none" stroke-linecap="round" opacity=".65"><path class="tentacle" d="M83 12 Q92 8 97 4"/><path class="tentacle" d="M84 15 Q94 12 99 9"/><path class="tentacle" d="M85 18 Q96 17 101 16"/><path class="tentacle" d="M85 22 Q96 23 101 24"/><path class="tentacle" d="M84 25 Q94 28 99 31"/><path class="tentacle" d="M83 28 Q92 32 97 36"/></g><g stroke="#8FC0D8" stroke-width="1" fill="none" stroke-linecap="round" opacity=".55"><path class="tentacle tentacle-long" d="M84 17 Q98 18 105 20"/><path class="tentacle tentacle-long" d="M84 23 Q98 22 105 20"/></g><circle cx="105" cy="20" r="1.4" fill="#8FC0D8" opacity=".5"/></svg>
+    </div></div>
+    <div class="squid-fish" style="--sqleft:45%;--sqsize:17%;--sqbottom:13%;--jetdur:1.52s;--jetdelay:-0.4s;--sqhue:196deg;"><div class="squid-flip">
+      <svg viewBox="0 0 108 40" xmlns="http://www.w3.org/2000/svg"><path class="sqfin sqfin-top" d="M22 10 Q8 2 2 8 Q12 13 22 14Z" fill="#A9D8EE" fill-opacity=".45"/><path class="sqfin sqfin-bot" d="M22 30 Q8 38 2 32 Q12 27 22 26Z" fill="#A9D8EE" fill-opacity=".45"/><path d="M20 20 Q22 7 46 5 Q72 3 80 12 Q85 16 85 20 Q85 24 80 28 Q72 37 46 35 Q22 33 20 20Z" fill="#CFEAF7" fill-opacity=".55"/><path d="M30 12 Q46 8 64 11" stroke="#FFFFFF" stroke-width="1.6" fill="none" opacity=".5" stroke-linecap="round"/><circle cx="35" cy="16" r="1" fill="#C97C55" opacity=".28"/><circle cx="46" cy="24" r=".8" fill="#C97C55" opacity=".22"/><circle cx="58" cy="14" r=".9" fill="#C97C55" opacity=".25"/><circle cx="62" cy="26" r=".7" fill="#C97C55" opacity=".2"/><circle cx="40" cy="27" r=".7" fill="#C97C55" opacity=".2"/><circle cx="75" cy="15.5" r="3.1" fill="#fff" opacity=".9"/><circle cx="76.1" cy="15.5" r="1.6" fill="#1B2233"/><g stroke="#9FCBE0" stroke-width="1.3" fill="none" stroke-linecap="round" opacity=".65"><path class="tentacle" d="M83 12 Q92 8 97 4"/><path class="tentacle" d="M84 15 Q94 12 99 9"/><path class="tentacle" d="M85 18 Q96 17 101 16"/><path class="tentacle" d="M85 22 Q96 23 101 24"/><path class="tentacle" d="M84 25 Q94 28 99 31"/><path class="tentacle" d="M83 28 Q92 32 97 36"/></g><g stroke="#8FC0D8" stroke-width="1" fill="none" stroke-linecap="round" opacity=".55"><path class="tentacle tentacle-long" d="M84 17 Q98 18 105 20"/><path class="tentacle tentacle-long" d="M84 23 Q98 22 105 20"/></g><circle cx="105" cy="20" r="1.4" fill="#8FC0D8" opacity=".5"/></svg>
+    </div></div>
+    <div class="squid-fish" style="--sqleft:77%;--sqsize:26%;--sqbottom:5%;--jetdur:1.13s;--jetdelay:-0.23s;--sqhue:190deg;"><div class="squid-flip">
+      <svg viewBox="0 0 108 40" xmlns="http://www.w3.org/2000/svg"><path class="sqfin sqfin-top" d="M22 10 Q8 2 2 8 Q12 13 22 14Z" fill="#A9D8EE" fill-opacity=".45"/><path class="sqfin sqfin-bot" d="M22 30 Q8 38 2 32 Q12 27 22 26Z" fill="#A9D8EE" fill-opacity=".45"/><path d="M20 20 Q22 7 46 5 Q72 3 80 12 Q85 16 85 20 Q85 24 80 28 Q72 37 46 35 Q22 33 20 20Z" fill="#CFEAF7" fill-opacity=".55"/><path d="M30 12 Q46 8 64 11" stroke="#FFFFFF" stroke-width="1.6" fill="none" opacity=".5" stroke-linecap="round"/><circle cx="35" cy="16" r="1" fill="#C97C55" opacity=".28"/><circle cx="46" cy="24" r=".8" fill="#C97C55" opacity=".22"/><circle cx="58" cy="14" r=".9" fill="#C97C55" opacity=".25"/><circle cx="62" cy="26" r=".7" fill="#C97C55" opacity=".2"/><circle cx="40" cy="27" r=".7" fill="#C97C55" opacity=".2"/><circle cx="75" cy="15.5" r="3.1" fill="#fff" opacity=".9"/><circle cx="76.1" cy="15.5" r="1.6" fill="#1B2233"/><g stroke="#9FCBE0" stroke-width="1.3" fill="none" stroke-linecap="round" opacity=".65"><path class="tentacle" d="M83 12 Q92 8 97 4"/><path class="tentacle" d="M84 15 Q94 12 99 9"/><path class="tentacle" d="M85 18 Q96 17 101 16"/><path class="tentacle" d="M85 22 Q96 23 101 24"/><path class="tentacle" d="M84 25 Q94 28 99 31"/><path class="tentacle" d="M83 28 Q92 32 97 36"/></g><g stroke="#8FC0D8" stroke-width="1" fill="none" stroke-linecap="round" opacity=".55"><path class="tentacle tentacle-long" d="M84 17 Q98 18 105 20"/><path class="tentacle tentacle-long" d="M84 23 Q98 22 105 20"/></g><circle cx="105" cy="20" r="1.4" fill="#8FC0D8" opacity=".5"/></svg>
     </div></div>
   </div>
 
