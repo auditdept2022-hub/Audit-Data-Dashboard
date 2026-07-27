@@ -3476,6 +3476,9 @@
     </div>
     <div class="banner-right">
       <div class="banner-actions">
+        <button type="button" class="banner-btn" id="headerDashboardBtn" title="Back to the main dashboard" onclick="window.location.href='index.html'">
+          <span class="bi">&#8962;</span> Dashboard
+        </button>
         <button type="button" class="banner-btn" id="headerNewBtn" title="Start a blank request on the current tab">
           <span class="bi">&#10010;</span> New
         </button>
@@ -4750,7 +4753,7 @@ document.getElementById('headerRefreshBtn').addEventListener('click', async ()=>
     await Promise.all([
       fetchBudgetLimits(),
       fetchNextReqNo(),
-      loadReqNoList(),
+      loadReqNoList(true),
       fetchOpexBadges(true)
     ]);
     showToast('Synced with the sheet.', 'ok');
@@ -5050,7 +5053,7 @@ chooseReqBtn.addEventListener('click', (e)=>{
   document.querySelectorAll('.ms-wrap').forEach(w=>w.classList.remove('open'));
   if(willOpen){
     reqNoWrap.classList.add('open');
-    loadReqNoList();
+    loadReqNoList(true);
   }
 });
 document.getElementById('reqNoNewOpt').addEventListener('click', ()=>{
@@ -5091,22 +5094,28 @@ function renderReqNoList(rows){
   });
 }
 
-async function loadReqNoList(){
+async function loadReqNoList(fresh){
   const url = getWebAppUrl();
   if(!url){
     reqNoList.innerHTML = '<div class="ms-empty">Set your Web App URL first.</div>';
     return;
   }
   // Show a cached copy instantly if we have one, so the menu never feels stuck on "Loading…"
+  // (skipped when fresh=true -- e.g. the header Refresh button -- so a stale
+  // on-screen list never lingers while the live re-fetch is in flight).
   const cacheKey = currentType;
-  if(cachedList[cacheKey]){
+  if(!fresh && cachedList[cacheKey]){
     renderReqNoList(cachedList[cacheKey]);
   } else {
     reqNoList.innerHTML = '<div class="ms-empty"><span class="spinner"></span>Loading…</div>';
   }
   const myToken = ++listToken;
   try{
-    const res = await fetch(`${url}?action=list&type=${currentType}`);
+    // fresh=1 bypasses the Apps Script side's list cache (up to 5 min TTL)
+    // entirely, so a manual Refresh always reflects whatever is on the
+    // sheet right now -- including a row typed directly into it -- instead
+    // of possibly waiting out that TTL.
+    const res = await fetch(`${url}?action=list&type=${currentType}${fresh ? '&fresh=1' : ''}`);
     const data = await res.json();
     if(myToken !== listToken) return; // a newer list request has since superseded this one
     const rows = data.records || [];
