@@ -1936,13 +1936,22 @@ async function getSheetData(name, force){
   if(!force && state.cache[name]) return state.cache[name];
   setSyncBadge('connecting');
   let live = null, lastErr = null;
-  if(state.webAppUrl){
-    try{ live = await fetchSheetViaWebApp(name); }
-    catch(err){ lastErr = err; }
-  }
-  if(!live){
-    try{ live = await fetchSheetLive(name); lastErr = null; }
-    catch(err){ if(!lastErr) lastErr = err; }
+  // Run the web-app read and the gviz CSV read at the same time instead of
+  // one after the other. Previously, if the web app path was slow (e.g. an
+  // Apps Script cold start), the gviz path didn't even start until the web
+  // app's full 8s timeout expired \u2014 doubling the wait before the user saw
+  // anything. Promise.any resolves as soon as the FIRST attempt succeeds
+  // (ignoring failures of the other), so this now only ever waits as long
+  // as the faster of the two, whichever that turns out to be.
+  const attempts = [];
+  if(state.webAppUrl) attempts.push(fetchSheetViaWebApp(name));
+  attempts.push(fetchSheetLive(name));
+  try{
+    live = await Promise.any(attempts);
+  }catch(aggErr){
+    // Every attempt failed; surface the most informative one we've got.
+    const errors = (aggErr && aggErr.errors) || [];
+    lastErr = errors.find(Boolean) || aggErr;
   }
   if(live){
     const data = Object.assign({}, live, {source:'live'});
@@ -4494,21 +4503,25 @@ async function renderYearlyTable(){
   const subtitle = document.getElementById('yearlyModalSubtitle');
   if(subtitle) subtitle.textContent = `${emp} \u00b7 present & absent history for ${yr} (${monthsForYear.length} recorded months) \u00b7 click a month to see the day-by-day calendar`;
 
-  const rows = [];
   const totals = {present:0, absent:0, field:0, halfDay:0, holidayAbsent:0, late:0, leave:0};
-  for(const m of monthsForYear){
+  const monthResults = await Promise.all(monthsForYear.map(async m => {
     let sheetData = null;
     try{ sheetData = await getSheetData(m.key); } catch(err){ sheetData = null; }
-    if(!sheetData || !sheetData.employees.includes(emp)){
-      rows.push({m, empty:true});
-      continue;
-    }
+    if(!sheetData || !sheetData.employees.includes(emp)) return {m, empty:true};
     const s = computeStats(sheetData.days, m, emp, state.lateThreshold);
-    totals.present += s.present; totals.absent += s.absent; totals.field += s.field;
-    totals.halfDay += s.halfDay; totals.holidayAbsent += s.holidayAbsent; totals.late += s.late;
-    totals.leave += s.leave;
-    rows.push({m, s});
-  }
+    return {m, s};
+  }));
+  // Bail out quietly if the employee/year switch was clicked again mid-fetch
+  // (checked again below too, but no point building totals for a stale view).
+  if(yearlyState.employee !== emp || yearlyState.year !== yr) return;
+  const rows = [];
+  monthResults.forEach(row => {
+    if(row.empty){ rows.push(row); return; }
+    totals.present += row.s.present; totals.absent += row.s.absent; totals.field += row.s.field;
+    totals.halfDay += row.s.halfDay; totals.holidayAbsent += row.s.holidayAbsent; totals.late += row.s.late;
+    totals.leave += row.s.leave;
+    rows.push(row);
+  });
   // Bail out quietly if the employee/year switch was clicked again mid-fetch.
   if(yearlyState.employee !== emp || yearlyState.year !== yr) return;
   yearlyState.rows = rows;
