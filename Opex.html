@@ -4943,17 +4943,43 @@ document.getElementById('headerRefreshBtn').addEventListener('click', async ()=>
   btn.classList.add('is-spinning');
   btn.disabled = true;
   try{
-    // These five calls are independent of each other -- running them in
-    // parallel means Refresh takes as long as the SLOWEST one, not the sum
-    // of all five (previously each `await` blocked the next request from
-    // even starting, so a slow sheet read stacked its delay on top of every
-    // other call's delay too).
-    await Promise.all([
+    // Wipe every client-side in-memory cache FIRST. loadReqNoList(true) and
+    // fetchOpexBadges(true) already bypassed the server's cache, but the
+    // Req No picker's own record cache (cachedRecords -- filled by hover/
+    // top-6 prefetch), the liquidated-areas Set, and the Liquidation page's
+    // Budget-comparison caches never expire on their own and were never
+    // touched by Refresh -- so a Req No you'd already looked at (or
+    // prefetched just by opening the picker) kept showing old data forever,
+    // no matter how many times Refresh was clicked. Clearing them here means
+    // every one of the parallel calls below, and every click/prefetch that
+    // happens afterwards, is guaranteed to hit the network live at least once.
+    cachedRecords = {};
+    cachedAreaBudgetTotal = {};
+    cachedReqNoBudgetTotal = {};
+
+    // These calls are independent of each other -- running them in parallel
+    // means Refresh takes as long as the SLOWEST one, not the sum of all of
+    // them (previously each `await` blocked the next request from even
+    // starting, so a slow sheet read stacked its delay on top of every other
+    // call's delay too).
+    const tasks = [
       fetchBudgetLimits(),
       fetchNextReqNo(),
       loadReqNoList(true),
-      fetchOpexBadges(true)
-    ]);
+      fetchOpexBadges(true),
+      fetchLiquidatedAreas(true)
+    ];
+    // If an entry is currently open in the form, reload it live too --
+    // otherwise Refresh updated the picker list and badges but left whatever
+    // was already on screen looking untouched/stale.
+    if(isEditing && editingReqNo){
+      tasks.push(loadRecord(editingReqNo, true));
+    }
+    await Promise.all(tasks);
+    // The Liquidation comparison box (Total Request Budget / variance) reads
+    // from the caches just cleared above -- re-run it so it reflects the
+    // live figures too, not the last thing it happened to compute.
+    if(currentType === 'liquidation') refreshBudgetComparison();
     showToast('Synced with the sheet.', 'ok');
   }catch(err){
     showToast('Refresh failed: ' + err.message, 'err');
@@ -5193,12 +5219,13 @@ let cachedRecords = {}; // key "type:reqNo" -> record, so picking an entry can s
 // as such right away.
 let cachedLiquidatedAreas = null;
 let liquidatedAreasFetchPromise = null;
-async function fetchLiquidatedAreas(){
+async function fetchLiquidatedAreas(fresh){
+  if(fresh) cachedLiquidatedAreas = null; // force a live re-fetch (e.g. header Refresh)
   if(cachedLiquidatedAreas) return cachedLiquidatedAreas;
   if(liquidatedAreasFetchPromise) return liquidatedAreasFetchPromise;
   const url = getWebAppUrl();
   if(!url) return new Set();
-  liquidatedAreasFetchPromise = fetch(`${url}?action=liquidatedAreas`)
+  liquidatedAreasFetchPromise = fetch(`${url}?action=liquidatedAreas${fresh ? '&fresh=1' : ''}`)
     .then(res=>res.json())
     .then(data=>{
       cachedLiquidatedAreas = new Set((data.areas||[]).map(a=>a.toString().trim().toUpperCase()));
@@ -5228,14 +5255,14 @@ let prefetchInFlight = {}; // key "type:reqNo" -> true while a background prefet
 // use it instantly instead of waiting on a fresh network round-trip. This
 // is what used to make picking an entry feel slow even after the list
 // itself had already loaded.
-async function prefetchRecord(type, reqNo){
+async function prefetchRecord(type, reqNo, fresh){
   const key = type + ':' + reqNo;
-  if(cachedRecords[key] || prefetchInFlight[key]) return;
+  if(!fresh && (cachedRecords[key] || prefetchInFlight[key])) return;
   const url = getWebAppUrl();
   if(!url) return;
   prefetchInFlight[key] = true;
   try{
-    const res = await fetch(`${url}?action=getRecord&type=${type}&reqNo=${encodeURIComponent(reqNo)}`);
+    const res = await fetch(`${url}?action=getRecord&type=${type}&reqNo=${encodeURIComponent(reqNo)}${fresh ? '&fresh=1' : ''}`);
     const data = await res.json();
     if(data.status === 'success' && data.record) cachedRecords[key] = data.record;
   }catch(err){
@@ -5382,7 +5409,7 @@ function applyRecordToForm(reqNo, rec){
     ? Number(rec.totalBudgetReq) : null;
 }
 
-async function loadRecord(reqNo){
+async function loadRecord(reqNo, fresh){
   const url = getWebAppUrl();
   statusEl.className = 'status';
   const myToken = ++recordToken;
@@ -5390,7 +5417,10 @@ async function loadRecord(reqNo){
 
   // Cache hit (already prefetched on hover or as one of the first few rows) —
   // fill the form immediately, no network round-trip, no loading state at all.
-  if(cachedRecords[cacheKey]){
+  // Skipped entirely when fresh=true (e.g. re-loading the currently-open
+  // entry right after the header Refresh button), so a stale in-memory
+  // record can never be shown as if it were live.
+  if(!fresh && cachedRecords[cacheKey]){
     applyRecordToForm(reqNo, cachedRecords[cacheKey]);
     return;
   }
@@ -5405,7 +5435,10 @@ async function loadRecord(reqNo){
   statusEl.textContent = 'Loading request #' + reqNo + '…';
   statusEl.className = 'status ok';
   try{
-    const res = await fetch(`${url}?action=getRecord&type=${currentType}&reqNo=${encodeURIComponent(reqNo)}`);
+    // fresh=1 bypasses the Apps Script side's record cache (up to 5 min TTL)
+    // too, same as the list/limits/badges calls, so this always reflects
+    // exactly what's on the sheet right now.
+    const res = await fetch(`${url}?action=getRecord&type=${currentType}&reqNo=${encodeURIComponent(reqNo)}${fresh ? '&fresh=1' : ''}`);
     const data = await res.json();
     if(myToken !== recordToken) return; // user picked a different entry before this one arrived — discard
     if(data.status === 'error' || !data.record){
