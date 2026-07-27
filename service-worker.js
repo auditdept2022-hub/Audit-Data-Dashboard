@@ -1,6 +1,6 @@
 // Simple offline-first service worker for the Audit Data Dashboard PWA.
 // Bump CACHE_NAME any time you update any cached file so old clients refresh.
-const CACHE_NAME = 'audit-dashboard-cache-v1';
+const CACHE_NAME = 'audit-dashboard-cache-v2';
 
 const PRECACHE_URLS = [
   './',
@@ -35,20 +35,27 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Network-first for navigations (so users get fresh content when online),
-// falling back to cache when offline. Cache-first for everything else.
+// Stale-while-revalidate for navigations: show the cached page instantly
+// (so the app opens immediately instead of blocking on a ~1MB download
+// every launch), then silently fetch a fresh copy in the background and
+// update the cache for next time. Cache-first for everything else.
 self.addEventListener('fetch', (event) => {
   const { request } = event;
 
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-          return response;
-        })
-        .catch(() => caches.match(request).then((cached) => cached || caches.match('./index.html')))
+      caches.match(request).then((cached) => {
+        const networkFetch = fetch(request)
+          .then((response) => {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+            return response;
+          })
+          .catch(() => cached || caches.match('./index.html'));
+
+        // Serve cached immediately if we have it; otherwise wait on network.
+        return cached || networkFetch;
+      })
     );
     return;
   }
