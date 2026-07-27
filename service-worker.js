@@ -1,6 +1,6 @@
 // Simple offline-first service worker for the Audit Data Dashboard PWA.
 // Bump CACHE_NAME any time you update any cached file so old clients refresh.
-const CACHE_NAME = 'audit-dashboard-cache-v2';
+const CACHE_NAME = 'audit-dashboard-cache-v3';
 
 const PRECACHE_URLS = [
   './',
@@ -41,6 +41,21 @@ self.addEventListener('activate', (event) => {
 // update the cache for next time. Cache-first for everything else.
 self.addEventListener('fetch', (event) => {
   const { request } = event;
+  const reqUrl = new URL(request.url);
+
+  // Never cache Apps Script API calls (?action=list, ?action=opexActualTotal,
+  // getRecord, budgetLimits, etc.). These carry live data from the Sheet --
+  // caching them defeats the app's own fresh=1 cache-busting and, worse, a
+  // cached entry never expires on its own, so the SAME stale response (a
+  // row that's since been deleted, an old total) could be replayed forever
+  // without ever touching the network again. Go network-first, and only
+  // fall back to whatever's cached if there's genuinely no connection.
+  if (reqUrl.searchParams.has('action') || reqUrl.origin !== self.location.origin) {
+    event.respondWith(
+      fetch(request).catch(() => caches.match(request))
+    );
+    return;
+  }
 
   if (request.mode === 'navigate') {
     event.respondWith(
