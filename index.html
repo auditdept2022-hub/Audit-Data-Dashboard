@@ -3537,6 +3537,36 @@ html.page-fade-ready body {
         }, 350);
       }
 
+      // Plain, non-animated cover used only for the fast-return flow
+      // (?skipLoading=1): it hides the scene/status text entirely and just
+      // keeps a solid dark screen up for however long it actually takes to
+      // confirm the session and fetch data — no storm animation, no rotating
+      // messages, no artificial minimum wait — while still preventing the
+      // sign-in form from flashing on screen in the meantime.
+      function openBlankCover() {
+        generation++;
+        const token = generation;
+        loadingErrorBox.classList.add('hidden');
+        loadingCore.classList.add('hidden');
+        loadingScreen.classList.remove('hidden');
+        loadingScreen.style.display = 'flex';
+        loadingScreen.style.opacity = '1';
+        document.body.style.overflow = 'hidden';
+        return token;
+      }
+
+      function closeBlankCover(token) {
+        if (token !== generation) return; // superseded by a newer operation
+        loadingScreen.style.opacity = '0';
+        setTimeout(function() {
+          if (token !== generation) return;
+          loadingScreen.style.display = 'none';
+          loadingScreen.classList.add('hidden');
+          document.body.style.overflow = '';
+          loadingCore.classList.remove('hidden'); // restore scene for any later, non-fast-return load
+        }, 350);
+      }
+
       function waitThenSettle(promise, startedAt, token) {
         promise.then(function(success) {
           const elapsed = Date.now() - startedAt;
@@ -3549,21 +3579,20 @@ html.page-fade-ready body {
 
       window.__runDashboardLoadingSequence = function() {
         if (skipLoadingAnimation) {
-          generation++;
-          const token = generation;
+          // Re-open the same blank cover (harmless if already open from the
+          // auth-check step — it just stays up with no visible change) so
+          // there's continuous coverage right through until data is ready.
+          const token = openBlankCover();
           window.dashboardDataReady.then(function(success) {
             if (token !== generation) return; // superseded by a newer operation
             if (success) {
-              stopProgress();
-              loadingScreen.style.opacity = '0';
-              loadingScreen.style.display = 'none';
-              loadingScreen.classList.add('hidden');
-              document.body.style.overflow = '';
+              closeBlankCover(token);
             } else {
               // Data wasn't ready/available — fall back to the normal
               // loading screen so the retry UI is still reachable.
+              loadingCore.classList.remove('hidden');
               openLoadingScreen();
-              showError(token);
+              showError(generation);
             }
           });
           return;
@@ -3604,13 +3633,13 @@ html.page-fade-ready body {
       // it's simply left running — __runDashboardLoadingSequence() below
       // takes over the same screen for the real data load, so there's no
       // flash or restart between the two.
-      let authCheckToken = skipLoadingAnimation ? null : openLoadingScreen({
+      let authCheckToken = skipLoadingAnimation ? openBlankCover() : openLoadingScreen({
         title: 'Signing you in',
         messages: ['Checking your session\u2026']
       });
       window.__closeAuthCheckLoading = function() {
         if (authCheckToken !== null) {
-          closeLoadingScreen(authCheckToken);
+          if (skipLoadingAnimation) closeBlankCover(authCheckToken); else closeLoadingScreen(authCheckToken);
           authCheckToken = null;
         }
       };
