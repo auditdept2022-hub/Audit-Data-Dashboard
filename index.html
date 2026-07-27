@@ -2504,6 +2504,19 @@ html.page-fade-ready body {
 </style>
 </head>
 <body class="bg-coolDark text-slate-800 min-h-screen selection:bg-accentCyan/30 selection:text-slate-900 pb-16 relative">
+  <script>
+    // Fast-return guard: when arriving via ?skipLoading=1 (the Attendance/
+    // Opex "Dashboard" button), hide the very first frame synchronously so
+    // nothing (sign-in form, splash, etc.) can flash before the blank-cover
+    // logic further down takes over. Revealed again once that cover is up.
+    (function(){
+      try{
+        if (new URLSearchParams(window.location.search).get('skipLoading') === '1') {
+          document.documentElement.style.visibility = 'hidden';
+        }
+      }catch(e){}
+    })();
+  </script>
 
   <!-- ================= INSTANT BOOT SPLASH =================
        Pure inline HTML/CSS (no Tailwind/JS dependency), so it paints the
@@ -3637,6 +3650,9 @@ html.page-fade-ready body {
         title: 'Signing you in',
         messages: ['Checking your session\u2026']
       });
+      // The blank cover (or loading screen) is now up, so it's safe to
+      // reveal the page again after the fast-return guard hid it above.
+      document.documentElement.style.visibility = '';
       window.__closeAuthCheckLoading = function() {
         if (authCheckToken !== null) {
           if (skipLoadingAnimation) closeBlankCover(authCheckToken); else closeLoadingScreen(authCheckToken);

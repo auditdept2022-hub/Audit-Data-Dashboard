@@ -1940,6 +1940,97 @@
   }
   .confirm-modal-actions .btn-confirm-primary:hover{filter:brightness(1.08);}
 
+  /* Delete password-confirmation modal -- same overlay pattern as
+     .modal-bg, styled like the other password gates: a lock icon,
+     bold title, "Signed in as ..." line, password field, error text,
+     and Cancel / Unlock & Delete buttons. */
+  .password-modal{
+    background:#fff;
+    border-radius:14px;
+    padding:22px;
+    max-width:360px;
+    width:100%;
+    box-shadow:0 20px 50px rgba(16,27,51,.25);
+  }
+  .password-modal-head{
+    display:flex;
+    align-items:flex-start;
+    gap:13px;
+    margin-bottom:4px;
+  }
+  .password-modal-icon{
+    flex-shrink:0;
+    width:36px;height:36px;
+    border-radius:9px;
+    background:var(--royal-glow);
+    color:var(--royal-dark);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .password-modal-head h2{
+    font-family:'Inter',sans-serif;
+    font-weight:700;
+    font-size:16px;
+    margin:0;
+    color:var(--navy);
+  }
+  .password-modal p{
+    font-size:12.5px;
+    color:var(--muted);
+    margin:0 0 4px;
+    line-height:1.5;
+  }
+  .password-modal .pm-user{
+    font-size:11px;
+    color:var(--muted);
+    margin:0 0 14px;
+  }
+  .password-modal .pm-user span{font-weight:600;color:var(--text);}
+  .password-modal input[type=password]{
+    width:100%;
+    padding:9px 11px;
+    border:1.5px solid var(--border);
+    border-radius:6px;
+    font-size:13.5px;
+    font-family:'Inter',sans-serif;
+    color:var(--text);
+    background:#fff;
+    margin-bottom:6px;
+  }
+  .password-modal input[type=password]:focus{outline:2px solid var(--royal);outline-offset:1px;}
+  .password-modal .pm-error{
+    font-size:11.5px;
+    color:var(--flag-red);
+    margin:0 0 4px;
+    display:none;
+  }
+  .password-modal .pm-error.show{display:block;}
+  .password-modal-actions{display:flex;gap:10px;margin-top:14px;}
+  .password-modal-actions .btn-stay{
+    flex:1;
+    padding:11px;
+    border-radius:8px;
+    border:1.5px solid var(--border);
+    background:#fff;
+    color:var(--text);
+    font-weight:600;
+    font-size:13.5px;
+    cursor:pointer;
+  }
+  .password-modal-actions .btn-stay:hover{background:#F5F6F8;}
+  .password-modal-actions .btn-danger{
+    flex:1;
+    padding:11px;
+    border-radius:8px;
+    border:none;
+    background:var(--flag-red);
+    color:#fff;
+    font-weight:700;
+    font-size:13.5px;
+    cursor:pointer;
+  }
+  .password-modal-actions .btn-danger:hover{background:#B01D2E;}
+  .password-modal-actions .btn-danger:disabled{opacity:.6;cursor:not-allowed;}
+
   .preview-btn,.print-btn{
     padding:12px 22px;
     background:#fff;
@@ -3741,6 +3832,30 @@
   </div>
 </div>
 
+<!-- Delete password-confirmation modal: re-checks the signed-in user's
+     own account password before a delete goes through, same pattern as
+     the Quick Links password gate on the dashboard. -->
+<div class="modal-bg" id="deletePasswordModal">
+  <div class="password-modal">
+    <div class="password-modal-head">
+      <div class="password-modal-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+      </div>
+      <h2>Confirm Your Password</h2>
+    </div>
+    <p>Re-enter your account password to delete <span id="deletePasswordLabel" style="font-weight:600;color:var(--text);">this entry</span>. This removes it from the Google Sheet and cannot be undone.</p>
+    <p class="pm-user">Signed in as <span id="deletePasswordUserLabel">&#8212;</span></p>
+    <input id="deletePasswordInput" type="password" autocomplete="current-password" placeholder="Your password" />
+    <p id="deletePasswordError" class="pm-error">Incorrect password. Try again.</p>
+    <div class="password-modal-actions">
+      <button type="button" class="btn-stay" id="deletePasswordCancelBtn">Cancel</button>
+      <button type="button" class="btn-danger" id="deletePasswordSubmitBtn">
+        <span id="deletePasswordSubmitLabel">Unlock &amp; Delete</span>
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Print preview modal -->
 <div class="preview-modal-bg" id="previewModal">
   <div class="preview-modal">
@@ -4534,17 +4649,91 @@ function showConfirmModal(opts){
   });
 }
 
-document.getElementById('deleteBtn').addEventListener('click', async ()=>{
-  if(!isEditing || !editingReqNo) return;
+// ---------------------------------------------------------------------
+// Delete button: password-gated (same pattern as the dashboard's Quick
+// Links). Instead of a plain "are you sure?" prompt, deleting requires
+// re-entering the signed-in user's own account password (verified via
+// Firebase reauthentication below) before the delete request is sent.
+// ---------------------------------------------------------------------
+let pendingDelete = null; // { type, reqNo, label } awaiting password confirmation
 
+document.getElementById('deleteBtn').addEventListener('click', ()=>{
+  if(!isEditing || !editingReqNo) return;
   const label = currentType === 'budget' ? 'request' : 'liquidation';
-  const confirmed = await showConfirmModal({
-    title: 'Delete?',
-    message: 'Delete ' + label + ' #' + editingReqNo + '? This removes it from the Google Sheet and cannot be undone.',
-    confirmLabel: 'Yes, delete',
-    danger: true
-  });
-  if(!confirmed) return;
+  pendingDelete = { type: currentType, reqNo: editingReqNo, label: label };
+  openDeletePasswordGate();
+});
+
+function openDeletePasswordGate(){
+  const modal = document.getElementById('deletePasswordModal');
+  const input = document.getElementById('deletePasswordInput');
+  const err = document.getElementById('deletePasswordError');
+  const userLabel = document.getElementById('deletePasswordUserLabel');
+  const nameLabel = document.getElementById('deletePasswordLabel');
+  if(!modal || !input || !pendingDelete) return;
+  err.classList.remove('show');
+  input.value = '';
+  if(userLabel) userLabel.textContent = (typeof window.getCurrentUserEmail === 'function' && window.getCurrentUserEmail()) || 'unknown user';
+  if(nameLabel) nameLabel.textContent = pendingDelete.label + ' #' + pendingDelete.reqNo;
+  setDeletePasswordSubmitting(false);
+  modal.classList.add('show');
+  setTimeout(()=>{ input.focus(); }, 50);
+}
+
+function cancelDeletePassword(){
+  const modal = document.getElementById('deletePasswordModal');
+  if(modal) modal.classList.remove('show');
+  pendingDelete = null;
+}
+
+function setDeletePasswordSubmitting(isSubmitting){
+  const btn = document.getElementById('deletePasswordSubmitBtn');
+  const lbl = document.getElementById('deletePasswordSubmitLabel');
+  const input = document.getElementById('deletePasswordInput');
+  if(btn) btn.disabled = isSubmitting;
+  if(input) input.disabled = isSubmitting;
+  if(lbl) lbl.textContent = isSubmitting ? 'Verifying…' : 'Unlock & Delete';
+}
+
+function deletePasswordErrorMessage(reason){
+  if(reason === 'not-signed-in') return 'You’re not signed in — please sign in first.';
+  if(reason === 'auth/too-many-requests') return 'Too many attempts. Please wait a moment and try again.';
+  if(reason === 'auth/network-request-failed') return 'Network error — check your connection and try again.';
+  return 'Incorrect password. Try again.';
+}
+
+document.getElementById('deletePasswordCancelBtn').addEventListener('click', cancelDeletePassword);
+document.getElementById('deletePasswordInput').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter') submitDeletePassword();
+});
+document.getElementById('deletePasswordSubmitBtn').addEventListener('click', submitDeletePassword);
+
+// Step 2: person types their password -> re-authenticate against Firebase
+// (proves it's really them, right now) -> only THEN send the delete
+// request to the Apps Script backend.
+async function submitDeletePassword(){
+  const pending = pendingDelete;
+  const input = document.getElementById('deletePasswordInput');
+  const err = document.getElementById('deletePasswordError');
+  if(!pending || !input) { cancelDeletePassword(); return; }
+  if(typeof window.reauthenticateCurrentUser !== 'function'){
+    err.textContent = 'Password check is unavailable right now.';
+    err.classList.add('show');
+    return;
+  }
+  setDeletePasswordSubmitting(true);
+  const result = await window.reauthenticateCurrentUser(input.value);
+  if(!result || !result.ok){
+    setDeletePasswordSubmitting(false);
+    err.textContent = deletePasswordErrorMessage(result && result.reason);
+    err.classList.add('show');
+    input.value = '';
+    input.focus();
+    return;
+  }
+
+  const modal = document.getElementById('deletePasswordModal');
+  if(modal) modal.classList.remove('show');
 
   const btn = document.getElementById('deleteBtn');
   const originalLabel = btn.textContent;
@@ -4556,18 +4745,18 @@ document.getElementById('deleteBtn').addEventListener('click', async ()=>{
     const res = await fetch(url, {
       method: 'POST',
       headers: {'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({ action: 'delete', type: currentType, reqNo: editingReqNo })
+      body: JSON.stringify({ action: 'delete', type: pending.type, reqNo: pending.reqNo })
     });
     const data = await res.json();
     if(data.status === 'success'){
-      statusEl.textContent = 'Deleted #' + editingReqNo + ' from the sheet.';
+      statusEl.textContent = 'Deleted #' + pending.reqNo + ' from the sheet.';
       statusEl.className = 'status ok';
       // Drop this type's cached list/record so the picker and a future
       // re-open don't keep showing the entry we just deleted.
-      const deletedReqNo = editingReqNo;
-      delete cachedList[currentType];
-      delete cachedRecords[currentType + ':' + deletedReqNo];
-      if(currentType === 'budget'){
+      const deletedReqNo = pending.reqNo;
+      delete cachedList[pending.type];
+      delete cachedRecords[pending.type + ':' + deletedReqNo];
+      if(pending.type === 'budget'){
         const areaVal = (document.getElementById('area').value || '').trim().toUpperCase();
         if(areaVal) delete cachedAreaBudgetTotal[areaVal];
         delete cachedReqNoBudgetTotal['reqno:' + String(deletedReqNo).trim()];
@@ -4578,15 +4767,16 @@ document.getElementById('deleteBtn').addEventListener('click', async ()=>{
     } else {
       throw new Error(data.message || 'Unknown error');
     }
-  }catch(err){
-    statusEl.textContent = 'Delete failed: ' + err.message;
+  }catch(err2){
+    statusEl.textContent = 'Delete failed: ' + err2.message;
     statusEl.className = 'status err';
   }finally{
     btn.textContent = originalLabel;
     updateDeleteBtnState();
     updateSaveAsNewBtnState();
+    pendingDelete = null;
   }
-});
+}
 
 // ---------------------------------------------------------------------
 // Fish-swimming celebration — plays for ~3-5s after a successful manual
@@ -5899,6 +6089,63 @@ updateVoucherTabState();
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<!-- ================= FIREBASE AUTH (for the password-gated delete) =================
+     Opex.html is reached via a full page navigation from the main
+     dashboard (index.html), so it doesn't share that page's JS context —
+     this re-initializes the same Firebase project so auth.currentUser
+     reflects whoever is already signed in (persistence is local-storage
+     based, so no separate login is needed here) and so the delete gate
+     can re-check that person's own account password. -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import {
+    getAuth,
+    setPersistence,
+    browserLocalPersistence,
+    EmailAuthProvider,
+    reauthenticateWithCredential
+  } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCuntpbNHmez53kWE9nyORhNC62W_FvrTU",
+    authDomain: "audit-dashboard-4ca4a.firebaseapp.com",
+    projectId: "audit-dashboard-4ca4a",
+    storageBucket: "audit-dashboard-4ca4a.firebasestorage.app",
+    messagingSenderId: "508009297337",
+    appId: "1:508009297337:web:b31255a81546216d703268"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+
+  setPersistence(auth, browserLocalPersistence).catch(function(err) {
+    console.warn('Could not set auth persistence:', err);
+  });
+
+  // Gate for the Delete button: re-checks the *currently signed-in*
+  // person's own account password (not a shared/static one) before a
+  // delete goes through, same as the export/quick-link gates on the
+  // dashboard. Uses Firebase's reauthenticateWithCredential, which
+  // verifies the password against that user's account without starting
+  // a new session or affecting anyone else's.
+  window.reauthenticateCurrentUser = async function(password) {
+    if (!auth.currentUser) return { ok: false, reason: 'not-signed-in' };
+    if (!password) return { ok: false, reason: 'empty' };
+    try {
+      const credential = EmailAuthProvider.credential(auth.currentUser.email, password);
+      await reauthenticateWithCredential(auth.currentUser, credential);
+      return { ok: true };
+    } catch (err) {
+      console.warn('Re-authentication failed:', err && err.code);
+      return { ok: false, reason: (err && err.code) || 'error' };
+    }
+  };
+
+  window.getCurrentUserEmail = function() {
+    return (auth.currentUser && auth.currentUser.email) || '';
+  };
+</script>
 
 <script>
   if ('serviceWorker' in navigator) {
