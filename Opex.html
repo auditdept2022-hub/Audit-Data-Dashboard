@@ -6127,7 +6127,13 @@ addLineItem();
 updateTotals();
 fetchNextReqNo();
 fetchBudgetLimits();
-fetchOpexBadges();
+// fresh=true on the very first load, same as the header Refresh button --
+// otherwise a plain page reload could still surface the Apps Script side's
+// list/total cache (up to 5 min TTL) instead of what's actually on the
+// sheet right now, e.g. a row deleted directly in Sheets moments ago.
+fetchOpexBadges(true);
+loadReqNoList(true);
+fetchLiquidatedAreas(true);
 updateVoucherTabState();
 </script>
 <!-- Sticky mini totals bar: mirrors the main totals row in condensed form,
