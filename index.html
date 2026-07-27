@@ -3671,14 +3671,14 @@ html.page-fade-ready body {
     <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="closeModal()"></div>
     <div class="absolute inset-0 flex items-start sm:items-center justify-center overflow-y-auto p-3 sm:p-4 py-6" onclick="closeModal()">
       <div class="bg-coolCard w-full max-w-5xl max-h-[85vh] max-h-[85dvh] my-auto rounded-2xl shadow-2xl flex flex-col transform transition-transform duration-300 border border-coolBorder scale-95" id="modalDialog" onclick="event.stopPropagation()">
-        <div class="px-4 sm:px-5 py-2.5 sm:py-3 border-b border-coolBorder flex justify-between items-center gap-3 bg-gray-50 rounded-t-2xl">
-          <div class="flex items-center gap-2 min-w-0">
+        <div class="px-4 sm:px-5 py-2.5 sm:py-3 border-b border-coolBorder flex flex-wrap justify-between items-center gap-x-3 gap-y-1.5 bg-gray-50 rounded-t-2xl">
+          <div class="flex items-center gap-2 min-w-0 w-full sm:w-auto sm:flex-1">
             <button id="modalBackBtn" onclick="modalGoBack()" title="Back" aria-label="Back to previous view" class="hidden p-2 -ml-1 text-slate-400 hover:text-accentBlue hover:bg-accentBlue/10 active:scale-95 rounded-xl transition-all cursor-pointer flex-shrink-0">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>
             </button>
-            <h2 class="text-base sm:text-xl font-bold text-slate-800 flex items-center gap-2 min-w-0" id="modalTitle">BINALONAN — Detailed Profile</h2>
+            <h2 class="text-sm sm:text-xl font-bold text-slate-800 truncate min-w-0" id="modalTitle" title="BINALONAN — Detailed Profile">BINALONAN — Detailed Profile</h2>
           </div>
-          <div class="flex items-center gap-1 flex-shrink-0">
+          <div class="flex items-center gap-1 flex-shrink-0 ml-auto sm:ml-0">
             <button id="modalEditAssignBtn" onclick="openHeaderEditAssignment()" title="Edit assignment" aria-label="Edit assignment" class="hidden p-2 text-slate-400 hover:text-accentAmber hover:bg-accentAmber/10 active:scale-95 rounded-xl transition-all cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path><path d="m15 5 4 4"></path></svg>
             </button>
@@ -4947,6 +4947,7 @@ html.page-fade-ready body {
       const modalTitle = document.getElementById('modalTitle');
       const modalBody = document.getElementById('modalBody');
       modalTitle.innerHTML = title;
+      modalTitle.title = modalTitle.textContent;
       modalBody.innerHTML = ''; 
       // Only the Branch Audit Interval modal uses the fixed-toolbar /
       // scrolling-cards-only layout; every other modal keeps the normal
@@ -6781,6 +6782,7 @@ html.page-fade-ready body {
       modalTitle.innerHTML = (state.auditStatus === 'ALL' || !state.auditStatus)
           ? 'Assignment Branches Overview'
           : `Assignment Branches Overview — ${state.auditStatus}`;
+      modalTitle.title = modalTitle.textContent;
 
       updateModalEditAssignButton(list);
 
@@ -6830,6 +6832,7 @@ html.page-fade-ready body {
           if (state.auditStatus !== 'ALL') titleText += ` — ${state.auditStatus}`;
       }
       modalTitle.innerHTML = titleText;
+      modalTitle.title = modalTitle.textContent;
 
       // The header Edit button (next to Download) only makes sense for the
       // Branches Overview table (type 'all') — it opens the Edit Assignment
