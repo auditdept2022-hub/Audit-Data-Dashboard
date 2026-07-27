@@ -4032,9 +4032,17 @@ async function fetchBudgetLimits(){
       checkAllowanceLimit();
       checkAccommodationLimit();
       markSynced();
+    } else if(data.status === 'error'){
+      // Was silently ignored before -- this is the same class of bug as the
+      // Req No list (see loadReqNoList): a backend error (sheet not found,
+      // broken header row) looked identical to "nothing to report" instead
+      // of showing what actually went wrong. Logged, not surfaced in the UI,
+      // since this call runs constantly in the background and a banner here
+      // would be noisy -- but it's now visible in DevTools Console.
+      console.error('budgetLimits error:', data.message);
     }
   }catch(err){
-    // silent - user may not have configured URL yet
+    console.error('fetchBudgetLimits failed:', err);
   }
 }
 
@@ -5308,12 +5316,23 @@ async function loadReqNoList(fresh){
     const res = await fetch(`${url}?action=list&type=${currentType}${fresh ? '&fresh=1' : ''}`);
     const data = await res.json();
     if(myToken !== listToken) return; // a newer list request has since superseded this one
+    // IMPORTANT: a backend error (bad sheet name, broken header row, a thrown
+    // exception, etc.) comes back as {status:'error', message:'...'} with NO
+    // "records" field. Previously that fell through to `data.records || []`
+    // and silently rendered "No saved entries yet." -- identical to a truly
+    // empty sheet, with no indication anything had actually failed. Surface
+    // it instead so a real backend problem is visible instead of looking
+    // like missing data.
+    if(data.status === 'error'){
+      throw new Error(data.message || 'Backend returned an error.');
+    }
     const rows = data.records || [];
     cachedList[cacheKey] = rows;
     renderReqNoList(rows);
   }catch(err){
     if(myToken !== listToken) return;
-    if(!cachedList[cacheKey]) reqNoList.innerHTML = '<div class="ms-empty">Couldn\u2019t load entries.</div>';
+    console.error('loadReqNoList failed:', err);
+    reqNoList.innerHTML = '<div class="ms-empty" style="color:#B01D2E;">Couldn\u2019t load entries: ' + esc(err.message) + '</div>';
   }
 }
 
