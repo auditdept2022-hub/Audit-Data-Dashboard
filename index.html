@@ -3412,6 +3412,22 @@ html.page-fade-ready body {
       const loadingStatusEl = document.getElementById('loadingStatusText');
       const loadingTitleEl = document.getElementById('loadingTitleText');
 
+      // Coming back from a linked page (Opex / Attendance "Dashboard" button)
+      // via ?skipLoading=1 means someone is already signed in and just wants
+      // their data — skip the storm/sunrise loading animation entirely and
+      // reveal the dashboard the moment the data is ready. Normal sign-ins
+      // still get the full loading sequence.
+      const skipLoadingAnimation = (function() {
+        try {
+          return new URLSearchParams(window.location.search).get('skipLoading') === '1';
+        } catch (e) {
+          return false;
+        }
+      })();
+      if (skipLoadingAnimation && window.history && window.history.replaceState) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.hash);
+      }
+
       // Every load now opens on a night thunderstorm (rain + lightning)
       // that clears into a bright morning by the end of the scene — always
       // on, not random, so there's a full storm-to-sunrise story to watch
@@ -3532,6 +3548,26 @@ html.page-fade-ready body {
       }
 
       window.__runDashboardLoadingSequence = function() {
+        if (skipLoadingAnimation) {
+          generation++;
+          const token = generation;
+          window.dashboardDataReady.then(function(success) {
+            if (token !== generation) return; // superseded by a newer operation
+            if (success) {
+              stopProgress();
+              loadingScreen.style.opacity = '0';
+              loadingScreen.style.display = 'none';
+              loadingScreen.classList.add('hidden');
+              document.body.style.overflow = '';
+            } else {
+              // Data wasn't ready/available — fall back to the normal
+              // loading screen so the retry UI is still reachable.
+              openLoadingScreen();
+              showError(token);
+            }
+          });
+          return;
+        }
         const token = openLoadingScreen();
         waitThenSettle(window.dashboardDataReady, Date.now(), token);
       };
@@ -3568,7 +3604,7 @@ html.page-fade-ready body {
       // it's simply left running — __runDashboardLoadingSequence() below
       // takes over the same screen for the real data load, so there's no
       // flash or restart between the two.
-      let authCheckToken = openLoadingScreen({
+      let authCheckToken = skipLoadingAnimation ? null : openLoadingScreen({
         title: 'Signing you in',
         messages: ['Checking your session\u2026']
       });
