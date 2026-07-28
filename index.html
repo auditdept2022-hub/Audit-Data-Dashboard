@@ -10442,31 +10442,86 @@ html.page-fade-ready body {
     // of how long timers were throttled while hidden.
     const IDLE_TIMEOUT_MS = 60 * 60 * 1000;
     const IDLE_CHECK_INTERVAL_MS = 15 * 1000; // re-check every 15s
+    // Persisted (not just in-memory) so the "last activity" timestamp
+    // survives a page reload / app restart. On the Android (APK/TWA)
+    // build, Android routinely kills the app process while it's
+    // backgrounded; on desktop, people close and reopen the browser.
+    // Either way, Firebase's persisted sign-in means onAuthStateChanged
+    // fires again on relaunch and (previously) restarted the idle clock
+    // from zero, so someone who'd actually been away for hours never
+    // got signed out. Storing the timestamp in localStorage lets us
+    // recover the *real* elapsed idle time across restarts instead.
+    const IDLE_STORAGE_KEY = 'auditDashboardLastActivityAt';
     let idleTrackingActive = false;
     let lastActivityAt = 0;
     let idleCheckInterval = null;
 
+    function readStoredActivityAt() {
+      try {
+        const raw = window.localStorage.getItem(IDLE_STORAGE_KEY);
+        const parsed = raw ? parseInt(raw, 10) : NaN;
+        return isNaN(parsed) ? null : parsed;
+      } catch (err) {
+        return null; // localStorage unavailable (private mode, etc.)
+      }
+    }
+    function writeStoredActivityAt(ts) {
+      try {
+        window.localStorage.setItem(IDLE_STORAGE_KEY, String(ts));
+      } catch (err) {
+        // ignore — worst case we fall back to in-memory-only tracking
+      }
+    }
+    function clearStoredActivityAt() {
+      try { window.localStorage.removeItem(IDLE_STORAGE_KEY); } catch (err) {}
+    }
+
     function handleIdleTimeout() {
       stopIdleTracking();
+      clearStoredActivityAt();
       signOut(auth).catch(function(err) {
         console.warn('Idle auto sign-out failed:', err);
       });
     }
     function checkIdleElapsed() {
       if (!idleTrackingActive) return;
+      // Re-read from storage (not just the in-memory value) in case
+      // another tab/window updated it more recently.
+      const stored = readStoredActivityAt();
+      if (stored !== null && stored > lastActivityAt) lastActivityAt = stored;
       if (Date.now() - lastActivityAt >= IDLE_TIMEOUT_MS) {
         handleIdleTimeout();
       }
     }
+    // Writes are cheap but happen on every mousemove/scroll — throttle
+    // the localStorage write itself to at most once every few seconds.
+    let lastStoredWriteAt = 0;
     function resetIdleTimer() {
       if (!idleTrackingActive) return; // idle tracking isn't active (signed out)
       lastActivityAt = Date.now();
+      if (lastActivityAt - lastStoredWriteAt > 3000) {
+        lastStoredWriteAt = lastActivityAt;
+        writeStoredActivityAt(lastActivityAt);
+      }
     }
     const IDLE_ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'wheel'];
     function startIdleTracking() {
       if (idleTrackingActive) return; // already tracking
+
+      // Before (re)starting the clock, check whether we already blew
+      // past the timeout while the app/tab was closed or backgrounded.
+      // Without this, relaunching after being away for hours would
+      // just reset lastActivityAt to "now" and the person would stay
+      // signed in indefinitely.
+      const stored = readStoredActivityAt();
+      if (stored !== null && Date.now() - stored >= IDLE_TIMEOUT_MS) {
+        handleIdleTimeout();
+        return;
+      }
+
       idleTrackingActive = true;
-      lastActivityAt = Date.now();
+      lastActivityAt = stored !== null ? stored : Date.now();
+      writeStoredActivityAt(lastActivityAt);
       IDLE_ACTIVITY_EVENTS.forEach(function(evt) {
         document.addEventListener(evt, resetIdleTimer, { passive: true });
       });
@@ -10579,6 +10634,7 @@ html.page-fade-ready body {
         if (window.__closeAuthCheckLoading) window.__closeAuthCheckLoading();
         dashboardLoadingStarted = false;
         stopIdleTracking();
+        clearStoredActivityAt();
         stopAutoRefresh();
         authGate.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
