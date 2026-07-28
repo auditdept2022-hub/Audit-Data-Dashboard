@@ -655,6 +655,21 @@
     border-radius:999px; cursor:pointer; transition:background .15s, border-color .15s, color .15s;
   }
   .export-icon-btn:hover, .export-icon-btn[aria-expanded="true"]{background:var(--surface-2); border-color:var(--blue); color:var(--blue);}
+  .cutoff-email-send{display:inline-flex; align-items:center; gap:6px;}
+  .cutoff-email-input{
+    font-family:'Inter'; font-size:11.5px; font-weight:500; background:var(--surface);
+    border:1px solid var(--border); color:var(--ink); padding:6px 12px; border-radius:999px;
+    width:200px; outline:none; transition:border-color .15s;
+  }
+  .cutoff-email-input:focus{border-color:var(--blue);}
+  .cutoff-email-send-btn{
+    display:inline-flex; align-items:center; gap:6px; font-family:'Inter'; font-size:11.5px; font-weight:600;
+    background:var(--blue); border:1px solid var(--blue); color:#fff; padding:6px 14px; border-radius:999px;
+    cursor:pointer; transition:opacity .15s;
+  }
+  .cutoff-email-send-btn:hover{opacity:.88;}
+  .cutoff-email-send-btn:disabled{opacity:.5; cursor:not-allowed;}
+  @media print{ .cutoff-email-send{ display:none !important; } }
   .export-dropdown{
     position:fixed; z-index:400; min-width:136px;
     background:var(--surface); border:1px solid var(--border); border-radius:10px;
@@ -1391,6 +1406,10 @@
             <button type="button" data-export="png">PNG Image</button>
             <button type="button" data-export="jpg">JPG Image</button>
           </div>
+        </span>
+        <span class="cutoff-email-send">
+          <input type="email" id="cutoffEmailInput" class="cutoff-email-input" placeholder="Send to (any email address)" aria-label="Recipient email address">
+          <button class="cutoff-email-send-btn" id="cutoffEmailSendBtn" type="button">Send</button>
         </span>
       </div>
       <div class="print-only">
@@ -4420,6 +4439,47 @@ function setupPayrollModal(){
   if(nextBtn) nextBtn.addEventListener('click', () => shiftCutoffPeriod(1));
   const printBtn = document.getElementById('printCutoffBtn');
   if(printBtn) printBtn.addEventListener('click', printCutoffLog);
+
+  // Email box: builds a Gmail web-compose link pre-filled with the
+  // recipient typed in the box, a subject naming the cut-off period, and a
+  // plain-text body of the attendance + summary tables, opened under the
+  // auditdept20@gmail.com account (via authuser) instead of the OS default
+  // mail app (e.g. Outlook). A static page can't dispatch mail on its own
+  // (no mail server behind it, and Gmail requires a logged-in human click
+  // on Send by design), so this opens Gmail with everything pre-filled,
+  // ready for a final Send click.
+  const SENDER_GMAIL = 'auditdept20@gmail.com';
+  const emailInput = document.getElementById('cutoffEmailInput');
+  const emailSendBtn = document.getElementById('cutoffEmailSendBtn');
+  function sendCutoffEmail(){
+    const address = (emailInput && emailInput.value || '').trim();
+    if(!address){ if(emailInput) emailInput.focus(); return; }
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if(!emailPattern.test(address)){
+      if(emailInput){ emailInput.focus(); emailInput.reportValidity && emailInput.reportValidity(); }
+      return;
+    }
+    const periodLabelEl = document.getElementById('cutoffPeriodLabel');
+    const periodLabel = (periodLabelEl && periodLabelEl.textContent.trim()) || 'Salary Cut-off Calendar';
+    const subject = `Salary Cut-off Calendar \u2014 ${periodLabel}`;
+    const rows = window.__cutoffExportRows || [];
+    const summaryRows = window.__cutoffSummaryRows || [];
+
+    // Generate and download the PDF (table + summary) so it can be
+    // attached in Gmail; browsers won't let a page auto-attach a file to
+    // a Gmail compose window, so this is downloaded first for a quick
+    // one-click drag-in.
+    const pdfFilename = `Salary_Cutoff_${periodLabel.replace(/[^\w-]+/g, '_')}.pdf`;
+    if(rows.length){
+      exportRowsToPdf(pdfFilename, `Salary Cut-off Calendar \u2014 ${periodLabel}`, rows, { summaryRows });
+    }
+
+    const body = 'Good day,\n\nHere is our attendance for this cut off.\n\nThank you.';
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&tf=1&authuser=${encodeURIComponent(SENDER_GMAIL)}&to=${encodeURIComponent(address)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(gmailUrl, '_blank', 'noopener');
+  }
+  if(emailSendBtn) emailSendBtn.addEventListener('click', sendCutoffEmail);
+  if(emailInput) emailInput.addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); sendCutoffEmail(); } });
 
   // Download menu (CSV / Excel / Word / PDF) for the currently displayed
   // cut-off period. Handlers read cutoffState fresh at click time so the
