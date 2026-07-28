@@ -56,6 +56,24 @@
   .wrap{max-width:1360px;margin:0 auto;counter-reset:stepnum;position:relative;z-index:1;}
   @media(min-width:1500px){ .wrap{max-width:1480px;} }
 
+  /* ---------- Auto-fit scaling ----------
+     The dashboard was designed around a ~1360-1480px canvas. On screens
+     narrower than that (small laptops, tablets in landscape) it used to
+     just get cropped/scrolled instead of shrinking to fit, and on very
+     small phones it could look "zoomed in". This block scales the whole
+     .wrap canvas down (never up) so the full layout fits the actual
+     viewport width on any device -- 14" laptop, 24" monitor, tablet or
+     phone -- while the existing @media rules above/below still handle
+     re-flowing text and columns at each breakpoint. See the tiny script
+     right before </body> that computes and applies the scale. */
+  body.auto-fit{ display:flex; justify-content:center; }
+  body.auto-fit .wrap{
+    transform-origin: top center;
+    transition: transform .12s ease-out;
+    width: 1360px; /* fixed design width; JS scales it to fit */
+  }
+  @media(min-width:1500px){ body.auto-fit .wrap{ width:1480px; } }
+
   /* ---------- Ocean background (decorative, non-interactive) ----------
      Lives inside the header banner only (see .banner markup) rather than
      as a full-page backdrop — confined via the banner's own
@@ -6391,6 +6409,61 @@ updateVoucherTabState();
       navigator.serviceWorker.register('service-worker.js').catch(function () {});
     });
   }
+</script>
+
+<script>
+// ---------- Auto-fit scaling ----------
+// Scales the .wrap canvas down (never up) so the dashboard fits whatever
+// screen it's opened on -- a 24" monitor, a 14" laptop, a tablet, etc --
+// instead of relying only on the browser's native zoom/scrollbars.
+// Below the existing mobile breakpoint (900px) we leave this alone,
+// because the CSS media queries already reflow the layout for touch/phone
+// screens and stacking a transform on top of that would just make text
+// blurry/too small.
+(function(){
+  var wrap = document.querySelector('.wrap');
+  if(!wrap) return;
+  var body = document.body;
+
+  function applyAutoFit(){
+    var w = window.innerWidth;
+    if(w < 900){
+      body.classList.remove('auto-fit');
+      wrap.style.transform = '';
+      body.style.minHeight = '';
+      return;
+    }
+    body.classList.add('auto-fit');
+    var design = w >= 1500 ? 1480 : 1360;
+    var available = w - 24; // small side margin so it never touches edges
+    var scale = Math.min(1, available / design);
+    scale = Math.max(0.55, scale); // don't shrink past readability
+    wrap.style.transform = 'scale(' + scale + ')';
+    // transform doesn't affect document flow height, so compensate the
+    // body height manually to avoid a big blank gap under short pages.
+    var naturalHeight = wrap.getBoundingClientRect().height / scale;
+    body.style.minHeight = (naturalHeight * scale + 80) + 'px';
+  }
+
+  var raf;
+  function scheduleApply(){
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(applyAutoFit);
+  }
+
+  window.addEventListener('resize', scheduleApply);
+  window.addEventListener('orientationchange', scheduleApply);
+  window.addEventListener('load', applyAutoFit);
+  document.addEventListener('DOMContentLoaded', applyAutoFit);
+  // Re-check periodically for the first couple seconds while fonts/images
+  // and dynamic content (tables, totals, etc) finish loading and can
+  // change the page's natural height.
+  var tries = 0;
+  var interval = setInterval(function(){
+    applyAutoFit();
+    if(++tries > 10) clearInterval(interval);
+  }, 300);
+})();
 </script>
 </body>
 </html>
