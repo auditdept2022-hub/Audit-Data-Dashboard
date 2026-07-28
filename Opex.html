@@ -1573,6 +1573,27 @@
     background:none;border:none;color:var(--amber-dark);text-decoration:underline;
     font-weight:600;font-size:13.5px;cursor:pointer;padding:0;
   }
+  .edit-banner-actions{display:flex;align-items:center;gap:16px;}
+  .edit-unlock-btn{
+    background:var(--amber-dark)!important;color:#fff!important;
+    text-decoration:none!important;border-radius:5px!important;
+    padding:5px 12px!important;
+  }
+  .edit-unlock-btn:hover{opacity:.85;}
+
+  /* Fields disabled while a record is loaded read-only (before "Edit" is
+     clicked) get the same muted look as [readonly] inputs, so it's visually
+     obvious the whole form is locked, not just individually greyed fields. */
+  .form-locked input:disabled,
+  .form-locked select:disabled,
+  .form-locked textarea:disabled{
+    background:#F7F8FA;color:var(--muted);cursor:not-allowed;opacity:1;
+  }
+  .form-locked .del-btn:disabled,
+  .form-locked .add-row:disabled,
+  .form-locked .ms-toggle:disabled{
+    opacity:.4;cursor:not-allowed;
+  }
 
   .section-title{
     font-family:'Inter',sans-serif;
@@ -1664,6 +1685,26 @@
     line-height:1;
   }
   .del-btn:hover{background:#F7D6D3;}
+
+  /* Drag-to-reorder handle (Transportation rows only). */
+  .col-drag{width:26px;padding-top:0;padding-right:0;}
+  .drag-handle{
+    display:flex;align-items:center;justify-content:center;
+    width:26px;height:30px;
+    color:var(--muted);
+    font-size:15px;
+    letter-spacing:-3px;
+    cursor:grab;
+    user-select:none;
+    border-radius:6px;
+    touch-action:none;
+  }
+  .drag-handle:hover{background:var(--royal-glow);color:var(--royal-dark);}
+  .drag-handle:active{cursor:grabbing;}
+  .form-locked .drag-handle{opacity:.35;pointer-events:none;cursor:not-allowed;}
+  tbody tr.dragging{opacity:.45;}
+  tbody tr.drag-over-top{box-shadow:inset 0 2px 0 0 var(--royal);}
+  tbody tr.drag-over-bottom{box-shadow:inset 0 -2px 0 0 var(--royal);}
 
   .add-row{
     margin-top:2px;
@@ -3603,7 +3644,10 @@
 
   <div class="edit-banner" id="editBanner">
     <span id="editBannerText">Editing request #—</span>
-    <button type="button" id="editBannerNew">Start new request instead</button>
+    <div class="edit-banner-actions">
+      <button type="button" id="editBannerEditBtn" class="edit-unlock-btn" style="display:none;">&#9998; Edit</button>
+      <button type="button" id="editBannerNew">Start new request instead</button>
+    </div>
   </div>
 
   <!-- TRAVEL DETAILS -->
@@ -3701,6 +3745,7 @@
     <table>
       <thead>
         <tr>
+          <th class="col-drag"></th>
           <th>Description</th>
           <th style="width:190px;">Mode</th>
           <th style="width:150px;">Amount</th>
@@ -4133,6 +4178,7 @@ function addLineItem(desc, mode, amount, orNo, date, insertBeforeEl){
   const row = document.createElement('tr');
   const modeOptions = TRANSPO_MODES.map(m=>`<option value="${m}" ${m===(mode||'SERVICE UNIT')?'selected':''}>${m}</option>`).join('');
   row.innerHTML = `
+    <td class="col-drag"><span class="drag-handle" draggable="true" title="Drag to reorder">&#8942;&#8942;</span></td>
     <td><input type="text" class="li-desc" value="${desc||''}" placeholder=""></td>
     <td><select class="li-mode">${modeOptions}</select></td>
     <td><div class="peso-field"><input type="text" inputmode="decimal" class="li-amt" value="${amount?formatNum(amount):''}" placeholder=""></div></td>
@@ -4147,6 +4193,7 @@ function addLineItem(desc, mode, amount, orNo, date, insertBeforeEl){
   });
   row.querySelector('.li-amt').addEventListener('input', updateTotals);
   wireCommaField(row.querySelector('.li-amt'));
+  wireLineItemDrag(row);
   if(insertBeforeEl){
     lineItemsEl.insertBefore(row, insertBeforeEl);
   } else {
@@ -4155,6 +4202,60 @@ function addLineItem(desc, mode, amount, orNo, date, insertBeforeEl){
   checkTransportLimit();
   return row;
 }
+
+// Drag-to-reorder for Transportation rows. Each row's handle starts a native
+// HTML5 drag; as it passes over another row, that row gets a top/bottom
+// highlight showing where it would land, and dropping moves the actual <tr>
+// there. This lets a line be slotted in the middle of the list without
+// retyping every row below it -- reordering the DOM rows is enough, since
+// everything else (totals, submit payload) just reads rows in document order.
+let draggedLineItemRow = null;
+
+function wireLineItemDrag(row){
+  const handle = row.querySelector('.drag-handle');
+  if(!handle) return;
+  handle.addEventListener('dragstart', (e)=>{
+    if(formLocked){ e.preventDefault(); return; }
+    draggedLineItemRow = row;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', ''); // required by some browsers to allow the drag
+    // Let the browser paint the drag image before we dim the row.
+    requestAnimationFrame(()=>row.classList.add('dragging'));
+  });
+  handle.addEventListener('dragend', ()=>{
+    row.classList.remove('dragging');
+    draggedLineItemRow = null;
+    lineItemsEl.querySelectorAll('tr').forEach(r=>r.classList.remove('drag-over-top','drag-over-bottom'));
+  });
+}
+
+lineItemsEl.addEventListener('dragover', (e)=>{
+  if(!draggedLineItemRow) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const targetRow = e.target.closest('tr');
+  lineItemsEl.querySelectorAll('tr').forEach(r=>{ if(r!==targetRow) r.classList.remove('drag-over-top','drag-over-bottom'); });
+  if(!targetRow || targetRow === draggedLineItemRow) return;
+  const rect = targetRow.getBoundingClientRect();
+  const before = (e.clientY - rect.top) < rect.height / 2;
+  targetRow.classList.toggle('drag-over-top', before);
+  targetRow.classList.toggle('drag-over-bottom', !before);
+});
+
+lineItemsEl.addEventListener('drop', (e)=>{
+  if(!draggedLineItemRow) return;
+  e.preventDefault();
+  const targetRow = e.target.closest('tr');
+  lineItemsEl.querySelectorAll('tr').forEach(r=>r.classList.remove('drag-over-top','drag-over-bottom'));
+  if(targetRow && targetRow !== draggedLineItemRow){
+    const rect = targetRow.getBoundingClientRect();
+    const before = (e.clientY - rect.top) < rect.height / 2;
+    lineItemsEl.insertBefore(draggedLineItemRow, before ? targetRow : targetRow.nextElementSibling);
+    updateTotals();
+  }
+  draggedLineItemRow.classList.remove('dragging');
+  draggedLineItemRow = null;
+});
 
 function addAllowanceItem(name, perDay, days){
   allowCount++;
@@ -4541,6 +4642,7 @@ function hideLineItemContextMenu(){
 }
 
 lineItemsEl.addEventListener('contextmenu', (e)=>{
+  if(formLocked) return;
   const row = e.target.closest('tr');
   if(!row) return;
   e.preventDefault();
@@ -5015,6 +5117,8 @@ function snapshotForm(){
     reqNo: document.getElementById('reqNo').value,
     isEditing: isEditing,
     editingReqNo: editingReqNo,
+    editingMeta: editingMeta,
+    formLocked: formLocked,
     editBannerText: document.getElementById('editBannerText').textContent,
     items: [...lineItemsEl.querySelectorAll('tr')].map(row=>({
       description: row.querySelector('.li-desc').value,
@@ -5065,7 +5169,7 @@ function restoreForm(snapshot){
 
   updateTotals();
   if(snapshot.isEditing){
-    enterEditMode(snapshot.editingReqNo, null);
+    enterEditMode(snapshot.editingReqNo, snapshot.editingMeta || null, !!snapshot.formLocked);
     document.getElementById('editBannerText').textContent = snapshot.editBannerText || document.getElementById('editBannerText').textContent;
   } else {
     exitEditMode();
@@ -5142,13 +5246,77 @@ let editingReqNo = null;
 let loadedRecordInWords = '';
 let loadedRecordSheetTotal = null;
 
-function enterEditMode(reqNo, meta){
+// Whether the form is currently in read-only "just viewing a picked record"
+// state. True right after Choose loads an entry; false on a blank form or
+// once the person clicks Edit. Kept separate from isEditing (which just
+// means "this form corresponds to an existing sheet row") so a loaded
+// record can be *viewed* without being *editable* until asked for.
+let formLocked = false;
+let editingMeta = null; // the small "— AREA" bit shown in the banner, remembered for the Edit click
+
+// Every field/control that should be frozen while formLocked is true.
+// Re-queried each time (rather than cached) since line-item/accommodation/
+// allowance rows are rebuilt whenever a record loads.
+function getLockableFields(){
+  const fields = [
+    document.getElementById('area'),
+    document.getElementById('engagement'),
+    document.getElementById('mode'),
+    document.getElementById('date'),
+    document.getElementById('requestName'),
+    document.getElementById('to'),
+    document.getElementById('checkedBy'),
+    document.getElementById('accDays'),
+    document.getElementById('auditorToggle'),
+    document.getElementById('auditorOther'),
+    document.getElementById('addRow'),
+    document.getElementById('addAccommodationRow'),
+    document.getElementById('addAllowanceRow'),
+    ...document.querySelectorAll('.auditor-opt'),
+    ...lineItemsEl.querySelectorAll('input, select, button'),
+    ...accommodationItemsEl.querySelectorAll('input, select, button'),
+    ...allowanceItemsEl.querySelectorAll('input, select, button')
+  ];
+  return fields.filter(Boolean);
+}
+
+// Freezes every form field (disabled) and swaps the Save button off, so an
+// old entry pulled up via Choose can't be changed just by clicking around
+// in it. The banner's "Edit" button is the only way back in.
+function lockForm(){
+  formLocked = true;
+  document.body.classList.add('form-locked');
+  getLockableFields().forEach(el=>{ el.disabled = true; });
+  const editBtn = document.getElementById('editBannerEditBtn');
+  if(editBtn) editBtn.style.display = '';
+  const submitBtn = document.getElementById('submitBtn');
+  if(submitBtn){ submitBtn.disabled = true; submitBtn.title = 'Click Edit above to make changes to this entry.'; }
+}
+
+function unlockForm(){
+  formLocked = false;
+  document.body.classList.remove('form-locked');
+  getLockableFields().forEach(el=>{ el.disabled = false; });
+  const editBtn = document.getElementById('editBannerEditBtn');
+  if(editBtn) editBtn.style.display = 'none';
+  const submitBtn = document.getElementById('submitBtn');
+  if(submitBtn){ submitBtn.disabled = false; submitBtn.title = ''; }
+}
+
+// locked=true when a record has just been picked from Choose and should
+// load read-only; locked=false (default) is the normal editable state,
+// e.g. restoring a tab snapshot that was already unlocked.
+function enterEditMode(reqNo, meta, locked){
   isEditing = true;
   editingReqNo = reqNo;
+  editingMeta = meta;
   document.getElementById('reqNo').value = reqNo;
-  document.getElementById('editBannerText').textContent =
-    'Editing ' + (currentType==='budget' ? 'request' : 'liquidation') + ' #' + reqNo + (meta ? ' — ' + meta : '');
+  const label = currentType==='budget' ? 'request' : 'liquidation';
+  document.getElementById('editBannerText').textContent = locked
+    ? 'Viewing ' + label + ' #' + reqNo + (meta ? ' — ' + meta : '') + ' (read-only)'
+    : 'Editing ' + label + ' #' + reqNo + (meta ? ' — ' + meta : '');
   document.getElementById('editBanner').classList.add('show');
+  if(locked) lockForm(); else unlockForm();
   updateDeleteBtnState();
   updateSaveAsNewBtnState();
   updateSubmitBtnLabel();
@@ -5157,13 +5325,22 @@ function enterEditMode(reqNo, meta){
 function exitEditMode(){
   isEditing = false;
   editingReqNo = null;
+  editingMeta = null;
   loadedRecordInWords = '';
   loadedRecordSheetTotal = null;
   document.getElementById('editBanner').classList.remove('show');
+  unlockForm();
   updateDeleteBtnState();
   updateSaveAsNewBtnState();
   updateSubmitBtnLabel();
 }
+
+document.getElementById('editBannerEditBtn').addEventListener('click', ()=>{
+  unlockForm();
+  const label = currentType==='budget' ? 'request' : 'liquidation';
+  document.getElementById('editBannerText').textContent =
+    'Editing ' + label + ' #' + editingReqNo + (editingMeta ? ' — ' + editingMeta : '');
+});
 
 // Makes the Save button's label honest about what it's about to do: update
 // an existing sheet row in place (loaded via the Choose picker or a
@@ -5394,7 +5571,7 @@ function applyRecordToForm(reqNo, rec){
   (rec.allowance || []).forEach(a=>addAllowanceItem(a.name, a.perDay, a.days));
 
   updateTotals();
-  enterEditMode(reqNo, rec.area);
+  enterEditMode(reqNo, rec.area, true);
   if(currentType === 'liquidation') refreshBudgetComparison();
   statusEl.className = 'status';
 
@@ -5658,7 +5835,10 @@ async function submitForm(btn, forceNew){
     // submitBtn has no other gating rule (always enabled), so re-enable it
     // directly; saveAsNewBtn and deleteBtn are gated by isEditing, so their
     // own state functions decide whether they end up enabled or disabled.
-    if(otherBtn) otherBtn.disabled = false;
+    // otherBtn === submitBtn after a "Save as New": if that just reloaded a
+    // record read-only (formLocked), leave Save disabled until Edit is
+    // clicked, instead of blindly re-enabling it here.
+    if(otherBtn && !(otherBtn.id === 'submitBtn' && formLocked)) otherBtn.disabled = false;
     updateDeleteBtnState();
     updateSaveAsNewBtnState();
   }
