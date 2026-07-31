@@ -3644,13 +3644,24 @@ html.page-fade-ready body {
       }
 
       function waitThenSettle(promise, startedAt, token) {
+        let settled = false;
         promise.then(function(success) {
+          if (settled) return; // safety-net timeout already fired
+          settled = true;
           const elapsed = Date.now() - startedAt;
           const remaining = Math.max(0, MIN_LOADING_MS - elapsed);
           setTimeout(function() {
             if (success) revealDashboard(undefined, token); else showError(token);
           }, remaining);
         });
+        // SAFETY NET: if the promise never resolves or rejects (a hung
+        // fetch, a stalled connection), don't leave the loading screen up
+        // forever -- surface the retry UI after a generous timeout.
+        setTimeout(function() {
+          if (settled) return;
+          settled = true;
+          showError(token);
+        }, 20000);
       }
 
       window.__runDashboardLoadingSequence = function() {
@@ -3659,7 +3670,10 @@ html.page-fade-ready body {
           // auth-check step — it just stays up with no visible change) so
           // there's continuous coverage right through until data is ready.
           const token = openBlankCover();
+          let settledFastReturn = false;
           window.dashboardDataReady.then(function(success) {
+            if (settledFastReturn) return; // safety net already fired
+            settledFastReturn = true;
             if (token !== generation) return; // superseded by a newer operation
             if (success) {
               closeBlankCover(token);
@@ -3671,6 +3685,20 @@ html.page-fade-ready body {
               showError(generation);
             }
           });
+          // SAFETY NET: unlike the instant boot splash above (which always
+          // times out after 6s), this blank cover previously had NO
+          // fallback at all -- if dashboardDataReady never settled (a
+          // hung fetch, a flaky connection, a promise that silently never
+          // resolves), the screen would stay a solid dark-blue cover
+          // forever with no way out. Force a reveal/error after a
+          // generous timeout so that can't happen.
+          setTimeout(function() {
+            if (settledFastReturn || token !== generation) return;
+            settledFastReturn = true;
+            loadingCore.classList.remove('hidden');
+            openLoadingScreen();
+            showError(generation);
+          }, 20000);
           return;
         }
         const token = openLoadingScreen();
@@ -10567,7 +10595,7 @@ html.page-fade-ready body {
         writeStoredActivityAt(lastActivityAt);
       }
     }
-    const IDLE_ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'wheel'];
+    const IDLE_ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'touchmove', 'wheel', 'click', 'input'];
     function startIdleTracking() {
       if (idleTrackingActive) return; // already tracking
 
@@ -10585,8 +10613,15 @@ html.page-fade-ready body {
       idleTrackingActive = true;
       lastActivityAt = stored !== null ? stored : Date.now();
       writeStoredActivityAt(lastActivityAt);
+      // IMPORTANT: registered with { capture: true }, not just passive.
+      // "scroll" (and, on some browsers, "wheel"/"touchmove" inside a
+      // nested overflow container) does NOT bubble, so a document-level
+      // listener in the normal bubble phase never sees someone scrolling
+      // through a data panel/modal -- they'd look "idle" and get signed
+      // out mid-use. Capture-phase listeners fire top-down on the way to
+      // the target regardless of bubbling, so they still catch it.
       IDLE_ACTIVITY_EVENTS.forEach(function(evt) {
-        document.addEventListener(evt, resetIdleTimer, { passive: true });
+        document.addEventListener(evt, resetIdleTimer, { passive: true, capture: true });
       });
       document.addEventListener('visibilitychange', checkIdleElapsed);
       idleCheckInterval = setInterval(checkIdleElapsed, IDLE_CHECK_INTERVAL_MS);
@@ -10599,7 +10634,7 @@ html.page-fade-ready body {
         idleCheckInterval = null;
       }
       IDLE_ACTIVITY_EVENTS.forEach(function(evt) {
-        document.removeEventListener(evt, resetIdleTimer);
+        document.removeEventListener(evt, resetIdleTimer, { capture: true });
       });
       document.removeEventListener('visibilitychange', checkIdleElapsed);
     }
