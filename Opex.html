@@ -4213,7 +4213,75 @@ async function fetchOpexBadges(fresh){
   applyOpexYearData(yearData);
 }
 
+// ---- OR No. / Date split+join, done entirely client-side ----
+// The sheet stores OR No. and Date for a Transport/Accommodation line in
+// ONE cell (e.g. "00215 - 7/6/26"). Previously the Apps Script backend
+// tried to split that on save/load, and got it wrong whenever the sheet's
+// header text for that column didn't exactly match what it was looking
+// for -- showing the combined text in the OR No. box with Date left blank.
+// This does the split/join here instead, so it no longer depends on the
+// backend recognizing anything about the sheet's column headers: whatever
+// single string comes back from the sheet for that field gets split here
+// before it's shown, and whatever the user types into the two boxes gets
+// joined back into one string here before it's sent to be saved.
+function pad2(n){ n = n.toString(); return n.length < 2 ? '0' + n : n; }
+
+// "00215 - 7/6/26", "00215 7/6/2026", or a lone date/lone OR No. -> {orNo, date}.
+// `date` comes back in ISO (yyyy-mm-dd) so it drops straight into an
+// <input type="date">. If no date-shaped substring is found, the whole
+// string is treated as OR No. and date is left blank (nothing to split).
+function splitOrDateClient(raw){
+  const s = (raw == null ? '' : raw.toString()).trim();
+  if(!s) return {orNo:'', date:''};
+  const m = s.match(/\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\/\d{1,2}\/\d{2,4}|\d{1,2}-\d{1,2}-\d{2,4}/);
+  if(!m) return {orNo:s, date:''};
+  const rawDate = m[0];
+  const orNo = s.replace(rawDate, '').replace(/^[\s\/\-,|]+|[\s\/\-,|]+$/g, '');
+  return {orNo, date: toIsoDateClient(rawDate)};
+}
+
+// "3/23/26", "3/23/2026", "03-23-26", or already-ISO "2026-03-23" -> "2026-03-23".
+function toIsoDateClient(dateStr){
+  dateStr = (dateStr || '').toString().trim();
+  if(!dateStr) return '';
+  let m = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(m) return `${m[1]}-${pad2(m[2])}-${pad2(m[3])}`;
+  m = dateStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if(m){
+    const yr = m[3].length === 2 ? '20' + m[3] : m[3];
+    return `${yr}-${pad2(m[1])}-${pad2(m[2])}`;
+  }
+  return dateStr; // unrecognized shape -- leave as-is rather than guess wrong
+}
+
+// "2026-03-23" -> "3/23/26", matching the sheet's own M/D/YY convention.
+function toShortDateClient(dateStr){
+  dateStr = (dateStr || '').toString().trim();
+  const m = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(!m) return dateStr; // not ISO (e.g. blank) -- pass through
+  return `${Number(m[2])}/${Number(m[3])}/${m[1].slice(2)}`;
+}
+
+// {orNo, date(ISO)} -> single "OR# - M/D/YY" string, ready to write into the
+// sheet's one combined cell. This is what gets sent to the backend now --
+// always as a single already-joined string in the `orNo` field, with `date`
+// sent empty -- so it doesn't matter which single column the backend script
+// finds/writes to; the full text lands there either way.
+function joinOrDateClient(orNo, date){
+  orNo = (orNo || '').toString().trim();
+  const displayDate = toShortDateClient(date);
+  if(orNo && displayDate) return `${orNo} - ${displayDate}`;
+  return orNo || displayDate || '';
+}
+
 function addLineItem(desc, mode, amount, orNo, date, insertBeforeEl){
+  // If Date wasn't already provided separately, treat orNo as possibly still
+  // holding the combined "OR# - date" text and split it here before display.
+  if(!date && orNo){
+    const split = splitOrDateClient(orNo);
+    orNo = split.orNo;
+    date = split.date;
+  }
   itemCount++;
   const row = document.createElement('tr');
   const modeOptions = TRANSPO_MODES.map(m=>`<option value="${m}" ${m===(mode||'')?'selected':''}>${m}</option>`).join('');
@@ -4345,6 +4413,12 @@ function addAllowanceItem(name, perDay, days){
 }
 
 function addAccommodationItem(amount, days, orNo, date){
+  // Same client-side split as addLineItem -- see splitOrDateClient above.
+  if(!date && orNo){
+    const split = splitOrDateClient(orNo);
+    orNo = split.orNo;
+    date = split.date;
+  }
   accCount++;
   const row = document.createElement('tr');
   row.innerHTML = `
@@ -5774,8 +5848,14 @@ async function submitForm(btn, forceNew){
     description: row.querySelector('.li-desc').value,
     mode: row.querySelector('.li-mode').value,
     amount: parseNum(row.querySelector('.li-amt').value),
-    orNo: row.querySelector('.li-or').value,
-    date: row.querySelector('.li-date').value
+    // Joined client-side into one "OR# - M/D/YY" string and sent as orNo,
+    // with date left empty -- the sheet only has one physical cell for
+    // this, so joining it here (instead of relying on the backend script
+    // to correctly detect two separate columns from header text) is what
+    // makes OR No./Date saving reliable no matter how that sheet column
+    // happens to be labeled.
+    orNo: joinOrDateClient(row.querySelector('.li-or').value, row.querySelector('.li-date').value),
+    date: ''
   }));
   // Keep any blank row sitting BETWEEN filled rows -- it's a deliberate
   // space and must stay at its own position so it lands in the right
@@ -5793,8 +5873,9 @@ async function submitForm(btn, forceNew){
   const accommodation = [...accommodationItemsEl.querySelectorAll('tr')].map(row=>({
     amount: parseNum(row.querySelector('.ac-amt').value),
     days: Number(row.querySelector('.ac-days').value) || 0,
-    orNo: row.querySelector('.ac-or').value,
-    date: row.querySelector('.ac-date').value
+    // Same client-side join as the transport lines above.
+    orNo: joinOrDateClient(row.querySelector('.ac-or').value, row.querySelector('.ac-date').value),
+    date: ''
   })).filter(a=>a.amount || a.days || a.orNo || a.date);
 
   // items can now include intentional blank/spacer rows (see
