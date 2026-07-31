@@ -2717,6 +2717,29 @@ html.page-fade-ready body {
       position: relative;
       z-index: 70;
     }
+
+    /* Always-visible scrollbars -- keeps a permanent, visible track on the
+       right side of the page (and inside any table that scrolls sideways)
+       instead of relying on an auto-hiding overlay scrollbar, so it's
+       always obvious there's more content and roughly where you are in it. */
+    html{
+      scrollbar-gutter: stable;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(100,116,139,0.55) transparent;
+    }
+    *{
+      scrollbar-width: thin;
+      scrollbar-color: rgba(100,116,139,0.55) transparent;
+    }
+    ::-webkit-scrollbar{ width: 11px; height: 11px; }
+    ::-webkit-scrollbar-track{ background: transparent; }
+    ::-webkit-scrollbar-thumb{
+      background-color: rgba(100,116,139,0.55);
+      border-radius: 8px;
+      border: 2px solid transparent;
+      background-clip: content-box;
+    }
+    ::-webkit-scrollbar-thumb:hover{ background-color: rgba(71,85,105,0.75); }
   </style>
 
   <div id="authGate" class="fixed inset-0 z-[200] flex items-center justify-center p-4">
@@ -10905,11 +10928,59 @@ html.page-fade-ready body {
       if (cur) cur.classList.remove('kbd-nav-active');
     }
 
+    // Native scrollIntoView is unreliable for elements inside horizontally
+    // scrolling wrappers (common for the data tables here) and for nested
+    // scroll containers -- it often only handles the outermost one. This
+    // walks every scrollable ancestor from the element up to the page and
+    // nudges each one, in both axes, so the selection is always actually
+    // visible no matter which direction you arrowed into it from.
+    function bringFullyIntoView(el) {
+      var PAD = 16;
+      var node = el.parentElement;
+
+      while (node && node !== document.documentElement) {
+        var cs = window.getComputedStyle(node);
+        var canScrollX = /(auto|scroll)/.test(cs.overflowX) && node.scrollWidth > node.clientWidth + 1;
+        var canScrollY = /(auto|scroll)/.test(cs.overflowY) && node.scrollHeight > node.clientHeight + 1;
+
+        if (canScrollX || canScrollY) {
+          var elRect = el.getBoundingClientRect();
+          var contRect = node.getBoundingClientRect();
+
+          if (canScrollX) {
+            if (elRect.left < contRect.left) {
+              node.scrollLeft -= (contRect.left - elRect.left) + PAD;
+            } else if (elRect.right > contRect.right) {
+              node.scrollLeft += (elRect.right - contRect.right) + PAD;
+            }
+          }
+          if (canScrollY) {
+            if (elRect.top < contRect.top) {
+              node.scrollTop -= (contRect.top - elRect.top) + PAD;
+            } else if (elRect.bottom > contRect.bottom) {
+              node.scrollTop += (elRect.bottom - contRect.bottom) + PAD;
+            }
+          }
+        }
+        node = node.parentElement;
+      }
+
+      // Finally make sure it's within the browser viewport itself.
+      var r = el.getBoundingClientRect();
+      if (r.top < 0 || r.bottom > window.innerHeight) {
+        el.scrollIntoView({ block: 'nearest' });
+      }
+      r = el.getBoundingClientRect();
+      if (r.left < 0 || r.right > window.innerWidth) {
+        el.scrollIntoView({ inline: 'nearest' });
+      }
+    }
+
     function highlight(el, opts) {
       clearHighlightOnly();
       el.classList.add('kbd-nav-active');
       if (!opts || !opts.silent) {
-        el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        bringFullyIntoView(el);
       }
     }
 
