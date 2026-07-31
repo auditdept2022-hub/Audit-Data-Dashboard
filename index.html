@@ -2708,6 +2708,14 @@ html.page-fade-ready body {
       background-repeat:no-repeat; background-position:center; background-size:70%;
     }
     .auth-remember span{ font-size:.8rem; color:#475569; font-weight:600; }
+
+    /* Keyboard arrow-key selection highlight (see kbd-nav script near </body>) */
+    .kbd-nav-active{
+      outline: 2px solid #0891b2 !important;
+      outline-offset: -2px;
+      background-color: rgba(8,145,178,0.12) !important;
+      box-shadow: 0 0 0 3px rgba(8,145,178,0.18);
+    }
   </style>
 
   <div id="authGate" class="fixed inset-0 z-[200] flex items-center justify-center p-4">
@@ -10848,5 +10856,127 @@ html.page-fade-ready body {
     }
   })();
 </script>
+
+  <!-- ================= ARROW-KEY SELECTION (GLOBAL) =================
+       Lets you use Up/Down to move a highlighted "selection" across any
+       clickable list on the page (menu tiles, table rows, branch pills,
+       etc.) and Enter to activate whatever's highlighted. Works generically
+       via event delegation, so it also covers rows/tiles that get
+       re-rendered dynamically by the dashboard's own JS. -->
+  <script>
+  (function () {
+    // Anything matching this is treated as a "selectable" item. Covers the
+    // menu tiles / branch pills (role=button + tabindex) and every clickable
+    // table row (tr[onclick]) rendered throughout the dashboard.
+    var SELECTABLE_SELECTOR = '[role="button"][tabindex], tr[onclick]';
+
+    function isVisible(el) {
+      return !!(el && el.offsetParent !== null);
+    }
+
+    function currentSelected() {
+      return document.querySelector('.kbd-nav-active');
+    }
+
+    function clearHighlight() {
+      var cur = currentSelected();
+      if (cur) cur.classList.remove('kbd-nav-active');
+    }
+
+    function highlight(el) {
+      clearHighlight();
+      el.classList.add('kbd-nav-active');
+      el.scrollIntoView({ block: 'nearest' });
+    }
+
+    // The "group" an item navigates within is its visible siblings that are
+    // also selectable -- e.g. all tiles in one menu grid, or all rows in one
+    // table body -- so Up/Down never jumps across unrelated lists.
+    function groupFor(el) {
+      var parent = el.parentElement;
+      if (!parent) return [el];
+      return Array.prototype.filter.call(parent.children, function (c) {
+        return c.matches && c.matches(SELECTABLE_SELECTOR) && isVisible(c);
+      });
+    }
+
+    function firstSelectableOnPage() {
+      var all = Array.prototype.filter.call(
+        document.querySelectorAll(SELECTABLE_SELECTOR),
+        isVisible
+      );
+      return all[0] || null;
+    }
+
+    document.addEventListener('keydown', function (e) {
+      var isArrow = e.key === 'ArrowDown' || e.key === 'ArrowUp';
+      var isEnter = e.key === 'Enter';
+      if (!isArrow && !isEnter) return;
+
+      var activeTag = document.activeElement && document.activeElement.tagName;
+      // Don't hijack arrows/Enter while typing in a real form control --
+      // native <select> dropdowns already support Up/Down on their own.
+      if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') return;
+      if (document.activeElement && document.activeElement.isContentEditable) return;
+
+      if (isEnter) {
+        var sel = currentSelected();
+        if (sel) {
+          e.preventDefault();
+          sel.click();
+        }
+        return;
+      }
+
+      e.preventDefault();
+
+      var focusedEl = (document.activeElement && document.activeElement.matches &&
+        document.activeElement.matches(SELECTABLE_SELECTOR))
+        ? document.activeElement
+        : currentSelected();
+
+      var group, idx;
+      if (focusedEl && document.body.contains(focusedEl)) {
+        group = groupFor(focusedEl);
+        idx = group.indexOf(focusedEl);
+      } else {
+        var first = firstSelectableOnPage();
+        if (!first) return;
+        group = groupFor(first);
+        idx = -1;
+      }
+      if (!group.length) return;
+
+      if (idx === -1) {
+        idx = e.key === 'ArrowDown' ? 0 : group.length - 1;
+      } else if (e.key === 'ArrowDown') {
+        idx = Math.min(idx + 1, group.length - 1);
+      } else {
+        idx = Math.max(idx - 1, 0);
+      }
+
+      var next = group[idx];
+      if (next) {
+        if (!next.hasAttribute('tabindex')) next.setAttribute('tabindex', '-1');
+        next.focus({ preventScroll: true });
+        highlight(next);
+      }
+    });
+
+    // Clicking an item also selects it, so Up/Down naturally continues from
+    // wherever you last clicked.
+    document.addEventListener('click', function (e) {
+      var item = e.target.closest(SELECTABLE_SELECTOR);
+      if (item) highlight(item);
+    });
+
+    // If the highlighted item gets removed from the DOM (e.g. table
+    // re-rendered after a filter change), drop the stale reference.
+    new MutationObserver(function () {
+      var cur = currentSelected();
+      if (cur && !document.body.contains(cur)) clearHighlight();
+    }).observe(document.body, { childList: true, subtree: true });
+  })();
+  </script>
 
 </body></html>
