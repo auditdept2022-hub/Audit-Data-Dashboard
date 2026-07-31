@@ -10858,17 +10858,14 @@ html.page-fade-ready body {
 </script>
 
   <!-- ================= ARROW-KEY SELECTION (GLOBAL) =================
-       Lets you use Up/Down to move a highlighted "selection" across any
-       clickable list on the page (menu tiles, table rows, branch pills,
-       etc.) and Enter to activate whatever's highlighted. Works generically
-       via event delegation, so it also covers rows/tiles that get
-       re-rendered dynamically by the dashboard's own JS. -->
+       Lets you use Up/Down/Left/Right to move a highlighted "selection"
+       through every clickable thing on the page (menu tiles, table rows,
+       branch pills, buttons, links) and Enter to activate whatever's
+       highlighted. Navigation walks one flat list in on-screen DOM order,
+       so nothing gets "stuck" just because it has no matching siblings. -->
   <script>
   (function () {
-    // Anything matching this is treated as a "selectable" item. Covers the
-    // menu tiles / branch pills (role=button + tabindex), every clickable
-    // table row (tr[onclick]), real <button> elements (used throughout the
-    // modals/popups), and plain links -- so popups get selection too.
+    // Anything matching this is treated as a "selectable" item.
     var SELECTABLE_SELECTOR =
       '[role="button"][tabindex], tr[onclick], button:not([disabled]), a[href]';
 
@@ -10888,24 +10885,12 @@ html.page-fade-ready body {
     function highlight(el) {
       clearHighlight();
       el.classList.add('kbd-nav-active');
-      el.scrollIntoView({ block: 'nearest' });
-    }
-
-    // The "group" an item navigates within is its visible siblings that are
-    // also selectable -- e.g. all tiles in one menu grid, or all rows in one
-    // table body -- so Up/Down never jumps across unrelated lists.
-    function groupFor(el) {
-      var parent = el.parentElement;
-      if (!parent) return [el];
-      return Array.prototype.filter.call(parent.children, function (c) {
-        return c.matches && c.matches(SELECTABLE_SELECTOR) && isVisible(c);
-      });
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }
 
     // Modals/popups in this dashboard all share this "fixed inset-0" overlay
     // pattern and are shown/hidden via the .hidden class. When one is open,
-    // navigation should start (and stay) inside it rather than jumping to
-    // tiles/rows in the page behind it.
+    // navigation is scoped to it, so arrows can't drift to tiles/rows behind it.
     function topmostOpenModal() {
       var candidates = Array.prototype.filter.call(
         document.querySelectorAll('.fixed.inset-0'),
@@ -10924,21 +10909,23 @@ html.page-fade-ready body {
       return candidates[0];
     }
 
-    function firstSelectableOnPage() {
+    // One flat list, in on-screen (DOM) order, of everything navigable right
+    // now. Rebuilt fresh on every key press so it always matches whatever
+    // the dashboard just rendered (filters, re-drawn tables, etc.).
+    function selectableList() {
       var modal = topmostOpenModal();
       var scope = modal || document;
-      var all = Array.prototype.filter.call(
+      var list = Array.prototype.filter.call(
         scope.querySelectorAll(SELECTABLE_SELECTOR),
         isVisible
       );
-      if (!all.length && modal) {
-        // Modal had nothing selectable in it -- fall back to the page.
-        all = Array.prototype.filter.call(
+      if (!list.length && modal) {
+        list = Array.prototype.filter.call(
           document.querySelectorAll(SELECTABLE_SELECTOR),
           isVisible
         );
       }
-      return all[0] || null;
+      return list;
     }
 
     document.addEventListener('keydown', function (e) {
@@ -10964,42 +10951,26 @@ html.page-fade-ready body {
         return;
       }
 
-      e.preventDefault();
+      var list = selectableList();
+      if (!list.length) return; // nothing to select -- let arrows scroll normally
 
-      var focusedEl = (document.activeElement && document.activeElement.matches &&
-        document.activeElement.matches(SELECTABLE_SELECTOR))
-        ? document.activeElement
-        : currentSelected();
+      var cur = currentSelected();
+      var idx = cur ? list.indexOf(cur) : -1;
 
-      // If a modal/popup is open and the current selection sits behind it
-      // (e.g. it's the tile that was clicked to open the modal), restart
-      // navigation from inside the modal instead.
-      var openModal = topmostOpenModal();
-      if (openModal && focusedEl && !openModal.contains(focusedEl)) {
-        focusedEl = null;
-      }
-
-      var group, idx;
-      if (focusedEl && document.body.contains(focusedEl)) {
-        group = groupFor(focusedEl);
-        idx = group.indexOf(focusedEl);
-      } else {
-        var first = firstSelectableOnPage();
-        if (!first) return;
-        group = groupFor(first);
-        idx = -1;
-      }
-      if (!group.length) return;
-
+      // If the previously-selected item isn't in the current list (e.g. it
+      // got scoped out because a modal opened, or it was re-rendered away),
+      // start fresh from the beginning/end of the list.
       if (idx === -1) {
-        idx = isNext ? 0 : group.length - 1;
+        idx = isNext ? 0 : list.length - 1;
       } else if (isNext) {
-        idx = Math.min(idx + 1, group.length - 1);
+        idx = Math.min(idx + 1, list.length - 1);
       } else {
         idx = Math.max(idx - 1, 0);
       }
 
-      var next = group[idx];
+      e.preventDefault();
+
+      var next = list[idx];
       if (next) {
         if (!next.hasAttribute('tabindex')) next.setAttribute('tabindex', '-1');
         next.focus({ preventScroll: true });
@@ -11007,7 +10978,7 @@ html.page-fade-ready body {
       }
     });
 
-    // Clicking an item also selects it, so Up/Down naturally continues from
+    // Clicking an item also selects it, so arrows naturally continue from
     // wherever you last clicked.
     document.addEventListener('click', function (e) {
       var item = e.target.closest(SELECTABLE_SELECTOR);
