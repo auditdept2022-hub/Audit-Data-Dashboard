@@ -4034,7 +4034,11 @@ function updateBanner(){
 updateBanner();
 setInterval(updateBanner, 1000);
 
-const TRANSPO_MODES = ['SERVICE UNIT','BUS','TRICYCLE','MINI BUS','JEEP','TRAIN','FERRY','VAN','TAXICLE'];
+// Leading '' entry renders as a blank option -- selected by default on a
+// brand-new/blank line so an intentional spacer row (no Description, no
+// Amount) also shows an empty Mode, instead of "SERVICE UNIT" making it
+// look like a real, half-filled-in line item.
+const TRANSPO_MODES = ['','SERVICE UNIT','BUS','TRICYCLE','MINI BUS','JEEP','TRAIN','FERRY','VAN','TAXICLE'];
 
 // Disable "+ Add transport/allowance line" and show a warning once the form
 // has as many lines as the connected sheet has columns for. If the limit
@@ -4212,7 +4216,7 @@ async function fetchOpexBadges(fresh){
 function addLineItem(desc, mode, amount, orNo, date, insertBeforeEl){
   itemCount++;
   const row = document.createElement('tr');
-  const modeOptions = TRANSPO_MODES.map(m=>`<option value="${m}" ${m===(mode||'SERVICE UNIT')?'selected':''}>${m}</option>`).join('');
+  const modeOptions = TRANSPO_MODES.map(m=>`<option value="${m}" ${m===(mode||'')?'selected':''}>${m}</option>`).join('');
   row.innerHTML = `
     <td class="col-drag"><span class="drag-handle" draggable="true" title="Drag to reorder">&#8942;&#8942;</span></td>
     <td><input type="text" class="li-desc" value="${desc||''}" placeholder=""></td>
