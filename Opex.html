@@ -3732,10 +3732,10 @@
         <label>Request Name (Prepared By)</label>
         <select id="requestName">
           <option value="">— Select —</option>
-          <option value="GENESIS LOPEZ">GENESIS LOPEZ</option>
-          <option value="EDISON IBARLIN">EDISON IBARLIN</option>
-          <option value="KARL JENARD DEL RIO">KARL JENARD DEL RIO</option>
-          <option value="JOHN LAURENCE AGUILAR">JOHN LAURENCE AGUILAR</option>
+          <option value="GENESIS S LOPEZ">GENESIS S LOPEZ</option>
+          <option value="EDISON C IBARLIN">EDISON C IBARLIN</option>
+          <option value="KARL JENARD C DEL RIO">KARL JENARD C DEL RIO</option>
+          <option value="JOHN LAURENCE G AGUILAR">JOHN LAURENCE G AGUILAR</option>
         </select>
       </div>
       <div id="toField" style="display:none;">
@@ -3747,10 +3747,10 @@
         <label>Checked By</label>
         <select id="checkedBy">
           <option value="">— Select —</option>
-          <option value="GENESIS LOPEZ">GENESIS LOPEZ</option>
-          <option value="EDISON IBARLIN">EDISON IBARLIN</option>
-          <option value="KARL JENARD DEL RIO">KARL JENARD DEL RIO</option>
-          <option value="JOHN LAURENCE AGUILAR">JOHN LAURENCE AGUILAR</option>
+          <option value="GENESIS S LOPEZ">GENESIS S LOPEZ</option>
+          <option value="EDISON C IBARLIN">EDISON C IBARLIN</option>
+          <option value="KARL JENARD C DEL RIO">KARL JENARD C DEL RIO</option>
+          <option value="JOHN LAURENCE G AGUILAR">JOHN LAURENCE G AGUILAR</option>
         </select>
       </div>
     </div>
@@ -4003,17 +4003,17 @@ function formatNum(n){
 function isBlankTranspoItem(i){
   return !(i.description && i.description.trim()) && !i.amount;
 }
-// Trims BLANK rows off only the very END of the list (unused/padding rows
-// left over from "+ Add transport line", or the single default empty row on
-// a brand-new form). A blank row sitting IN BETWEEN two filled rows is kept
-// -- it's a deliberate spacer, and dropping it would squeeze every line
-// after it up by one position, landing it in the wrong TRANSPO column group
-// on DATA - BUDGET. Used by both submitForm() and buildPrintDocument() so
-// what prints and what saves always agree on which rows are "real".
+// NOTE: this used to trim blank rows off the END of the list too (treating
+// them as unused/padding rows from "+ Add transport line" or the default
+// empty row on a brand-new form). That meant a blank row deliberately left
+// as a spacer at the BOTTOM of the table got silently dropped the moment
+// you saved -- it would look fine on screen, then vanish the next time you
+// reopened the request. Blank rows are now always kept wherever they sit
+// (start, middle, or end) so what you see is exactly what gets saved and
+// reloaded. Used by both submitForm() and buildPrintDocument() so what
+// prints and what saves always agree on which rows are "real".
 function trimTrailingBlankItems(items){
-  let end = items.length;
-  while(end > 0 && isBlankTranspoItem(items[end-1])) end--;
-  return items.slice(0, end);
+  return items;
 }
 function wireCommaField(input){
   input.addEventListener('focus', ()=>{
@@ -5603,7 +5603,7 @@ function applyRecordToForm(reqNo, rec){
     document.getElementById('to').value = rec.to || 'MS. ANNA M. CASTILLO / EMMYLOU S. DE CHAVEZ';
     document.getElementById('budgetReqNo').value = rec.budgetReqNo || '';
   }
-  document.getElementById('checkedBy').value = rec.checkedBy || 'KARL JENARD DEL RIO';
+  document.getElementById('checkedBy').value = rec.checkedBy || 'KARL JENARD C DEL RIO';
 
   lineItemsEl.innerHTML = '';
   itemCount = 0;
@@ -5797,7 +5797,11 @@ async function submitForm(btn, forceNew){
     date: row.querySelector('.ac-date').value
   })).filter(a=>a.amount || a.days || a.orNo || a.date);
 
-  if(items.length===0 && allowance.length===0 && accommodation.length===0){
+  // items can now include intentional blank/spacer rows (see
+  // trimTrailingBlankItems() above), so "is there actually anything on this
+  // form" has to ignore those rather than just checking items.length.
+  const hasRealTranspoLine = items.some(i=>!isBlankTranspoItem(i));
+  if(!hasRealTranspoLine && allowance.length===0 && accommodation.length===0){
     statusEl.textContent = 'Add at least one transport, accommodation, or allowance line before submitting.';
     statusEl.classList.add('err');
     return;
@@ -6239,6 +6243,22 @@ function toMDY(dateStr){
   return `${pad2(m[2])}/${pad2(m[3])}/${m[1]}`;
 }
 
+function toInitials(name){
+  if(!name) return '';
+  const COMPOUND_PREFIXES = new Set(['DEL','DELA','DELOS','DE','LOS','LAS','SAN','STO','STA','MAC','MC','VAN','VON']);
+  const words = name.trim().toUpperCase().split(/\s+/).filter(Boolean);
+  let out = '';
+  for (let i = 0; i < words.length; i++){
+    const w = words[i];
+    if (!/^[A-Z]/.test(w)) continue;
+    out += w.charAt(0);
+    if (COMPOUND_PREFIXES.has(w) && i + 1 < words.length){
+      i++; // absorb the next word into this surname unit, no extra initial
+    }
+  }
+  return out;
+}
+
 function buildVoucherDocument({ amountOverride, particularOverride } = {}){
   const reqNo = document.getElementById('reqNo').value || '—';
   const date = document.getElementById('date').value || '—';
@@ -6302,12 +6322,12 @@ function buildVoucherDocument({ amountOverride, particularOverride } = {}){
         <div class="aw-total">${fmtPeso(totalAmount)}</div>
       </div>
       <div class="cv-sign-grid">
-        <div class="cv-sign-col"><div class="k">Prepared By:</div><div class="cv-sign-val">${esc(preparedBy)}</div></div>
-        <div class="cv-sign-col"><div class="k">Checked By:</div><div class="cv-sign-val">${checkedBy ? esc(checkedBy) : '&nbsp;'}</div></div>
+        <div class="cv-sign-col"><div class="k">Prepared By:</div><div class="cv-sign-val">${esc(toInitials(preparedBy))}</div></div>
+        <div class="cv-sign-col"><div class="k">Checked By:</div><div class="cv-sign-val">${checkedBy ? esc(toInitials(checkedBy)) : '&nbsp;'}</div></div>
         <div class="cv-sign-col"><div class="k">Approved By:</div><div class="cv-sign-val">&nbsp;</div></div>
         <div class="cv-received">
           <div class="k">Received the full payment amount described above</div>
-          <div class="cv-by-row">BY: <span class="cv-by-line">${esc(preparedBy)}</span></div>
+          <div class="cv-by-row">BY: <span class="cv-by-line">${esc(toInitials(preparedBy))}</span></div>
           <div class="cv-rescert">RES. CERT. NO. ___________ DATE ___________ PLACE ___________</div>
         </div>
       </div>
