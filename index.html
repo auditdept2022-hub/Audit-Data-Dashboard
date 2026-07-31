@@ -2711,10 +2711,11 @@ html.page-fade-ready body {
 
     /* Keyboard arrow-key selection highlight (see kbd-nav script near </body>) */
     .kbd-nav-active{
-      outline: 2px solid #0891b2 !important;
-      outline-offset: -2px;
-      background-color: rgba(8,145,178,0.12) !important;
-      box-shadow: 0 0 0 3px rgba(8,145,178,0.18);
+      outline: 3px solid #f59e0b !important;
+      outline-offset: 2px;
+      box-shadow: 0 0 0 5px rgba(245,158,11,0.35), 0 0 12px rgba(245,158,11,0.55) !important;
+      position: relative;
+      z-index: 70;
     }
   </style>
 
@@ -10864,7 +10865,11 @@ html.page-fade-ready body {
        (menu tiles, table rows, branch pills, buttons, links, form fields),
        Enter/Space activates it, and Escape clears the selection. When
        there's nothing further in the pressed direction, the key falls
-       through to the browser's normal behavior (e.g. scrolling the page). -->
+       through to the browser's normal behavior (e.g. scrolling the page).
+
+       The main dashboard and each popup/modal keep their OWN remembered
+       selection. Opening a popup doesn't lose your spot on the dashboard --
+       closing the popup puts the highlight right back where it was. -->
   <script>
   (function () {
     // Anything matching this is treated as a "selectable" item.
@@ -10876,24 +10881,40 @@ html.page-fade-ready body {
       return !!(el && el.offsetParent !== null);
     }
 
-    function currentSelected() {
-      return document.querySelector('.kbd-nav-active');
+    // ---- Per-scope selection memory -----------------------------------
+    // 'main' = the dashboard itself. Every open modal/popup gets its own
+    // slot too (keyed by the modal element), so each remembers its own
+    // last-highlighted item independently of the dashboard and of each other.
+    var mainSelection = null;
+    var modalSelections = new Map();
+
+    function getRemembered(scopeEl) {
+      var el = scopeEl ? modalSelections.get(scopeEl) : mainSelection;
+      if (el && document.body.contains(el) && isVisible(el)) return el;
+      if (scopeEl) modalSelections.delete(scopeEl); else mainSelection = null;
+      return null;
     }
 
-    function clearHighlight() {
-      var cur = currentSelected();
+    function setRemembered(scopeEl, el) {
+      if (scopeEl) modalSelections.set(scopeEl, el);
+      else mainSelection = el;
+    }
+
+    function clearHighlightOnly() {
+      var cur = document.querySelector('.kbd-nav-active');
       if (cur) cur.classList.remove('kbd-nav-active');
     }
 
-    function highlight(el) {
-      clearHighlight();
+    function highlight(el, opts) {
+      clearHighlightOnly();
       el.classList.add('kbd-nav-active');
-      el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      if (!opts || !opts.silent) {
+        el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
     }
 
     // Modals/popups in this dashboard all share this "fixed inset-0" overlay
-    // pattern and are shown/hidden via the .hidden class. When one is open,
-    // navigation is scoped to it, so arrows can't drift to tiles/rows behind it.
+    // pattern and are shown/hidden via the .hidden class.
     function topmostOpenModal() {
       var candidates = Array.prototype.filter.call(
         document.querySelectorAll('.fixed.inset-0'),
@@ -10912,14 +10933,13 @@ html.page-fade-ready body {
       return candidates[0];
     }
 
-    function selectableList() {
-      var modal = topmostOpenModal();
-      var scope = modal || document;
+    function selectableList(scopeEl) {
+      var scope = scopeEl || document;
       var list = Array.prototype.filter.call(
         scope.querySelectorAll(SELECTABLE_SELECTOR),
         isVisible
       );
-      if (!list.length && modal) {
+      if (!list.length && scopeEl) {
         list = Array.prototype.filter.call(
           document.querySelectorAll(SELECTABLE_SELECTOR),
           isVisible
@@ -10933,10 +10953,8 @@ html.page-fade-ready body {
     }
 
     // Picks the closest item that's actually in the pressed direction from
-    // the current item, the way real spatial keyboard navigation works:
-    // items roughly aligned on the cross-axis (same column for up/down,
-    // same row for left/right) are preferred over items that are merely
-    // "somewhere over there".
+    // the current item -- items aligned on the cross-axis (same column for
+    // up/down, same row for left/right) are preferred.
     function findInDirection(dir, curRect, candidates) {
       var cur = centerOf(curRect);
       var best = null;
@@ -10966,8 +10984,6 @@ html.page-fade-ready body {
         }
 
         if (!inDirection) return;
-        // Weight cross-axis offset more heavily so navigation stays within
-        // the same row/column/grid whenever something qualifies there.
         var score = primary + cross * 2;
         if (score < bestScore) {
           bestScore = score;
@@ -10976,6 +10992,24 @@ html.page-fade-ready body {
       });
 
       return best;
+    }
+
+    var lastModal = null;
+
+    // Whenever the open modal changes (opened/closed/switched), restore
+    // whatever that new scope had highlighted last time, silently (no
+    // scroll jump) -- this is what makes the dashboard selection "come
+    // back" after you close a popup.
+    function syncHighlightToScope() {
+      var modal = topmostOpenModal();
+      if (modal === lastModal) return;
+      lastModal = modal;
+      var remembered = getRemembered(modal);
+      if (remembered) {
+        highlight(remembered, { silent: true });
+      } else {
+        clearHighlightOnly();
+      }
     }
 
     document.addEventListener('keydown', function (e) {
@@ -10988,18 +11022,23 @@ html.page-fade-ready body {
       var activeTag = document.activeElement && document.activeElement.tagName;
       var inFormField = activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT';
       if (document.activeElement && document.activeElement.isContentEditable) return;
-      // Inside a real form field, only take over Enter (submit-ish) and
-      // Escape (blur) -- arrows should type/move the caret/scroll the
-      // native <select> like normal.
       if (inFormField && dir) return;
 
+      var modal = topmostOpenModal();
+      lastModal = modal;
+
       if (isEscape) {
-        if (currentSelected()) { clearHighlight(); document.activeElement && document.activeElement.blur && document.activeElement.blur(); }
+        var curEsc = document.querySelector('.kbd-nav-active');
+        if (curEsc) {
+          clearHighlightOnly();
+          setRemembered(modal, null);
+          document.activeElement && document.activeElement.blur && document.activeElement.blur();
+        }
         return;
       }
 
       if (isEnter) {
-        var sel = currentSelected();
+        var sel = document.querySelector('.kbd-nav-active');
         if (sel && !inFormField) {
           e.preventDefault();
           sel.click();
@@ -11007,23 +11046,35 @@ html.page-fade-ready body {
         return;
       }
 
-      var list = selectableList();
+      var list = selectableList(modal);
       if (!list.length) return; // nothing to select -- let the arrow scroll normally
 
-      var cur = currentSelected();
+      var cur = getRemembered(modal);
       var next;
+      var isNext = dir === 'down' || dir === 'right';
 
-      if (!cur || !document.body.contains(cur)) {
-        // No current selection: land on the first item in reading order,
-        // filtered loosely by direction so Up/Left starts near the bottom/
-        // right of the visible area instead of always the very first item.
+      if (!cur) {
         next = list[0];
       } else {
         var curRect = cur.getBoundingClientRect();
         next = findInDirection(dir, curRect, list.filter(function (el) { return el !== cur; }));
+
+        // Spatial matching can miss valid next/previous items in dense
+        // lists or tables (e.g. two rows with near-identical geometry).
+        // Prefer selecting the next/previous item in the list over
+        // silently falling back to page scroll -- selection should win.
+        if (!next) {
+          var curIdx = list.indexOf(cur);
+          if (curIdx !== -1) {
+            var fallbackIdx = isNext ? curIdx + 1 : curIdx - 1;
+            if (fallbackIdx >= 0 && fallbackIdx < list.length) {
+              next = list[fallbackIdx];
+            }
+          }
+        }
       }
 
-      if (!next) return; // nothing further that way -- let the browser scroll the page
+      if (!next) return; // truly nothing left to select that way -- let the browser scroll the page
 
       e.preventDefault();
       if (!next.hasAttribute('tabindex') && !/^(input|select|textarea|button|a)$/i.test(next.tagName)) {
@@ -11031,26 +11082,35 @@ html.page-fade-ready body {
       }
       next.focus({ preventScroll: true });
       highlight(next);
+      setRemembered(modal, next);
     });
 
-    // Clicking or naturally tabbing to an item also selects it, so arrows
-    // continue from wherever you last interacted.
+    // Clicking or tabbing to an item also selects it (within whatever scope
+    // is currently open), so arrows continue from wherever you last interacted.
     document.addEventListener('click', function (e) {
       var item = e.target.closest(SELECTABLE_SELECTOR);
-      if (item) highlight(item);
+      if (item) {
+        var modal = topmostOpenModal();
+        highlight(item, { silent: true });
+        setRemembered(modal, item);
+      }
     });
     document.addEventListener('focusin', function (e) {
       if (e.target && e.target.matches && e.target.matches(SELECTABLE_SELECTOR)) {
-        highlight(e.target);
+        var modal = topmostOpenModal();
+        highlight(e.target, { silent: true });
+        setRemembered(modal, e.target);
       }
     });
 
-    // If the highlighted item gets removed from the DOM (e.g. table
-    // re-rendered after a filter change), drop the stale reference.
+    // Watches for popups opening/closing (class or style changes) and for
+    // re-rendered content, so the right scope's remembered selection is
+    // always the one shown.
     new MutationObserver(function () {
-      var cur = currentSelected();
-      if (cur && !document.body.contains(cur)) clearHighlight();
-    }).observe(document.body, { childList: true, subtree: true });
+      syncHighlightToScope();
+      var cur = document.querySelector('.kbd-nav-active');
+      if (cur && !document.body.contains(cur)) clearHighlightOnly();
+    }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
   })();
   </script>
 
