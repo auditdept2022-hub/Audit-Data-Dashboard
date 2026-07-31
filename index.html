@@ -10936,6 +10936,31 @@ html.page-fade-ready body {
     // scroll containers. This walks every scrollable ancestor from the
     // element up to the page and nudges each one, in both axes, so the
     // selection is always actually visible.
+    // Detects `position: sticky` elements currently pinned at the top of
+    // a given container (or of the window, if scopeEl is null) and
+    // returns how much vertical space they're covering right now. A
+    // sticky table header or the page's sticky top bar stays visually on
+    // top of the content even when that content is technically inside
+    // the scrollable area's bounding box -- without this, a row could be
+    // scrolled "into view" and still end up hidden underneath one.
+    function stickyTopCoverage(containerTop, scopeEl) {
+      var covered = 0;
+      var stickies = (scopeEl || document).querySelectorAll('.sticky');
+      for (var i = 0; i < stickies.length; i++) {
+        var s = stickies[i];
+        if (!isVisible(s)) continue;
+        if (scopeEl && !scopeEl.contains(s)) continue;
+        var cs = window.getComputedStyle(s);
+        if (cs.position !== 'sticky') continue;
+        var r = s.getBoundingClientRect();
+        if (r.height === 0) continue;
+        if (Math.abs(r.top - containerTop) < 2) {
+          covered = Math.max(covered, r.bottom - containerTop);
+        }
+      }
+      return covered;
+    }
+
     function bringFullyIntoView(el) {
       var PAD = 16;
       var node = el.parentElement;
@@ -10948,6 +10973,7 @@ html.page-fade-ready body {
         if (canScrollX || canScrollY) {
           var elRect = el.getBoundingClientRect();
           var contRect = node.getBoundingClientRect();
+          var visibleTop = contRect.top + (canScrollY ? stickyTopCoverage(contRect.top, node) : 0);
 
           if (canScrollX) {
             if (elRect.left < contRect.left) {
@@ -10957,8 +10983,8 @@ html.page-fade-ready body {
             }
           }
           if (canScrollY) {
-            if (elRect.top < contRect.top) {
-              node.scrollTop -= (contRect.top - elRect.top) + PAD;
+            if (elRect.top < visibleTop) {
+              node.scrollTop -= (visibleTop - elRect.top) + PAD;
             } else if (elRect.bottom > contRect.bottom) {
               node.scrollTop += (elRect.bottom - contRect.bottom) + PAD;
             }
@@ -10967,9 +10993,12 @@ html.page-fade-ready body {
         node = node.parentElement;
       }
 
+      var pageTopCovered = stickyTopCoverage(0, null);
       var r = el.getBoundingClientRect();
-      if (r.top < 0 || r.bottom > window.innerHeight) {
-        el.scrollIntoView({ block: 'nearest' });
+      if (r.top < pageTopCovered) {
+        window.scrollBy(0, r.top - pageTopCovered - PAD);
+      } else if (r.bottom > window.innerHeight) {
+        window.scrollBy(0, r.bottom - window.innerHeight + PAD);
       }
       r = el.getBoundingClientRect();
       if (r.left < 0 || r.right > window.innerWidth) {
