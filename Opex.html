@@ -6228,6 +6228,17 @@ function amountInWords(amount){
 
 // ---- Cash Voucher (Request Budget, and Reimbursement off VOUCHER - REIMBURSE) ----
 
+// "2026-07-30" -> "07/30/2026" for the Cash Voucher's printed date. Leaves
+// anything not in that ISO shape (e.g. already blank, or '—') untouched
+// rather than guessing.
+function toMDY(dateStr){
+  const s = (dateStr||'').toString().trim();
+  const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(!m) return s;
+  const pad2 = n => String(n).padStart(2,'0');
+  return `${pad2(m[2])}/${pad2(m[3])}/${m[1]}`;
+}
+
 function buildVoucherDocument({ amountOverride, particularOverride } = {}){
   const reqNo = document.getElementById('reqNo').value || '—';
   const date = document.getElementById('date').value || '—';
@@ -6266,7 +6277,7 @@ function buildVoucherDocument({ amountOverride, particularOverride } = {}){
         <div class="cv-title-box"><h1>CASH VOUCHER</h1></div>
         <div class="cv-no-box">
           <div class="cv-no-row"><span class="cv-no-label">NO</span><span class="cv-no-val">${esc(reqNo)}</span></div>
-          <div class="cv-date-row"><span class="cv-date-line">${esc(date)}</span></div>
+          <div class="cv-date-row"><span class="cv-date-line">${esc(toMDY(date))}</span></div>
         </div>
       </div>
       <div class="cv-paidto">
@@ -6297,7 +6308,6 @@ function buildVoucherDocument({ amountOverride, particularOverride } = {}){
         <div class="cv-received">
           <div class="k">Received the full payment amount described above</div>
           <div class="cv-by-row">BY: <span class="cv-by-line">${esc(auditor)}</span></div>
-          <div class="cv-by-row">DATE: <span class="cv-by-line">${esc(loadedRecordReceivedDate)}</span></div>
           <div class="cv-rescert">RES. CERT. NO. ___________ DATE ___________ PLACE ___________</div>
         </div>
       </div>
