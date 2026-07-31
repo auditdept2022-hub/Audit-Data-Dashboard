@@ -4089,7 +4089,7 @@ html.page-fade-ready body {
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
       </button>
     </div>
-    <nav class="flex-1 overflow-y-auto custom-scrollbar py-2">
+    <nav id="sideMenuNav" class="flex-1 overflow-y-auto custom-scrollbar py-2">
       <details class="side-menu-group-details" open>
         <summary class="side-menu-group-summary">
           <span class="side-menu-group-title">Quick actions</span>
@@ -11034,17 +11034,42 @@ html.page-fade-ready body {
       return open[0].el;
     }
 
+    // Some scopes contain a lot of non-list chrome (filter dropdowns and
+    // buttons on the main dashboard, header/footer buttons in a popup)
+    // that shouldn't be part of the arrow-key cycle. For those, narrow
+    // down to just the actual list/content element inside the scope.
+    var SCOPE_LIST_ROOT_IDS = {
+      'dataModal': 'modalBody',
+      'exportPickerModal': 'exportSectionList',
+      'branchFilterPanel': 'branchFilterList',
+      'sideMenu': 'sideMenuNav'
+    };
+    // The main dashboard (no modal open) narrows to just the scorecard
+    // table rows -- not the filter dropdowns, branch picker button, etc.
+    var MAIN_LIST_ROOT_ID = 'scorecardTableBody';
+
+    function resolveListRoot(scopeEl) {
+      if (!scopeEl) {
+        return document.getElementById(MAIN_LIST_ROOT_ID) || document;
+      }
+      var rootId = SCOPE_LIST_ROOT_IDS[scopeEl.id];
+      var rootEl = rootId ? document.getElementById(rootId) : null;
+      return rootEl || scopeEl;
+    }
+
     // One flat list, in on-screen (DOM) order, of everything navigable
-    // right now within the given scope.
+    // right now within the given scope's list root.
     function selectableList(scopeEl) {
-      var scope = scopeEl || document;
+      var root = resolveListRoot(scopeEl);
       var list = Array.prototype.filter.call(
-        scope.querySelectorAll(SELECTABLE_SELECTOR),
+        root.querySelectorAll(SELECTABLE_SELECTOR),
         isVisible
       );
-      if (!list.length && scopeEl) {
+      // If the narrowed list is empty (e.g. still rendering), fall back to
+      // the rest of the popup rather than escaping it entirely.
+      if (!list.length && root !== scopeEl && scopeEl) {
         list = Array.prototype.filter.call(
-          document.querySelectorAll(SELECTABLE_SELECTOR),
+          scopeEl.querySelectorAll(SELECTABLE_SELECTOR),
           isVisible
         );
       }
