@@ -10881,18 +10881,17 @@ html.page-fade-ready body {
   })();
 </script>
 
-  <!-- ================= KEYBOARD SPATIAL NAVIGATION (GLOBAL) =================
-       Lets you explore the whole dashboard with the keyboard the way you
-       would on any well-built site: Up/Down/Left/Right move a highlighted
-       "selection" to whatever's actually in that direction on screen
-       (menu tiles, table rows, branch pills, buttons, links, form fields),
-       Enter/Space activates it, and Escape clears the selection. When
-       there's nothing further in the pressed direction, the key falls
-       through to the browser's normal behavior (e.g. scrolling the page).
+  <!-- ================= KEYBOARD SELECTION (GLOBAL) =================
+       Simple, predictable keyboard navigation: Down and Right always move
+       the highlighted selection to the NEXT selectable item in the page's
+       natural order; Up and Left always move to the PREVIOUS one. Enter
+       activates whatever's highlighted, Escape clears it. Once you reach
+       the very first/last item, the key falls through to normal page
+       scrolling instead of doing nothing.
 
-       The main dashboard and each popup/modal keep their OWN remembered
-       selection. Opening a popup doesn't lose your spot on the dashboard --
-       closing the popup puts the highlight right back where it was. -->
+       The main dashboard and each open popup/modal keep their own
+       remembered selection, so opening a popup doesn't lose your spot on
+       the dashboard -- closing it puts the highlight right back. -->
   <script>
   (function () {
     // Anything matching this is treated as a "selectable" item.
@@ -10930,10 +10929,9 @@ html.page-fade-ready body {
 
     // Native scrollIntoView is unreliable for elements inside horizontally
     // scrolling wrappers (common for the data tables here) and for nested
-    // scroll containers -- it often only handles the outermost one. This
-    // walks every scrollable ancestor from the element up to the page and
-    // nudges each one, in both axes, so the selection is always actually
-    // visible no matter which direction you arrowed into it from.
+    // scroll containers. This walks every scrollable ancestor from the
+    // element up to the page and nudges each one, in both axes, so the
+    // selection is always actually visible.
     function bringFullyIntoView(el) {
       var PAD = 16;
       var node = el.parentElement;
@@ -10965,7 +10963,6 @@ html.page-fade-ready body {
         node = node.parentElement;
       }
 
-      // Finally make sure it's within the browser viewport itself.
       var r = el.getBoundingClientRect();
       if (r.top < 0 || r.bottom > window.innerHeight) {
         el.scrollIntoView({ block: 'nearest' });
@@ -11004,6 +11001,8 @@ html.page-fade-ready body {
       return candidates[0];
     }
 
+    // One flat list, in on-screen (DOM) order, of everything navigable
+    // right now within the given scope.
     function selectableList(scopeEl) {
       var scope = scopeEl || document;
       var list = Array.prototype.filter.call(
@@ -11019,58 +11018,11 @@ html.page-fade-ready body {
       return list;
     }
 
-    function centerOf(rect) {
-      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-    }
-
-    // Picks the closest item that's actually in the pressed direction from
-    // the current item -- items aligned on the cross-axis (same column for
-    // up/down, same row for left/right) are preferred.
-    function findInDirection(dir, curRect, candidates) {
-      var cur = centerOf(curRect);
-      var best = null;
-      var bestScore = Infinity;
-
-      candidates.forEach(function (el) {
-        var rect = el.getBoundingClientRect();
-        var c = centerOf(rect);
-        var primary, cross, inDirection;
-
-        if (dir === 'down') {
-          inDirection = c.y > cur.y + 1;
-          primary = c.y - cur.y;
-          cross = Math.abs(c.x - cur.x);
-        } else if (dir === 'up') {
-          inDirection = c.y < cur.y - 1;
-          primary = cur.y - c.y;
-          cross = Math.abs(c.x - cur.x);
-        } else if (dir === 'right') {
-          inDirection = c.x > cur.x + 1;
-          primary = c.x - cur.x;
-          cross = Math.abs(c.y - cur.y);
-        } else {
-          inDirection = c.x < cur.x - 1;
-          primary = cur.x - c.x;
-          cross = Math.abs(c.y - cur.y);
-        }
-
-        if (!inDirection) return;
-        var score = primary + cross * 2;
-        if (score < bestScore) {
-          bestScore = score;
-          best = el;
-        }
-      });
-
-      return best;
-    }
-
     var lastModal = null;
 
     // Whenever the open modal changes (opened/closed/switched), restore
     // whatever that new scope had highlighted last time, silently (no
-    // scroll jump) -- this is what makes the dashboard selection "come
-    // back" after you close a popup.
+    // scroll jump).
     function syncHighlightToScope() {
       var modal = topmostOpenModal();
       if (modal === lastModal) return;
@@ -11084,16 +11036,19 @@ html.page-fade-ready body {
     }
 
     document.addEventListener('keydown', function (e) {
-      var dirMap = { ArrowDown: 'down', ArrowUp: 'up', ArrowLeft: 'left', ArrowRight: 'right' };
-      var dir = dirMap[e.key];
+      var isNext = e.key === 'ArrowDown' || e.key === 'ArrowRight';
+      var isPrev = e.key === 'ArrowUp' || e.key === 'ArrowLeft';
+      var isArrow = isNext || isPrev;
       var isEnter = e.key === 'Enter' || e.key === ' ';
       var isEscape = e.key === 'Escape';
-      if (!dir && !isEnter && !isEscape) return;
+      if (!isArrow && !isEnter && !isEscape) return;
 
       var activeTag = document.activeElement && document.activeElement.tagName;
       var inFormField = activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT';
       if (document.activeElement && document.activeElement.isContentEditable) return;
-      if (inFormField && dir) return;
+      // Inside a real form field, arrows/typing behave normally; we only
+      // ever take over Enter/Escape there.
+      if (inFormField && isArrow) return;
 
       var modal = topmostOpenModal();
       lastModal = modal;
@@ -11121,31 +11076,20 @@ html.page-fade-ready body {
       if (!list.length) return; // nothing to select -- let the arrow scroll normally
 
       var cur = getRemembered(modal);
+      var idx = cur ? list.indexOf(cur) : -1;
       var next;
-      var isNext = dir === 'down' || dir === 'right';
 
-      if (!cur) {
-        next = list[0];
+      if (idx === -1) {
+        // No current selection (or it's gone) -- start at the beginning
+        // for Down/Right, or the end for Up/Left.
+        next = isNext ? list[0] : list[list.length - 1];
+      } else if (isNext) {
+        if (idx >= list.length - 1) return; // already at the last item -- let the page scroll
+        next = list[idx + 1];
       } else {
-        var curRect = cur.getBoundingClientRect();
-        next = findInDirection(dir, curRect, list.filter(function (el) { return el !== cur; }));
-
-        // Spatial matching can miss valid next/previous items in dense
-        // lists or tables (e.g. two rows with near-identical geometry).
-        // Prefer selecting the next/previous item in the list over
-        // silently falling back to page scroll -- selection should win.
-        if (!next) {
-          var curIdx = list.indexOf(cur);
-          if (curIdx !== -1) {
-            var fallbackIdx = isNext ? curIdx + 1 : curIdx - 1;
-            if (fallbackIdx >= 0 && fallbackIdx < list.length) {
-              next = list[fallbackIdx];
-            }
-          }
-        }
+        if (idx <= 0) return; // already at the first item -- let the page scroll
+        next = list[idx - 1];
       }
-
-      if (!next) return; // truly nothing left to select that way -- let the browser scroll the page
 
       e.preventDefault();
       if (!next.hasAttribute('tabindex') && !/^(input|select|textarea|button|a)$/i.test(next.tagName)) {
@@ -11174,9 +11118,8 @@ html.page-fade-ready body {
       }
     });
 
-    // Watches for popups opening/closing (class or style changes) and for
-    // re-rendered content, so the right scope's remembered selection is
-    // always the one shown.
+    // Watches for popups opening/closing and for re-rendered content, so
+    // the right scope's remembered selection is always the one shown.
     new MutationObserver(function () {
       syncHighlightToScope();
       var cur = document.querySelector('.kbd-nav-active');
