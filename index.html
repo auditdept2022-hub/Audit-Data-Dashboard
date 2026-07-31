@@ -10847,7 +10847,8 @@ html.page-fade-ready body {
     var overlayIds = [
       'dataModal', 'exportPickerModal', 'exportPasswordModal',
       'quickLinkPasswordModal', 'editAssignPasswordModal',
-      'exitConfirmModal', 'menuOverlay', 'miniCalendarPopup'
+      'exitConfirmModal', 'menuOverlay', 'miniCalendarPopup',
+      'branchFilterPanel'
     ];
 
     function isVisible(el) {
@@ -10981,24 +10982,56 @@ html.page-fade-ready body {
       }
     }
 
-    // Modals/popups in this dashboard all share this "fixed inset-0" overlay
-    // pattern and are shown/hidden via the .hidden class.
+    // Explicit registry of every popup/modal/menu scope in the dashboard,
+    // with its real z-index (used to pick the topmost one when more than
+    // one happens to be open). Most of these share the ".fixed.inset-0 +
+    // hidden class" pattern and can be checked generically, but a couple
+    // are special-cased below because they don't:
+    //   - #sideMenu (hamburger menu) is the actual visible/interactive
+    //     content, but it's positioned with top-0/left-0/w-72 rather than
+    //     inset-0, and it's shown/hidden via a translate-x transform, not
+    //     the .hidden class. Its backdrop (#menuOverlay) IS .fixed.inset-0
+    //     but has no content in it -- scoping to the backdrop instead of
+    //     the menu meant keyboard selection had nothing to select inside
+    //     it and fell back to the whole page.
+    //   - #miniCalendarPopup is `position:absolute`, not `fixed inset-0`,
+    //     so it was never recognized as a scope at all.
+    var OVERLAY_SCOPES = [
+      { id: 'authGate', z: 200 },
+      { id: 'exitConfirmModal', z: 80 },
+      { id: 'exportPasswordModal', z: 70 },
+      { id: 'quickLinkPasswordModal', z: 70 },
+      { id: 'editAssignPasswordModal', z: 70 },
+      { id: 'sideMenu', z: 70 },
+      { id: 'exportPickerModal', z: 60 },
+      { id: 'dataModal', z: 50 },
+      { id: 'branchFilterPanel', z: 50 },
+      { id: 'miniCalendarPopup', z: 50 }
+    ];
+
+    function isOverlayOpen(el) {
+      if (!el) return false;
+      // The side menu never gets a `hidden` class -- it's always in the
+      // DOM and slides on/off screen via transform, so its open state is
+      // whether the off-screen class is currently applied.
+      if (el.id === 'sideMenu') {
+        return !el.classList.contains('-translate-x-full');
+      }
+      if (el.classList.contains('hidden')) return false;
+      var cs = window.getComputedStyle(el);
+      return cs.display !== 'none' && cs.visibility !== 'hidden' && cs.opacity !== '0';
+    }
+
     function topmostOpenModal() {
-      var candidates = Array.prototype.filter.call(
-        document.querySelectorAll('.fixed.inset-0'),
-        function (el) {
-          if (el.classList.contains('hidden')) return false;
-          var cs = window.getComputedStyle(el);
-          return cs.display !== 'none' && cs.visibility !== 'hidden' && cs.opacity !== '0';
-        }
-      );
-      if (!candidates.length) return null;
-      candidates.sort(function (a, b) {
-        var za = parseInt(window.getComputedStyle(a).zIndex, 10) || 0;
-        var zb = parseInt(window.getComputedStyle(b).zIndex, 10) || 0;
-        return zb - za;
-      });
-      return candidates[0];
+      var open = OVERLAY_SCOPES
+        .map(function (entry) {
+          var el = document.getElementById(entry.id);
+          return isOverlayOpen(el) ? { el: el, z: entry.z } : null;
+        })
+        .filter(Boolean);
+      if (!open.length) return null;
+      open.sort(function (a, b) { return b.z - a.z; });
+      return open[0].el;
     }
 
     // One flat list, in on-screen (DOM) order, of everything navigable
