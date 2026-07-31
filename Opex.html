@@ -3997,6 +3997,24 @@ function formatNum(n){
 }
 // Comma-format a currency text field on blur, and strip commas back to a plain
 // number when it gains focus so it's easy to edit.
+// A transport line counts as "blank" (a deliberate spacer row) when both its
+// Description and Amount are empty -- Mode doesn't count, since the <select>
+// always shows some option selected even when the row was never touched.
+function isBlankTranspoItem(i){
+  return !(i.description && i.description.trim()) && !i.amount;
+}
+// Trims BLANK rows off only the very END of the list (unused/padding rows
+// left over from "+ Add transport line", or the single default empty row on
+// a brand-new form). A blank row sitting IN BETWEEN two filled rows is kept
+// -- it's a deliberate spacer, and dropping it would squeeze every line
+// after it up by one position, landing it in the wrong TRANSPO column group
+// on DATA - BUDGET. Used by both submitForm() and buildPrintDocument() so
+// what prints and what saves always agree on which rows are "real".
+function trimTrailingBlankItems(items){
+  let end = items.length;
+  while(end > 0 && isBlankTranspoItem(items[end-1])) end--;
+  return items.slice(0, end);
+}
 function wireCommaField(input){
   input.addEventListener('focus', ()=>{
     const n = parseNum(input.value);
@@ -5263,6 +5281,12 @@ let editingReqNo = null;
 // buildVoucherDocument().
 let loadedRecordInWords = '';
 let loadedRecordSheetTotal = null;
+// Cash Voucher's "PAID TO:" name and "Received the full payment..." date,
+// read straight from DATA - BUDGET columns KS and KW (via the sheet's
+// paidToName / receivedDate fields) whenever the currently-loaded record
+// has them -- same pass-through pattern as loadedRecordInWords above.
+let loadedRecordPaidTo = '';
+let loadedRecordReceivedDate = '';
 
 // Whether the form is currently in read-only "just viewing a picked record"
 // state. True right after Choose loads an entry; false on a blank form or
@@ -5346,6 +5370,8 @@ function exitEditMode(){
   editingMeta = null;
   loadedRecordInWords = '';
   loadedRecordSheetTotal = null;
+  loadedRecordPaidTo = '';
+  loadedRecordReceivedDate = '';
   document.getElementById('editBanner').classList.remove('show');
   unlockForm();
   updateDeleteBtnState();
@@ -5602,6 +5628,11 @@ function applyRecordToForm(reqNo, rec){
   loadedRecordInWords = rec.inWords || '';
   loadedRecordSheetTotal = (rec.totalBudgetReq != null && !isNaN(Number(rec.totalBudgetReq)))
     ? Number(rec.totalBudgetReq) : null;
+
+  // "PAID TO:" name and "Received the full payment..." date -- straight
+  // from DATA - BUDGET columns KS and KW (see buildVoucherDocument()).
+  loadedRecordPaidTo = rec.paidToName || '';
+  loadedRecordReceivedDate = rec.receivedDate || '';
 }
 
 async function loadRecord(reqNo, fresh){
@@ -5735,13 +5766,19 @@ async function submitForm(btn, forceNew){
     return;
   }
 
-  const items = [...lineItemsEl.querySelectorAll('tr')].map(row=>({
+  const rawItems = [...lineItemsEl.querySelectorAll('tr')].map(row=>({
     description: row.querySelector('.li-desc').value,
     mode: row.querySelector('.li-mode').value,
     amount: parseNum(row.querySelector('.li-amt').value),
     orNo: row.querySelector('.li-or').value,
     date: row.querySelector('.li-date').value
-  })).filter(i=>i.description || i.amount);
+  }));
+  // Keep any blank row sitting BETWEEN filled rows -- it's a deliberate
+  // space and must stay at its own position so it lands in the right
+  // (blank) TRANSPO column group on the sheet, instead of shifting every
+  // line after it over by one. Only trailing blank rows (unused padding)
+  // get dropped. See isBlankTranspoItem()/trimTrailingBlankItems().
+  const items = trimTrailingBlankItems(rawItems);
 
   const allowance = [...allowanceItemsEl.querySelectorAll('tr')].map(row=>({
     name: row.querySelector('.al-name').value,
@@ -5901,13 +5938,18 @@ function buildPrintDocument(){
   const area = document.getElementById('area').value || '—';
   const mode = document.getElementById('mode').value || '—';
 
-  const items = [...lineItemsEl.querySelectorAll('tr')].map(row=>({
+  const rawItems = [...lineItemsEl.querySelectorAll('tr')].map(row=>({
     description: row.querySelector('.li-desc').value,
     mode: row.querySelector('.li-mode').value,
     amount: parseNum(row.querySelector('.li-amt').value),
     orNo: row.querySelector('.li-or').value,
     date: row.querySelector('.li-date').value
-  })).filter(i=>i.description || i.amount);
+  }));
+  // Keep any blank row sitting BETWEEN filled rows as a spacer (matching
+  // what actually gets saved -- see submitForm()) instead of squeezing it
+  // out, which used to make the printed table skip straight from row N to
+  // row N+2 with no visible gap where the blank line was left on purpose.
+  const items = trimTrailingBlankItems(rawItems);
   const totalTranspo = items.reduce((s,i)=>s+i.amount,0);
 
   // REQ/LIQ No. box, styled like the sheet's own data-validation dropdown cell.
@@ -5951,6 +5993,11 @@ function buildPrintDocument(){
 
     const transpoRows = items.map((i,idx)=>{
       const isLast = idx === items.length-1;
+      if(isBlankTranspoItem(i)){
+        // Deliberate blank/space row -- keep its numbered position but
+        // leave the row visually empty, same as the sheet itself shows.
+        return `<tr><td class="num">${idx+1}</td><td colspan="3">&nbsp;</td><td class="amt" colspan="2">${isLast?fmtPeso(totalTranspo):''}</td></tr>`;
+      }
       return `<tr><td class="num">${idx+1}</td><td>${esc(i.description)}</td><td>${esc(i.mode)}</td><td class="amt">${fmtPeso(i.amount)}</td><td class="amt" colspan="2">${isLast?fmtPeso(totalTranspo):''}</td></tr>`;
     }).join('') || '<tr class="pd-empty"><td class="num"></td><td colspan="5">No transportation lines</td></tr>';
 
@@ -6008,6 +6055,9 @@ function buildPrintDocument(){
 
     const transpoRows = items.map((i,idx)=>{
       const isLast = idx === items.length-1;
+      if(isBlankTranspoItem(i)){
+        return `<tr><td class="num">${idx+1}</td><td colspan="4">&nbsp;</td><td class="amt">&nbsp;</td><td class="amt">${isLast?fmtPeso(totalTranspo):''}</td></tr>`;
+      }
       return `<tr><td class="num">${idx+1}</td><td>${esc(i.description)}</td><td>${esc(i.mode)}</td><td>${esc(i.orNo)}</td><td>${esc(i.date)}</td><td class="amt">${fmtPeso(i.amount)}</td><td class="amt">${isLast?fmtPeso(totalTranspo):''}</td></tr>`;
     }).join('') || '<tr class="pd-empty"><td class="num"></td><td colspan="6">No liquidation lines</td></tr>';
 
@@ -6216,7 +6266,7 @@ function buildVoucherDocument({ amountOverride, particularOverride } = {}){
         </div>
       </div>
       <div class="cv-paidto">
-        <div><span class="k">PAID TO:</span><span class="v">${esc(auditor)}</span></div>
+        <div><span class="k">PAID TO:</span><span class="v">${esc(loadedRecordPaidTo || auditor)}</span></div>
         <div><span class="k">ADDRESS:</span><span class="v">SAN PABLO - HEAD OFFICE</span></div>
       </div>
       <table class="cv-particular">
@@ -6243,6 +6293,7 @@ function buildVoucherDocument({ amountOverride, particularOverride } = {}){
         <div class="cv-received">
           <div class="k">Received the full payment amount described above</div>
           <div class="cv-by-row">BY: <span class="cv-by-line">${esc(auditor)}</span></div>
+          <div class="cv-by-row">DATE: <span class="cv-by-line">${esc(loadedRecordReceivedDate)}</span></div>
           <div class="cv-rescert">RES. CERT. NO. ___________ DATE ___________ PLACE ___________</div>
         </div>
       </div>
