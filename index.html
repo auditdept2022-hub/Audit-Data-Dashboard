@@ -5486,8 +5486,11 @@ html.page-fade-ready body {
 
       try {
           await saveAuditorAssignmentRemote(branchName, fields);
-          showToast('Assignment saved — refreshing data\u2026');
-          closeModal();
+          showToast('Assignment saved\u2026');
+          // Deliberately do NOT closeModal() here — keep the Edit Assignment
+          // popup open after a successful save so the person can immediately
+          // pick another branch from the dropdown and assign it too, instead
+          // of the popup closing and forcing them to reopen it each time.
           // Pull the just-saved values back in so the dashboard reflects the
           // change immediately, without waiting on a full server refresh.
           const b = (activeData.branches || []).find(x => x.name === branchName);
