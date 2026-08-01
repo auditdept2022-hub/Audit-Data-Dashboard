@@ -24,6 +24,13 @@
     /* Fullscreen app mode: fill the device edge-to-edge and respect
        notches/status bars on phones so nothing sits under system UI. */
     html, body { background: #0f2547; }
+    /* Stop Chrome's swipe-navigation gesture (a left/right swipe ANYWHERE
+       on the page, not just the edge) from triggering an instant
+       browser back/forward. That gesture fires at the browser level
+       before any JS runs, so it was skipping the "Leave the dashboard?"
+       confirm entirely. overscroll-behavior-x only affects the
+       horizontal axis, so vertical scroll/bounce elsewhere is unchanged. */
+    html, body { overscroll-behavior-x: none; }
     body { padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px)); }
     @supports (height: 100dvh) { html, body { min-height: 100dvh; } }
   </style>
@@ -10532,44 +10539,68 @@ html.page-fade-ready body {
     // On mobile, swiping back (or tapping the browser/back gesture) can
     // exit the site immediately without warning, and coming back to it
     // then forces a full reload (losing scroll position / in-progress
-    // work). We push a harmless extra history entry, then intercept the
-    // resulting "back" (popstate) with a confirmation instead of letting
-    // it navigate straight away.
-    // GUARD_DEPTH: push more than one extra entry so a fast/flicked swipe
-    // (or a browser that coalesces rapid back-steps) can't burn through
-    // the whole buffer before our popstate handler gets a chance to
-    // re-arm it.
-    const BACK_GUARD_DEPTH = 3;
-    let allowNextPop = false;
-    function armBackGuard() {
-      for (let i = 0; i < BACK_GUARD_DEPTH; i++) {
-        history.pushState({ dashboardGuard: true }, document.title, location.href);
-      }
-    }
-    armBackGuard();
-    // Android frequently suspends/kills a backgrounded TWA and, on
-    // resume, restores this page from the back-forward cache WITHOUT
-    // re-running this script. That silently disarms the guard above, so
-    // the very next swipe-back exits with no confirmation at all. Detect
-    // that restore (event.persisted) and re-arm every time it happens.
-    window.addEventListener('pageshow', function(event) {
-      if (event.persisted) armBackGuard();
-    });
-    window.addEventListener('popstate', function() {
-      if (allowNextPop) { allowNextPop = false; return; }
-      // Immediately cancel the navigation from the user's perspective by
-      // re-arming the guard, THEN ask for confirmation.
-      armBackGuard();
-      window.__confirmExit(
+    // work). We intercept that instead of letting it navigate straight
+    // away, and show a confirmation.
+    function confirmLeave() {
+      return window.__confirmExit(
         'Leave the dashboard?',
         'Going back will quit the dashboard and you may need to reload it. Are you sure you want to leave?',
         'Yes, leave'
-      ).then(function(confirmed) {
-        if (!confirmed) return; // stayed — guard is already re-armed above
-        allowNextPop = true;
-        history.go(-BACK_GUARD_DEPTH); // unwind the whole buffer in one hop, then leave
+      );
+    }
+
+    if ('navigation' in window) {
+      // PRIMARY PATH (Chrome/Edge — what the Android TWA actually runs).
+      // The Navigation API's "navigate" event fires for browser back/
+      // forward traversals — including Android's predictive-back swipe —
+      // BEFORE the browser commits to leaving, and can cancel it outright
+      // with preventDefault(). That's what the old pushState/popstate
+      // trick below could never quite guarantee: a predictive-back swipe
+      // previews and can commit the exit at the OS/Chrome level faster
+      // than a popstate handler can react. This listens at the source
+      // instead of reacting after the fact.
+      navigation.addEventListener('navigate', function(event) {
+        if (event.navigationType !== 'traverse' || !event.cancelable) return;
+        event.preventDefault();
+        confirmLeave().then(function(confirmed) {
+          if (confirmed) navigation.traverseTo(event.destination.key);
+        });
       });
-    });
+    } else {
+      // FALLBACK PATH (Firefox, Safari — no Navigation API support yet).
+      // Push a harmless extra history entry, then intercept the
+      // resulting "back" (popstate) with a confirmation.
+      // GUARD_DEPTH: push more than one extra entry so a fast/flicked
+      // swipe can't burn through the whole buffer before the popstate
+      // handler gets a chance to re-arm it.
+      const BACK_GUARD_DEPTH = 3;
+      let allowNextPop = false;
+      function armBackGuard() {
+        for (let i = 0; i < BACK_GUARD_DEPTH; i++) {
+          history.pushState({ dashboardGuard: true }, document.title, location.href);
+        }
+      }
+      armBackGuard();
+      // Android frequently suspends/kills a backgrounded TWA and, on
+      // resume, restores this page from the back-forward cache WITHOUT
+      // re-running this script. That silently disarms the guard above,
+      // so the very next swipe-back exits with no confirmation at all.
+      // Detect that restore (event.persisted) and re-arm every time.
+      window.addEventListener('pageshow', function(event) {
+        if (event.persisted) armBackGuard();
+      });
+      window.addEventListener('popstate', function() {
+        if (allowNextPop) { allowNextPop = false; return; }
+        // Immediately cancel the navigation from the user's perspective
+        // by re-arming the guard, THEN ask for confirmation.
+        armBackGuard();
+        confirmLeave().then(function(confirmed) {
+          if (!confirmed) return; // stayed — guard is already re-armed above
+          allowNextPop = true;
+          history.go(-BACK_GUARD_DEPTH); // unwind the whole buffer in one hop, then leave
+        });
+      });
+    }
 
     // Auto sign-out after 1 hour of no interaction, so a session left
     // open on a shared/public computer doesn't stay unlocked forever.

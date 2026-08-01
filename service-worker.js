@@ -1,6 +1,6 @@
 // Simple offline-first service worker for the Audit Data Dashboard PWA.
 // Bump CACHE_NAME any time you update any cached file so old clients refresh.
-const CACHE_NAME = 'audit-dashboard-cache-v18';
+const CACHE_NAME = 'audit-dashboard-cache-v19';
 
 const PRECACHE_URLS = [
   './',
