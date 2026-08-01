@@ -4143,7 +4143,7 @@ html.page-fade-ready body {
       <details class="side-menu-group-details" open>
         <summary class="side-menu-group-summary">
           <span class="side-menu-group-title">Quick Links</span>
-          <span class="side-menu-group-count">6</span>
+          <span class="side-menu-group-count">7</span>
           <svg class="side-menu-group-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
         </summary>
 
@@ -4188,10 +4188,30 @@ html.page-fade-ready body {
              (openQuickLink -> action=open&id=auditreport) as the other
              Quick Links above, using the "auditreport" entry already
              defined in QUICK_LINKS in the merged Code.gs. One script, one
-             deployment, one auth path for all seven links. -->
+             deployment, one auth path for all eight links (PARTS REQUEST,
+             added below, reuses this same auth path too — see its own
+             comment). -->
         <div role="button" tabindex="0" onclick="openQuickLink('auditreport','AUDIT FOLDER')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openQuickLink('auditreport','AUDIT FOLDER');}" class="menu-tile cursor-pointer select-none">
           <span class="menu-tile-icon" style="background:rgba(217,119,6,0.10);"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentAmber shrink-0"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span>
           <span class="menu-tile-label">Audit Folder</span>
+        </div>
+
+        <!-- PARTS REQUEST -> same client-side local-file pattern as AUDIT
+             OPEX above: it is NOT a Google Sheet behind the Apps Script,
+             it's a page (Parts_Request.html) sitting right next to this
+             file wherever this dashboard is hosted (e.g. the same GitHub
+             repo/Pages site). Clicking it still goes through the full
+             password re-check + action=list authorization check against
+             QUICKLINKS_ALLOWED_EMAILS in Code.gs (see openQuickLink /
+             submitQuickLinkPassword below) — only after that succeeds does
+             the browser navigate to Parts_Request.html. There is no
+             corresponding "partsrequest" entry in QUICK_LINKS in Code.gs
+             (same as why opex's redirect URL there is effectively unused)
+             because the real navigation never goes through
+             handleQuickLinkOpen() for this id. -->
+        <div role="button" tabindex="0" onclick="openQuickLink('partsrequest','PARTS REQUEST')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openQuickLink('partsrequest','PARTS REQUEST');}" class="menu-tile cursor-pointer select-none">
+          <span class="menu-tile-icon" style="background:rgba(217,119,6,0.10);"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentAmber shrink-0"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span>
+          <span class="menu-tile-label">Parts Request</span>
         </div>
 
       </div>
@@ -9743,6 +9763,20 @@ html.page-fade-ready body {
         // directly instead of going through the sheet-redirect lookup.
         if (pending.id === 'opex') {
           window.location.href = 'Opex.html';
+          if (modal) modal.classList.add('hidden');
+          pendingQuickLink = null;
+          setQuickLinkPasswordSubmitting(false);
+          return;
+        }
+
+        // PARTS REQUEST — same story as AUDIT OPEX just above: it's a
+        // local page (Parts_Request.html) that lives next to this file
+        // wherever it's hosted, not a Google Sheet behind the Apps
+        // Script. Authorization was already confirmed by the action=list
+        // check above (same QUICKLINKS_ALLOWED_EMAILS allowlist as every
+        // other quick link), so once we get here it's safe to navigate.
+        if (pending.id === 'partsrequest') {
+          window.location.href = 'Parts_Request.html';
           if (modal) modal.classList.add('hidden');
           pendingQuickLink = null;
           setQuickLinkPasswordSubmitting(false);
