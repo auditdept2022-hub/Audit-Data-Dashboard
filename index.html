@@ -10535,11 +10535,26 @@ html.page-fade-ready body {
     // work). We push a harmless extra history entry, then intercept the
     // resulting "back" (popstate) with a confirmation instead of letting
     // it navigate straight away.
+    // GUARD_DEPTH: push more than one extra entry so a fast/flicked swipe
+    // (or a browser that coalesces rapid back-steps) can't burn through
+    // the whole buffer before our popstate handler gets a chance to
+    // re-arm it.
+    const BACK_GUARD_DEPTH = 3;
     let allowNextPop = false;
     function armBackGuard() {
-      history.pushState({ dashboardGuard: true }, document.title, location.href);
+      for (let i = 0; i < BACK_GUARD_DEPTH; i++) {
+        history.pushState({ dashboardGuard: true }, document.title, location.href);
+      }
     }
     armBackGuard();
+    // Android frequently suspends/kills a backgrounded TWA and, on
+    // resume, restores this page from the back-forward cache WITHOUT
+    // re-running this script. That silently disarms the guard above, so
+    // the very next swipe-back exits with no confirmation at all. Detect
+    // that restore (event.persisted) and re-arm every time it happens.
+    window.addEventListener('pageshow', function(event) {
+      if (event.persisted) armBackGuard();
+    });
     window.addEventListener('popstate', function() {
       if (allowNextPop) { allowNextPop = false; return; }
       // Immediately cancel the navigation from the user's perspective by
@@ -10552,7 +10567,7 @@ html.page-fade-ready body {
       ).then(function(confirmed) {
         if (!confirmed) return; // stayed — guard is already re-armed above
         allowNextPop = true;
-        history.back(); // now actually leave
+        history.go(-BACK_GUARD_DEPTH); // unwind the whole buffer in one hop, then leave
       });
     });
 
