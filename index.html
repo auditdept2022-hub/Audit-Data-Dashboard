@@ -10549,6 +10549,36 @@ html.page-fade-ready body {
       );
     }
 
+    // GUARD_DEPTH / armBackGuard(): push a few harmless same-URL history
+    // entries so there's always something *inside the page* for a back
+    // gesture to land on. This has to run unconditionally, for BOTH paths
+    // below — not just the fallback one. On a fresh app launch (opened
+    // from the home screen icon, no prior navigation) the WebView's
+    // history is completely empty, and with an empty history Android's
+    // back gesture closes the TWA Activity directly at the OS level,
+    // before Chrome ever dispatches a "navigate"/"traverse" event or a
+    // popstate for this page's JS to intercept. That's what was causing
+    // the app to close on the very first swipe: the Navigation API
+    // listener below was correct, but had nothing to traverse to yet.
+    // GUARD_DEPTH: push more than one extra entry so a fast/flicked
+    // swipe can't burn through the whole buffer before the handler gets
+    // a chance to re-arm it.
+    const BACK_GUARD_DEPTH = 3;
+    function armBackGuard() {
+      for (let i = 0; i < BACK_GUARD_DEPTH; i++) {
+        history.pushState({ dashboardGuard: true }, document.title, location.href);
+      }
+    }
+    armBackGuard();
+    // Android frequently suspends/kills a backgrounded TWA and, on
+    // resume, restores this page from the back-forward cache WITHOUT
+    // re-running this script. That silently disarms the guard above,
+    // so the very next swipe-back exits with no confirmation at all.
+    // Detect that restore (event.persisted) and re-arm every time.
+    window.addEventListener('pageshow', function(event) {
+      if (event.persisted) armBackGuard();
+    });
+
     if ('navigation' in window) {
       // PRIMARY PATH (Chrome/Edge — what the Android TWA actually runs).
       // The Navigation API's "navigate" event fires for browser back/
@@ -10558,37 +10588,24 @@ html.page-fade-ready body {
       // trick below could never quite guarantee: a predictive-back swipe
       // previews and can commit the exit at the OS/Chrome level faster
       // than a popstate handler can react. This listens at the source
-      // instead of reacting after the fact.
+      // instead of reacting after the fact. It only works, though, once
+      // armBackGuard() above has guaranteed there's an entry to traverse.
+      let allowNextTraversal = false;
       navigation.addEventListener('navigate', function(event) {
         if (event.navigationType !== 'traverse' || !event.cancelable) return;
+        if (allowNextTraversal) { allowNextTraversal = false; return; }
         event.preventDefault();
         confirmLeave().then(function(confirmed) {
-          if (confirmed) navigation.traverseTo(event.destination.key);
+          if (!confirmed) { armBackGuard(); return; } // stayed — refill the guard
+          allowNextTraversal = true;
+          history.go(-BACK_GUARD_DEPTH); // unwind the whole buffer in one hop, then leave
         });
       });
     } else {
       // FALLBACK PATH (Firefox, Safari — no Navigation API support yet).
-      // Push a harmless extra history entry, then intercept the
-      // resulting "back" (popstate) with a confirmation.
-      // GUARD_DEPTH: push more than one extra entry so a fast/flicked
-      // swipe can't burn through the whole buffer before the popstate
-      // handler gets a chance to re-arm it.
-      const BACK_GUARD_DEPTH = 3;
+      // Intercept the "back" (popstate) landing on a guard entry with a
+      // confirmation.
       let allowNextPop = false;
-      function armBackGuard() {
-        for (let i = 0; i < BACK_GUARD_DEPTH; i++) {
-          history.pushState({ dashboardGuard: true }, document.title, location.href);
-        }
-      }
-      armBackGuard();
-      // Android frequently suspends/kills a backgrounded TWA and, on
-      // resume, restores this page from the back-forward cache WITHOUT
-      // re-running this script. That silently disarms the guard above,
-      // so the very next swipe-back exits with no confirmation at all.
-      // Detect that restore (event.persisted) and re-arm every time.
-      window.addEventListener('pageshow', function(event) {
-        if (event.persisted) armBackGuard();
-      });
       window.addEventListener('popstate', function() {
         if (allowNextPop) { allowNextPop = false; return; }
         // Immediately cancel the navigation from the user's perspective
