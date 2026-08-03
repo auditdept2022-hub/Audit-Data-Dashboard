@@ -3682,6 +3682,15 @@ html.page-fade-ready body {
         }, 350);
       }
 
+      // Must comfortably exceed the worst case inside fetchSheet(): up to
+      // MAX_ATTEMPTS (2) attempts, each of which can wait up to
+      // JSONP_FETCH_TIMEOUT_MS (18s) for a slow-but-working Apps Script
+      // cold start, plus a short backoff between attempts. The old 20s
+      // safety net was shorter than that worst case, so it could fire
+      // and show "Couldn't load the dashboard" while the real request
+      // was still in flight and about to succeed.
+      const LOADING_SAFETY_NET_MS = 50000;
+
       function waitThenSettle(promise, startedAt, token) {
         let settled = false;
         promise.then(function(success) {
@@ -3700,7 +3709,7 @@ html.page-fade-ready body {
           if (settled) return;
           settled = true;
           showError(token);
-        }, 20000);
+        }, LOADING_SAFETY_NET_MS);
       }
 
       window.__runDashboardLoadingSequence = function() {
@@ -3737,7 +3746,7 @@ html.page-fade-ready body {
             loadingCore.classList.remove('hidden');
             openLoadingScreen();
             showError(generation);
-          }, 20000);
+          }, LOADING_SAFETY_NET_MS);
           return;
         }
         const token = openLoadingScreen();
@@ -3788,6 +3797,35 @@ html.page-fade-ready body {
           if (skipLoadingAnimation) closeBlankCover(authCheckToken); else closeLoadingScreen(authCheckToken);
           authCheckToken = null;
         }
+      };
+
+      // BUGFIX: closeLoadingScreen()/closeBlankCover() only hide the
+      // overlay if the token passed in still matches the CURRENT
+      // generation — that's by design for every other caller (so a slow,
+      // superseded operation can't clobber whatever's showing now). But
+      // on sign-out we don't have, and don't want, a matching token: by
+      // the time someone logs out, generation has almost always moved on
+      // (through the real load, maybe a retry, maybe a background
+      // refresh), so the stored authCheckToken from page-load is stale.
+      // Calling the token-checked close functions with a stale token was
+      // silently doing nothing — the loading/retry overlay (including the
+      // "Couldn't load the dashboard" error state) stayed on screen
+      // forever, fully covering the sign-in form underneath even though
+      // authGate had already been un-hidden. That's the "logs out but
+      // gets stuck on reload/retry instead of showing login" bug.
+      // This forces the overlay closed unconditionally, then bumps
+      // generation so any still-in-flight load from the previous session
+      // (reveal/error/etc.) becomes stale and can't reopen it afterward.
+      window.__forceHideLoadingScreen = function() {
+        generation++; // invalidate any in-flight operation from before sign-out
+        stopProgress();
+        loadingErrorBox.classList.add('hidden');
+        loadingCore.classList.remove('hidden');
+        loadingScreen.style.opacity = '0';
+        loadingScreen.style.display = 'none';
+        loadingScreen.classList.add('hidden');
+        document.body.style.overflow = '';
+        authCheckToken = null;
       };
 
       loadingRetryBtn.addEventListener('click', function() {
@@ -9848,25 +9886,37 @@ html.page-fade-ready body {
     // fails.
     let learnedTransport = null; // 'direct' | 'jsonp' | null (still unknown)
 
+    // Timeouts were previously 6s (direct) / 7s (JSONP), which is too
+    // tight for a real-world Apps Script /exec call: a "cold" deployment
+    // (nobody has hit it in a while) commonly takes 5-15+ seconds just to
+    // spin up before it answers at all, on both desktop browsers and the
+    // Android app. Under the old tight budget, that cold-start alone could
+    // burn through BOTH transports' timeouts before any real answer came
+    // back, surfacing "Couldn't load the dashboard" even though the
+    // backend was working fine, just slow to wake up. Widened so a slow
+    // (but working) response has room to actually arrive.
+    const DIRECT_FETCH_TIMEOUT_MS = 15000;
+    const JSONP_FETCH_TIMEOUT_MS = 18000;
+
     async function fetchSheetOnce(url) {
       // Fast path: we already know which transport gets through on this
       // network/browser. Use only that one — no duplicate request sent.
       if (learnedTransport === 'jsonp') {
         try {
-          return await fetchJSONP(url, 7000);
+          return await fetchJSONP(url, JSONP_FETCH_TIMEOUT_MS);
         } catch (err) {
           // The learned transport failed this time (e.g. a network change) —
           // fall back to the other one just for this call, and re-learn.
           learnedTransport = null;
-          return await fetchDirect(url, 6000).then(function(d) { learnedTransport = 'direct'; return d; });
+          return await fetchDirect(url, DIRECT_FETCH_TIMEOUT_MS).then(function(d) { learnedTransport = 'direct'; return d; });
         }
       }
       if (learnedTransport === 'direct') {
         try {
-          return await fetchDirect(url, 6000);
+          return await fetchDirect(url, DIRECT_FETCH_TIMEOUT_MS);
         } catch (err) {
           learnedTransport = null;
-          return await fetchJSONP(url, 7000).then(function(d) { learnedTransport = 'jsonp'; return d; });
+          return await fetchJSONP(url, JSONP_FETCH_TIMEOUT_MS).then(function(d) { learnedTransport = 'jsonp'; return d; });
         }
       }
 
@@ -9891,7 +9941,7 @@ html.page-fade-ready body {
           if (jsonpStarted) return;
           jsonpStarted = true;
           clearTimeout(hedgeTimer);
-          fetchJSONP(url, 7000).then(function(d) { succeed(d, 'jsonp'); }).catch(function(err) { fail(err, 'jsonp'); });
+          fetchJSONP(url, JSONP_FETCH_TIMEOUT_MS).then(function(d) { succeed(d, 'jsonp'); }).catch(function(err) { fail(err, 'jsonp'); });
         }
 
         function fail(err, label) {
@@ -9908,12 +9958,12 @@ html.page-fade-ready body {
           }
         }
 
-        fetchDirect(url, 6000).then(function(d) { succeed(d, 'direct'); }).catch(function(err) { fail(err, 'direct'); });
+        fetchDirect(url, DIRECT_FETCH_TIMEOUT_MS).then(function(d) { succeed(d, 'direct'); }).catch(function(err) { fail(err, 'direct'); });
 
         // Hedge: give the direct request a head start; if it hasn't
         // answered within this window, start JSONP alongside it rather
         // than waiting for the full timeout.
-        const hedgeTimer = setTimeout(startJSONP, 1500);
+        const hedgeTimer = setTimeout(startJSONP, 2500);
       });
     }
 
@@ -10864,7 +10914,20 @@ html.page-fade-ready body {
           document.body.style.overflow = '';
         }
       } else {
-        if (window.__closeAuthCheckLoading) window.__closeAuthCheckLoading();
+        // Force the loading/retry overlay closed unconditionally (see the
+        // long comment above window.__forceHideLoadingScreen) instead of
+        // the token-gated __closeAuthCheckLoading, which only ever
+        // actually closes anything on the very first "nobody's signed in
+        // yet" check at page load — on every later sign-out its stored
+        // token is already stale and it silently does nothing, leaving
+        // the dashboard stuck on whatever the overlay last showed (often
+        // the "Couldn't load the dashboard" retry screen) instead of
+        // revealing the sign-in form right below it.
+        if (window.__forceHideLoadingScreen) {
+          window.__forceHideLoadingScreen();
+        } else if (window.__closeAuthCheckLoading) {
+          window.__closeAuthCheckLoading();
+        }
         dashboardLoadingStarted = false;
         stopIdleTracking();
         clearStoredActivityAt();
