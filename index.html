@@ -6167,28 +6167,33 @@ html.page-fade-ready body {
       add('Last Audit Date', b.lastAuditDate);
       add('Up Next Auditor', info.upNextAuditor === null ? '' : info.upNextAuditor);
       add('Expected Audit Date', info.expectedAuditDate);
+      // Real month names read straight off the sheet's own header row
+      // (see activeData.summary.trendLabels), so these labels always
+      // match whatever 3-month rolling window the sheet currently shows
+      // instead of staying stuck on "Mar/Apr/May" forever.
+      const _m = (activeData.summary && activeData.summary.trendLabels) || ['MAR', 'APR', 'LATEST'];
       add('Collection Status', b.collection);
       add('Sales Status', b.sales);
       add('Service Status', b.service);
-      add('Efficiency \u2014 Mar (%)', b.effMar);
-      add('Efficiency \u2014 Apr (%)', b.effApr);
+      add('Efficiency \u2014 ' + _m[0] + ' (%)', b.effMar);
+      add('Efficiency \u2014 ' + _m[1] + ' (%)', b.effApr);
       add('Efficiency \u2014 Latest (%)', b.effLatest);
-      add('Repo Rate \u2014 Mar (%)', b.repoRateMar);
-      add('Repo Rate \u2014 Apr (%)', b.repoRateApr);
+      add('Repo Rate \u2014 ' + _m[0] + ' (%)', b.repoRateMar);
+      add('Repo Rate \u2014 ' + _m[1] + ' (%)', b.repoRateApr);
       add('Repo Rate \u2014 Latest (%)', b.repoRateLatest);
-      add('No. of Repo \u2014 Mar', b.noOfRepoMar);
-      add('No. of Repo \u2014 Apr', b.noOfRepoApr);
+      add('No. of Repo \u2014 ' + _m[0], b.noOfRepoMar);
+      add('No. of Repo \u2014 ' + _m[1], b.noOfRepoApr);
       add('No. of Repo \u2014 Latest', b.noOfRepoLatest);
-      add('Accounts \u2014 Mar', b.accountsMar);
-      add('Accounts \u2014 Apr', b.accountsApr);
-      add('Accounts \u2014 May', b.accountsMay);
-      if (b.salesMar) add('Sales Mar (INS / COD / CA)', b.salesMar.ins + ' / ' + b.salesMar.cod + ' / ' + b.salesMar.ca);
-      if (b.salesApr) add('Sales Apr (INS / COD / CA)', b.salesApr.ins + ' / ' + b.salesApr.cod + ' / ' + b.salesApr.ca);
-      if (b.salesMay) add('Sales May (INS / COD / CA)', b.salesMay.ins + ' / ' + b.salesMay.cod + ' / ' + b.salesMay.ca);
+      add('Accounts \u2014 ' + _m[0], b.accountsMar);
+      add('Accounts \u2014 ' + _m[1], b.accountsApr);
+      add('Accounts \u2014 ' + _m[2], b.accountsMay);
+      if (b.salesMar) add('Sales ' + _m[0] + ' (INS / COD / CA)', b.salesMar.ins + ' / ' + b.salesMar.cod + ' / ' + b.salesMar.ca);
+      if (b.salesApr) add('Sales ' + _m[1] + ' (INS / COD / CA)', b.salesApr.ins + ' / ' + b.salesApr.cod + ' / ' + b.salesApr.ca);
+      if (b.salesMay) add('Sales ' + _m[2] + ' (INS / COD / CA)', b.salesMay.ins + ' / ' + b.salesMay.cod + ' / ' + b.salesMay.ca);
       add('Service Target', b.serviceTarget);
-      add('Service \u2014 Mar', b.serviceMar);
-      add('Service \u2014 Apr', b.serviceApr);
-      add('Service \u2014 May', b.serviceMay);
+      add('Service \u2014 ' + _m[0], b.serviceMar);
+      add('Service \u2014 ' + _m[1], b.serviceApr);
+      add('Service \u2014 ' + _m[2], b.serviceMay);
       add('Findings 2024', b.findings2024);
       add('Findings 2025', b.findings2025);
       add('Findings 2026', b.findings2026);
@@ -6342,9 +6347,14 @@ html.page-fade-ready body {
           });
       });
 
+      // Real month names off the sheet's own header row, same source as
+      // everywhere else (see activeData.summary.trendLabels), so this
+      // export's column headers always match the sheet's actual rolling
+      // 3-month window instead of staying stuck on "Mar/Apr/May" forever.
+      const _exportM = (activeData.summary && activeData.summary.trendLabels) || ['MAR', 'APR', 'LATEST'];
       const sheets = [
           { name: 'Summary', headers: ['Metric', 'Value'], rows: summaryRows },
-          { name: 'Branches', headers: ['#', 'Branch', 'Audit Status', 'Auditor', 'Last Audit Date', 'Up Next Auditor', 'Expected Audit Date', 'Collection', 'Sales', 'Service', 'Eff Mar %', 'Eff Apr %', 'Eff Latest %', 'Repo Rate Mar %', 'Repo Rate Apr %', 'Repo Rate Latest %', 'No. of Repo Mar', 'No. of Repo Apr', 'No. of Repo Latest', 'Accounts Mar', 'Accounts Apr', 'Accounts May', 'Sales Mar (INS/COD/CA)', 'Sales Apr (INS/COD/CA)', 'Sales May (INS/COD/CA)', 'Expected INS', 'Expected COD', 'Service Target', 'Service Mar', 'Service Apr', 'Service May', 'Findings 2024', 'Findings 2025', 'Findings 2026'], rows: branchRows },
+          { name: 'Branches', headers: ['#', 'Branch', 'Audit Status', 'Auditor', 'Last Audit Date', 'Up Next Auditor', 'Expected Audit Date', 'Collection', 'Sales', 'Service', 'Eff ' + _exportM[0] + ' %', 'Eff ' + _exportM[1] + ' %', 'Eff Latest %', 'Repo Rate ' + _exportM[0] + ' %', 'Repo Rate ' + _exportM[1] + ' %', 'Repo Rate Latest %', 'No. of Repo ' + _exportM[0], 'No. of Repo ' + _exportM[1], 'No. of Repo Latest', 'Accounts ' + _exportM[0], 'Accounts ' + _exportM[1], 'Accounts ' + _exportM[2], 'Sales ' + _exportM[0] + ' (INS/COD/CA)', 'Sales ' + _exportM[1] + ' (INS/COD/CA)', 'Sales ' + _exportM[2] + ' (INS/COD/CA)', 'Expected INS', 'Expected COD', 'Service Target', 'Service ' + _exportM[0], 'Service ' + _exportM[1], 'Service ' + _exportM[2], 'Findings 2024', 'Findings 2025', 'Findings 2026'], rows: branchRows },
           { name: 'Assignment Queue', headers: ['Branch', 'Up Next Auditor', 'Expected Audit Date', 'Last Audit Date', 'Last Auditor', 'Recent Audit Date', 'Recent Auditor', 'Audit Interval (to date)'], rows: assignmentQueueRows },
           { name: 'Lowest Efficiency', headers: ['Branch', 'Efficiency %'], rows: (activeData.lowestEfficiency || []).map(function(x) { return [x.branch, x.rate]; }) },
           { name: 'Highest Repo Rate', headers: ['Branch', 'Repo Rate %'], rows: (activeData.highestRepo || []).map(function(x) { return [x.branch, x.rate]; }) },
@@ -10703,20 +10713,20 @@ html.page-fade-ready body {
       });
     }
 
-    // Auto sign-out after 1 hour of no interaction, so a session left
+    // Auto sign-out after 24 hours of no interaction, so a session left
     // open on a shared/public computer doesn't stay unlocked forever.
     // Only runs while someone is actually signed in (started/stopped from
     // the onAuthStateChanged handler below) and resets on any real activity.
     //
     // Implementation note: this is deliberately timestamp-based (Date.now())
     // and re-checked on an interval + on visibilitychange, rather than a
-    // single chained setTimeout(). A lone ~1 hour setTimeout gets heavily
+    // single chained setTimeout(). A lone ~24 hour setTimeout gets heavily
     // throttled (or paused entirely on some mobile browsers) once the tab
     // is backgrounded/minimized — which is exactly when someone is "away" —
     // so that approach could silently fail to fire. Re-deriving idle time
     // from a real wall-clock timestamp every check is reliable regardless
     // of how long timers were throttled while hidden.
-    const IDLE_TIMEOUT_MS = 60 * 60 * 1000;
+    const IDLE_TIMEOUT_MS = 24 * 60 * 60 * 1000;
     const IDLE_CHECK_INTERVAL_MS = 15 * 1000; // re-check every 15s
     // Persisted (not just in-memory) so the "last activity" timestamp
     // survives a page reload / app restart. On the Android (APK/TWA)
