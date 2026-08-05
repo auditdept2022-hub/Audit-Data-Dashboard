@@ -556,7 +556,11 @@
             totalRepoPrevRaw: tb.reduce((sum, b) => sum + (b.noOfRepoApr || 0), 0),
             totalRepoAll: tb.reduce((sum, b) => sum + (b.noOfRepoMar || 0) + (b.noOfRepoApr || 0) + (b.noOfRepoLatest || 0), 0),
             emergencyAuditor: activeData.summary?.emergencyAuditor || "PENDING",
-            trendLabels: activeData.summary?.trendLabels || ["MARCH", "APRIL", "MAY"]
+            trendLabels: activeData.summary?.trendLabels || ["MARCH", "APRIL", "MAY"],
+            // Falls back to the main trendLabels (then the hard default) if
+            // the Sales-section header wasn't found on this sheet, so older
+            // exports without a separate Sales updater still work as before.
+            salesTrendLabels: activeData.summary?.salesTrendLabels || activeData.summary?.trendLabels || ["MARCH", "APRIL", "MAY"]
         };
 
         // --- Auditor Next Assignment: who is queued up for a "FOR AUDIT" branch ---
@@ -6172,6 +6176,8 @@ html.page-fade-ready body {
       // match whatever 3-month rolling window the sheet currently shows
       // instead of staying stuck on "Mar/Apr/May" forever.
       const _m = (activeData.summary && activeData.summary.trendLabels) || ['MAR', 'APR', 'LATEST'];
+      // Sales has its own updater/month labels — see salesTrendLabels.
+      const _sm = (activeData.summary && activeData.summary.salesTrendLabels) || _m;
       add('Collection Status', b.collection);
       add('Sales Status', b.sales);
       add('Service Status', b.service);
@@ -6187,9 +6193,9 @@ html.page-fade-ready body {
       add('Accounts \u2014 ' + _m[0], b.accountsMar);
       add('Accounts \u2014 ' + _m[1], b.accountsApr);
       add('Accounts \u2014 ' + _m[2], b.accountsMay);
-      if (b.salesMar) add('Sales ' + _m[0] + ' (INS / COD / CA)', b.salesMar.ins + ' / ' + b.salesMar.cod + ' / ' + b.salesMar.ca);
-      if (b.salesApr) add('Sales ' + _m[1] + ' (INS / COD / CA)', b.salesApr.ins + ' / ' + b.salesApr.cod + ' / ' + b.salesApr.ca);
-      if (b.salesMay) add('Sales ' + _m[2] + ' (INS / COD / CA)', b.salesMay.ins + ' / ' + b.salesMay.cod + ' / ' + b.salesMay.ca);
+      if (b.salesMar) add('Sales ' + _sm[0] + ' (INS / COD / CA)', b.salesMar.ins + ' / ' + b.salesMar.cod + ' / ' + b.salesMar.ca);
+      if (b.salesApr) add('Sales ' + _sm[1] + ' (INS / COD / CA)', b.salesApr.ins + ' / ' + b.salesApr.cod + ' / ' + b.salesApr.ca);
+      if (b.salesMay) add('Sales ' + _sm[2] + ' (INS / COD / CA)', b.salesMay.ins + ' / ' + b.salesMay.cod + ' / ' + b.salesMay.ca);
       add('Service Target', b.serviceTarget);
       add('Service \u2014 ' + _m[0], b.serviceMar);
       add('Service \u2014 ' + _m[1], b.serviceApr);
@@ -6352,9 +6358,11 @@ html.page-fade-ready body {
       // export's column headers always match the sheet's actual rolling
       // 3-month window instead of staying stuck on "Mar/Apr/May" forever.
       const _exportM = (activeData.summary && activeData.summary.trendLabels) || ['MAR', 'APR', 'LATEST'];
+      // Sales has its own updater/month labels — see salesTrendLabels.
+      const _exportSalesM = (activeData.summary && activeData.summary.salesTrendLabels) || _exportM;
       const sheets = [
           { name: 'Summary', headers: ['Metric', 'Value'], rows: summaryRows },
-          { name: 'Branches', headers: ['#', 'Branch', 'Audit Status', 'Auditor', 'Last Audit Date', 'Up Next Auditor', 'Expected Audit Date', 'Collection', 'Sales', 'Service', 'Eff ' + _exportM[0] + ' %', 'Eff ' + _exportM[1] + ' %', 'Eff Latest %', 'Repo Rate ' + _exportM[0] + ' %', 'Repo Rate ' + _exportM[1] + ' %', 'Repo Rate Latest %', 'No. of Repo ' + _exportM[0], 'No. of Repo ' + _exportM[1], 'No. of Repo Latest', 'Accounts ' + _exportM[0], 'Accounts ' + _exportM[1], 'Accounts ' + _exportM[2], 'Sales ' + _exportM[0] + ' (INS/COD/CA)', 'Sales ' + _exportM[1] + ' (INS/COD/CA)', 'Sales ' + _exportM[2] + ' (INS/COD/CA)', 'Expected INS', 'Expected COD', 'Service Target', 'Service ' + _exportM[0], 'Service ' + _exportM[1], 'Service ' + _exportM[2], 'Findings 2024', 'Findings 2025', 'Findings 2026'], rows: branchRows },
+          { name: 'Branches', headers: ['#', 'Branch', 'Audit Status', 'Auditor', 'Last Audit Date', 'Up Next Auditor', 'Expected Audit Date', 'Collection', 'Sales', 'Service', 'Eff ' + _exportM[0] + ' %', 'Eff ' + _exportM[1] + ' %', 'Eff Latest %', 'Repo Rate ' + _exportM[0] + ' %', 'Repo Rate ' + _exportM[1] + ' %', 'Repo Rate Latest %', 'No. of Repo ' + _exportM[0], 'No. of Repo ' + _exportM[1], 'No. of Repo Latest', 'Accounts ' + _exportM[0], 'Accounts ' + _exportM[1], 'Accounts ' + _exportM[2], 'Sales ' + _exportSalesM[0] + ' (INS/COD/CA)', 'Sales ' + _exportSalesM[1] + ' (INS/COD/CA)', 'Sales ' + _exportSalesM[2] + ' (INS/COD/CA)', 'Expected INS', 'Expected COD', 'Service Target', 'Service ' + _exportM[0], 'Service ' + _exportM[1], 'Service ' + _exportM[2], 'Findings 2024', 'Findings 2025', 'Findings 2026'], rows: branchRows },
           { name: 'Assignment Queue', headers: ['Branch', 'Up Next Auditor', 'Expected Audit Date', 'Last Audit Date', 'Last Auditor', 'Recent Audit Date', 'Recent Auditor', 'Audit Interval (to date)'], rows: assignmentQueueRows },
           { name: 'Lowest Efficiency', headers: ['Branch', 'Efficiency %'], rows: (activeData.lowestEfficiency || []).map(function(x) { return [x.branch, x.rate]; }) },
           { name: 'Highest Repo Rate', headers: ['Branch', 'Repo Rate %'], rows: (activeData.highestRepo || []).map(function(x) { return [x.branch, x.rate]; }) },
@@ -7131,6 +7139,10 @@ html.page-fade-ready body {
 
       const avgSales = (b.salesMar.ins + b.salesApr.ins + b.salesMay.ins) - (b.salesMar.ca + b.salesApr.ca + b.salesMay.ca);
       const labels = activeData.summary.trendLabels || ["MARCH", "APRIL", "LATEST"];
+      // Sales has its own updater/month labels — see salesTrendLabels in
+      // processExcelData — so its section of this profile uses its own
+      // label set instead of the general (Accounts/Efficiency/Repo) one.
+      const salesLabels = activeData.summary.salesTrendLabels || labels;
 
       const escapeHTML = str => {
           if (!str) return '';
@@ -7264,9 +7276,9 @@ html.page-fade-ready body {
                           <thead class="bg-white text-[10px] uppercase tracking-wider text-slate-500 font-bold">
                               <tr>
                                   <th class="p-2 text-left bg-white">Metric</th>
-                                  <th class="p-2 bg-white">${labels[0]}</th>
-                                  <th class="p-2 bg-white">${labels[1]}</th>
-                                  <th class="p-2 bg-white">${labels[2]}</th>
+                                  <th class="p-2 bg-white">${salesLabels[0]}</th>
+                                  <th class="p-2 bg-white">${salesLabels[1]}</th>
+                                  <th class="p-2 bg-white">${salesLabels[2]}</th>
                                   <th class="p-2 bg-accentIndigo/5 text-accentIndigo">3-Mo Total</th>
                               </tr>
                           </thead>
@@ -8013,6 +8025,8 @@ html.page-fade-ready body {
       let detailHeaders = '';
       let showEffRepo = true;
       const trendLbls = activeData.summary.trendLabels || ["MAR", "APR", "MAY"];
+      // Sales section uses its own (separately-updated) month labels.
+      const salesTrendLbls = activeData.summary.salesTrendLabels || trendLbls;
       if (type === 'collection') {
         const sortState = (window.modalFilterState && window.modalFilterState.effSort) || null;
         const sortIcon = sortState === 'desc' ? '↓' : (sortState === 'asc' ? '↑' : '↕');
@@ -8029,19 +8043,19 @@ html.page-fade-ready body {
         const sortIcon = sortState === 'desc' ? '↓' : (sortState === 'asc' ? '↑' : '↕');
         detailHeaders = `
           <th class="p-1.5 bg-gray-50 text-center border-l border-coolBorder whitespace-nowrap">
-            ${trendLbls[0]}<br>
+            ${salesTrendLbls[0]}<br>
             <span class="inline-flex gap-1 mt-0.5 text-[9px] font-bold normal-case">
               <span class="text-accentEmerald">INS</span><span class="text-accentBlue">COD</span><span class="text-accentRose">CA</span>
             </span>
           </th>
           <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">
-            ${trendLbls[1]}<br>
+            ${salesTrendLbls[1]}<br>
             <span class="inline-flex gap-1 mt-0.5 text-[9px] font-bold normal-case">
               <span class="text-accentEmerald">INS</span><span class="text-accentBlue">COD</span><span class="text-accentRose">CA</span>
             </span>
           </th>
           <th class="p-1.5 bg-gray-50 text-center border-r border-coolBorder whitespace-nowrap">
-            ${trendLbls[2]}<br>
+            ${salesTrendLbls[2]}<br>
             <span class="inline-flex gap-1 mt-0.5 text-[9px] font-bold normal-case">
               <span class="text-accentEmerald">INS</span><span class="text-accentBlue">COD</span><span class="text-accentRose">CA</span>
             </span>
@@ -9109,6 +9123,36 @@ html.page-fade-ready body {
               ];
           }
           activeData.summary.trendLabels = monthLabels;
+
+          // Sales section (columns R/S/T, U/V/W, X/Y/Z = INS/COD/CA for each
+          // of its 3 months) is fed by its own "LINK OF DATA UPDATER
+          // (SALES)" formulas and can be rolled forward on a different
+          // schedule than the Accounts columns (C/D/E) above — that's why
+          // the dashboard could keep showing old Sales month names even
+          // after the Sales columns themselves were updated. Its merged
+          // month header ("MAY"/"JUNE"/"JULY" etc.) lives above the
+          // BRANCHES header row, at the first column of each 3-column
+          // group (R=17, U=20, X=23). Scan upward a few rows (merged
+          // cells only carry a value in their top-left cell, and there
+          // may be a "SALES" master header row in between) to find it.
+          let salesMonthLabels = monthLabels.slice();
+          const salesLabelCols = [17, 20, 23]; // R, U, X
+          for (let back = 1; back <= 4; back++) {
+              const idx = headerRowIndex - back;
+              if (idx < 0) break;
+              const r = rawRows[idx];
+              if (!r) continue;
+              const candidate = salesLabelCols.map(c => String(r[c] || "").trim());
+              if (candidate.some(v => v)) {
+                  salesMonthLabels = [
+                      candidate[0] || salesMonthLabels[0],
+                      candidate[1] || salesMonthLabels[1],
+                      candidate[2] || salesMonthLabels[2]
+                  ];
+                  break;
+              }
+          }
+          activeData.summary.salesTrendLabels = salesMonthLabels;
 
           // Expected Audit Date (AUDIT DATA (FINAL) column AM) — read
           // straight from the AUDIT DATA (FINAL) sheet itself rather than
@@ -10286,6 +10330,12 @@ html.page-fade-ready body {
             findings2024: 0, findings2025: 0, findings2026: 0,
             totalAccounts: 0, totalAccountsLatestRaw: 0, totalAccountsPrevRaw: 0, totalRepoLatest: 0, totalRepoPrevRaw: 0, totalRepoAll: 0, emergencyAuditor: "", recentEmergencyD: "", recentEmergencyE: "", recentEmergencyF: "",
             trendLabels: ["MARCH", "APRIL", "MAY"],
+            // Sales has its own rolling-window updater (a separate "LINK OF
+            // DATA UPDATER (SALES)" sheet/formula feeding the R–Z columns
+            // on DASHBOARDDATA), so it can be a different 3 months than the
+            // Accounts/Efficiency/Repo section above. Kept as its own array
+            // so the two can drift independently instead of always matching.
+            salesTrendLabels: ["MARCH", "APRIL", "MAY"],
             forAuditBreakdown: [], nextUpBranch: null, nextUpBranches: [], lastAuditedBranch: null, recentlyAuditedBranches: []
         }, 
         branches: [], lowestEfficiency: [], highestRepo: [], highestNoRepo: [], topFindings26: [], topDecliningCollection: [], topDecliningSales: [], topDecliningService: [], auditors: [], dataAudit: {}, branchAuditSchedule: {}, emergencyHistory: [] 
