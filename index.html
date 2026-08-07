@@ -3688,12 +3688,13 @@ html.page-fade-ready body {
 
       // Must comfortably exceed the worst case inside fetchSheet(): up to
       // MAX_ATTEMPTS (2) attempts, each of which can wait up to
-      // JSONP_FETCH_TIMEOUT_MS (18s) for a slow-but-working Apps Script
-      // cold start, plus a short backoff between attempts. The old 20s
-      // safety net was shorter than that worst case, so it could fire
-      // and show "Couldn't load the dashboard" while the real request
-      // was still in flight and about to succeed.
-      const LOADING_SAFETY_NET_MS = 50000;
+      // JSONP_FETCH_TIMEOUT_MS (28s) for a slow-but-working Apps Script
+      // cold start, plus a short backoff between attempts. Raised from
+      // 50s alongside the fetch timeouts above -- it was shorter than
+      // that worst case, so it could fire and show "Couldn't load the
+      // dashboard" while the real request was still in flight and about
+      // to succeed a few seconds later.
+      const LOADING_SAFETY_NET_MS = 70000;
 
       function waitThenSettle(promise, startedAt, token) {
         let settled = false;
@@ -9671,16 +9672,28 @@ html.page-fade-ready body {
         const script = document.createElement('script');
         let done = false;
 
-        function cleanup() {
+        // On a genuine success we delete the callback outright (nothing
+        // left to call it). On a timeout, though, the browser may have
+        // already started downloading the response -- deleting the
+        // function then meant a late-arriving script still tried to call
+        // window[callbackName](...) a moment later and threw an uncaught
+        // "is not defined" ReferenceError. Leaving a harmless no-op in
+        // its place instead lets that late response land quietly (we've
+        // already rejected/moved on by then) instead of crashing.
+        function cleanup(keepNoopCallback) {
           done = true;
-          delete window[callbackName];
+          if (keepNoopCallback) {
+            window[callbackName] = function() { delete window[callbackName]; };
+          } else {
+            delete window[callbackName];
+          }
           if (script.parentNode) script.parentNode.removeChild(script);
           clearTimeout(timer);
         }
 
         const timer = setTimeout(function() {
           if (done) return;
-          cleanup();
+          cleanup(true);
           reject(new Error('JSONP timed out'));
         }, timeoutMs || 8000);
 
@@ -9949,8 +9962,14 @@ html.page-fade-ready body {
     // back, surfacing "Couldn't load the dashboard" even though the
     // backend was working fine, just slow to wake up. Widened so a slow
     // (but working) response has room to actually arrive.
-    const DIRECT_FETCH_TIMEOUT_MS = 15000;
-    const JSONP_FETCH_TIMEOUT_MS = 18000;
+    // Raised from 15s/18s: Apps Script cold starts (and any request that
+    // falls back to a full 6-sheet readFromSheet() because Firestore isn't
+    // in sync yet) can genuinely take longer than that to respond. The old,
+    // shorter timeouts were aborting perfectly-good-but-slow requests and
+    // showing the "Couldn't load the dashboard" error even though the
+    // backend would have answered a few seconds later.
+    const DIRECT_FETCH_TIMEOUT_MS = 25000;
+    const JSONP_FETCH_TIMEOUT_MS = 28000;
 
     async function fetchSheetOnce(url) {
       // Fast path: we already know which transport gets through on this
