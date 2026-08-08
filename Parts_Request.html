@@ -548,12 +548,20 @@
   /* ---- floating game panel (hidden until opened) ---- */
   .gameDock{
     display:none; position: fixed; right: 18px; bottom: 18px; z-index: 1000;
-    width: 320px; max-height: 82vh; overflow-y: auto;
+    width: 340px; height: 480px;
+    min-width: 270px; min-height: 240px;
+    max-width: calc(100vw - 36px); max-height: 90vh;
+    overflow: auto; resize: both;
     background: var(--panel); border: 1px solid var(--panel-line); border-radius: var(--radius);
     box-shadow: 0 10px 32px rgba(22,41,63,.22);
     padding: 14px 16px 18px;
   }
-  .gameDock.open{ display:block; }
+  .gameDock.open{ display:flex; flex-direction: column; }
+  .gameDock .gameDockBody{ flex: 1 1 auto; min-height: 0; overflow: auto; padding-right: 2px; }
+  /* subtle visual cue for the drag-to-resize corner */
+  .gameDock::-webkit-resizer{
+    background-image: linear-gradient(135deg, transparent 0 40%, var(--panel-line) 40% 46%, transparent 46% 60%, var(--panel-line) 60% 66%, transparent 66% 100%);
+  }
   .gameDockHead{
     display:flex; align-items:center; justify-content:space-between; gap:10px;
     padding-bottom: 10px; margin-bottom: 12px; border-bottom: 1px solid var(--panel-line);
@@ -584,13 +592,13 @@
   /* sudoku */
   .sudoku-grid{
     display:grid; grid-template-columns: repeat(9, 1fr); grid-template-rows: repeat(9, 1fr); gap: 1px;
-    width: 3in; height: 3in; margin: 4px auto 0;
+    width: 100%; max-width: 320px; aspect-ratio: 1 / 1; margin: 4px auto 0;
     border: 2px solid var(--ink); border-radius: 4px; overflow:hidden;
     background: var(--panel-line);
   }
   .sudoku-cell{
     width:100%; height:100%; text-align:center; padding:0;
-    font-family: var(--mono); font-size: 14px; font-weight:600;
+    font-family: var(--mono); font-size: clamp(10px, 2.4vw, 15px); font-weight:600;
     border: none; background: var(--bg-2); color: var(--ink);
     border-radius:0; -moz-appearance: textfield;
   }
@@ -667,24 +675,75 @@
   .chess-status-dot.bad{ background: var(--danger); }
   .chess-board{
     display:grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
-    width: 288px; height: 288px; margin: 6px auto 0; border: 2px solid var(--ink); border-radius: 4px; overflow:hidden;
+    width: var(--chess-size, 220px); height: var(--chess-size, 220px); max-width: 100%;
+    aspect-ratio: 1 / 1;
+    margin: 6px auto 0; border: 3px solid var(--ink); border-radius: 6px; overflow:hidden;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.18);
   }
-  .chess-sq{ position:relative; display:flex; align-items:center; justify-content:center; font-size: 26px; cursor:pointer; user-select:none; }
+  .chess-sq{ position:relative; display:flex; align-items:center; justify-content:center; font-size: calc(var(--chess-size, 220px) / 8 * 0.62); cursor:pointer; user-select:none; }
   .chess-sq.light{ background: var(--paper-2); }
   .chess-sq.dark{ background: var(--bg-2); }
   .chess-sq.selected{ outline: 3px solid var(--gold); outline-offset: -3px; z-index:1; }
   .chess-sq.lastmove{ background: color-mix(in srgb, var(--gold) 30%, var(--paper-2)); }
   .chess-sq.dark.lastmove{ background: color-mix(in srgb, var(--gold) 30%, var(--bg-2)); }
   .chess-sq.movehint::after{
-    content:''; position:absolute; width:10px; height:10px; border-radius:50%;
+    content:''; position:absolute; width:16px; height:16px; border-radius:50%;
     background: color-mix(in srgb, var(--gold) 55%, transparent);
   }
   .chess-sq.capturehint{ outline: 3px solid color-mix(in srgb, var(--danger) 60%, transparent); outline-offset: -3px; }
   .chess-sq.check{ background: color-mix(in srgb, var(--danger) 35%, white) !important; }
-  .chess-piece.white{ color: #f4efe3; -webkit-text-stroke: 1px var(--ink); }
-  .chess-piece.black{ color: #1c1c1c; }
+  .chess-piece{ transition: transform .1s ease; }
+  .chess-sq:hover .chess-piece{ transform: scale(1.08); }
+  .chess-piece.white{
+    color: #fffdf6;
+    -webkit-text-stroke: 1.5px #3a2b13;
+    text-shadow: 0 2px 3px rgba(0,0,0,0.35), 0 0 6px rgba(255, 215, 130, 0.35);
+  }
+  .chess-piece.black{
+    color: #14100a;
+    -webkit-text-stroke: 1px #d8b25c;
+    text-shadow: 0 2px 3px rgba(0,0,0,0.45), 0 0 5px rgba(216, 178, 92, 0.25);
+  }
   .chess-status{ text-align:center; margin-top: 10px; font-size: 13px; color: var(--ink-soft); font-family: var(--mono); }
   .chess-you{ text-align:center; margin-top: 2px; font-size: 11px; color: var(--ink-soft); font-family: var(--mono); }
+  .chess-size-row{
+    display:flex; align-items:center; gap:8px; margin-top:10px;
+    font-family: var(--mono); font-size: 11px; color: var(--ink-soft);
+  }
+  .chess-size-row input[type="range"]{ flex:1; accent-color: var(--gold); }
+  .chess-size-row .chess-size-val{ flex:none; width: 34px; text-align:right; font-weight:600; }
+
+  /* snake */
+  .snake-topline{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:4px; font-family: var(--mono); font-size: 12.5px; color: var(--ink-soft); }
+  .snake-score{ font-weight:700; color: var(--ink); }
+  .snake-hiscore{ display:flex; align-items:center; gap:5px; }
+  .snake-hiscore svg{ width:13px; height:13px; color: var(--gold); }
+  .snake-wrap{ position:relative; width: 320px; max-width: 100%; aspect-ratio: 1 / 1; margin: 8px auto 0; }
+  .snake-board{
+    display:block; width:100%; height:100%; border: 3px solid var(--ink); border-radius: 6px;
+    background: var(--bg-2); box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+  }
+  .snake-overlay{
+    position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+    background: color-mix(in srgb, var(--panel) 88%, transparent); border-radius: 6px; text-align:center; padding: 16px;
+  }
+  .snake-overlay.show{ display:flex; }
+  .snake-overlay-title{ font-family: var(--mono); font-size: 15px; font-weight:700; color: var(--ink); letter-spacing:.03em; }
+  .snake-overlay-sub{ font-family: var(--mono); font-size: 11.5px; color: var(--ink-soft); }
+  .snake-status{ text-align:center; margin-top: 10px; font-size: 12px; color: var(--ink-soft); font-family: var(--mono); }
+  .snake-pad{ display:none; margin: 12px auto 0; width: 148px; }
+  .snake-pad-row{ display:flex; justify-content:center; gap:6px; margin-bottom:6px; }
+  .snake-pad-btn{
+    width:44px; height:44px; border-radius:8px; border:1px solid var(--panel-line);
+    background: var(--paper-2); color: var(--ink); display:flex; align-items:center; justify-content:center;
+    cursor:pointer; touch-action: manipulation; user-select:none;
+  }
+  .snake-pad-btn:active{ background: var(--gold); color:#fff; border-color: var(--gold); }
+  .snake-pad-btn svg{ width:18px; height:18px; }
+  @media (hover:none){ .snake-pad{ display:block; } }
+  .snake-speed-row{ display:flex; align-items:center; gap:8px; margin-top:8px; }
+  .snake-speed-row label{ margin:0; flex:none; }
+  .snake-speed-row select{ flex:1; }
 </style>
 </head>
 <body>
@@ -892,6 +951,7 @@
       <option value="memory">Memory Match (online, 2 players)</option>
       <option value="connect4">Connect 4 (online, 2 players / vs Computer)</option>
       <option value="chess">Chess (online, 2 players / vs Computer)</option>
+      <option value="snake">Snake</option>
     </select>
 
     <!-- Sudoku -->
@@ -1017,9 +1077,62 @@
           <button class="conn-btn" id="chessResignBtn" type="button">Resign / New</button>
         </div>
         <div class="chess-board" id="chessBoard"></div>
+        <div class="chess-size-row">
+          <span>Size</span>
+          <input type="range" id="chessSizeRange" min="160" max="320" step="10" value="200" aria-label="Chess board size" />
+          <span class="chess-size-val" id="chessSizeVal">200px</span>
+        </div>
         <div class="chess-status" id="chessStatus">White's turn</div>
         <div class="chess-you" id="chessYou"></div>
       </div>
+    </div>
+
+    <!-- Snake -->
+    <div class="mg-panel" id="mg-snake">
+      <div class="mg-toolbar">
+        <button class="conn-btn" id="snakeNewBtn" type="button">New Game</button>
+        <div class="snake-speed-row" style="flex:1; margin-top:0;">
+          <label>Speed</label>
+          <select id="snakeSpeedSelect">
+            <option value="slow">Slow</option>
+            <option value="normal" selected>Normal</option>
+            <option value="fast">Fast</option>
+          </select>
+        </div>
+      </div>
+      <div class="snake-topline">
+        <div>Score: <span class="snake-score" id="snakeScore">0</span></div>
+        <div class="snake-hiscore">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.26L21.5 9l-5 4.87L17.8 21 12 17.77 6.2 21l1.3-7.13-5-4.87 6.6-.74L12 2z"/></svg>
+          Best: <span id="snakeHiScore">0</span>
+        </div>
+      </div>
+      <div class="snake-wrap">
+        <canvas class="snake-board" id="snakeBoard" width="320" height="320"></canvas>
+        <div class="snake-overlay" id="snakeOverlay">
+          <div class="snake-overlay-title" id="snakeOverlayTitle">Snake</div>
+          <div class="snake-overlay-sub" id="snakeOverlaySub">Tap New Game or press an arrow key to start</div>
+        </div>
+      </div>
+      <div class="snake-pad" id="snakePad">
+        <div class="snake-pad-row">
+          <button class="snake-pad-btn" type="button" data-dir="up" aria-label="Up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+          </button>
+        </div>
+        <div class="snake-pad-row">
+          <button class="snake-pad-btn" type="button" data-dir="left" aria-label="Left">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+          </button>
+          <button class="snake-pad-btn" type="button" data-dir="down" aria-label="Down">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
+          </button>
+          <button class="snake-pad-btn" type="button" data-dir="right" aria-label="Right">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </button>
+        </div>
+      </div>
+      <div class="snake-status" id="snakeStatusLine">Use arrow keys / WASD, or the on-screen pad on touch devices.</div>
     </div>
   </div>
 </div>
@@ -1322,10 +1435,12 @@ function renderMyRecords(){
     totalEmployee += Number(r.employeeShare) || 0;
     const odoCell = `<td class="editable" contenteditable="true" data-id="${escapeHtml(r.id)}" data-field="odometer" data-kind="number" data-label="Odometer">${r.odometer != null ? r.odometer : ''}</td>`;
     const nextCell = `<td class="editable" contenteditable="true" data-id="${escapeHtml(r.id)}" data-field="nextChangeOdometer" data-kind="number" data-label="Next Change">${r.nextChangeOdometer != null ? r.nextChangeOdometer : ''}</td>`;
+    const qtyCell = `<td class="editable" contenteditable="true" data-id="${escapeHtml(r.id)}" data-field="qty" data-kind="number" data-label="Quantity">${r.qty != null ? r.qty : ''}</td>`;
     return `<tr data-row-id="${escapeHtml(r.id)}">
       <td class="editable" contenteditable="true" data-id="${escapeHtml(r.id)}" data-field="date" data-kind="date" data-label="Date">${escapeHtml(r.date || '')}</td>
       <td><span class="pill ${r.type}">${r.type}</span></td>
       <td class="editable" contenteditable="true" data-id="${escapeHtml(r.id)}" data-field="item" data-kind="text" data-label="Item">${escapeHtml(r.item || '')}${r.image ? `<button type="button" class="imgThumbBtn" data-rec-img-id="${escapeHtml(r.id)}" title="View Shopee screenshot"><img class="imgThumb" src="${r.image}" alt="Shopee order screenshot" /></button>` : ''}</td>
+      ${qtyCell}
       <td class="amt editable" contenteditable="true" data-id="${escapeHtml(r.id)}" data-field="amount" data-kind="number" data-label="Amount">${r.amount != null ? r.amount : ''}</td>
       <td class="amt" style="color:var(--company)">${peso(r.companyShare)}</td>
       <td class="amt" style="color:var(--employee)">${peso(r.employeeShare)}</td>
@@ -1337,9 +1452,9 @@ function renderMyRecords(){
 
   bodyEl.innerHTML = `
     <table>
-      <thead><tr><th>Date</th><th>Type</th><th>Item</th><th style="text-align:right">Amount</th><th style="text-align:right">Company</th><th style="text-align:right">Employee</th><th>Odometer</th><th>Next Change</th><th></th></tr></thead>
+      <thead><tr><th>Date</th><th>Type</th><th>Item</th><th>Qty</th><th style="text-align:right">Amount</th><th style="text-align:right">Company</th><th style="text-align:right">Employee</th><th>Odometer</th><th>Next Change</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
-      <tfoot><tr><td colspan="3">Total</td><td class="amt">${peso(totalAmount)}</td><td class="amt" style="color:var(--company)">${peso(totalCompany)}</td><td class="amt" style="color:var(--employee)">${peso(totalEmployee)}</td><td></td><td></td><td></td></tr></tfoot>
+      <tfoot><tr><td colspan="3">Total</td><td></td><td class="amt">${peso(totalAmount)}</td><td class="amt" style="color:var(--company)">${peso(totalCompany)}</td><td class="amt" style="color:var(--employee)">${peso(totalEmployee)}</td><td></td><td></td><td></td></tr></tfoot>
     </table>`;
 
   bodyEl.querySelectorAll('button[data-rec-img-id]').forEach(btn => {
@@ -2213,7 +2328,7 @@ if (WEB_APP_URL) loadAll(); else setConnStatus(false);
   const dockHead = $('gameDockHead');
 
   function openDock(){ dock.classList.add('open'); }
-  function closeDock(){ dock.classList.remove('open'); }
+  function closeDock(){ dock.classList.remove('open'); if (typeof snakePause === 'function') snakePause(); }
 
   trigger.addEventListener('click', () => {
     dock.classList.contains('open') ? closeDock() : openDock();
@@ -2256,9 +2371,10 @@ if (WEB_APP_URL) loadAll(); else setConnStatus(false);
 
   // ---- game switcher ----
   const select = $('miniGameSelect');
-  const panels = { sudoku: $('mg-sudoku'), ttt: $('mg-ttt'), memory: $('mg-memory'), connect4: $('mg-connect4'), chess: $('mg-chess') };
+  const panels = { sudoku: $('mg-sudoku'), ttt: $('mg-ttt'), memory: $('mg-memory'), connect4: $('mg-connect4'), chess: $('mg-chess'), snake: $('mg-snake') };
   select.addEventListener('change', () => {
     Object.entries(panels).forEach(([key, el]) => el.classList.toggle('active', key === select.value));
+    if (select.value !== 'snake' && typeof snakePause === 'function') snakePause();
   });
 
   /* =========================================================
@@ -2935,6 +3051,27 @@ if (WEB_APP_URL) loadAll(); else setConnStatus(false);
   const chessMyCodeEl  = $('chessMyCode');
   const chessStatusDot = $('chessStatusDot');
   const chessStatusText= $('chessStatusText');
+  const chessSizeRange = $('chessSizeRange');
+  const chessSizeVal   = $('chessSizeVal');
+
+  const CHESS_SIZE_KEY = 'partsAppChessBoardSize';
+  function chessApplySize(px){
+    chessBoardEl.style.setProperty('--chess-size', px + 'px');
+    chessSizeVal.textContent = px + 'px';
+  }
+  function chessLoadSize(){
+    let v;
+    try { v = parseInt(localStorage.getItem(CHESS_SIZE_KEY), 10); } catch(e){}
+    if (!v || isNaN(v)) v = 200;
+    chessSizeRange.value = v;
+    chessApplySize(v);
+  }
+  chessSizeRange.addEventListener('input', () => {
+    const v = parseInt(chessSizeRange.value, 10);
+    chessApplySize(v);
+    try { localStorage.setItem(CHESS_SIZE_KEY, String(v)); } catch(e){}
+  });
+  chessLoadSize();
 
   const PIECE_GLYPH = {
     w: { k:'♔', q:'♕', r:'♖', b:'♗', n:'♘', p:'♙' },
@@ -3425,6 +3562,180 @@ if (WEB_APP_URL) loadAll(); else setConnStatus(false);
   }
   $('chessAIWhiteBtn').addEventListener('click', () => chessStartVsComputer('w'));
   $('chessAIBlackBtn').addEventListener('click', () => chessStartVsComputer('b'));
+
+  /* =========================================================
+     SNAKE
+     ========================================================= */
+  const snakeCanvas   = $('snakeBoard');
+  const snakeCtx      = snakeCanvas.getContext('2d');
+  const snakeScoreEl  = $('snakeScore');
+  const snakeHiEl     = $('snakeHiScore');
+  const snakeOverlay  = $('snakeOverlay');
+  const snakeOverlayTitle = $('snakeOverlayTitle');
+  const snakeOverlaySub   = $('snakeOverlaySub');
+  const snakePadEl    = $('snakePad');
+  const snakeSpeedSel  = $('snakeSpeedSelect');
+  const SNAKE_HS_KEY = 'partsAppSnakeHighScore';
+  const SNAKE_COLS = 20, SNAKE_ROWS = 20;
+  let snakeCellPx = snakeCanvas.width / SNAKE_COLS;
+  let snakeBody, snakeDir, snakeNextDir, snakeFood, snakeScore, snakeHigh;
+  let snakeTimerId = null, snakeRunning = false, snakeStarted = false;
+  const SNAKE_SPEEDS = { slow: 160, normal: 115, fast: 78 };
+
+  function snakeLoadHigh(){
+    try { snakeHigh = parseInt(localStorage.getItem(SNAKE_HS_KEY), 10) || 0; } catch(e){ snakeHigh = 0; }
+    snakeHiEl.textContent = snakeHigh;
+  }
+  function snakeSaveHigh(){
+    if (snakeScore > snakeHigh){
+      snakeHigh = snakeScore;
+      snakeHiEl.textContent = snakeHigh;
+      try { localStorage.setItem(SNAKE_HS_KEY, String(snakeHigh)); } catch(e){}
+    }
+  }
+  function snakeRandCell(){ return { x: Math.floor(Math.random()*SNAKE_COLS), y: Math.floor(Math.random()*SNAKE_ROWS) }; }
+  function snakePlaceFood(){
+    let f;
+    do { f = snakeRandCell(); } while (snakeBody.some(s => s.x === f.x && s.y === f.y));
+    snakeFood = f;
+  }
+  function snakeReset(){
+    snakeBody = [{x:9,y:10},{x:8,y:10},{x:7,y:10}];
+    snakeDir = { x:1, y:0 };
+    snakeNextDir = { x:1, y:0 };
+    snakeScore = 0;
+    snakeScoreEl.textContent = '0';
+    snakePlaceFood();
+    snakeStarted = false;
+    snakeRunning = false;
+    clearInterval(snakeTimerId);
+    snakeDraw();
+    snakeOverlayTitle.textContent = 'Snake';
+    snakeOverlaySub.textContent = 'Tap New Game or press an arrow key to start';
+    snakeOverlay.classList.add('show');
+  }
+  function snakeStart(){
+    snakeOverlay.classList.remove('show');
+    snakeStarted = true;
+    snakeRunning = true;
+    clearInterval(snakeTimerId);
+    const speed = SNAKE_SPEEDS[snakeSpeedSel.value] || SNAKE_SPEEDS.normal;
+    snakeTimerId = setInterval(snakeTick, speed);
+  }
+  function snakePause(){
+    if (!snakeRunning) return;
+    snakeRunning = false;
+    clearInterval(snakeTimerId);
+    if (snakeStarted){
+      snakeOverlayTitle.textContent = 'Paused';
+      snakeOverlaySub.textContent = 'Press an arrow key or tap the pad to resume';
+      snakeOverlay.classList.add('show');
+    }
+  }
+  function snakeResume(){
+    if (snakeRunning || !snakeStarted) return;
+    snakeOverlay.classList.remove('show');
+    snakeRunning = true;
+    const speed = SNAKE_SPEEDS[snakeSpeedSel.value] || SNAKE_SPEEDS.normal;
+    snakeTimerId = setInterval(snakeTick, speed);
+  }
+  function snakeGameOver(){
+    snakeRunning = false;
+    clearInterval(snakeTimerId);
+    snakeSaveHigh();
+    snakeOverlayTitle.textContent = 'Game Over';
+    snakeOverlaySub.textContent = `Score: ${snakeScore} — tap New Game to try again`;
+    snakeOverlay.classList.add('show');
+  }
+  function snakeTick(){
+    snakeDir = snakeNextDir;
+    const head = { x: snakeBody[0].x + snakeDir.x, y: snakeBody[0].y + snakeDir.y };
+    if (head.x < 0 || head.x >= SNAKE_COLS || head.y < 0 || head.y >= SNAKE_ROWS){ snakeGameOver(); return; }
+    if (snakeBody.some(s => s.x === head.x && s.y === head.y)){ snakeGameOver(); return; }
+    snakeBody.unshift(head);
+    if (head.x === snakeFood.x && head.y === snakeFood.y){
+      snakeScore += 10;
+      snakeScoreEl.textContent = snakeScore;
+      snakePlaceFood();
+    } else {
+      snakeBody.pop();
+    }
+    snakeDraw();
+  }
+  function snakeDraw(){
+    const w = snakeCanvas.width, h = snakeCanvas.height;
+    const styles = getComputedStyle(document.documentElement);
+    const bg = styles.getPropertyValue('--bg-2').trim() || '#F7FAFF';
+    const gold = styles.getPropertyValue('--gold').trim() || '#2F6FCE';
+    const ink = styles.getPropertyValue('--ink').trim() || '#16293F';
+    const good = styles.getPropertyValue('--good').trim() || '#2F8A5E';
+    const danger = styles.getPropertyValue('--danger').trim() || '#C0392B';
+    snakeCtx.clearRect(0, 0, w, h);
+    snakeCtx.fillStyle = bg;
+    snakeCtx.fillRect(0, 0, w, h);
+    // faint grid
+    snakeCtx.strokeStyle = 'rgba(0,0,0,0.045)';
+    snakeCtx.lineWidth = 1;
+    for (let i = 1; i < SNAKE_COLS; i++){
+      snakeCtx.beginPath(); snakeCtx.moveTo(i*snakeCellPx, 0); snakeCtx.lineTo(i*snakeCellPx, h); snakeCtx.stroke();
+      snakeCtx.beginPath(); snakeCtx.moveTo(0, i*snakeCellPx); snakeCtx.lineTo(w, i*snakeCellPx); snakeCtx.stroke();
+    }
+    // food
+    snakeCtx.fillStyle = danger;
+    const fcx = snakeFood.x*snakeCellPx + snakeCellPx/2, fcy = snakeFood.y*snakeCellPx + snakeCellPx/2;
+    snakeCtx.beginPath();
+    snakeCtx.arc(fcx, fcy, snakeCellPx*0.34, 0, Math.PI*2);
+    snakeCtx.fill();
+    // snake body
+    snakeBody.forEach((s, i) => {
+      const pad = 1.5;
+      snakeCtx.fillStyle = i === 0 ? gold : good;
+      const x = s.x*snakeCellPx + pad, y = s.y*snakeCellPx + pad, size = snakeCellPx - pad*2;
+      const r = Math.min(6, size/3);
+      snakeCtx.beginPath();
+      snakeCtx.moveTo(x+r, y);
+      snakeCtx.arcTo(x+size, y, x+size, y+size, r);
+      snakeCtx.arcTo(x+size, y+size, x, y+size, r);
+      snakeCtx.arcTo(x, y+size, x, y, r);
+      snakeCtx.arcTo(x, y, x+size, y, r);
+      snakeCtx.closePath();
+      snakeCtx.fill();
+    });
+  }
+  function snakeSetDir(dx, dy){
+    if (snakeDir.x === -dx && snakeDir.y === -dy) return; // no reversing into self
+    snakeNextDir = { x: dx, y: dy };
+    if (!snakeStarted) snakeStart();
+    else if (!snakeRunning) snakeResume();
+  }
+  document.addEventListener('keydown', (e) => {
+    if (!panels.snake.classList.contains('active') || !dock.classList.contains('open')) return;
+    const k = e.key.toLowerCase();
+    if (['arrowup','arrowdown','arrowleft','arrowright','w','a','s','d'].includes(k)) e.preventDefault();
+    if (k === 'arrowup' || k === 'w') snakeSetDir(0, -1);
+    else if (k === 'arrowdown' || k === 's') snakeSetDir(0, 1);
+    else if (k === 'arrowleft' || k === 'a') snakeSetDir(-1, 0);
+    else if (k === 'arrowright' || k === 'd') snakeSetDir(1, 0);
+    else if (k === ' ') { snakeRunning ? snakePause() : (snakeStarted ? snakeResume() : snakeStart()); }
+  });
+  snakePadEl.querySelectorAll('.snake-pad-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const dir = btn.getAttribute('data-dir');
+      if (dir === 'up') snakeSetDir(0,-1);
+      else if (dir === 'down') snakeSetDir(0,1);
+      else if (dir === 'left') snakeSetDir(-1,0);
+      else if (dir === 'right') snakeSetDir(1,0);
+    });
+  });
+  $('snakeNewBtn').addEventListener('click', snakeReset);
+  snakeSpeedSel.addEventListener('change', () => {
+    if (snakeRunning){
+      clearInterval(snakeTimerId);
+      snakeTimerId = setInterval(snakeTick, SNAKE_SPEEDS[snakeSpeedSel.value] || SNAKE_SPEEDS.normal);
+    }
+  });
+  snakeLoadHigh();
+  snakeReset();
 })();
 </script>
 </body>
