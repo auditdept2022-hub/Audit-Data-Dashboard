@@ -423,6 +423,14 @@
   .fp-empty-row td{ color: var(--muted); font-style: italic; font-family: var(--sans); text-align:center; padding: 20px 8px; }
   .fp-table tfoot td{ font-weight:700; font-family: var(--mono); background: var(--paper-2); }
   .fp-note{ margin-top: 12px; font-family: var(--mono); font-size: 12px; color: var(--ink-soft); }
+  .fp-edit{ font-family: var(--mono); font-size: 12px; color: var(--ink); background: transparent; border: none; border-bottom: 1px dashed var(--panel-line); width:100%; padding: 1px 0; }
+  .fp-edit:focus{ outline: none; border-bottom: 1px solid var(--gold); background: var(--paper-2); }
+  .fp-edit-item{ margin-bottom: 3px; }
+  .fp-edit-qty{ width: 54px; }
+  .fp-edit-date::-webkit-calendar-picker-indicator{ filter: opacity(.55); }
+  .fp-note-edit, .fp-remarks-edit{ display:flex; align-items:center; flex-wrap:wrap; gap: 4px; }
+  .fp-edit-odo, .fp-edit-nextchange{ width: 76px; display:inline-block; }
+  .fp-edit-remarks{ flex:1; min-width: 160px; }
   .fp-remarks{ margin-top: 10px; font-size: 12.5px; }
   table{ width:100%; border-collapse: collapse; font-size: 13px; }
   thead th{
@@ -490,8 +498,13 @@
   .pi-page:last-child{ page-break-after: auto; }
   .pi-title{ font-weight:700; font-size: 12px; margin-bottom: 8px; color:#000; }
   .pi-img{ display:block; max-width:100%; max-height: 90vh; margin: 0 auto; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .ps-copy{ padding: 6px 0 10px; margin-bottom: 6px; page-break-after: always; break-after: page; }
-  .ps-copy:last-child{ page-break-after: auto; break-after: auto; }
+  .ps-copy{ padding: 6px 0 10px; margin-bottom: 6px; page-break-inside: avoid; break-inside: avoid; }
+  .ps-copy + .ps-copy{ border-top: 1px dashed #999; margin-top: 10px; padding-top: 16px; position: relative; }
+  .ps-copy + .ps-copy::before{
+    content: '✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -';
+    position: absolute; top: -8px; left: 0; right:0; text-align:center;
+    font-size: 9px; color:#999; background:#fff; letter-spacing: 1px; overflow:hidden; white-space:nowrap;
+  }
   .ps-brandbar{ display:flex; align-items:center; gap: 10px; padding: 0; margin-top: -6px; }
   .ps-wordmark{ width: 100%; max-width: 100%; display:block; margin: 0; object-fit: contain; }
   .ps-formtitle{ text-align:center; font-weight:700; font-size: 12px; letter-spacing:.04em; color:#000; margin: 2px 0 8px; }
@@ -800,10 +813,6 @@
 
     <div class="tabsRow">
       <div id="dinoWrap"><canvas id="dinoGame"></canvas></div>
-      <button class="conn-btn" id="printFormBtn" type="button" style="flex:none;">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-        <span>Print</span>
-      </button>
     </div>
 
     <div class="grid">
@@ -895,10 +904,16 @@
               <h2 id="ledgerTitle">Request Preview</h2>
               <div class="sub" id="ledgerSub">Live — matches the printed form</div>
             </div>
-            <button class="conn-btn" id="newRequestBtn" type="button" style="display:none; flex:none;">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-              <span>New</span>
-            </button>
+            <div style="display:flex; gap:8px; flex:none;">
+              <button class="conn-btn" id="newRequestBtn" type="button" style="display:none; flex:none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                <span>New</span>
+              </button>
+              <button class="conn-btn" id="printFormBtn" type="button" style="flex:none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                <span>Print</span>
+              </button>
+            </div>
           </div>
           <div id="formPreview"></div>
         </div>
@@ -1701,21 +1716,21 @@ function renderFormPreview(){
     const qty = $('qtyInput').value;
     const amount = Number($('amountInput').value) || 0;
     const companyPct = splitLabel === '40/60' ? 0.4 : 0.6;
-    const itemText = item ? (item + (requestType === 'PARTS' && qty ? ' (x' + qty + ')' : '')) : '';
     formTitle = (requestType === 'PARTS' ? 'PARTS' : 'OIL') + ' REQUEST FORM';
     totalAmount = amount;
-    rowsHtml = itemText
-      ? `<tr>
-          <td>${escapeHtml(itemText)}</td>
-          <td>${amount ? peso(amount) : ''}</td>
-          <td>${dateVal}</td>
-          <td></td>
-          <td>${amount ? peso(amount * companyPct) : ''}</td>
-          <td>${amount ? peso(amount * (1 - companyPct)) : ''}</td>
-          <td></td>
-          <td></td>
-        </tr>`
-      : `<tr class="fp-empty-row"><td colspan="8">Start typing a request on the left to see it appear here…</td></tr>`;
+    rowsHtml = `<tr>
+        <td>
+          <input type="text" class="fp-edit fp-edit-item" id="fpItemEdit" value="${escapeHtml(item)}" placeholder="${requestType === 'PARTS' ? 'e.g. Brake Pad' : 'e.g. Yamaha Blue Core AT'}" />
+          ${requestType === 'PARTS' ? `<input type="number" class="fp-edit fp-edit-qty" id="fpQtyEdit" min="0" value="${escapeHtml(qty)}" title="Qty" />` : ''}
+        </td>
+        <td><input type="number" class="fp-edit fp-edit-amount" id="fpAmountEdit" min="0" step="0.01" value="${amount || ''}" placeholder="0.00" /></td>
+        <td><input type="date" class="fp-edit fp-edit-date" id="fpDateEdit" value="${dateVal}" /></td>
+        <td></td>
+        <td id="fpCompanyShare">${amount ? peso(amount * companyPct) : ''}</td>
+        <td id="fpEmployeeShare">${amount ? peso(amount * (1 - companyPct)) : ''}</td>
+        <td></td>
+        <td></td>
+      </tr>`;
   }
 
   const odo = $('odoInput').value;
@@ -1754,12 +1769,18 @@ function renderFormPreview(){
       </thead>
       <tbody>${rowsHtml}</tbody>
       <tfoot>
-        <tr><td>Total Amount</td><td>${totalAmount ? peso(totalAmount) : ''}</td><td colspan="6"></td></tr>
+        <tr><td>Total Amount</td><td id="fpTotalAmount">${totalAmount ? peso(totalAmount) : ''}</td><td colspan="6"></td></tr>
       </tfoot>
     </table>
 
-    ${odo ? `<div class="fp-note">Odometer: ${escapeHtml(odo)} km${nextChange ? ' · Next change due: ' + escapeHtml(nextChange) + ' km' : ''}</div>` : ''}
-    ${remarks ? `<div class="fp-remarks"><b>Remarks:</b> ${escapeHtml(remarks)}</div>` : ''}
+    ${lastSubmittedBatch.length
+      ? `${odo ? `<div class="fp-note">Odometer: ${escapeHtml(odo)} km${nextChange ? ' · Next change due: ' + escapeHtml(nextChange) + ' km' : ''}</div>` : ''}
+         ${remarks ? `<div class="fp-remarks"><b>Remarks:</b> ${escapeHtml(remarks)}</div>` : ''}`
+      : `<div class="fp-note fp-note-edit">
+           Odometer: <input type="number" class="fp-edit fp-edit-odo" id="fpOdoEdit" min="0" value="${escapeHtml(odo)}" placeholder="optional" />
+           km · Next change due: <input type="number" class="fp-edit fp-edit-nextchange" id="fpNextChangeEdit" min="0" value="${escapeHtml(nextChange)}" placeholder="auto-suggested" /> km
+         </div>
+         <div class="fp-remarks fp-remarks-edit"><b>Remarks:</b> <input type="text" class="fp-edit fp-edit-remarks" id="fpRemarksEdit" value="${escapeHtml(remarks)}" placeholder="optional" /></div>`}
   `;
 
   $('formPreview').querySelectorAll('button[data-batch-img-idx]').forEach(btn => {
@@ -1767,6 +1788,46 @@ function renderFormPreview(){
   });
   const liveChip = $('formPreview').querySelector('button[data-live-img]');
   if (liveChip) liveChip.onclick = () => openImgLightbox(currentImage && currentImage.data);
+
+  // ---- editable live preview: typing here writes straight into the real form
+  // fields, but without re-rendering the whole preview (which would steal focus
+  // mid-keystroke) — only the computed share/total cells get patched live.
+  const fpItem = $('fpItemEdit');
+  const fpQty = $('fpQtyEdit');
+  const fpAmount = $('fpAmountEdit');
+  const fpDate = $('fpDateEdit');
+
+  function syncSharesFromPreview(){
+    const amt = fpAmount ? (Number(fpAmount.value) || 0) : 0;
+    const companyPct = splitLabel === '40/60' ? 0.4 : 0.6;
+    if ($('fpCompanyShare')) $('fpCompanyShare').textContent = amt ? peso(amt * companyPct) : '';
+    if ($('fpEmployeeShare')) $('fpEmployeeShare').textContent = amt ? peso(amt * (1 - companyPct)) : '';
+    if ($('fpTotalAmount')) $('fpTotalAmount').textContent = amt ? peso(amt) : '';
+  }
+
+  if (fpItem) fpItem.addEventListener('input', () => {
+    $('itemInput').value = fpItem.value;
+    suggestNextChange();
+    if ($('fpNextChangeEdit')) $('fpNextChangeEdit').value = $('nextChangeInput').value;
+  });
+  if (fpQty) fpQty.addEventListener('input', () => { $('qtyInput').value = fpQty.value; });
+  if (fpAmount) fpAmount.addEventListener('input', () => {
+    $('amountInput').value = fpAmount.value;
+    updatePreview();
+    syncSharesFromPreview();
+  });
+  if (fpDate) fpDate.addEventListener('input', () => { $('dateInput').value = fpDate.value; });
+
+  const fpOdo = $('fpOdoEdit');
+  const fpNextChange = $('fpNextChangeEdit');
+  const fpRemarks = $('fpRemarksEdit');
+  if (fpOdo) fpOdo.addEventListener('input', () => {
+    $('odoInput').value = fpOdo.value;
+    suggestNextChange();
+    if (fpNextChange) fpNextChange.value = $('nextChangeInput').value;
+  });
+  if (fpNextChange) fpNextChange.addEventListener('input', () => { $('nextChangeInput').value = fpNextChange.value; });
+  if (fpRemarks) fpRemarks.addEventListener('input', () => { $('remarksInput').value = fpRemarks.value; });
 }
 
 // ---------- form behavior ----------
