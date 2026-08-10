@@ -1566,15 +1566,11 @@ let pendingRequests = []; // items added via "+ Add to this request" but not yet
 let lastSubmittedBatch = []; // items from the most recent successful submit, for the print-ready preview
 
 function renderRightPanel(){
-  if (pendingRequests.length) {
-    $('newRequestBtn').style.display = 'none';
-    renderRequestLog();
-  } else {
-    $('ledgerTitle').textContent = 'Request Preview';
-    $('ledgerSub').textContent = lastSubmittedBatch.length ? 'SUBMITTED — REVIEW BEFORE PRINTING' : 'Live — matches the printed form';
-    $('newRequestBtn').style.display = lastSubmittedBatch.length ? '' : 'none';
-    renderFormPreview();
-  }
+  // one unified "Request Preview" — it always shows every item that will
+  // go out on Submit (items already added via "+" plus whatever is
+  // currently typed on the left), all editable inline.
+  $('newRequestBtn').style.display = lastSubmittedBatch.length ? '' : 'none';
+  renderFormPreview();
   renderImgPreviewLedger();
 }
 
@@ -1651,57 +1647,24 @@ function startNewRequest(){
 }
 $('newRequestBtn').onclick = startNewRequest;
 
-function renderRequestLog(){
-  $('ledgerTitle').textContent = 'Request Log';
-  $('ledgerSub').textContent = pendingRequests.length + ' item(s) added — not yet submitted';
-
-  let total = 0;
-  const rows = pendingRequests.map((r, i) => {
-    total += r.amount;
-    const itemText = r.item + (r.type === 'PARTS' && r.qty ? ' (x' + r.qty + ')' : '');
-    const imgChip = r.image ? `<button type="button" class="imgThumbBtn" data-img-idx="${i}" title="View Shopee screenshot"><img class="imgThumb" src="${r.image}" alt="Shopee order screenshot" /></button>` : '';
-    return `<tr>
-      <td><span class="pill ${r.type}">${r.type}</span></td>
-      <td>${escapeHtml(itemText)}${imgChip}</td>
-      <td class="amt">${peso(r.amount)}</td>
-      <td>${r.date}</td>
-      <td><button class="btn-ghost" style="padding:4px 10px; font-size:12px;" data-idx="${i}">Remove</button></td>
-    </tr>`;
-  }).join('');
-
-  $('formPreview').innerHTML = `
-    <table>
-      <thead><tr><th>Type</th><th>Item</th><th style="text-align:right">Amount</th><th>Date</th><th></th></tr></thead>
-      <tbody>${rows}</tbody>
-      <tfoot><tr><td colspan="2">Total</td><td class="amt">${peso(total)}</td><td colspan="2"></td></tr></tfoot>
-    </table>`;
-
-  $('formPreview').querySelectorAll('button[data-idx]').forEach(btn => {
-    btn.onclick = () => {
-      pendingRequests.splice(Number(btn.dataset.idx), 1);
-      renderRightPanel();
-    };
-  });
-  $('formPreview').querySelectorAll('button[data-img-idx]').forEach(btn => {
-    btn.onclick = () => openImgLightbox(pendingRequests[Number(btn.dataset.imgIdx)].image);
-  });
-}
-
 function renderFormPreview(){
   const u = STATE.users.find(x => x.key === selectedUser) || {};
   const dateVal = $('dateInput').value || new Date().toISOString().slice(0,10);
 
-  let rowsHtml, totalAmount = 0, formTitle;
+  let rowsHtml, totalAmount = 0, formTitle, excessHeader = 'Excess';
 
   if (lastSubmittedBatch.length) {
+    $('ledgerTitle').textContent = 'Request Preview';
+    $('ledgerSub').textContent = 'SUBMITTED — REVIEW BEFORE PRINTING';
     const types = new Set(lastSubmittedBatch.map(r => r.type));
     formTitle = types.size > 1 ? 'PARTS & OIL REQUEST FORM' : (types.has('PARTS') ? 'PARTS' : 'OIL') + ' REQUEST FORM';
     rowsHtml = lastSubmittedBatch.map((r, i) => {
       totalAmount += r.amount;
       const companyPct = r.splitLabel === '40/60' ? 0.4 : 0.6;
       const itemText = r.item + (r.type === 'PARTS' && r.qty ? ' (x' + r.qty + ')' : '');
+      const imgChip = r.image ? `<button type="button" class="imgThumbBtn" data-batch-img-idx="${i}" title="View Shopee screenshot"><img class="imgThumb" src="${r.image}" alt="Shopee order screenshot" /></button>` : '';
       return `<tr>
-        <td><span class="pill ${r.type}" style="margin-right:6px;">${r.type}</span>${escapeHtml(itemText)}</td>
+        <td><span class="pill ${r.type}" style="margin-right:6px;">${r.type}</span>${escapeHtml(itemText)}${imgChip}</td>
         <td>${r.amount ? peso(r.amount) : ''}</td>
         <td>${r.date}</td>
         <td></td>
@@ -1712,14 +1675,52 @@ function renderFormPreview(){
       </tr>`;
     }).join('');
   } else {
-    const item = $('itemInput').value.trim();
+    // ----- unified live preview: every item that will go out on Submit —
+    // items already added via "+" (pendingRequests) AND whatever is
+    // currently typed on the left — shown together as one editable list.
+    excessHeader = 'Actions';
+    const draftItem = $('itemInput').value.trim();
+    const itemCount = pendingRequests.length + (draftItem ? 1 : 0);
+    $('ledgerTitle').textContent = 'Request Preview';
+    $('ledgerSub').textContent = itemCount
+      ? itemCount + ' item(s) — edit inline, or add more on the left'
+      : 'Live — matches the printed form';
+
+    const types = new Set(pendingRequests.map(r => r.type));
+    if (draftItem) types.add(requestType);
+    formTitle = types.size > 1
+      ? 'PARTS & OIL REQUEST FORM'
+      : (types.has('OIL') && !types.has('PARTS') ? 'OIL' : 'PARTS') + ' REQUEST FORM';
+
+    const pendRowsHtml = pendingRequests.map((r, i) => {
+      totalAmount += r.amount;
+      const companyPct = r.splitLabel === '40/60' ? 0.4 : 0.6;
+      const imgChip = r.image ? `<button type="button" class="imgThumbBtn" data-img-idx="${i}" title="View Shopee screenshot"><img class="imgThumb" src="${r.image}" alt="Shopee order screenshot" /></button>` : '';
+      return `<tr data-pend-idx="${i}">
+        <td>
+          <span class="pill ${r.type}" style="margin-right:6px;">${r.type}</span>
+          <input type="text" class="fp-edit fp-edit-item" data-pend-field="item" data-idx="${i}" value="${escapeHtml(r.item)}" placeholder="${r.type === 'PARTS' ? 'e.g. Brake Pad' : 'e.g. Yamaha Blue Core AT'}" />
+          ${r.type === 'PARTS' ? `<input type="number" class="fp-edit fp-edit-qty" data-pend-field="qty" data-idx="${i}" min="0" value="${r.qty != null ? r.qty : ''}" title="Qty" />` : ''}
+          ${imgChip}
+        </td>
+        <td><input type="number" class="fp-edit fp-edit-amount" data-pend-field="amount" data-idx="${i}" min="0" step="0.01" value="${r.amount || ''}" placeholder="0.00" /></td>
+        <td><input type="date" class="fp-edit fp-edit-date" data-pend-field="date" data-idx="${i}" value="${r.date || ''}" /></td>
+        <td></td>
+        <td class="fp-pend-company" data-idx="${i}">${r.amount ? peso(r.amount * companyPct) : ''}</td>
+        <td class="fp-pend-employee" data-idx="${i}">${r.amount ? peso(r.amount * (1 - companyPct)) : ''}</td>
+        <td></td>
+        <td><button type="button" class="btn-ghost" style="padding:3px 9px; font-size:12px;" data-remove-idx="${i}">Remove</button></td>
+      </tr>`;
+    }).join('');
+
+    const item = draftItem;
     const qty = $('qtyInput').value;
     const amount = Number($('amountInput').value) || 0;
     const companyPct = splitLabel === '40/60' ? 0.4 : 0.6;
-    formTitle = (requestType === 'PARTS' ? 'PARTS' : 'OIL') + ' REQUEST FORM';
-    totalAmount = amount;
-    rowsHtml = `<tr>
+    totalAmount += amount;
+    const draftRowHtml = `<tr>
         <td>
+          <span class="pill ${requestType}" style="margin-right:6px;">${requestType}</span>
           <input type="text" class="fp-edit fp-edit-item" id="fpItemEdit" value="${escapeHtml(item)}" placeholder="${requestType === 'PARTS' ? 'e.g. Brake Pad' : 'e.g. Yamaha Blue Core AT'}" />
           ${requestType === 'PARTS' ? `<input type="number" class="fp-edit fp-edit-qty" id="fpQtyEdit" min="0" value="${escapeHtml(qty)}" title="Qty" />` : ''}
         </td>
@@ -1729,8 +1730,10 @@ function renderFormPreview(){
         <td id="fpCompanyShare">${amount ? peso(amount * companyPct) : ''}</td>
         <td id="fpEmployeeShare">${amount ? peso(amount * (1 - companyPct)) : ''}</td>
         <td></td>
-        <td></td>
+        <td class="fp-note-hint" style="font-size:11px; opacity:.6;">${pendingRequests.length ? 'new item' : ''}</td>
       </tr>`;
+
+    rowsHtml = pendRowsHtml + draftRowHtml;
   }
 
   const odo = $('odoInput').value;
@@ -1763,7 +1766,7 @@ function renderFormPreview(){
           <th>Approved Budget</th>
           <th>Company Share</th>
           <th>Employee Share</th>
-          <th>Excess</th>
+          <th>${excessHeader}</th>
           <th>Date/Actual Disbursed</th>
         </tr>
       </thead>
@@ -1802,7 +1805,9 @@ function renderFormPreview(){
     const companyPct = splitLabel === '40/60' ? 0.4 : 0.6;
     if ($('fpCompanyShare')) $('fpCompanyShare').textContent = amt ? peso(amt * companyPct) : '';
     if ($('fpEmployeeShare')) $('fpEmployeeShare').textContent = amt ? peso(amt * (1 - companyPct)) : '';
-    if ($('fpTotalAmount')) $('fpTotalAmount').textContent = amt ? peso(amt) : '';
+    const pendingTotal = pendingRequests.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    const grandTotal = pendingTotal + amt;
+    if ($('fpTotalAmount')) $('fpTotalAmount').textContent = grandTotal ? peso(grandTotal) : '';
   }
 
   if (fpItem) fpItem.addEventListener('input', () => {
@@ -1828,6 +1833,44 @@ function renderFormPreview(){
   });
   if (fpNextChange) fpNextChange.addEventListener('input', () => { $('nextChangeInput').value = fpNextChange.value; });
   if (fpRemarks) fpRemarks.addEventListener('input', () => { $('remarksInput').value = fpRemarks.value; });
+
+  // ---- editable rows for items already added via "+" — edits write
+  // straight into pendingRequests[i]; only that row's computed cells and
+  // the footer total get patched, so typing never loses focus.
+  $('formPreview').querySelectorAll('[data-pend-field]').forEach(input => {
+    input.addEventListener('input', () => {
+      const idx = Number(input.dataset.idx);
+      const field = input.dataset.pendField;
+      const r = pendingRequests[idx];
+      if (!r) return;
+      if (field === 'amount' || field === 'qty') {
+        r[field] = input.value === '' ? (field === 'qty' ? null : 0) : Number(input.value);
+      } else {
+        r[field] = input.value;
+      }
+      if (field === 'amount') {
+        const companyPct = r.splitLabel === '40/60' ? 0.4 : 0.6;
+        const amt = Number(r.amount) || 0;
+        const companyCell = $('formPreview').querySelector(`.fp-pend-company[data-idx="${idx}"]`);
+        const employeeCell = $('formPreview').querySelector(`.fp-pend-employee[data-idx="${idx}"]`);
+        if (companyCell) companyCell.textContent = amt ? peso(amt * companyPct) : '';
+        if (employeeCell) employeeCell.textContent = amt ? peso(amt * (1 - companyPct)) : '';
+        const pendingTotal = pendingRequests.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+        const draftAmt = fpAmount ? (Number(fpAmount.value) || 0) : 0;
+        const grandTotal = pendingTotal + draftAmt;
+        if ($('fpTotalAmount')) $('fpTotalAmount').textContent = grandTotal ? peso(grandTotal) : '';
+      }
+    });
+  });
+  $('formPreview').querySelectorAll('button[data-remove-idx]').forEach(btn => {
+    btn.onclick = () => {
+      pendingRequests.splice(Number(btn.dataset.removeIdx), 1);
+      renderRightPanel();
+    };
+  });
+  $('formPreview').querySelectorAll('button[data-img-idx]').forEach(btn => {
+    btn.onclick = () => openImgLightbox(pendingRequests[Number(btn.dataset.imgIdx)].image);
+  });
 }
 
 // ---------- form behavior ----------
@@ -2044,8 +2087,9 @@ $('printFormBtn').onclick = () => {
 
   let items = lastSubmittedBatch.length ? lastSubmittedBatch : null;
   if (!items) {
+    items = pendingRequests.slice();
     const entry = readCurrentEntry();
-    items = entry ? [entry] : [];
+    if (entry) items.push(entry);
   }
   if (!items.length) { showToast('Nothing to print yet.', true); return; }
   if (items.length > 4) { showToast('Only the first 4 items fit on the printed slip.'); }
