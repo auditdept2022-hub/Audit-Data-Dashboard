@@ -3614,11 +3614,12 @@ html.page-fade-ready body {
         return token;
       }
 
+      // Kept only so any stray old caller doesn't throw -- the "Couldn't
+      // load the dashboard" error box is no longer used. The loading
+      // screen now always just keeps waiting/retrying quietly instead of
+      // surfacing an error + retry popup.
       function showError(token) {
-        if (token !== undefined && token !== generation) return; // superseded by a newer operation
-        stopProgress();
-        loadingCore.classList.add('hidden');
-        loadingErrorBox.classList.remove('hidden');
+        keepWaitingQuietly(token);
       }
 
       function revealDashboard(readyText, token) {
@@ -3686,35 +3687,68 @@ html.page-fade-ready body {
         }, 350);
       }
 
-      // Must comfortably exceed the worst case inside fetchSheet(): up to
-      // MAX_ATTEMPTS (2) attempts, each of which can wait up to
-      // JSONP_FETCH_TIMEOUT_MS (28s) for a slow-but-working Apps Script
-      // cold start, plus a short backoff between attempts. Raised from
-      // 50s alongside the fetch timeouts above -- it was shorter than
-      // that worst case, so it could fire and show "Couldn't load the
-      // dashboard" while the real request was still in flight and about
-      // to succeed a few seconds later.
-      const LOADING_SAFETY_NET_MS = 70000;
+      // Rather than giving up and showing a scary "Couldn't load the
+      // dashboard" popup after a fixed timeout, the loading screen now just
+      // stays up and quietly reassures the person we're still working on it
+      // -- the actual retrying happens in the data layer (see the retry
+      // loop in loadInitialDashboardData / retryDashboardLoad), which keeps
+      // trying until real data is confirmed. This is purely cosmetic: it
+      // swaps in a "taking longer than usual" status message every so often
+      // so the screen doesn't look frozen during a slow/cold backend start
+      // or a rough connection, but it never cuts the wait short.
+      const REASSURANCE_INTERVAL_MS = 20000;
+      const SLOW_MESSAGES = [
+        'Still working on it\u2026',
+        'The server is taking a bit longer than usual\u2026',
+        'Hang tight, almost there\u2026',
+        'Still trying to fetch your data\u2026'
+      ];
 
       function waitThenSettle(promise, startedAt, token) {
         let settled = false;
+        let reassureTimer = null;
+
+        function stopReassuring() {
+          if (reassureTimer) { clearInterval(reassureTimer); reassureTimer = null; }
+        }
+
         promise.then(function(success) {
-          if (settled) return; // safety-net timeout already fired
+          if (settled) return;
           settled = true;
+          stopReassuring();
           const elapsed = Date.now() - startedAt;
           const remaining = Math.max(0, MIN_LOADING_MS - elapsed);
           setTimeout(function() {
-            if (success) revealDashboard(undefined, token); else showError(token);
+            // The data-layer retry loop only ever resolves once it has
+            // confirmed real, usable data -- so by the time we get here
+            // "success" should always be true. Still, if it somehow
+            // resolved false, don't punish the person with an error popup;
+            // just keep the loading screen up and keep waiting quietly.
+            if (success) revealDashboard(undefined, token); else keepWaitingQuietly(token);
           }, remaining);
         });
-        // SAFETY NET: if the promise never resolves or rejects (a hung
-        // fetch, a stalled connection), don't leave the loading screen up
-        // forever -- surface the retry UI after a generous timeout.
-        setTimeout(function() {
-          if (settled) return;
-          settled = true;
-          showError(token);
-        }, LOADING_SAFETY_NET_MS);
+
+        // Purely reassuring, never gives up: if this is taking a while,
+        // swap in a message that says so, then keep waiting for the real
+        // promise to settle -- no error box, no retry button, no timeout
+        // that abandons the load.
+        reassureTimer = setInterval(function() {
+          if (settled || (token !== undefined && token !== generation)) {
+            stopReassuring();
+            return;
+          }
+          currentMessages = SLOW_MESSAGES;
+        }, REASSURANCE_INTERVAL_MS);
+      }
+
+      // Used only in the unlikely case the data-ready promise resolves
+      // false (it shouldn't, since the retry loop keeps going until it has
+      // real data) -- keeps the loading screen exactly as-is, still
+      // spinning, instead of surfacing an error state.
+      function keepWaitingQuietly(token) {
+        if (token !== undefined && token !== generation) return;
+        currentMessages = SLOW_MESSAGES;
+        cycleStatus();
       }
 
       window.__runDashboardLoadingSequence = function() {
@@ -3723,35 +3757,32 @@ html.page-fade-ready body {
           // auth-check step — it just stays up with no visible change) so
           // there's continuous coverage right through until data is ready.
           const token = openBlankCover();
-          let settledFastReturn = false;
+          let settled = false;
           window.dashboardDataReady.then(function(success) {
-            if (settledFastReturn) return; // safety net already fired
-            settledFastReturn = true;
+            if (settled) return; // handed off to the full loading scene below
+            settled = true;
             if (token !== generation) return; // superseded by a newer operation
             if (success) {
               closeBlankCover(token);
             } else {
-              // Data wasn't ready/available — fall back to the normal
-              // loading screen so the retry UI is still reachable.
-              loadingCore.classList.remove('hidden');
-              openLoadingScreen();
-              showError(generation);
+              // The data-ready promise only resolves once real data is
+              // confirmed, so this shouldn't normally happen -- but just in
+              // case, keep waiting quietly instead of showing an error.
+              keepWaitingQuietly(token);
             }
           });
-          // SAFETY NET: unlike the instant boot splash above (which always
-          // times out after 6s), this blank cover previously had NO
-          // fallback at all -- if dashboardDataReady never settled (a
-          // hung fetch, a flaky connection, a promise that silently never
-          // resolves), the screen would stay a solid dark-blue cover
-          // forever with no way out. Force a reveal/error after a
-          // generous timeout so that can't happen.
+          // If the blank cover has been up for a while, swap to the full
+          // loading scene so there's a visible sign of life (rotating
+          // status text) instead of a plain screen that looks frozen, then
+          // keep waiting on the very same data promise for the reveal.
+          // Nothing here ever gives up or shows an error.
           setTimeout(function() {
-            if (settledFastReturn || token !== generation) return;
-            settledFastReturn = true;
+            if (settled || token !== generation) return;
+            settled = true; // hand off the reveal to waitThenSettle below
             loadingCore.classList.remove('hidden');
-            openLoadingScreen();
-            showError(generation);
-          }, LOADING_SAFETY_NET_MS);
+            const newToken = openLoadingScreen();
+            waitThenSettle(window.dashboardDataReady, Date.now(), newToken);
+          }, REASSURANCE_INTERVAL_MS);
           return;
         }
         const token = openLoadingScreen();
@@ -10047,6 +10078,13 @@ html.page-fade-ready body {
     // toast messages.
     let isFetchingSheet = false;
 
+    // Bumped every time loadInitialDashboardData() starts a fresh "keep
+    // retrying until we have real data" loop (on sign-in) and again on
+    // sign-out. A retry loop checks this before each attempt, so a stale
+    // loop from a previous, already-signed-out session can't keep firing
+    // background requests forever.
+    let initialLoadGeneration = 0;
+
     // Plays the header-wide "walk to the motorcycle, then ride off" overlay
     // (see #headerRideOverlay markup above). Runs every time fetchSheet() is
     // called — manual "Update data" clicks and silent auto-refreshes alike —
@@ -10416,11 +10454,39 @@ html.page-fade-ready body {
           console.warn('Background refresh failed, keeping existing data on screen:', err);
         });
       } else {
-        fetchSheet(true).then(function() {
-          if (window.__dashboardReadyResolve) window.__dashboardReadyResolve(isDashboardDataUsable());
-        }).catch(function() {
-          if (window.__dashboardReadyResolve) window.__dashboardReadyResolve(isDashboardDataUsable());
-        });
+        // Nothing usable on screen yet (very first run, or a cleared
+        // cache) — this is the one case where the loading screen truly has
+        // nothing to fall back on. Rather than trying once and giving up
+        // to a "Couldn't load the dashboard" popup, keep quietly retrying
+        // in the background (with a growing backoff so a real outage
+        // doesn't hammer the backend) until real data actually comes back.
+        // The loading screen just waits patiently the whole time.
+        const mySession = ++initialLoadGeneration;
+        const INITIAL_RETRY_DELAY_MS = 3000;
+        const MAX_RETRY_DELAY_MS = 20000;
+        let retryDelay = INITIAL_RETRY_DELAY_MS;
+
+        function attemptInitialLoad() {
+          if (mySession !== initialLoadGeneration) return; // superseded (e.g. signed out)
+          fetchSheet(true).then(function() {
+            if (mySession !== initialLoadGeneration) return;
+            if (isDashboardDataUsable()) {
+              if (window.__dashboardReadyResolve) window.__dashboardReadyResolve(true);
+            } else {
+              scheduleInitialRetry();
+            }
+          }).catch(function() {
+            scheduleInitialRetry();
+          });
+        }
+
+        function scheduleInitialRetry() {
+          if (mySession !== initialLoadGeneration) return;
+          setTimeout(attemptInitialLoad, retryDelay);
+          retryDelay = Math.min(retryDelay * 1.5, MAX_RETRY_DELAY_MS);
+        }
+
+        attemptInitialLoad();
       }
     };
 
@@ -10436,6 +10502,7 @@ html.page-fade-ready body {
         console.warn('Could not clear cached dashboard data:', e);
       }
       activeData = emptyDashboardData();
+      initialLoadGeneration++; // stop any in-flight "keep retrying" loop from the old session
     };
 
     document.addEventListener("DOMContentLoaded", () => {
