@@ -4851,7 +4851,7 @@ html.page-fade-ready body {
       <div id="branchFilterPanel" class="hidden fixed inset-0 z-50">
         <div class="absolute inset-0 bg-slate-900/65" onclick="toggleBranchFilterPanel('close')"></div>
         <div class="absolute inset-0 flex items-center justify-center overflow-y-auto p-3 sm:p-4" onclick="toggleBranchFilterPanel('close')">
-          <div class="bg-white w-[94vw] max-w-xs sm:max-w-sm max-h-[85vh] max-h-[85dvh] my-auto rounded-2xl shadow-2xl flex flex-col border border-coolBorder overflow-hidden" onclick="event.stopPropagation()">
+          <div id="branchFilterModalBox" class="bg-white w-[94vw] max-w-xs sm:max-w-sm max-h-[85vh] my-auto rounded-2xl shadow-2xl flex flex-col border border-coolBorder overflow-hidden" onclick="event.stopPropagation()">
             <div class="p-4 border-b border-coolBorder shrink-0">
               <div class="flex items-center justify-between mb-1.5">
                 <span class="text-sm text-slate-700">Select Branches</span>
@@ -5016,6 +5016,8 @@ html.page-fade-ready body {
         if (forceState === 'close') {
             panel.classList.add('hidden');
             document.body.style.overflow = '';
+            window.removeEventListener('resize', sizeBranchFilterPanel);
+            if (window.visualViewport) window.visualViewport.removeEventListener('resize', sizeBranchFilterPanel);
             return;
         }
         if (forceState === 'open' || panel.classList.contains('hidden')) {
@@ -5025,10 +5027,38 @@ html.page-fade-ready body {
             panel.classList.remove('hidden');
             document.body.style.overflow = 'hidden';
             renderBranchFilterList();
+            // CSS vh/dvh can't be trusted on every mobile browser (some
+            // in-app browsers report the full-page height, not the visible
+            // one, so an 85vh box can run off the bottom of the actual
+            // screen). Size the box in real pixels off the viewport that's
+            // actually visible right now instead, and keep it correct if
+            // the viewport changes (rotation, address bar show/hide, or
+            // the on-screen keyboard opening for the search box).
+            sizeBranchFilterPanel();
+            window.addEventListener('resize', sizeBranchFilterPanel);
+            if (window.visualViewport) window.visualViewport.addEventListener('resize', sizeBranchFilterPanel);
         } else {
             panel.classList.add('hidden');
             document.body.style.overflow = '';
+            window.removeEventListener('resize', sizeBranchFilterPanel);
+            if (window.visualViewport) window.visualViewport.removeEventListener('resize', sizeBranchFilterPanel);
         }
+    }
+
+    // Caps the modal's height to whatever is actually visible right now
+    // (window.visualViewport when available — it tracks the real usable
+    // area, shrinking when a keyboard opens or a mobile browser's address
+    // bar is on screen — falling back to window.innerHeight). A fixed
+    // amount of breathing room is left top/bottom so the box never touches
+    // the very edge of the screen.
+    function sizeBranchFilterPanel() {
+        const box = document.getElementById('branchFilterModalBox');
+        if (!box) return;
+        const vv = window.visualViewport;
+        const viewportHeight = vv ? vv.height : window.innerHeight;
+        const margin = 32; // ~p-3/p-4 wrapper padding, top + bottom combined
+        const usable = Math.max(240, Math.floor(viewportHeight - margin));
+        box.style.maxHeight = usable + 'px';
     }
 
     function renderBranchFilterList() {
