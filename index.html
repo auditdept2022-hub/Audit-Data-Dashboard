@@ -481,6 +481,12 @@
     let assignmentSortField = 'recent';
     let assignmentSortDir = 'desc';
     const DASH_CACHE_KEY = 'auditDashboard_v1_cachedData';
+    // Remembers the Branch Scorecard's "Select Branches" filter across
+    // reloads/app relaunches, so re-opening the app shows the same subset
+    // of branches instead of resetting to "All Branches" every time. The
+    // only way back to "All Branches" is the explicit Reset button, which
+    // also clears this key.
+    const BRANCH_FILTER_STORAGE_KEY = 'auditDashboard_v1_branchFilter';
     const DASH_CACHE_TS_KEY = 'auditDashboard_v1_lastSyncedAt';
 
     // The branch master list is intentionally NOT hardcoded here — it is
@@ -4844,8 +4850,8 @@ html.page-fade-ready body {
 
       <div id="branchFilterPanel" class="hidden fixed inset-0 z-50">
         <div class="absolute inset-0 bg-slate-900/65" onclick="toggleBranchFilterPanel('close')"></div>
-        <div class="absolute inset-0 flex items-start sm:items-center justify-center overflow-y-auto p-4 py-6" onclick="toggleBranchFilterPanel('close')">
-          <div class="bg-white w-full max-w-xs sm:max-w-sm max-h-[68vh] max-h-[68dvh] my-auto rounded-2xl shadow-2xl flex flex-col border border-coolBorder overflow-hidden" onclick="event.stopPropagation()">
+        <div class="absolute inset-0 flex items-center justify-center overflow-y-auto p-3 sm:p-4" onclick="toggleBranchFilterPanel('close')">
+          <div class="bg-white w-[94vw] max-w-xs sm:max-w-sm max-h-[85vh] max-h-[85dvh] my-auto rounded-2xl shadow-2xl flex flex-col border border-coolBorder overflow-hidden" onclick="event.stopPropagation()">
             <div class="p-4 border-b border-coolBorder shrink-0">
               <div class="flex items-center justify-between mb-1.5">
                 <span class="text-sm text-slate-700">Select Branches</span>
@@ -4986,6 +4992,7 @@ html.page-fade-ready body {
         if (branchSearch) branchSearch.value = '';
         updateBranchFilterButtonLabel();
         renderScorecardTable();
+        clearBranchFilterStorage();
     }
 
     // ---------- Branch picker for the Branch Scorecard ----------
@@ -5081,6 +5088,52 @@ html.page-fade-ready body {
         updateBranchFilterButtonLabel();
         renderScorecardTable();
         toggleBranchFilterPanel('close');
+        saveBranchFilterToStorage();
+    }
+
+    // ---------- Persisting the branch picker across reloads/relaunches ----------
+    // Saved as soon as the user hits "OK" so the same filter is still in
+    // effect next time the app is opened. Reset (resetScorecardFilters)
+    // clears this key, which is the only way back to "All Branches".
+    function saveBranchFilterToStorage() {
+        try {
+            const payload = {
+                active: scorecardBranchFilterActive,
+                selected: scorecardBranchFilterActive ? [...scorecardSelectedBranches] : []
+            };
+            localStorage.setItem(BRANCH_FILTER_STORAGE_KEY, JSON.stringify(payload));
+        } catch (err) {
+            // localStorage unavailable (private mode, etc.) — filter just
+            // won't persist this session, nothing else breaks.
+        }
+    }
+
+    function clearBranchFilterStorage() {
+        try { localStorage.removeItem(BRANCH_FILTER_STORAGE_KEY); } catch (err) {}
+    }
+
+    // Restores a previously-saved branch selection once the branch list is
+    // available (called from initDashboard, after activeData is populated).
+    // Any saved branch names that no longer exist in the current data are
+    // dropped silently, so a stale save can never hide a real branch.
+    function loadBranchFilterFromStorage() {
+        let saved = null;
+        try {
+            const raw = localStorage.getItem(BRANCH_FILTER_STORAGE_KEY);
+            if (raw) saved = JSON.parse(raw);
+        } catch (err) {
+            saved = null;
+        }
+        if (!saved || !saved.active || !Array.isArray(saved.selected)) {
+            scorecardBranchFilterActive = false;
+            scorecardSelectedBranches = new Set();
+        } else {
+            const validNames = new Set((activeData.branches || []).map(b => b.name));
+            const restored = saved.selected.filter(name => validNames.has(name));
+            scorecardBranchFilterActive = true;
+            scorecardSelectedBranches = new Set(restored);
+        }
+        updateBranchFilterButtonLabel();
     }
 
     // Updates the "X of Y selected" count shown inside the open panel,
@@ -8461,6 +8514,7 @@ html.page-fade-ready body {
       renderHighestRepoChart();
       renderHighestNoRepoChart();
       renderListings();
+      loadBranchFilterFromStorage();
       renderScorecardTable();
       pulseStatCards();
     }
