@@ -226,8 +226,29 @@
   .tab.active::after{ content:''; position:absolute; left:0; right:0; top:-1px; height:2px; background: var(--gold); border-radius: 8px 8px 0 0; }
 
   /* ---------- Layout ---------- */
-  .grid{ display:grid; grid-template-columns: 340px 1fr; gap: 22px; align-items:start; }
-  @media (max-width: 860px){ .grid{ grid-template-columns: 1fr; } }
+  .grid{ display:grid; grid-template-columns: 1fr; gap: 22px; align-items:start; }
+
+  /* ---------- Request Form (everything is edited directly on the form/table) ---------- */
+  .rf-toolbar{ margin-bottom: 16px; }
+  .rf-toolbar .typeToggle{ max-width: 220px; }
+  .rf-saveRow{ display:flex; justify-content:flex-end; margin-top:18px; gap:10px; }
+  .rf-saveRow .submitBtn{ padding:12px 28px; font-size:15px; }
+  .fp-ifedit{
+    flex:1; font-family: var(--mono); font-size: 13px; color: var(--ink); background: var(--paper-2);
+    border:1px solid var(--panel-line); border-radius:4px; padding: 3px 7px; width:100%; box-sizing:border-box;
+  }
+  .fp-ifedit:focus{ outline:none; border-color: var(--gold); }
+  .fp-splitrow-editable{ cursor:pointer; border-radius:6px; padding: 5px 6px; margin: 0 -6px; transition: background .12s; }
+  .fp-splitrow-editable:hover{ background: var(--paper-2); }
+  .fp-attach-btn{
+    border:1px solid var(--panel-line); background: var(--paper-2); border-radius:5px; cursor:pointer;
+    font-size:13px; padding: 2px 7px; margin-left:4px; line-height:1.5; vertical-align:middle;
+  }
+  .fp-attach-remove{
+    border:none; background:transparent; color: var(--employee); cursor:pointer; font-size:14px;
+    font-weight:700; margin-left:2px; vertical-align:middle; padding: 0 3px;
+  }
+  @media print{ .rf-toolbar, .rf-saveRow, .rf-editBadge, .btn-gold, .fp-attach-btn, .fp-attach-remove{ display:none !important; } }
 
   .card{
     background: var(--panel); border: 1px solid var(--panel-line); border-radius: var(--radius);
@@ -817,92 +838,12 @@
 
     <div class="grid">
       <div>
-        <div class="card">
-          <h2>New Request</h2>
-
-          <label>Request type</label>
-          <div class="typeToggle">
-            <button type="button" id="typeParts" class="active">Parts</button>
-            <button type="button" id="typeOil">Oil</button>
-          </div>
-
-          <label>Split arrangement</label>
-          <div class="split">
-            <div class="seal active" data-split="60/40">
-              <div class="ratio">60/40</div>
-              <div class="label">Service Unit</div>
-            </div>
-            <div class="seal" data-split="40/60">
-              <div class="ratio">40/60</div>
-              <div class="label">Service to Own</div>
-            </div>
-          </div>
-
-          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:12px;">
-            <label id="itemLabel" style="margin:0;">Item</label>
-            <button type="button" id="quickAddBtn" class="conn-btn" style="padding:2px 11px; font-size:15px; line-height:1.6; margin:0;" title="Add this as a request and start another">+</button>
-          </div>
-          <input id="itemInput" placeholder="e.g. Brake Pad" />
-
-          <div class="imgAttachWrap" id="imgAttachWrap">
-            <input type="file" id="shopeeImgInput" accept="image/*" style="display:none;" />
-            <button type="button" class="imgAttachBtn" id="addImageBtn">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-              <span id="addImageBtnLabel">Add Image (Shopee order screenshot)</span>
-            </button>
-            <div class="imgPreview" id="imgPreviewWrap" style="display:none;">
-              <img id="imgPreviewThumb" src="" alt="Shopee order screenshot" />
-              <span class="imgPreview-name" id="imgPreviewName"></span>
-              <button type="button" class="imgPreview-remove" id="imgPreviewRemove">Remove</button>
-            </div>
-          </div>
-
-          <div class="row2">
-            <div>
-              <label id="qtyLabel">Qty</label>
-              <input id="qtyInput" type="number" min="0" value="1" />
-            </div>
-            <div>
-              <label>Amount (₱)</label>
-              <input id="amountInput" type="number" min="0" step="0.01" placeholder="0.00" />
-            </div>
-          </div>
-
-          <div class="row2">
-            <div>
-              <label>Date</label>
-              <input id="dateInput" type="date" />
-            </div>
-            <div>
-              <label>Odometer</label>
-              <input id="odoInput" type="number" min="0" placeholder="optional" />
-            </div>
-          </div>
-
-          <div id="nextChangeWrap">
-            <label>Next change due (odometer)</label>
-            <input id="nextChangeInput" type="number" min="0" placeholder="auto-suggested" />
-          </div>
-
-          <label>Remarks</label>
-          <textarea id="remarksInput" rows="2" placeholder="optional"></textarea>
-
-          <div class="preview">
-            <div class="c">Company share<b id="companyPreview">₱0.00</b></div>
-            <div class="e">Employee share<b id="employeePreview">₱0.00</b></div>
-          </div>
-
-          <button class="submitBtn" id="submitBtn" style="margin-top:16px;">Submit request</button>
-          <div class="msg" id="formMsg"></div>
-        </div>
-      </div>
-
-      <div>
         <div class="ledger">
           <div class="ledgerHead" style="align-items:flex-end;">
             <div>
-              <h2 id="ledgerTitle">Request Preview</h2>
+              <h2 id="ledgerTitle">Request Form</h2>
               <div class="sub" id="ledgerSub">Live — matches the printed form</div>
+              <div class="sub rf-editBadge" id="editBadge" style="display:none; color: var(--gold); margin-top:4px;">EDITING SAVED REQUEST</div>
             </div>
             <div style="display:flex; gap:8px; flex:none;">
               <button class="conn-btn" id="newRequestBtn" type="button" style="display:none; flex:none;">
@@ -915,7 +856,36 @@
               </button>
             </div>
           </div>
+
+          <div class="rf-toolbar">
+            <div class="typeToggle">
+              <button type="button" id="typeParts" class="active">Parts</button>
+              <button type="button" id="typeOil">Oil</button>
+            </div>
+          </div>
+
+          <!-- Internal state mirrors: not shown to the user. The actual editing
+               happens directly on the form/table below; these just hold the
+               current draft values so the rest of the app's logic (save,
+               print, totals) keeps working. -->
+          <div style="display:none;" aria-hidden="true">
+            <input id="itemInput" type="text" />
+            <input id="qtyInput" type="number" value="1" />
+            <input id="amountInput" type="number" />
+            <input id="dateInput" type="date" />
+            <input id="odoInput" type="number" />
+            <input id="nextChangeInput" type="number" />
+            <textarea id="remarksInput"></textarea>
+            <input type="file" id="shopeeImgInput" accept="image/*" />
+          </div>
+
           <div id="formPreview"></div>
+
+          <div class="rf-saveRow">
+            <button type="button" class="btn-ghost" id="cancelEditBtn" style="display:none;">Cancel edit</button>
+            <button class="submitBtn" id="submitBtn">Save Request</button>
+          </div>
+          <div class="msg" id="formMsg"></div>
         </div>
 
         <div class="card" id="imgPreviewLedgerCard" style="margin-top:16px;">
@@ -1247,6 +1217,7 @@ let STATE = { users: [], requestsByUser: {}, currentUser: null };
 let selectedUser = null;
 let requestType = 'PARTS';
 let splitLabel = '60/40';
+let profileOverride = {}; // session-only edits to Branch/Name/Position/S.U. Type/Engine # made directly on the form
 
 const $ = (id) => document.getElementById(id);
 
@@ -1462,7 +1433,10 @@ function renderMyRecords(){
       <td class="amt" style="color:var(--employee)">${peso(r.employeeShare)}</td>
       ${odoCell}
       ${nextCell}
-      <td><button type="button" class="btn-ghost recDeleteBtn" data-id="${escapeHtml(r.id)}" style="padding:4px 10px; font-size:12px;">Delete</button></td>
+      <td style="white-space:nowrap;">
+        <button type="button" class="btn-ghost recEditBtn" data-id="${escapeHtml(r.id)}" style="padding:4px 10px; font-size:12px;">Edit</button>
+        <button type="button" class="btn-ghost recDeleteBtn" data-id="${escapeHtml(r.id)}" style="padding:4px 10px; font-size:12px;">Delete</button>
+      </td>
     </tr>`;
   }).join('');
 
@@ -1538,6 +1512,13 @@ function renderMyRecords(){
     });
   });
 
+  bodyEl.querySelectorAll('.recEditBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const rec = mine.find(r => String(r.id) === btn.dataset.id);
+      if (rec) editRecord(rec);
+    });
+  });
+
   bodyEl.querySelectorAll('.recDeleteBtn').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!confirm('Delete this request? This cannot be undone.')) return;
@@ -1563,8 +1544,9 @@ function renderMyRecords(){
   });
 }
 
-let pendingRequests = []; // items added via "+ Add to this request" but not yet submitted
+let pendingRequests = []; // items added via "+ Add Item" but not yet submitted
 let lastSubmittedBatch = []; // items from the most recent successful submit, for the print-ready preview
+let editingRecordId = null; // when set, the form is editing this existing saved request instead of creating a new one
 
 function renderRightPanel(){
   // one unified "Request Preview" — it always shows every item that will
@@ -1641,12 +1623,49 @@ window.addEventListener('afterprint', () => document.body.classList.remove('prin
 function startNewRequest(){
   lastSubmittedBatch = [];
   pendingRequests = [];
+  editingRecordId = null;
+  setEditModeUI(false);
   clearItemFields();
   $('formMsg').textContent = '';
   $('formMsg').className = 'msg';
   renderRightPanel();
 }
 $('newRequestBtn').onclick = startNewRequest;
+
+// ---------- editing an existing saved request from "My Requests" ----------
+function setEditModeUI(isEditing){
+  $('editBadge').style.display = isEditing ? '' : 'none';
+  $('cancelEditBtn').style.display = isEditing ? '' : 'none';
+  $('submitBtn').textContent = isEditing ? 'Update Request' : 'Save Request';
+}
+
+function editRecord(rec){
+  lastSubmittedBatch = [];
+  pendingRequests = [];
+  editingRecordId = rec.id;
+  setEditModeUI(true);
+
+  requestType = rec.type === 'OIL' ? 'OIL' : 'PARTS';
+  splitLabel = rec.splitLabel === '40/60' ? '40/60' : '60/40';
+  $('typeParts').classList.toggle('active', requestType === 'PARTS');
+  $('typeOil').classList.toggle('active', requestType === 'OIL');
+
+  $('itemInput').value = rec.item || '';
+  $('qtyInput').value = rec.qty != null ? rec.qty : '';
+  $('amountInput').value = rec.amount != null ? rec.amount : '';
+  $('dateInput').value = rec.date || '';
+  $('odoInput').value = rec.odometer != null ? rec.odometer : '';
+  $('nextChangeInput').value = rec.nextChangeOdometer != null ? rec.nextChangeOdometer : '';
+  $('remarksInput').value = rec.remarks || '';
+  currentImage = rec.image ? { data: rec.image, name: rec.imageName || 'attachment' } : null;
+
+  $('formMsg').textContent = 'Editing a saved request. Change the fields directly on the form below, then click Update Request.';
+  $('formMsg').className = 'msg';
+  renderRightPanel();
+  $('formPreview').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+$('cancelEditBtn').onclick = startNewRequest;
 
 function renderFormPreview(){
   const u = STATE.users.find(x => x.key === selectedUser) || {};
@@ -1719,11 +1738,19 @@ function renderFormPreview(){
     const amount = Number($('amountInput').value) || 0;
     const companyPct = splitLabel === '40/60' ? 0.4 : 0.6;
     totalAmount += amount;
+    const attachChip = currentImage
+      ? `<button type="button" class="imgThumbBtn" data-live-img title="View Shopee screenshot"><img class="imgThumb" src="${currentImage.data}" alt="Shopee order screenshot" /></button>
+         <button type="button" class="fp-attach-remove" id="fpAttachRemove" title="Remove image">×</button>`
+      : '';
+    const attachBtn = requestType === 'PARTS'
+      ? `<button type="button" class="fp-attach-btn" id="fpAttachBtn" title="${currentImage ? 'Replace' : 'Add'} Shopee order screenshot">📎</button>${attachChip}`
+      : '';
     const draftRowHtml = `<tr>
         <td>
           <span class="pill ${requestType}" style="margin-right:6px;">${requestType}</span>
           <input type="text" class="fp-edit fp-edit-item" id="fpItemEdit" value="${escapeHtml(item)}" placeholder="${requestType === 'PARTS' ? 'e.g. Brake Pad' : 'e.g. Yamaha Blue Core AT'}" />
           ${requestType === 'PARTS' ? `<input type="number" class="fp-edit fp-edit-qty" id="fpQtyEdit" min="0" value="${escapeHtml(qty)}" title="Qty" />` : ''}
+          ${attachBtn}
         </td>
         <td><input type="number" class="fp-edit fp-edit-amount" id="fpAmountEdit" min="0" step="0.01" value="${amount || ''}" placeholder="0.00" /></td>
         <td><input type="date" class="fp-edit fp-edit-date" id="fpDateEdit" value="${dateVal}" /></td>
@@ -1731,7 +1758,7 @@ function renderFormPreview(){
         <td id="fpCompanyShare">${amount ? peso(amount * companyPct) : ''}</td>
         <td id="fpEmployeeShare">${amount ? peso(amount * (1 - companyPct)) : ''}</td>
         <td></td>
-        <td class="fp-note-hint" style="font-size:11px; opacity:.6;">${pendingRequests.length ? 'new item' : ''}</td>
+        <td><button type="button" class="btn-gold" id="addItemBtn" style="padding:5px 12px; font-size:12px;" title="Add this item to the request table and start another">+ Add Item</button></td>
       </tr>`;
 
     rowsHtml = pendRowsHtml + draftRowHtml;
@@ -1740,21 +1767,36 @@ function renderFormPreview(){
   const odo = $('odoInput').value;
   const nextChange = $('nextChangeInput') ? $('nextChangeInput').value : '';
   const remarks = $('remarksInput').value.trim();
+  const editable = !lastSubmittedBatch.length;
+  const branchVal = profileOverride.branch != null ? profileOverride.branch : (u.branch || '');
+  const nameVal = profileOverride.fullName != null ? profileOverride.fullName : (u.fullName || selectedUser || '');
+  const positionVal = profileOverride.position != null ? profileOverride.position : (u.position || '');
+  const suTypeVal = profileOverride.suType != null ? profileOverride.suType : (u.suType || '');
+  const engineVal = profileOverride.engine != null ? profileOverride.engine : (u.engine || '');
 
   $('formPreview').innerHTML = `
     <div class="fp-title">${formTitle}</div>
     <div class="fp-infoblock">
       <div class="fp-infofields">
-        <div class="fp-ifrow"><span class="fp-iflabel">Branch</span><span class="fp-ifval">${escapeHtml(u.branch || '')}</span></div>
-        <div class="fp-ifrow"><span class="fp-iflabel">Name</span><span class="fp-ifval">${escapeHtml(u.fullName || selectedUser || '')}</span></div>
-        <div class="fp-ifrow"><span class="fp-iflabel">Position</span><span class="fp-ifval">${escapeHtml(u.position || '')}</span></div>
-        <div class="fp-ifrow"><span class="fp-iflabel">S.U. Type</span><span class="fp-ifval">${escapeHtml(u.suType || '')}</span></div>
-        <div class="fp-ifrow"><span class="fp-iflabel">Engine #</span><span class="fp-ifval">${escapeHtml(u.engine || '')}</span></div>
+        ${editable ? `
+        <div class="fp-ifrow"><span class="fp-iflabel">Branch</span><input class="fp-ifedit" id="fpBranchEdit" type="text" value="${escapeHtml(branchVal)}" /></div>
+        <div class="fp-ifrow"><span class="fp-iflabel">Name</span><input class="fp-ifedit" id="fpNameEdit" type="text" value="${escapeHtml(nameVal)}" /></div>
+        <div class="fp-ifrow"><span class="fp-iflabel">Position</span><input class="fp-ifedit" id="fpPositionEdit" type="text" value="${escapeHtml(positionVal)}" /></div>
+        <div class="fp-ifrow"><span class="fp-iflabel">S.U. Type</span><input class="fp-ifedit" id="fpSuTypeEdit" type="text" value="${escapeHtml(suTypeVal)}" /></div>
+        <div class="fp-ifrow"><span class="fp-iflabel">Engine #</span><input class="fp-ifedit" id="fpEngineEdit" type="text" value="${escapeHtml(engineVal)}" /></div>
+        <div class="fp-ifrow"><span class="fp-iflabel">Date</span><input class="fp-ifedit" id="fpFormDateEdit" type="date" value="${dateVal}" /></div>
+        ` : `
+        <div class="fp-ifrow"><span class="fp-iflabel">Branch</span><span class="fp-ifval">${escapeHtml(branchVal)}</span></div>
+        <div class="fp-ifrow"><span class="fp-iflabel">Name</span><span class="fp-ifval">${escapeHtml(nameVal)}</span></div>
+        <div class="fp-ifrow"><span class="fp-iflabel">Position</span><span class="fp-ifval">${escapeHtml(positionVal)}</span></div>
+        <div class="fp-ifrow"><span class="fp-iflabel">S.U. Type</span><span class="fp-ifval">${escapeHtml(suTypeVal)}</span></div>
+        <div class="fp-ifrow"><span class="fp-iflabel">Engine #</span><span class="fp-ifval">${escapeHtml(engineVal)}</span></div>
         <div class="fp-ifrow"><span class="fp-iflabel">Date</span><span class="fp-ifval">${dateVal}</span></div>
+        `}
       </div>
       <div class="fp-splitfields">
-        <div class="fp-splitrow"><span class="fp-checkbox ${splitLabel === '60/40' ? 'checked' : ''}"></span><span>Service Unit (60/40)</span></div>
-        <div class="fp-splitrow"><span class="fp-checkbox ${splitLabel === '40/60' ? 'checked' : ''}"></span><span>Service to Own (40/60)</span></div>
+        <div class="fp-splitrow ${editable ? 'fp-splitrow-editable' : ''}" data-split="60/40"><span class="fp-checkbox ${splitLabel === '60/40' ? 'checked' : ''}"></span><span>Service Unit (60/40)</span></div>
+        <div class="fp-splitrow ${editable ? 'fp-splitrow-editable' : ''}" data-split="40/60"><span class="fp-checkbox ${splitLabel === '40/60' ? 'checked' : ''}"></span><span>Service to Own (40/60)</span></div>
       </div>
     </div>
 
@@ -1786,6 +1828,40 @@ function renderFormPreview(){
          </div>
          <div class="fp-remarks fp-remarks-edit"><b>Remarks:</b> <input type="text" class="fp-edit fp-edit-remarks" id="fpRemarksEdit" value="${escapeHtml(remarks)}" placeholder="optional" /></div>`}
   `;
+
+  // ---- profile fields (Branch/Name/Position/S.U. Type/Engine #/Date) ----
+  const bindProfile = (id, key) => {
+    const el = $(id);
+    if (!el) return;
+    el.addEventListener('input', () => { profileOverride[key] = el.value; });
+  };
+  bindProfile('fpBranchEdit', 'branch');
+  bindProfile('fpNameEdit', 'fullName');
+  bindProfile('fpPositionEdit', 'position');
+  bindProfile('fpSuTypeEdit', 'suType');
+  bindProfile('fpEngineEdit', 'engine');
+  const fpFormDate = $('fpFormDateEdit');
+  if (fpFormDate) fpFormDate.addEventListener('input', () => { $('dateInput').value = fpFormDate.value; });
+
+  // ---- split arrangement toggle ----
+  if (editable) {
+    $('formPreview').querySelectorAll('.fp-splitrow-editable').forEach(row => {
+      row.onclick = () => {
+        splitLabel = row.dataset.split;
+        renderRightPanel();
+      };
+    });
+  }
+
+  // ---- image attach (draft item only) ----
+  const attachBtnEl = $('fpAttachBtn');
+  if (attachBtnEl) attachBtnEl.onclick = () => $('shopeeImgInput').click();
+  const attachRemoveEl = $('fpAttachRemove');
+  if (attachRemoveEl) attachRemoveEl.onclick = (e) => { e.stopPropagation(); currentImage = null; renderRightPanel(); };
+
+  // ---- + Add Item (inside the table) ----
+  const addItemBtnEl = $('addItemBtn');
+  if (addItemBtnEl) addItemBtnEl.onclick = addToRequest;
 
   $('formPreview').querySelectorAll('button[data-batch-img-idx]').forEach(btn => {
     btn.onclick = () => openImgLightbox(lastSubmittedBatch[Number(btn.dataset.batchImgIdx)].image);
@@ -1881,34 +1957,19 @@ function setType(t){
   requestType = t;
   $('typeParts').classList.toggle('active', t === 'PARTS');
   $('typeOil').classList.toggle('active', t === 'OIL');
-  $('itemLabel').textContent = t === 'PARTS' ? 'Item' : 'Oil type';
-  $('itemInput').placeholder = t === 'PARTS' ? 'e.g. Brake Pad' : 'e.g. Yamaha Blue Core AT';
-  document.getElementById('qtyLabel').closest('div').style.display = t === 'PARTS' ? '' : 'none';
-  $('imgAttachWrap').style.display = t === 'PARTS' ? '' : 'none';
   suggestNextChange();
   renderRightPanel();
 }
 
 // ---------- Shopee order screenshot attachment (Parts only) ----------
+// The attach control itself is rendered inline inside the draft row of the
+// request table (see renderFormPreview); this just keeps the underlying
+// state and file-reading logic in one place.
 let currentImage = null; // { data: base64DataUrl, name: filename }
 
 function renderImgPreview(){
-  const wrap = $('imgPreviewWrap');
-  if (currentImage){
-    $('imgPreviewThumb').src = currentImage.data;
-    $('imgPreviewName').textContent = currentImage.name;
-    wrap.style.display = 'flex';
-    $('addImageBtnLabel').textContent = 'Replace image';
-  } else {
-    wrap.style.display = 'none';
-    $('imgPreviewThumb').src = '';
-    $('imgPreviewName').textContent = '';
-    $('addImageBtnLabel').textContent = 'Add Image (Shopee order screenshot)';
-  }
-  if (typeof renderImgPreviewLedger === 'function') renderImgPreviewLedger();
+  renderRightPanel();
 }
-
-$('addImageBtn').onclick = () => $('shopeeImgInput').click();
 
 $('shopeeImgInput').addEventListener('change', (e) => {
   const file = e.target.files && e.target.files[0];
@@ -1925,16 +1986,12 @@ $('shopeeImgInput').addEventListener('change', (e) => {
   const reader = new FileReader();
   reader.onload = () => {
     currentImage = { data: reader.result, name: file.name };
-    renderImgPreview();
+    renderRightPanel();
     showToast('Shopee screenshot attached.');
   };
   reader.onerror = () => showToast('Could not read that image.', true);
   reader.readAsDataURL(file);
 });
-
-$('imgPreviewRemove').onclick = () => { currentImage = null; renderImgPreview(); };
-
-$('imgPreviewThumb').onclick = () => currentImage && openImgLightbox(currentImage.data);
 
 function openImgLightbox(src){
   if (!src) return;
@@ -1943,16 +2000,6 @@ function openImgLightbox(src){
 }
 $('imgOverlayClose').onclick = () => $('imgOverlay').classList.remove('show');
 $('imgOverlay').addEventListener('click', (e) => { if (e.target.id === 'imgOverlay') $('imgOverlay').classList.remove('show'); });
-
-document.querySelectorAll('.seal').forEach(s => {
-  s.onclick = () => {
-    document.querySelectorAll('.seal').forEach(x => x.classList.remove('active'));
-    s.classList.add('active');
-    splitLabel = s.dataset.split;
-    updatePreview();
-    renderRightPanel();
-  };
-});
 
 ['itemInput','qtyInput','amountInput','dateInput','odoInput','nextChangeInput','remarksInput'].forEach(id => {
   $(id).addEventListener('input', () => {
@@ -1971,10 +2018,8 @@ function suggestNextChange(){
 }
 
 function updatePreview(){
-  const amount = Number($('amountInput').value) || 0;
-  const companyPct = splitLabel === '40/60' ? 0.4 : 0.6;
-  $('companyPreview').textContent = peso(amount * companyPct);
-  $('employeePreview').textContent = peso(amount * (1 - companyPct));
+  // Company/Employee share are now shown live in the request table itself
+  // (see syncSharesFromPreview inside renderFormPreview) — nothing to do here.
 }
 
 function readCurrentEntry(){
@@ -2013,12 +2058,44 @@ function addToRequest(){
   renderRightPanel();
 }
 
-$('quickAddBtn').onclick = addToRequest;
+async function saveEditedRecord(){
+  const msg = $('formMsg');
+  const entry = readCurrentEntry();
+  if (!entry) { msg.textContent = 'Enter an item name first.'; msg.className = 'msg err'; return; }
+
+  $('submitBtn').disabled = true;
+  msg.textContent = 'Saving changes…';
+  msg.className = 'msg';
+
+  const fields = ['item', 'qty', 'amount', 'date', 'odometer', 'nextChangeOdometer', 'splitLabel', 'remarks'];
+  try {
+    const outcomes = await Promise.all(fields.map(field =>
+      apiPost({ action: 'updateField', id: editingRecordId, field, value: entry[field] })
+        .then(result => ({ field, ok: !result.error, result }))
+        .catch(err => ({ field, ok: false, result: { error: err.message } }))
+    ));
+    const failed = outcomes.find(o => !o.ok);
+    if (failed) throw new Error(failed.result.error || `Could not update ${failed.field}.`);
+
+    msg.textContent = 'Request updated.'; msg.className = 'msg ok';
+    showToast('Saved changes to the sheet.');
+    editingRecordId = null;
+    setEditModeUI(false);
+    clearItemFields();
+    loadAll();
+  } catch (err) {
+    msg.textContent = err.message; msg.className = 'msg err';
+  } finally {
+    $('submitBtn').disabled = false;
+  }
+}
 
 $('submitBtn').onclick = async () => {
   const msg = $('formMsg');
   if (!WEB_APP_URL) { msg.textContent = 'Connect your sheet first.'; msg.className = 'msg err'; return; }
   if (!selectedUser) { msg.textContent = 'Pick an employee tab first.'; msg.className = 'msg err'; return; }
+
+  if (editingRecordId) { await saveEditedRecord(); return; }
 
   // fold any not-yet-added item still sitting in the form into the batch
   const leftover = readCurrentEntry();
