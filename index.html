@@ -9876,6 +9876,12 @@ html.page-fade-ready body {
         const callbackName = 'jsonpCb_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
         const script = document.createElement('script');
         let done = false;
+        // DIAGNOSTIC: logs real elapsed time for every JSONP call, success
+        // or failure, so a "this takes minutes" report can actually be
+        // pinned to a number instead of guessed at. Check the browser
+        // console (F12 > Console) after a slow load — every line tagged
+        // [dashboard-timing] shows exactly which step ate the time.
+        const __t0 = performance.now();
 
         // On a genuine success we delete the callback outright (nothing
         // left to call it). On a timeout, though, the browser may have
@@ -9899,18 +9905,21 @@ html.page-fade-ready body {
         const timer = setTimeout(function() {
           if (done) return;
           cleanup(true);
+          console.warn('[dashboard-timing] JSONP TIMED OUT after ' + Math.round(performance.now() - __t0) + 'ms (limit ' + (timeoutMs || 8000) + 'ms)');
           reject(new Error('JSONP timed out'));
         }, timeoutMs || 8000);
 
         window[callbackName] = function(data) {
           if (done) return;
           cleanup();
+          console.log('[dashboard-timing] JSONP succeeded in ' + Math.round(performance.now() - __t0) + 'ms');
           resolve(data);
         };
 
         script.onerror = function() {
           if (done) return;
           cleanup();
+          console.warn('[dashboard-timing] JSONP script failed to load after ' + Math.round(performance.now() - __t0) + 'ms');
           reject(new Error('JSONP script failed to load'));
         };
 
@@ -9927,10 +9936,16 @@ html.page-fade-ready body {
     async function fetchDirect(url, ms) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), ms || 6000);
+        const __t0 = performance.now();
         try {
             const res = await fetch(url, { signal: controller.signal });
             if (!res.ok) throw new Error("Network response was not ok");
-            return await res.json();
+            const json = await res.json();
+            console.log('[dashboard-timing] direct fetch succeeded in ' + Math.round(performance.now() - __t0) + 'ms');
+            return json;
+        } catch (err) {
+            console.warn('[dashboard-timing] direct fetch failed after ' + Math.round(performance.now() - __t0) + 'ms: ' + err);
+            throw err;
         } finally {
             clearTimeout(timer);
         }
@@ -10522,6 +10537,7 @@ html.page-fade-ready body {
       try {
         let lastError = null;
         for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+          const __attemptT0 = performance.now();
           try {
             // Every request must carry the current user's Firebase ID token so
             // the Apps Script backend can verify it's really a signed-in user
@@ -10536,7 +10552,9 @@ html.page-fade-ready body {
             const fetchUrl = baseUrl + '?secret=' + encodeURIComponent(appsScriptSecret) +
               '&idToken=' + encodeURIComponent(idToken) +
               '&nocache=' + Date.now() + '_' + attempt;
+            console.log('[dashboard-timing] fetchSheet attempt ' + attempt + '/' + MAX_ATTEMPTS + ' starting (isAutoLoad=' + isAutoLoad + ')');
             const json = await fetchSheetOnce(fetchUrl);
+            console.log('[dashboard-timing] fetchSheet attempt ' + attempt + ' got a response in ' + Math.round(performance.now() - __attemptT0) + 'ms');
             if (json && json.error) {
               // The backend rejected the request (bad/expired token, missing
               // secret, etc.) — treat this as a failure so it's retried and
@@ -10558,7 +10576,7 @@ html.page-fade-ready body {
             return;
           } catch (error) {
             lastError = error;
-            console.warn('Fetch attempt ' + attempt + ' of ' + MAX_ATTEMPTS + ' failed:', error);
+            console.warn('[dashboard-timing] fetchSheet attempt ' + attempt + ' of ' + MAX_ATTEMPTS + ' failed after ' + Math.round(performance.now() - __attemptT0) + 'ms:', error);
             const isLastAttempt = attempt === MAX_ATTEMPTS;
             if (!isLastAttempt) {
               // Connection hiccups happen — keep the ride overlay up and
@@ -10727,19 +10745,22 @@ html.page-fade-ready body {
         const MAX_INITIAL_ATTEMPTS = 8; // ~ a few minutes of backoff, not forever
         let retryDelay = INITIAL_RETRY_DELAY_MS;
         let attemptCount = 0;
+        const __loadT0 = performance.now();
 
         function giveUp(err) {
           if (mySession !== initialLoadGeneration) return;
-          console.error('Dashboard load failed and will not retry automatically:', err);
+          console.error('[dashboard-timing] Dashboard load gave up after ' + Math.round((performance.now() - __loadT0) / 1000) + 's and ' + attemptCount + ' attempts:', err);
           if (window.__showDashboardLoadError) window.__showDashboardLoadError(err);
         }
 
         function attemptInitialLoad() {
           if (mySession !== initialLoadGeneration) return; // superseded (e.g. signed out)
           attemptCount++;
+          console.log('[dashboard-timing] === outer attempt ' + attemptCount + '/' + MAX_INITIAL_ATTEMPTS + ' (total elapsed ' + Math.round((performance.now() - __loadT0) / 1000) + 's) ===');
           fetchSheet(true).then(function() {
             if (mySession !== initialLoadGeneration) return;
             if (isDashboardDataUsable()) {
+              console.log('[dashboard-timing] Dashboard data ready after ' + Math.round((performance.now() - __loadT0) / 1000) + 's total, ' + attemptCount + ' outer attempt(s)');
               if (window.__dashboardReadyResolve) window.__dashboardReadyResolve(true);
             } else {
               // Resolved without throwing but still nothing usable on
@@ -10756,6 +10777,7 @@ html.page-fade-ready body {
           if (mySession !== initialLoadGeneration) return;
           if (isTerminalDashboardError(err)) { giveUp(err); return; }
           if (attemptCount >= MAX_INITIAL_ATTEMPTS) { giveUp(err); return; }
+          console.log('[dashboard-timing] retrying outer attempt in ' + Math.round(retryDelay) + 'ms');
           setTimeout(attemptInitialLoad, retryDelay);
           retryDelay = Math.min(retryDelay * 1.5, MAX_RETRY_DELAY_MS);
         }
