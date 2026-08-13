@@ -2834,14 +2834,21 @@ html.page-fade-ready body {
        the rider are layered on top so the whole loading wait becomes a tiny
        scene instead of a bare progress indicator.
 
-       Timing: every animation below runs ONCE (no "infinite"), lasts 1.8s,
+       Timing: every animation below runs ONCE (no "infinite"), lasts 0.9s,
        and holds its final frame (fill-mode: forwards) until the screen is
-       dismissed. That 1.8s must match MIN_LOADING_MS in the loading-screen
-       script further down (both currently 1.8s / 1800ms) so the sky finishes
+       dismissed. That 0.9s must match MIN_LOADING_MS in the loading-screen
+       script further down (both currently 0.9s / 900ms) so the sky finishes
        rising to "morning" and the rider finishes reaching the end of the
        road at the same moment the loading screen is allowed to close — i.e.
        real data readiness and the animation's finish line are always in
-       sync, never a jump-cut mid-scene. */
+       sync, never a jump-cut mid-scene.
+       SPEED FIX: this used to be 1.8s/1800ms. For a returning signed-in
+       user, cached data is ready essentially instantly (see
+       loadInitialDashboardData's cache fast-path), which meant this
+       fixed hold time WAS the entire loading delay, every single time
+       the app opened, with zero real work happening during it. Halving
+       it keeps the little sunrise story recognizable while cutting that
+       guaranteed dead time in half. */
     #loadingScreen { background: #05061a; }
     .loading-scene-sky {
       position: absolute; inset: 0; overflow: hidden; z-index: 0;
@@ -2854,7 +2861,7 @@ html.page-fade-ready body {
         #5a3f80 42%, #8a5aa8 49%, #c06a8f 56%,
         #d9678f 61%, #ef8a72 68%, #f7a97c 75%,
         #ffc98a 81%, #ffd89e 86%, #d9ecdf 91%, #bfe3d8 95%, #bfe3f2 100%);
-      animation: skyRise 1.8s cubic-bezier(.45, 0, .75, 1) forwards;
+      animation: skyRise 0.9s cubic-bezier(.45, 0, .75, 1) forwards;
       will-change: transform;
     }
     /* Starts showing the top of the strip (night colours) and pans down to
@@ -2867,7 +2874,7 @@ html.page-fade-ready body {
       position: absolute; width: 3px; height: 3px; border-radius: 50%;
       background: #fff; box-shadow: 0 0 4px 1px rgba(255,255,255,.8);
       opacity: 0;
-      animation: starTwinkle 1.8s ease-in forwards;
+      animation: starTwinkle 0.9s ease-in forwards;
     }
     /* Bright at the start (night), fades out as morning arrives. */
     @keyframes starTwinkle {
@@ -2879,7 +2886,7 @@ html.page-fade-ready body {
     }
     .loading-sun-moon { position: absolute; left: 50%; top: 46%; z-index: 1; filter: drop-shadow(0 0 14px rgba(255,220,140,.5)); }
     .loading-sun {
-      animation: sunPath 1.8s cubic-bezier(.45, 0, .75, 1) forwards;
+      animation: sunPath 0.9s cubic-bezier(.45, 0, .75, 1) forwards;
     }
     /* Below the horizon (hidden) while it's night, then rises into view as
        morning breaks — mirrors the sky strip and finishes at the same time. */
@@ -2891,7 +2898,7 @@ html.page-fade-ready body {
     }
     .loading-moon {
       filter: drop-shadow(0 0 10px rgba(200,210,255,.5));
-      animation: moonPath 1.8s ease-in forwards;
+      animation: moonPath 0.9s ease-in forwards;
     }
     /* Up in the night sky at the start, sets and fades out by morning. */
     @keyframes moonPath {
@@ -2945,7 +2952,7 @@ html.page-fade-ready body {
        arrives at dawn" pattern, so it reads as "thunderstorm first, then
        morning" rather than a rainy sunrise. */
     .loading-rainy .loading-rain {
-      animation: loadingRainStorm 1.8s ease-in forwards;
+      animation: loadingRainStorm 0.9s ease-in forwards;
     }
     @keyframes loadingRainStorm {
       0%       { opacity: 0; }
@@ -2958,20 +2965,20 @@ html.page-fade-ready body {
        raging, easing back to normal (letting the sun/gold tones through)
        once the rain has cleared and morning has broken. */
     .loading-rainy .loading-scene-sky-strip {
-      animation: skyRise 1.8s cubic-bezier(.45, 0, .75, 1) forwards,
-                 loadingStormClear 1.8s ease-in forwards;
+      animation: skyRise 0.9s cubic-bezier(.45, 0, .75, 1) forwards,
+                 loadingStormClear 0.9s ease-in forwards;
     }
     @keyframes loadingStormClear {
       0%, 70%  { filter: saturate(.55) brightness(.85); }
       100%     { filter: saturate(1) brightness(1); }
     }
     /* Lightning: a few quick full-screen flashes during the storm portion
-       of the scene only (roughly the first 55% / ~1s of the 1.8s scene),
+       of the scene only (roughly the first 55% / ~0.5s of the 0.9s scene),
        never once morning has arrived. */
     .loading-lightning {
       position: absolute; inset: 0; z-index: 3; background: #fff;
       opacity: 0; pointer-events: none;
-      animation: loadingLightningFlash 1.8s linear forwards;
+      animation: loadingLightningFlash 0.9s linear forwards;
     }
     @keyframes loadingLightningFlash {
       0%, 8%    { opacity: 0; }
@@ -3014,7 +3021,7 @@ html.page-fade-ready body {
        close (see timing note above) — never looping past that point. */
     .loading-rig {
       position: absolute; bottom: 6%; left: 2%;
-      animation: loadingRigCruise 1.8s cubic-bezier(.5, 0, .75, 1) forwards,
+      animation: loadingRigCruise 0.9s cubic-bezier(.5, 0, .75, 1) forwards,
                  loadingRigBounce .3s ease-in-out infinite;
     }
     @keyframes loadingRigCruise {
@@ -3038,7 +3045,7 @@ html.page-fade-ready body {
       display: block; width: 150px; height: auto;
       transform-origin: 55% 92%;
       animation: loadingRigWobble .55s ease-in-out infinite,
-                 loadingRigLightSync 1.8s ease-in forwards;
+                 loadingRigLightSync 0.9s ease-in forwards;
     }
     @keyframes loadingRigWobble {
       0%, 100% { transform: rotate(-1.6deg) translateY(0); }
@@ -3569,7 +3576,7 @@ html.page-fade-ready body {
       // story rather than a flash, so every loading screen — first sign-in
       // or a manual retry — stays up for at least this long even if the
       // data itself is ready sooner.
-      const MIN_LOADING_MS = 1800;
+      const MIN_LOADING_MS = 900; // SPEED FIX: was 1800 -- see comment above the #loadingScreen CSS block
       const STATUS_MESSAGES = [
         'Connecting to secure server\u2026',
         'Fetching latest audit records\u2026',
@@ -10104,25 +10111,27 @@ html.page-fade-ready body {
       return wb;
     }
 
-    // Which transport actually works is learned ONCE per browser tab
-    // session, then reused, instead of racing both on every single call.
-    //
-    // Why this matters: the old version raced fetchDirect() and (after a
-    // 1.5s hedge, or immediately on a direct failure) fetchJSONP() on
-    // EVERY call. Because fetchDirect() almost always fails once it's
-    // reached the backend anyway (typical Apps Script CORS behavior — the
-    // request still executes server-side even though the browser can't
-    // read the response), that meant most "Update data" clicks / reloads
-    // were sending TWO real requests to the Apps Script backend for one
-    // logical fetch. With several people/devices doing this at once, that
-    // doubling made everyone's requests slower by competing for Apps
-    // Script's limited simultaneous-execution slots. Learning the working
-    // transport once and reusing it cuts that back down to one request
-    // per fetch for the rest of the session, while still keeping the
-    // race (and the fallback to the other transport) available any time
-    // the learned transport hasn't been established yet, or unexpectedly
-    // fails.
-    let learnedTransport = null; // 'direct' | 'jsonp' | null (still unknown)
+    // SPEED FIX: this used to be a plain in-memory `let`, so it reset on
+    // every single page load — meaning EVERY sign-in redid the "which
+    // transport works" probe from scratch, even for the exact same
+    // browser on the exact same network as five minutes ago. Persisting
+    // the answer in localStorage means only the very first visit ever
+    // pays that cost; every visit after that goes straight to the
+    // transport that's already known to work, with no probing/racing at
+    // all. Still just 'direct' | 'jsonp' | null.
+    const LEARNED_TRANSPORT_KEY = 'auditDashboard_learnedTransport';
+    let learnedTransport = (function() {
+      try {
+        const v = localStorage.getItem(LEARNED_TRANSPORT_KEY);
+        return (v === 'direct' || v === 'jsonp') ? v : null;
+      } catch (e) {
+        return null;
+      }
+    })();
+    function setLearnedTransport(v) {
+      learnedTransport = v;
+      try { localStorage.setItem(LEARNED_TRANSPORT_KEY, v || ''); } catch (e) { /* ignore */ }
+    }
 
     // Timeouts were previously 6s (direct) / 7s (JSONP), which is too
     // tight for a real-world Apps Script /exec call: a "cold" deployment
@@ -10144,71 +10153,49 @@ html.page-fade-ready body {
 
     async function fetchSheetOnce(url) {
       // Fast path: we already know which transport gets through on this
-      // network/browser. Use only that one — no duplicate request sent.
+      // network/browser (learned just now, or remembered from a previous
+      // visit — see setLearnedTransport above). Use only that one — no
+      // duplicate request sent, no race, no hedge delay.
       if (learnedTransport === 'jsonp') {
         try {
           return await fetchJSONP(url, JSONP_FETCH_TIMEOUT_MS);
         } catch (err) {
           // The learned transport failed this time (e.g. a network change) —
           // fall back to the other one just for this call, and re-learn.
-          learnedTransport = null;
-          return await fetchDirect(url, DIRECT_FETCH_TIMEOUT_MS).then(function(d) { learnedTransport = 'direct'; return d; });
+          setLearnedTransport(null);
+          return await fetchDirect(url, DIRECT_FETCH_TIMEOUT_MS).then(function(d) { setLearnedTransport('direct'); return d; });
         }
       }
       if (learnedTransport === 'direct') {
         try {
           return await fetchDirect(url, DIRECT_FETCH_TIMEOUT_MS);
         } catch (err) {
-          learnedTransport = null;
-          return await fetchJSONP(url, JSONP_FETCH_TIMEOUT_MS).then(function(d) { learnedTransport = 'jsonp'; return d; });
+          setLearnedTransport(null);
+          return await fetchJSONP(url, JSONP_FETCH_TIMEOUT_MS).then(function(d) { setLearnedTransport('jsonp'); return d; });
         }
       }
 
-      // Still unknown (first call this session): race both, but stagger
-      // JSONP behind a short hedge so a fast direct success avoids sending
-      // a second request to the backend at all. Whichever one answers
-      // first is remembered for every subsequent call this session.
-      return new Promise(function(resolve, reject) {
-        let settled = false;
-        let jsonpStarted = false;
-        const errors = [];
-
-        function succeed(data, via) {
-          if (settled) return;
-          settled = true;
-          learnedTransport = via;
-          clearTimeout(hedgeTimer);
-          resolve(data);
-        }
-
-        function startJSONP() {
-          if (jsonpStarted) return;
-          jsonpStarted = true;
-          clearTimeout(hedgeTimer);
-          fetchJSONP(url, JSONP_FETCH_TIMEOUT_MS).then(function(d) { succeed(d, 'jsonp'); }).catch(function(err) { fail(err, 'jsonp'); });
-        }
-
-        function fail(err, label) {
-          if (settled) return;
-          errors.push(label + ': ' + (err && err.message ? err.message : err));
-          if (label === 'direct') {
-            // Direct path failed outright (e.g. CORS) — no reason to keep
-            // waiting for the hedge timer, start JSONP right away.
-            startJSONP();
-          }
-          if (errors.length >= 2 && !settled) {
-            settled = true;
-            reject(new Error(errors.join(' | ')));
-          }
-        }
-
-        fetchDirect(url, DIRECT_FETCH_TIMEOUT_MS).then(function(d) { succeed(d, 'direct'); }).catch(function(err) { fail(err, 'direct'); });
-
-        // Hedge: give the direct request a head start; if it hasn't
-        // answered within this window, start JSONP alongside it rather
-        // than waiting for the full timeout.
-        const hedgeTimer = setTimeout(startJSONP, 2500);
-      });
+      // SPEED FIX: this used to race fetchDirect() and fetchJSONP() against
+      // each other on every browser's first-ever call, staggered behind a
+      // 2.5s hedge. In practice, per the fetchDirect() comment above, the
+      // direct request "almost always fails once it's reached the backend
+      // anyway" — typical Apps Script CORS behavior — so that race almost
+      // always: (a) sent a real, wasted request to the backend that competed
+      // for Apps Script's limited simultaneous-execution slots, and (b) on
+      // any network where the direct request hangs instead of failing fast,
+      // sat through the full 2.5s hedge before JSONP even started. JSONP is
+      // the transport that's actually meant for this (it bypasses CORS
+      // entirely), so go straight there first and skip the race — direct is
+      // still there as a fallback if JSONP itself ever fails.
+      try {
+        const data = await fetchJSONP(url, JSONP_FETCH_TIMEOUT_MS);
+        setLearnedTransport('jsonp');
+        return data;
+      } catch (jsonpErr) {
+        const data = await fetchDirect(url, DIRECT_FETCH_TIMEOUT_MS);
+        setLearnedTransport('direct');
+        return data;
+      }
     }
 
     // Guards against a second "Update data" click firing while one is
