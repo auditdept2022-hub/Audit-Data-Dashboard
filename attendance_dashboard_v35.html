@@ -447,7 +447,14 @@
   .sync-badge.mode-snapshot .dot{background:#FFC02E; box-shadow:0 0 0 3px rgba(255,192,46,.35);}
   .sync-badge.mode-uploaded .dot{background:#4FA8FF; box-shadow:0 0 0 3px rgba(79,168,255,.35);}
   .sync-badge.mode-connecting .dot{background:#E4E9FA; animation:sync-pulse 1.1s ease-in-out infinite;}
+  .sync-badge.mode-offline-cache .dot{background:#FF8A4C; box-shadow:0 0 0 3px rgba(255,138,76,.35);}
   @keyframes sync-pulse{ 0%,100%{opacity:.4;} 50%{opacity:1;} }
+  .offline-pending-badge{
+    display:none; align-items:center; gap:5px; flex:none; font-family:'Inter'; font-size:11px; font-weight:700;
+    color:#3A2200; background:#FFC02E; border-radius:999px; padding:3px 9px; white-space:nowrap; cursor:pointer;
+    box-shadow:0 1px 4px rgba(4,10,32,.25);
+  }
+  .offline-pending-badge:hover{filter:brightness(1.06);}
   .sync-refresh-btn{
     display:flex; align-items:center; justify-content:center; width:20px; height:20px; flex:none; margin-left:1px;
     background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); border-radius:5px; color:#fff; cursor:pointer; transition:background .15s;
@@ -1877,6 +1884,7 @@
         <span class="sync-badge mode-connecting" id="syncInline" title="Live data sync status">
           <span class="dot"></span><span id="syncInlineText">Update &middot; Connecting&hellip;</span>
         </span>
+        <span class="offline-pending-badge" id="offlineBadge" title="Click to try syncing now" role="button"></span>
         <button class="sync-refresh-btn" id="syncRefreshBtn" type="button" aria-label="Refresh data from the sheet now">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"/><path d="M3 21v-5h5"/></svg>
         </button>
@@ -2416,6 +2424,180 @@ let currentTableFilter = 'all';
 
 function normVal(v){ if(v===undefined||v===null) return null; const s=String(v).trim(); return s.length?s:null; }
 
+// ---------------------------------------------------------------------
+// Offline persistence (IndexedDB)
+// ---------------------------------------------------------------------
+// Two object stores, kept entirely on this device:
+//   monthCache  -- key: sheet month name ("AUGUST 2026" etc), value: the
+//                  last successfully-synced data for that month, so the
+//                  dashboard still has real numbers to show when opened
+//                  with no connection.
+//   pendingSync -- an ordered queue of edits (the same payload shape sent
+//                  to the Apps Script web app) made while offline. They're
+//                  replayed automatically, in order, the moment the app
+//                  detects a connection again -- nothing is lost by
+//                  working offline.
+// All of this is best-effort: if IndexedDB isn't available for some
+// reason, the dashboard still works exactly as before, it just won't
+// persist across a full reload while offline.
+const IDB_NAME = 'attendanceDashboardDB';
+const IDB_VERSION = 1;
+let _idbPromise = null;
+function idbOpen(){
+  if(_idbPromise) return _idbPromise;
+  _idbPromise = new Promise((resolve, reject) => {
+    if(!('indexedDB' in window)){ reject(new Error('IndexedDB not supported in this browser')); return; }
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if(!db.objectStoreNames.contains('monthCache')) db.createObjectStore('monthCache');
+      if(!db.objectStoreNames.contains('pendingSync')) db.createObjectStore('pendingSync', {keyPath:'id', autoIncrement:true});
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  return _idbPromise;
+}
+async function idbGetMonth(name){
+  try{
+    const db = await idbOpen();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction('monthCache', 'readonly');
+      const req = tx.objectStore('monthCache').get(name);
+      req.onsuccess = () => resolve(req.result ? req.result.data : null);
+      req.onerror = () => reject(req.error);
+    });
+  }catch(err){ return null; }
+}
+async function idbSetMonth(name, data){
+  try{
+    const db = await idbOpen();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction('monthCache', 'readwrite');
+      tx.objectStore('monthCache').put({data, savedAt: Date.now()}, name);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error);
+    });
+  }catch(err){ /* best-effort persistence only */ }
+}
+async function idbQueueAdd(payload){
+  const db = await idbOpen();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction('pendingSync', 'readwrite');
+    tx.objectStore('pendingSync').add({payload, queuedAt: Date.now()});
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function idbQueueAll(){
+  try{
+    const db = await idbOpen();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction('pendingSync', 'readonly');
+      const req = tx.objectStore('pendingSync').getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+  }catch(err){ return []; }
+}
+async function idbQueueRemove(id){
+  try{
+    const db = await idbOpen();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction('pendingSync', 'readwrite');
+      tx.objectStore('pendingSync').delete(id);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error);
+    });
+  }catch(err){ /* ignore */ }
+}
+async function idbQueueCount(){
+  try{
+    const db = await idbOpen();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction('pendingSync', 'readonly');
+      const req = tx.objectStore('pendingSync').count();
+      req.onsuccess = () => resolve(req.result || 0);
+      req.onerror = () => reject(req.error);
+    });
+  }catch(err){ return 0; }
+}
+
+// Records an edit that couldn't reach the sheet right now so it can be
+// replayed automatically later. Best-effort: if IndexedDB is unavailable
+// the edit still stands in the on-screen (in-memory) state for this
+// session, it just won't survive a reload while still offline.
+async function queuePendingChange(payload){
+  try{ await idbQueueAdd(payload); }catch(err){ /* best effort */ }
+  updatePendingBadge();
+}
+
+// Replays every queued change, in the order it was made, against the Apps
+// Script web app, removing each one as it's confirmed saved. Safe to call
+// as often as you like -- it does nothing when the queue is empty, when
+// there's no web app configured, or when the device is offline.
+let _flushInFlight = false;
+async function flushPendingQueue(){
+  if(_flushInFlight) return;
+  if(!state.webAppUrl) return;
+  if(!navigator.onLine) return;
+  _flushInFlight = true;
+  try{
+    const items = await idbQueueAll();
+    for(const item of items){
+      let res;
+      try{
+        res = await fetch(state.webAppUrl, {
+          method:'POST',
+          headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+          body: JSON.stringify(item.payload)
+        });
+      }catch(err){
+        // Still offline (or the request was blocked) -- stop here and try
+        // the rest of the queue next time this runs.
+        break;
+      }
+      const json = await res.json().catch(() => null);
+      if(json && json.ok){
+        await idbQueueRemove(item.id);
+      } else {
+        // The sheet rejected this one (bad data, etc). Drop it instead of
+        // retrying forever, but note it for debugging.
+        console.warn('Dropping a queued offline change the sheet rejected:', item.payload, json && json.error);
+        await idbQueueRemove(item.id);
+      }
+    }
+  } finally {
+    _flushInFlight = false;
+    await updatePendingBadge();
+    if((await idbQueueCount()) === 0 && state.anyLive){
+      // Fully caught up -- pull the authoritative sheet data (in case it
+      // changed elsewhere while this device was offline) and re-render.
+      try{ await getSheetData(state.month, true); await render(); }catch(err){ /* ignore */ }
+    }
+  }
+}
+
+async function updatePendingBadge(){
+  const count = await idbQueueCount();
+  const el = document.getElementById('offlineBadge');
+  if(!el) return;
+  if(count > 0){
+    el.style.display = 'inline-flex';
+    el.textContent = navigator.onLine
+      ? `\u21bb Syncing ${count} change${count===1?'':'s'}\u2026`
+      : `\u26a0 Offline \u00b7 ${count} change${count===1?'':'s'} pending`;
+  } else {
+    el.style.display = 'none';
+  }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const el = document.getElementById('offlineBadge');
+  if(el) el.addEventListener('click', () => flushPendingQueue());
+});
+window.addEventListener('online', () => { setSyncBadge('connecting'); flushPendingQueue(); });
+window.addEventListener('offline', () => { updatePendingBadge(); });
+
 // Shown while the dashboard fetches data (first load or when the selected
 // month changes) so the page never silently sits on stale/blank content
 // while a request is in flight.
@@ -2572,10 +2754,28 @@ async function getSheetData(name, force){
     state.cache[name] = data; state.anyLive = true; state.lastSynced = new Date();
     state.lastError = null;
     setSyncBadge('live');
+    // Best-effort: remember this month's data on-device so it's still
+    // available (read-only) the next time the app is opened offline.
+    idbSetMonth(name, data);
     return data;
   }
   state.lastError = (lastErr && lastErr.message) ? lastErr.message : String(lastErr);
   console.warn('Live sheet fetch failed for "' + name + '":', state.lastError);
+  // If this month is already in memory -- e.g. we're offline and this was
+  // just a forced re-sync after an edit -- keep what's there (it may
+  // include edits still waiting in the offline queue) rather than
+  // replacing it with older cached/snapshot data.
+  if(state.cache[name]){
+    setSyncBadge(navigator.onLine ? 'snapshot' : 'offline-cache');
+    return state.cache[name];
+  }
+  const idbData = await idbGetMonth(name);
+  if(idbData){
+    const data = Object.assign({}, idbData, {source:'offline-cache'});
+    state.cache[name] = data;
+    setSyncBadge('offline-cache');
+    return data;
+  }
   const snap = SNAPSHOT.months[name];
   const mMeta = MONTHS.find(x => x.key === name) || parseMonthKey(name);
   const data = snap
@@ -3181,16 +3381,40 @@ async function submitPayload(payload, statusEl){
     }
     return false;
   }
+  // No point even trying the network if the browser already knows we're
+  // offline -- queue it immediately instead of waiting on a request that's
+  // guaranteed to fail.
+  if(!navigator.onLine){
+    await queuePendingChange(payload);
+    if(statusEl){
+      statusEl.className = 'entry-status ok';
+      statusEl.textContent = 'Offline \u2014 saved on this device. Will sync to the sheet automatically once you\u2019re back online.';
+    }
+    return true;
+  }
   if(statusEl){
     statusEl.className = 'entry-status wait';
     statusEl.textContent = 'Saving to sheet\u2026';
   }
+  let res;
   try{
-    const res = await fetch(state.webAppUrl, {
+    res = await fetch(state.webAppUrl, {
       method:'POST',
       headers:{ 'Content-Type':'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     });
+  }catch(err){
+    // The request never reached the network (offline, blocked, DNS
+    // failure, etc.), so nothing was written to the sheet -- it's safe to
+    // queue this change and retry it automatically once back online.
+    await queuePendingChange(payload);
+    if(statusEl){
+      statusEl.className = 'entry-status ok';
+      statusEl.textContent = 'Offline \u2014 saved on this device. Will sync to the sheet automatically once you\u2019re back online.';
+    }
+    return true;
+  }
+  try{
     const json = await res.json();
     if(json.ok){
       if(statusEl){
@@ -3205,6 +3429,9 @@ async function submitPayload(payload, statusEl){
     }
     return false;
   }catch(err){
+    // The request did reach the server (we got a response), it just
+    // couldn't be read/parsed -- do NOT queue this, or a write that
+    // actually succeeded could be sent again later.
     if(statusEl){
       statusEl.className = 'entry-status err';
       statusEl.textContent = 'Could not confirm the sheet update (browser blocked reading the response). Check the sheet directly \u2014 the write may still have gone through.';
@@ -3434,6 +3661,9 @@ function setSyncBadge(mode){
   } else if(mode==='snapshot'){
     inline.textContent = 'Update \u00b7 ' + (state.lastSynced ? 'Synced ' + formatSyncStamp(state.lastSynced) + ' (offline)' : 'Showing snapshot');
     if(state.lastError) badge.title = 'Reason: ' + state.lastError;
+  } else if(mode==='offline-cache'){
+    inline.textContent = 'Update \u00b7 Offline' + (state.lastSynced ? ' (last synced ' + formatSyncStamp(state.lastSynced) + ')' : ' (using data saved on this device)');
+    badge.title = 'No connection right now \u2014 showing the last data saved on this device. Any edits you make will sync automatically once you\u2019re back online.';
   } else {
     inline.textContent = 'Update \u00b7 Connecting\u2026';
   }
@@ -5498,6 +5728,8 @@ async function refresh(){
 // (60000 = every 60 seconds). Set to 0 to disable.
 const AUTO_SYNC_MS = 60000;
 function startAutoSync(){
+  flushPendingQueue();
+  setInterval(flushPendingQueue, 20000);
   if(!AUTO_SYNC_MS) return;
   setInterval(async () => {
     // Don't clobber an intentional manual CSV upload with a silent live refetch.
@@ -5529,6 +5761,7 @@ document.addEventListener('click', () => {
   showLoadingState();
   await getSheetData(state.month);
   await render();
+  updatePendingBadge();
   startAutoSync();
 })();
 </script>
