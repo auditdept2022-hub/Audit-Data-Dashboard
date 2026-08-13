@@ -3143,9 +3143,10 @@ html.page-fade-ready body {
       <div class="w-14 h-14 rounded-2xl bg-accentRose/10 flex items-center justify-center mx-auto mb-4">
         <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentRose"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path></svg>
       </div>
-      <h2 class="text-lg font-bold text-slate-900 mb-1">Couldn't load the dashboard</h2>
-      <p class="text-xs text-slate-500 mb-4">We couldn't sync the latest audit data. Check your connection and try again.</p>
+      <h2 id="loadingErrorTitle" class="text-lg font-bold text-slate-900 mb-1">Couldn't load the dashboard</h2>
+      <p id="loadingErrorMessage" class="text-xs text-slate-500 mb-4">We couldn't sync the latest audit data. Check your connection and try again.</p>
       <button id="loadingRetryBtn" class="w-full py-2.5 bg-accentIndigo text-white text-sm font-semibold rounded-xl hover:bg-accentIndigo/90 active:scale-[0.98] transition-all">Retry</button>
+      <button id="loadingSignOutBtn" class="hidden mt-2 w-full py-2.5 bg-transparent text-slate-500 text-xs font-semibold rounded-xl hover:bg-slate-100 active:scale-[0.98] transition-all">Sign out and try a different account</button>
     </div>
 
   </div>
@@ -3534,6 +3535,8 @@ html.page-fade-ready body {
       const loadingCore = document.getElementById('loadingCore');
       const loadingErrorBox = document.getElementById('loadingError');
       const loadingRetryBtn = document.getElementById('loadingRetryBtn');
+      const loadingSignOutBtn = document.getElementById('loadingSignOutBtn');
+      const loadingErrorMessageEl = document.getElementById('loadingErrorMessage');
       const loadingStatusEl = document.getElementById('loadingStatusText');
       const loadingTitleEl = document.getElementById('loadingTitleText');
 
@@ -3620,13 +3623,34 @@ html.page-fade-ready body {
         return token;
       }
 
-      // Kept only so any stray old caller doesn't throw -- the "Couldn't
-      // load the dashboard" error box is no longer used. The loading
-      // screen now always just keeps waiting/retrying quietly instead of
-      // surfacing an error + retry popup.
+      // Kept only so any stray old caller doesn't throw.
       function showError(token) {
         keepWaitingQuietly(token);
       }
+
+      // FIX: genuine, unrecoverable-by-retrying failures (not authorized,
+      // signed out, or "we've retried this a bunch of times and it's
+      // still not working") now actually surface here instead of the
+      // loading screen spinning "Still working on it..." forever with no
+      // way out. Called from the data layer (loadInitialDashboardData's
+      // retry loop giving up, or the retry button failing again).
+      window.__showDashboardLoadError = function(err) {
+        stopProgress();
+        const msg = (err && err.message) ? String(err.message) : '';
+        const isAuthIssue = /unauthorized/i.test(msg) || /not signed in/i.test(msg);
+        if (loadingErrorMessageEl) {
+          loadingErrorMessageEl.textContent = isAuthIssue
+            ? "Your account isn't authorized to view this dashboard, or your sign-in expired. Try signing in again, or contact whoever manages access."
+            : "We couldn't reach the data source after several tries. Check your connection and try again.";
+        }
+        if (loadingSignOutBtn) loadingSignOutBtn.classList.toggle('hidden', !isAuthIssue);
+        loadingCore.classList.add('hidden');
+        loadingErrorBox.classList.remove('hidden');
+        loadingScreen.classList.remove('hidden');
+        loadingScreen.style.display = 'flex';
+        loadingScreen.style.opacity = '1';
+        document.body.style.overflow = 'hidden';
+      };
 
       function revealDashboard(readyText, token) {
         if (token !== undefined && token !== generation) return; // superseded by a newer operation
@@ -3818,25 +3842,29 @@ html.page-fade-ready body {
         }
       };
 
-      // Covers the brief "is there already a signed-in session?" check with
-      // this same rider scene instead of a bare spinner, so the very first
-      // thing anyone sees is the animation rather than a plain "Checking
-      // session..." message. If it turns out nobody's signed in, the
-      // Firebase auth logic further down calls window.__closeAuthCheckLoading()
-      // to dismiss it and reveal the sign-in form. If someone IS signed in,
-      // it's simply left running — __runDashboardLoadingSequence() below
-      // takes over the same screen for the real data load, so there's no
-      // flash or restart between the two.
-      let authCheckToken = skipLoadingAnimation ? openBlankCover() : openLoadingScreen({
-        title: 'Signing you in',
-        messages: ['Checking your session\u2026']
-      });
-      // The blank cover (or loading screen) is now up, so it's safe to
-      // reveal the page again after the fast-return guard hid it above.
+      // FIX: this used to only use the fast blank cover for the
+      // ?skipLoading=1 case, and played the full animated storm/rider
+      // scene (with a "Signing you in / Checking your session..." title)
+      // for every other page load -- including brand-new visitors and
+      // anyone who'd just logged out, who have no session at all and are
+      // just waiting to see the login form. That's the "loading screen,
+      // then login" delay: the animation adds real, avoidable time (plus
+      // its own render/paint cost) in front of a login form that has
+      // nothing to do with any of it. The actual account check (does
+      // Firebase already know this browser is signed in?) always uses
+      // the plain, instant blank cover now, regardless of skipLoading --
+      // nobody has to sit through an animation just to find out they
+      // need to log in. The animated scene is still used, as before, for
+      // the real data-loading step that happens AFTER a signed-in user
+      // is confirmed (see __runDashboardLoadingSequence below), where
+      // there's genuine work happening that's worth showing.
+      let authCheckToken = openBlankCover();
+      // The blank cover is now up, so it's safe to reveal the page again
+      // after the fast-return guard hid it above.
       document.documentElement.style.visibility = '';
       window.__closeAuthCheckLoading = function() {
         if (authCheckToken !== null) {
-          if (skipLoadingAnimation) closeBlankCover(authCheckToken); else closeLoadingScreen(authCheckToken);
+          closeBlankCover(authCheckToken);
           authCheckToken = null;
         }
       };
@@ -3872,8 +3900,27 @@ html.page-fade-ready body {
 
       loadingRetryBtn.addEventListener('click', function() {
         const token = openLoadingScreen();
-        waitThenSettle(window.retryDashboardLoad(), Date.now(), token);
+        // FIX: this used to route through waitThenSettle(), which -- on a
+        // second failure -- fell back to keepWaitingQuietly() and left
+        // the person staring at a silently-spinning screen again with no
+        // indication the retry failed. Now a failed retry re-shows the
+        // real error box (with whatever the actual error was) instead of
+        // going back into a silent spin.
+        window.retryDashboardLoad().then(function(success) {
+          if (token !== generation) return; // superseded
+          if (success) {
+            revealDashboard(undefined, token);
+          } else {
+            window.__showDashboardLoadError(window.__lastDashboardFetchError);
+          }
+        });
       });
+
+      if (loadingSignOutBtn) {
+        loadingSignOutBtn.addEventListener('click', function() {
+          if (typeof window.__dashboardSignOut === 'function') window.__dashboardSignOut();
+        });
+      }
     })();
   </script>
 
@@ -4159,7 +4206,7 @@ html.page-fade-ready body {
       </div>
 
       <div class="flex items-center gap-0.5 w-full lg:w-auto justify-end">
-        <button id="updateDataBtn" onclick="fetchSheet()" title="Refresh dashboard data" class="group flex items-center gap-2 px-2.5 sm:px-3 py-2 rounded-lg hover:bg-white/10 active:bg-white/15 cursor-pointer text-sm font-medium transition-colors duration-150 text-white/90 hover:text-white whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
+        <button id="updateDataBtn" onclick="fetchSheet().catch(function(e){console.warn('Update data failed:', e);})" title="Refresh dashboard data" class="group flex items-center gap-2 px-2.5 sm:px-3 py-2 rounded-lg hover:bg-white/10 active:bg-white/15 cursor-pointer text-sm font-medium transition-colors duration-150 text-white/90 hover:text-white whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
           <span id="updateDataIconWrap" class="flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-cloud-download shrink-0 transition-transform duration-500 group-active:-rotate-180"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="m8 17 4 4 4-4"></path></svg>
             <span class="hidden sm:flex sm:flex-col sm:items-start leading-tight">
@@ -5724,7 +5771,7 @@ html.page-fade-ready body {
           if (typeof initDashboard === 'function') initDashboard();
           // Refresh from the server shortly after so everyone sees the
           // authoritative Sheet state (not just this browser's optimistic guess).
-          if (typeof fetchSheet === 'function') setTimeout(function() { fetchSheet(true); }, 2000);
+          if (typeof fetchSheet === 'function') setTimeout(function() { fetchSheet(true).catch(function(e) { console.warn('Post-save refresh failed (will retry next auto-refresh cycle):', e); }); }, 2000);
       } catch (err) {
           console.error('Saving assignment failed:', err);
           if (errEl) {
@@ -6016,7 +6063,7 @@ html.page-fade-ready body {
 
     // Fired from the shortcuts menu's "Update Data" item.
     function updateDataFromMenu() {
-      fetchSheet();
+      fetchSheet().catch(function(e) { console.warn('Update data failed:', e); });
       if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
     }
 
@@ -7742,7 +7789,7 @@ html.page-fade-ready body {
 
             // Re-sync with the authoritative Sheet state shortly after (also
             // fills in the real row number for a brand-new remark).
-            if (typeof fetchSheet === 'function') setTimeout(function() { fetchSheet(true); }, 2000);
+            if (typeof fetchSheet === 'function') setTimeout(function() { fetchSheet(true).catch(function(e) { console.warn('Post-save refresh failed (will retry next auto-refresh cycle):', e); }); }, 2000);
         } catch (err) {
             console.error('Saving auditor remark failed:', err);
             auditorRemarkSaving = false;
@@ -7762,7 +7809,7 @@ html.page-fade-ready body {
                 auditorRemarkFormState = { branchName: null, mode: null, editingRowIndex: null };
             }
             refreshAuditorRemarksSection(branchName);
-            if (typeof fetchSheet === 'function') setTimeout(function() { fetchSheet(true); }, 2000);
+            if (typeof fetchSheet === 'function') setTimeout(function() { fetchSheet(true).catch(function(e) { console.warn('Post-delete refresh failed (will retry next auto-refresh cycle):', e); }); }, 2000);
         } catch (err) {
             console.error('Deleting auditor remark failed:', err);
             alert((err && err.message) ? err.message : "Couldn't delete — please try again.");
@@ -10171,6 +10218,26 @@ html.page-fade-ready body {
     // toast messages.
     let isFetchingSheet = false;
 
+    // FIX: the most recent real error from a failed fetchSheet() attempt,
+    // so callers (the initial-load retry loop, the loading-screen retry
+    // button) can tell WHY it failed instead of just "it didn't work,
+    // try again forever". Exposed on window so the loading-screen IIFE
+    // (a separate <script> block) can read it too.
+    window.__lastDashboardFetchError = null;
+
+    // Some failures can never be fixed by retrying the same request again
+    // (a bad/expired sign-in, or an account that isn't allow-listed to
+    // view the dashboard) — the Apps Script backend reports these as an
+    // "Unauthorized..." error string, or the client itself reports "Not
+    // signed in..." when there's no ID token yet. Retrying those forever
+    // just spins the loading screen while never getting anywhere, which
+    // is exactly the "stuck loading" symptom. Anything else (timeouts,
+    // JSONP hiccups, a cold Apps Script deployment) IS worth retrying.
+    function isTerminalDashboardError(err) {
+      const msg = (err && err.message) ? String(err.message) : String(err || '');
+      return /unauthorized/i.test(msg) || /not signed in/i.test(msg);
+    }
+
     // Bumped every time loadInitialDashboardData() starts a fresh "keep
     // retrying until we have real data" loop (on sign-in) and again on
     // sign-out. A retry loop checks this before each attempt, so a stale
@@ -10430,9 +10497,22 @@ html.page-fade-ready body {
 
         // Every attempt failed.
         console.error(lastError);
+        window.__lastDashboardFetchError = lastError;
         settleRide(function() {
           if (!isAutoLoad) showToast("Couldn't reach the data source after a few tries. Check your connection.");
         });
+        // FIX: this used to swallow the failure entirely and just return,
+        // so every caller waiting on this promise (the initial-load retry
+        // loop, the "Update data" button, the retry button, silent
+        // background refresh) had no way to tell success from failure --
+        // it always looked like it "worked", it just happened not to have
+        // updated the data. That's what made a genuine, unrecoverable
+        // failure (e.g. an unauthorized account, or a dead deployment
+        // URL) indistinguishable from a slow-but-working request, so the
+        // retry loop kept quietly spinning forever instead of ever
+        // surfacing what was actually wrong. Rethrowing here restores
+        // that signal for every one of those callers.
+        throw lastError;
       } finally {
         isFetchingSheet = false;
         if (updateBtn) updateBtn.disabled = false;
@@ -10557,24 +10637,51 @@ html.page-fade-ready body {
         const mySession = ++initialLoadGeneration;
         const INITIAL_RETRY_DELAY_MS = 3000;
         const MAX_RETRY_DELAY_MS = 20000;
+        // FIX: this used to retry forever with no ceiling and no way to
+        // tell the person what was actually wrong -- if the account
+        // wasn't authorized, or the deployment URL/secret was wrong, or
+        // the backend was genuinely down, the loading screen just spun
+        // "Still working on it..." indefinitely with real errors piling
+        // up silently in the console. Two changes fix that:
+        //   1) An "Unauthorized"/"not signed in" failure is treated as
+        //      terminal right away -- retrying the exact same request
+        //      will never succeed, so there's no reason to keep trying.
+        //   2) Anything else still gets retried (cold backend, flaky
+        //      connection), but only up to MAX_INITIAL_ATTEMPTS times --
+        //      after that this stops silently spinning and shows the
+        //      real error with a working Retry button instead.
+        const MAX_INITIAL_ATTEMPTS = 8; // ~ a few minutes of backoff, not forever
         let retryDelay = INITIAL_RETRY_DELAY_MS;
+        let attemptCount = 0;
+
+        function giveUp(err) {
+          if (mySession !== initialLoadGeneration) return;
+          console.error('Dashboard load failed and will not retry automatically:', err);
+          if (window.__showDashboardLoadError) window.__showDashboardLoadError(err);
+        }
 
         function attemptInitialLoad() {
           if (mySession !== initialLoadGeneration) return; // superseded (e.g. signed out)
+          attemptCount++;
           fetchSheet(true).then(function() {
             if (mySession !== initialLoadGeneration) return;
             if (isDashboardDataUsable()) {
               if (window.__dashboardReadyResolve) window.__dashboardReadyResolve(true);
             } else {
-              scheduleInitialRetry();
+              // Resolved without throwing but still nothing usable on
+              // screen (shouldn't normally happen) -- treat like any
+              // other retryable miss rather than looping forever.
+              scheduleInitialRetry(null);
             }
-          }).catch(function() {
-            scheduleInitialRetry();
+          }).catch(function(err) {
+            scheduleInitialRetry(err);
           });
         }
 
-        function scheduleInitialRetry() {
+        function scheduleInitialRetry(err) {
           if (mySession !== initialLoadGeneration) return;
+          if (isTerminalDashboardError(err)) { giveUp(err); return; }
+          if (attemptCount >= MAX_INITIAL_ATTEMPTS) { giveUp(err); return; }
           setTimeout(attemptInitialLoad, retryDelay);
           retryDelay = Math.min(retryDelay * 1.5, MAX_RETRY_DELAY_MS);
         }
@@ -10708,6 +10815,16 @@ html.page-fade-ready body {
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
+
+    // Lets the loading-screen error state's "Sign out and try a
+    // different account" button (shown for Unauthorized-type failures)
+    // actually sign out, without that plain-<script> code needing to
+    // import the Firebase auth module itself.
+    window.__dashboardSignOut = function() {
+      signOut(auth).catch(function(err) {
+        console.warn('Sign-out from loading-error screen failed:', err);
+      });
+    };
 
     // Lets the (non-module) dashboard script attach the current user's
     // Firebase ID token to each Apps Script request, so the backend can
