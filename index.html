@@ -3169,6 +3169,13 @@ html.page-fade-ready body {
       <p id="loadingErrorMessage" class="text-xs text-slate-500 mb-4">We couldn't sync the latest audit data. Check your connection and try again.</p>
       <button id="loadingRetryBtn" class="w-full py-2.5 bg-accentIndigo text-white text-sm font-semibold rounded-xl hover:bg-accentIndigo/90 active:scale-[0.98] transition-all">Retry</button>
       <button id="loadingSignOutBtn" class="hidden mt-2 w-full py-2.5 bg-transparent text-slate-500 text-xs font-semibold rounded-xl hover:bg-slate-100 active:scale-[0.98] transition-all">Sign out and try a different account</button>
+      <!-- DIAGNOSTIC: a plain-language connection test that needs no
+           DevTools/console access. Shows exactly what's happening
+           (reachable or not, how long it took, what error came back) right
+           on screen so it can be screenshotted and sent along for
+           troubleshooting instead of having to read the browser console. -->
+      <button id="loadingDiagBtn" class="mt-2 w-full py-2 bg-transparent text-accentIndigo text-xs font-semibold rounded-xl hover:bg-accentIndigo/5 active:scale-[0.98] transition-all">Test connection</button>
+      <div id="loadingDiagResult" class="hidden mt-3 text-left text-[11px] leading-relaxed text-slate-600 bg-slate-50 border border-coolBorder rounded-xl p-3 whitespace-pre-wrap"></div>
     </div>
 
   </div>
@@ -3953,6 +3960,96 @@ html.page-fade-ready body {
       if (loadingSignOutBtn) {
         loadingSignOutBtn.addEventListener('click', function() {
           if (typeof window.__dashboardSignOut === 'function') window.__dashboardSignOut();
+        });
+      }
+
+      // DIAGNOSTIC: "Test connection" — runs a minimal, cheap request
+      // straight to the Apps Script backend (action=list: it's just an
+      // allowlist check, no Sheet/Firestore reads) and reports, in plain
+      // language on screen, exactly what happened: reachable or not, how
+      // long it took, and the specific error if any. No DevTools needed —
+      // this is meant to be screenshotted and shared for troubleshooting.
+      const loadingDiagBtn = document.getElementById('loadingDiagBtn');
+      const loadingDiagResult = document.getElementById('loadingDiagResult');
+      if (loadingDiagBtn && loadingDiagResult) {
+        loadingDiagBtn.addEventListener('click', async function() {
+          loadingDiagBtn.disabled = true;
+          loadingDiagBtn.textContent = 'Testing\u2026';
+          loadingDiagResult.classList.remove('hidden');
+          loadingDiagResult.textContent = 'Running connection test\u2026';
+
+          const lines = [];
+          const t0 = performance.now();
+          try {
+            if (typeof defaultAppsScriptUrl === 'undefined') {
+              throw new Error('Dashboard script has not finished loading yet — wait a moment and try again.');
+            }
+            lines.push('Endpoint: ' + defaultAppsScriptUrl.replace(/\/exec.*/, '/exec'));
+
+            const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+            lines.push(idToken ? 'Signed-in token: OK' : 'Signed-in token: MISSING (not signed in)');
+
+            if (!idToken) {
+              lines.push('');
+              lines.push('Result: Not signed in, so the backend can never be reached. Sign in again first.');
+              loadingDiagResult.textContent = lines.join('\n');
+              return;
+            }
+
+            let testUrl = defaultAppsScriptUrl + '?action=list&idToken=' + encodeURIComponent(idToken);
+            if (typeof appsScriptSecret !== 'undefined' && appsScriptSecret) {
+              testUrl += '&secret=' + encodeURIComponent(appsScriptSecret);
+            }
+
+            const controller = new AbortController();
+            const timeoutMs = 15000;
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
+            let res, json, reachedServer = false;
+            try {
+              res = await fetch(testUrl, { signal: controller.signal });
+              reachedServer = true;
+              const elapsed = Math.round(performance.now() - t0);
+              lines.push('HTTP status: ' + res.status + ' (in ' + elapsed + 'ms)');
+              json = await res.json();
+            } catch (fetchErr) {
+              const elapsed = Math.round(performance.now() - t0);
+              if (fetchErr.name === 'AbortError') {
+                lines.push('Request timed out after ' + timeoutMs + 'ms with no response at all.');
+                lines.push('');
+                lines.push('Result: The Apps Script deployment is not answering in time. Likely causes: the deployment URL is wrong/outdated, the script has an error, or it is genuinely overloaded/cold. Check Apps Script \u2192 View \u2192 Executions for what is happening server-side.');
+              } else {
+                lines.push('Network-level failure after ' + elapsed + 'ms: ' + fetchErr.message);
+                lines.push('');
+                lines.push('Result: The browser could not even complete the request (this usually means the URL is wrong, the deployment was deleted/redeployed with a new URL, or there is no internet connection right now).');
+              }
+              loadingDiagResult.textContent = lines.join('\n');
+              return;
+            } finally {
+              clearTimeout(timer);
+            }
+
+            if (json && json.error) {
+              lines.push('Backend replied with an error: "' + json.error + '"');
+              lines.push('');
+              if (/unauthorized/i.test(json.error)) {
+                lines.push('Result: The server IS reachable and fast — this is an authorization problem, not a speed problem. Check that: (1) the shared secret in this page matches API_SHARED_SECRET in Script Properties, and (2) this signed-in email is on the correct allowlist in Code.gs.');
+              } else {
+                lines.push('Result: The server is reachable but rejected the request. See the message above.');
+              }
+            } else if (json && json.success) {
+              lines.push('Backend replied successfully.');
+              lines.push('');
+              lines.push('Result: The connection itself is fine and fast. If the dashboard is still slow to load real data, the slowdown is happening specifically in the data-fetching step (Sheet/Firestore read), not in reaching the server. Check Apps Script \u2192 Executions for the actual doGet() duration and whether it says "Serving data from: SHEET" (slow) or "FIRESTORE" (fast).');
+            } else {
+              lines.push('Backend replied, but with an unexpected/empty response.');
+            }
+          } catch (err) {
+            lines.push('Unexpected error: ' + (err && err.message ? err.message : String(err)));
+          } finally {
+            loadingDiagResult.textContent = lines.join('\n');
+            loadingDiagBtn.disabled = false;
+            loadingDiagBtn.textContent = 'Test connection';
+          }
         });
       }
     })();
