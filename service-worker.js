@@ -1,88 +1,139 @@
-// Simple offline-first service worker for the Audit Data Dashboard PWA.
-// Bump CACHE_NAME any time you update any cached file so old clients refresh.
-const CACHE_NAME = 'audit-dashboard-cache-v25';
+// Audit Dashboard — offline app-shell cache.
+//
+// What this does and doesn't do:
+// - Caches the page itself, its icons/manifest, and every third-party
+//   library it loads from a CDN (Tailwind, ApexCharts, xlsx, docx, jsPDF,
+//   jsPDF-autotable, Lucide, the Firebase SDK modules, Google Fonts), so
+//   the dashboard can open and render with zero network connection —
+//   including staying signed in, since Firebase's own session cache
+//   (IndexedDB) doesn't depend on this service worker at all.
+// - Deliberately does NOT cache anything from script.google.com /
+//   script.googleusercontent.com (the live data source) or any Google
+//   auth/identity endpoint. Those always go straight to the network. If
+//   there's no connection, those requests just fail exactly as they did
+//   before this file existed — the dashboard's own JS already falls back
+//   to the last-synced data it saved to localStorage (see
+//   loadDashboardDataFromCache() in index.html) and shows "Last synced …"
+//   Bumping CACHE_VERSION forces every client to fetch fresh copies of
+//   everything below on next load — do that whenever a library version
+//   changes.
+const CACHE_VERSION = 'v1';
+const CACHE_NAME = 'audit-dashboard-' + CACHE_VERSION;
 
-const PRECACHE_URLS = [
+// Same-origin app shell.
+const APP_SHELL = [
   './',
   './index.html',
-  './Opex.html',
-  './attendance_dashboard_v35.html',
   './manifest.json',
   './icons/icon-192.png',
-  './icons/icon-192-maskable.png',
   './icons/icon-512.png',
-  './icons/icon-512-maskable.png',
-  './icons/apple-touch-icon.png'
+  './icons/apple-touch-icon.png',
+];
+
+// Third-party libraries the page loads directly. Exact version pins (not
+// "@latest") so a returning offline visitor always gets back the same
+// code that was cached, not a version mismatch.
+const CDN_ASSETS = [
+  'https://cdn.tailwindcss.com',
+  'https://cdn.jsdelivr.net/npm/apexcharts',
+  'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+  'https://cdn.jsdelivr.net/npm/docx@8.5/build/index.umd.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js',
+  'https://unpkg.com/lucide@latest',
+  'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js',
+  'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js',
+  'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap',
+];
+
+// Hosts that must ALWAYS go to the network, never through this cache —
+// live data and auth are time-sensitive/security-sensitive and must never
+// serve a stale or cached response.
+const NEVER_CACHE_HOSTS = [
+  'script.google.com',
+  'script.googleusercontent.com',
+  'identitytoolkit.googleapis.com',
+  'securetoken.googleapis.com',
+  'www.googleapis.com',
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(PRECACHE_URLS))
-      .then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then((cache) => {
+      // Cache each URL individually (not cache.addAll) so one CDN being
+      // briefly unreachable during install doesn't fail the whole thing —
+      // whatever DOES succeed still gets cached.
+      const all = APP_SHELL.concat(CDN_ASSETS);
+      return Promise.all(
+        all.map((url) =>
+          cache.add(url).catch((err) => {
+            console.warn('[service-worker] precache failed for', url, err);
+          })
+        )
+      );
+    }).then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
+    caches.keys().then((names) =>
       Promise.all(
-        keys
-          .filter((key) => key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
+        names
+          .filter((name) => name !== CACHE_NAME)
+          .map((name) => caches.delete(name))
       )
     ).then(() => self.clients.claim())
   );
 });
 
-// Stale-while-revalidate for navigations: show the cached page instantly
-// (so the app opens immediately instead of blocking on a ~1MB download
-// every launch), then silently fetch a fresh copy in the background and
-// update the cache for next time. Cache-first for everything else.
 self.addEventListener('fetch', (event) => {
-  const { request } = event;
-  const reqUrl = new URL(request.url);
+  const req = event.request;
+  if (req.method !== 'GET') return; // never intercept POSTs (data writes, auth calls)
 
-  // Never cache Apps Script API calls (?action=list, ?action=opexActualTotal,
-  // getRecord, budgetLimits, etc.). These carry live data from the Sheet --
-  // caching them defeats the app's own fresh=1 cache-busting and, worse, a
-  // cached entry never expires on its own, so the SAME stale response (a
-  // row that's since been deleted, an old total) could be replayed forever
-  // without ever touching the network again. Go network-first, and only
-  // fall back to whatever's cached if there's genuinely no connection.
-  if (reqUrl.searchParams.has('action') || reqUrl.origin !== self.location.origin) {
+  let url;
+  try { url = new URL(req.url); } catch (e) { return; }
+
+  // Live data + auth: always network, never cached.
+  if (NEVER_CACHE_HOSTS.some((h) => url.hostname === h || url.hostname.endsWith('.' + h))) {
+    return; // let the browser handle it normally
+  }
+
+  // The page itself: network-first, so an online visitor always gets the
+  // latest deployed version, but it still falls back to the cached shell
+  // the moment the network is unavailable.
+  if (req.mode === 'navigate') {
     event.respondWith(
-      fetch(request).catch(() => caches.match(request))
+      fetch(req)
+        .then((res) => {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put('./index.html', copy));
+          return res;
+        })
+        .catch(() => caches.match('./index.html'))
     );
     return;
   }
 
-  if (request.mode === 'navigate') {
-    event.respondWith(
-      caches.match(request).then((cached) => {
-        const networkFetch = fetch(request)
-          .then((response) => {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-            return response;
-          })
-          .catch(() => cached || caches.match('./index.html'));
+  // Everything else we know how to cache (CDN libraries, fonts, icons,
+  // manifest): cache-first for instant offline loads, refreshing the
+  // cache in the background whenever the network is available.
+  const isKnownCdn = CDN_ASSETS.some((a) => req.url === a || req.url.startsWith(a.split('?')[0]));
+  const isFontHost = url.hostname === 'fonts.gstatic.com' || url.hostname === 'fonts.googleapis.com';
+  const isSameOrigin = url.origin === self.location.origin;
 
-        // Serve cached immediately if we have it; otherwise wait on network.
-        return cached || networkFetch;
+  if (isKnownCdn || isFontHost || isSameOrigin) {
+    event.respondWith(
+      caches.match(req).then((cached) => {
+        const network = fetch(req).then((res) => {
+          if (res && res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+          }
+          return res;
+        }).catch(() => cached);
+        return cached || network;
       })
     );
-    return;
   }
-
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached;
-      return fetch(request).then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-        return response;
-      });
-    })
-  );
 });
