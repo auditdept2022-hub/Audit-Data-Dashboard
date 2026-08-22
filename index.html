@@ -8320,7 +8320,7 @@ html.page-fade-ready body {
           <div class="text-[8px] leading-tight font-bold text-accentIndigo/80 uppercase tracking-tight px-0.5">3-Mo Avg Sales (INS−CA)</div>
         </div>
       </div>
-      ${buildTopPerformersList([...list].filter(b => b.sales !== 'Declining').sort((a, b) => computeAvgSales(b) - computeAvgSales(a)).slice(0, 5), (b) => computeAvgSales(b), 'accentIndigo')}`;
+      ${activeStatus === 'ALL' ? buildTopPerformersList([...list].filter(b => b.sales !== 'Declining').sort((a, b) => computeAvgSales(b) - computeAvgSales(a)).slice(0, 5), (b) => computeAvgSales(b), 'accentIndigo') : ''}`;
     }
 
     function buildCollectionSummaryBar(list) {
@@ -8361,7 +8361,7 @@ html.page-fade-ready body {
           <div class="text-[10px] font-bold text-accentIndigo/80 uppercase tracking-wider">Avg Eff Latest</div>
         </div>
       </div>
-      ${buildTopPerformersList([...list].filter(b => b.collection !== 'Declining').sort((a, b) => b.effLatest - a.effLatest).slice(0, 5), (b) => `${b.effLatest}%`, 'accentIndigo')}`;
+      ${activeStatus === 'ALL' ? buildTopPerformersList([...list].filter(b => b.collection !== 'Declining').sort((a, b) => b.effLatest - a.effLatest).slice(0, 5), (b) => `${b.effLatest}%`, 'accentIndigo') : ''}`;
     }
 
     function buildServiceSummaryBar(list) {
@@ -8392,7 +8392,7 @@ html.page-fade-ready body {
           <div class="text-[10px] font-bold text-accentCyan/80 uppercase tracking-wider">Total (Latest Mo.)</div>
         </div>
       </div>
-      ${buildTopPerformersList([...list].filter(b => b.service !== 'Declining').sort((a, b) => Number(b.serviceMay) - Number(a.serviceMay)).slice(0, 5), (b) => `₱${Number(b.serviceMay).toLocaleString()}`, 'accentCyan')}`;
+      ${activeStatus === 'ALL' ? buildTopPerformersList([...list].filter(b => b.service !== 'Declining').sort((a, b) => Number(b.serviceMay) - Number(a.serviceMay)).slice(0, 5), (b) => `₱${Number(b.serviceMay).toLocaleString()}`, 'accentCyan') : ''}`;
     }
 
     // filterSetter is the name of the JS function to call when a pill is
@@ -8431,7 +8431,7 @@ html.page-fade-ready body {
           <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pending</div>
         </div>
       </div>
-      ${buildTopPerformersList([...list].sort((a, b) => (b.effLatest || 0) - (a.effLatest || 0)).slice(0, 5), (b) => `${b.effLatest}%`, 'accentIndigo')}`;
+      ${active === 'ALL' ? buildTopPerformersList([...list].sort((a, b) => (b.effLatest || 0) - (a.effLatest || 0)).slice(0, 5), (b) => `${b.effLatest}%`, 'accentIndigo') : ''}`;
     }
 
     // Shared icon helper for every sortable header in the Total Active
