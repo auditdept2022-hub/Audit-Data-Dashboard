@@ -7409,7 +7409,7 @@ html.page-fade-ready body {
 
       updateModalEditAssignButton(list);
 
-      const barsHtml = buildAllBranchesSummaryBar(baseList, 'setAssignmentAuditFilter', state.auditStatus) + buildAssignmentFilterBar(state);
+      const barsHtml = buildAllBranchesSummaryBar(baseList, 'setAssignmentAuditFilter', state.auditStatus, { hidePerformers: true }) + buildAssignmentFilterBar(state);
 
       const modalBody = document.getElementById('modalBody');
       modalBody.innerHTML = `${barsHtml}<div id="modalTableContainer"></div>`;
@@ -8402,7 +8402,11 @@ html.page-fade-ready body {
     // Overview popup, setModalAuditFilter for the general All Branches
     // popup). activeValue highlights whichever pill is currently applied,
     // same visual language as buildAuditStatusFilterBar's own buttons.
-    function buildAllBranchesSummaryBar(list, filterSetter, activeValue) {
+    // opts.hidePerformers suppresses the Top 5 Performers list entirely —
+    // used by the Assignment Branches Overview popup, where the list isn't
+    // wanted even on the Total Branches pill (unlike the general All
+    // Branches popup, which still shows it there).
+    function buildAllBranchesSummaryBar(list, filterSetter, activeValue, opts) {
       const done = list.filter(b => (b.auditStatus || '').toUpperCase() === 'DONE').length;
       const pending = list.filter(b => (b.auditStatus || '').toUpperCase() === 'PENDING').length;
       const forAudit = list.filter(b => (b.auditStatus || '').toUpperCase() === 'FOR AUDIT').length;
@@ -8431,7 +8435,7 @@ html.page-fade-ready body {
           <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pending</div>
         </div>
       </div>
-      ${active === 'ALL' ? buildTopPerformersList([...list].sort((a, b) => (b.effLatest || 0) - (a.effLatest || 0)).slice(0, 5), (b) => `${b.effLatest}%`, 'accentIndigo') : ''}`;
+      ${(!opts?.hidePerformers && active === 'ALL') ? buildTopPerformersList([...list].sort((a, b) => (b.effLatest || 0) - (a.effLatest || 0)).slice(0, 5), (b) => `${b.effLatest}%`, 'accentIndigo') : ''}`;
     }
 
     // Shared icon helper for every sortable header in the Total Active
