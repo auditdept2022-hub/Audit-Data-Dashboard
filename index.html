@@ -8272,13 +8272,10 @@ html.page-fade-ready body {
     // Builds one "Top 5 <Status>" block per status bucket (Improving,
     // Declining, Stable, Recovering, Target — whichever apply to this
     // metric), each ranked highest-first within its own bucket by sortFn.
-    // When no stack card is selected (activeStatus is 'ALL'/falsy) every
-    // bucket's Top 5 is shown stacked, one under the other, so the person
-    // gets the full picture at a glance. Clicking a stack card narrows this
-    // down to just that one bucket's Top 5 — same activeStatus that already
-    // drives the ring highlight on the stack cards and the filtered table
-    // underneath, so the ranking always matches whatever slice of branches
-    // is currently in view.
+    // Currently unused — Sales/Collection/Service overviews went back to a
+    // single combined Top 5 Performers list (see buildTopPerformersList
+    // calls above). Left here in case a per-status breakdown is wanted
+    // again later.
     function buildCategoryTopPerformersLists(list, statusField, statuses, sortFn, displayFn, accentColors, activeStatus) {
       const buckets = (activeStatus && activeStatus !== 'ALL') ? [activeStatus] : statuses;
       return buckets.map(status => {
@@ -8323,7 +8320,7 @@ html.page-fade-ready body {
           <div class="text-[8px] leading-tight font-bold text-accentIndigo/80 uppercase tracking-tight px-0.5">3-Mo Avg Sales (INS−CA)</div>
         </div>
       </div>
-      ${buildCategoryTopPerformersLists(list, 'sales', ['Improving', 'Stable', 'Declining'], (b) => computeAvgSales(b), (b) => computeAvgSales(b), { Improving: 'accentEmerald', Stable: 'slate-400', Declining: 'accentRose' }, activeStatus)}`;
+      ${buildTopPerformersList([...list].filter(b => b.sales !== 'Declining').sort((a, b) => computeAvgSales(b) - computeAvgSales(a)).slice(0, 5), (b) => computeAvgSales(b), 'accentIndigo')}`;
     }
 
     function buildCollectionSummaryBar(list) {
@@ -8364,7 +8361,7 @@ html.page-fade-ready body {
           <div class="text-[10px] font-bold text-accentIndigo/80 uppercase tracking-wider">Avg Eff Latest</div>
         </div>
       </div>
-      ${buildCategoryTopPerformersLists(list, 'collection', ['Improving', 'Recovering', 'Stable', 'Declining'], (b) => b.effLatest, (b) => `${b.effLatest}%`, { Improving: 'accentEmerald', Recovering: 'accentAmber', Stable: 'slate-400', Declining: 'accentRose' }, activeStatus)}`;
+      ${buildTopPerformersList([...list].filter(b => b.collection !== 'Declining').sort((a, b) => b.effLatest - a.effLatest).slice(0, 5), (b) => `${b.effLatest}%`, 'accentIndigo')}`;
     }
 
     function buildServiceSummaryBar(list) {
@@ -8395,7 +8392,7 @@ html.page-fade-ready body {
           <div class="text-[10px] font-bold text-accentCyan/80 uppercase tracking-wider">Total (Latest Mo.)</div>
         </div>
       </div>
-      ${buildCategoryTopPerformersLists(list, 'service', ['Target', 'Declining'], (b) => Number(b.serviceMay), (b) => `₱${Number(b.serviceMay).toLocaleString()}`, { Target: 'accentEmerald', Declining: 'accentRose' }, activeStatus)}`;
+      ${buildTopPerformersList([...list].filter(b => b.service !== 'Declining').sort((a, b) => Number(b.serviceMay) - Number(a.serviceMay)).slice(0, 5), (b) => `₱${Number(b.serviceMay).toLocaleString()}`, 'accentCyan')}`;
     }
 
     // filterSetter is the name of the JS function to call when a pill is
@@ -8433,7 +8430,8 @@ html.page-fade-ready body {
           <div class="text-2xl font-extrabold text-slate-500">${pending}</div>
           <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pending</div>
         </div>
-      </div>`;
+      </div>
+      ${buildTopPerformersList([...list].sort((a, b) => (b.effLatest || 0) - (a.effLatest || 0)).slice(0, 5), (b) => `${b.effLatest}%`, 'accentIndigo')}`;
     }
 
     // Shared icon helper for every sortable header in the Total Active
