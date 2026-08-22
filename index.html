@@ -8243,41 +8243,51 @@ html.page-fade-ready body {
       renderAccountsModalTable();
     }
 
-    // Renders a compact "Top 5 Performers" list, ranked highest first.
+    // Renders a compact "Top 5 <label>" list, ranked highest first.
     // valueFn(branch) returns the already-formatted value string/number to
     // display next to each name. accentColor is one of the accent* Tailwind
-    // color tokens already defined for this dashboard (accentIndigo/accentCyan).
-    // notPerformerFn(branch), if provided, flags a branch that ranked in the
-    // top 5 by raw number but is actually Declining in the metric this list
-    // is about — rather than silently dropping it from the ranking (which
-    // could shrink the list below 5 or hide a branch someone expects to
-    // see), it stays in its ranked position with a small "Not Performer"
-    // remark so it's clear at a glance it isn't one, despite the number.
+    // color tokens already defined for this dashboard (accentIndigo/accentCyan/
+    // accentEmerald/accentRose/accentAmber), or a stock Tailwind
+    // "color-shade" pair like 'slate-400' for the Stable bucket.
     // Each row opens that branch's Detailed Profile (same popup used
     // everywhere else a branch name is clickable), navigating deeper within
     // the already-open modal so Back still returns to this breakdown.
-    function buildTopPerformersList(top5, valueFn, accentColor, notPerformerFn) {
+    function buildTopPerformersList(top5, valueFn, accentColor, label) {
       if (!top5 || top5.length === 0) return '';
-      const rows = top5.map((b, i) => {
-        const isNotPerformer = notPerformerFn ? !!notPerformerFn(b) : false;
-        const remark = isNotPerformer
-          ? `<span class="flex-shrink-0 text-[8px] font-bold text-accentRose bg-accentRose/10 border border-accentRose/30 rounded px-1 py-0.5 uppercase tracking-wide">Not Performer</span>`
-          : '';
-        return `
+      const rows = top5.map((b, i) => `
         <div onclick="openModalDetail('${String(b.name).replace(/'/g, "\\'")}')" role="button" tabindex="0" title="View ${b.name}'s detailed profile" class="flex items-center justify-between gap-2 text-[11px] bg-slate-200 border border-slate-300 rounded-lg px-2 py-1 cursor-pointer active:scale-95 transition-all hover:bg-white hover:border-${accentColor}/50 hover:shadow-sm hover:-translate-y-0.5">
           <div class="flex items-center gap-1.5 min-w-0">
             <span class="flex-shrink-0 w-4 h-4 rounded-full bg-${accentColor}/20 text-${accentColor} font-bold text-[9px] flex items-center justify-center">${i + 1}</span>
             <span class="truncate font-semibold text-slate-700">${b.name}</span>
-            ${remark}
           </div>
           <span class="flex-shrink-0 text-${accentColor} font-bold">${valueFn(b)}</span>
-        </div>`;
-      }).join('');
+        </div>`).join('');
       return `
       <div class="mb-2 px-1">
-        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Top 5 Performers</div>
+        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Top 5 ${label || 'Performers'}</div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-1">${rows}</div>
       </div>`;
+    }
+
+    // Builds one "Top 5 <Status>" block per status bucket (Improving,
+    // Declining, Stable, Recovering, Target — whichever apply to this
+    // metric), each ranked highest-first within its own bucket by sortFn.
+    // When no stack card is selected (activeStatus is 'ALL'/falsy) every
+    // bucket's Top 5 is shown stacked, one under the other, so the person
+    // gets the full picture at a glance. Clicking a stack card narrows this
+    // down to just that one bucket's Top 5 — same activeStatus that already
+    // drives the ring highlight on the stack cards and the filtered table
+    // underneath, so the ranking always matches whatever slice of branches
+    // is currently in view.
+    function buildCategoryTopPerformersLists(list, statusField, statuses, sortFn, displayFn, accentColors, activeStatus) {
+      const buckets = (activeStatus && activeStatus !== 'ALL') ? [activeStatus] : statuses;
+      return buckets.map(status => {
+        const top5 = list
+          .filter(b => b[statusField] === status)
+          .sort((a, b) => sortFn(b) - sortFn(a))
+          .slice(0, 5);
+        return buildTopPerformersList(top5, displayFn, accentColors[status] || 'accentIndigo', status);
+      }).join('');
     }
 
     function buildSalesSummaryBar(list) {
@@ -8287,11 +8297,6 @@ html.page-fade-ready body {
       const stable = list.filter(b => b.sales === 'Stable').length;
       const avgVals = list.map(computeAvgSales);
       const meanAvg = avgVals.length ? Math.round(avgVals.reduce((s, v) => s + v, 0) / avgVals.length) : 0;
-      // Top 5 Performers ranks by raw sales average; any branch that lands
-      // in the top 5 while its sales status is Declining gets a "Not
-      // Performer" remark from buildTopPerformersList rather than being
-      // dropped out of the ranking.
-      const top5 = [...list].sort((a, b) => computeAvgSales(b) - computeAvgSales(a)).slice(0, 5);
       const activeStatus = (window.modalFilterState && window.modalFilterState.statusValue) || 'ALL';
       const ring = (v) => activeStatus === v ? 'ring-2 ring-offset-1' : '';
 
@@ -8318,7 +8323,7 @@ html.page-fade-ready body {
           <div class="text-[8px] leading-tight font-bold text-accentIndigo/80 uppercase tracking-tight px-0.5">3-Mo Avg Sales (INS−CA)</div>
         </div>
       </div>
-      ${buildTopPerformersList(top5, (b) => computeAvgSales(b), 'accentIndigo', (b) => b.sales === 'Declining')}`;
+      ${buildCategoryTopPerformersLists(list, 'sales', ['Improving', 'Stable', 'Declining'], (b) => computeAvgSales(b), (b) => computeAvgSales(b), { Improving: 'accentEmerald', Stable: 'slate-400', Declining: 'accentRose' }, activeStatus)}`;
     }
 
     function buildCollectionSummaryBar(list) {
@@ -8329,11 +8334,6 @@ html.page-fade-ready body {
       const recovering = list.filter(b => b.collection === 'Recovering').length;
       const effVals = list.map(b => b.effLatest);
       const meanEff = effVals.length ? Math.round(effVals.reduce((s, v) => s + v, 0) / effVals.length) : 0;
-      // Top 5 Performers ranks by raw latest efficiency; any branch that
-      // lands in the top 5 while its collection status is Declining gets a
-      // "Not Performer" remark from buildTopPerformersList rather than
-      // being dropped out of the ranking.
-      const top5 = [...list].sort((a, b) => b.effLatest - a.effLatest).slice(0, 5);
       const activeStatus = (window.modalFilterState && window.modalFilterState.statusValue) || 'ALL';
       const ring = (v) => activeStatus === v ? 'ring-2 ring-offset-1' : '';
 
@@ -8364,7 +8364,7 @@ html.page-fade-ready body {
           <div class="text-[10px] font-bold text-accentIndigo/80 uppercase tracking-wider">Avg Eff Latest</div>
         </div>
       </div>
-      ${buildTopPerformersList(top5, (b) => `${b.effLatest}%`, 'accentIndigo', (b) => b.collection === 'Declining')}`;
+      ${buildCategoryTopPerformersLists(list, 'collection', ['Improving', 'Recovering', 'Stable', 'Declining'], (b) => b.effLatest, (b) => `${b.effLatest}%`, { Improving: 'accentEmerald', Recovering: 'accentAmber', Stable: 'slate-400', Declining: 'accentRose' }, activeStatus)}`;
     }
 
     function buildServiceSummaryBar(list) {
@@ -8373,11 +8373,6 @@ html.page-fade-ready body {
       const declining = list.filter(b => b.service === 'Declining').length;
       const mayVals = list.map(b => Number(b.serviceMay) || 0);
       const totalMay = mayVals.reduce((s, v) => s + v, 0);
-      // Top 5 Performers ranks by raw latest-month service value; any
-      // branch that lands in the top 5 while its service status is
-      // Declining gets a "Not Performer" remark from buildTopPerformersList
-      // rather than being dropped out of the ranking.
-      const top5 = [...list].sort((a, b) => Number(b.serviceMay) - Number(a.serviceMay)).slice(0, 5);
       const activeStatus = (window.modalFilterState && window.modalFilterState.statusValue) || 'ALL';
       const ring = (v) => activeStatus === v ? 'ring-2 ring-offset-1' : '';
 
@@ -8400,7 +8395,7 @@ html.page-fade-ready body {
           <div class="text-[10px] font-bold text-accentCyan/80 uppercase tracking-wider">Total (Latest Mo.)</div>
         </div>
       </div>
-      ${buildTopPerformersList(top5, (b) => `₱${Number(b.serviceMay).toLocaleString()}`, 'accentCyan', (b) => b.service === 'Declining')}`;
+      ${buildCategoryTopPerformersLists(list, 'service', ['Target', 'Declining'], (b) => Number(b.serviceMay), (b) => `₱${Number(b.serviceMay).toLocaleString()}`, { Target: 'accentEmerald', Declining: 'accentRose' }, activeStatus)}`;
     }
 
     // filterSetter is the name of the JS function to call when a pill is
