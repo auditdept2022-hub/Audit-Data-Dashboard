@@ -7415,12 +7415,23 @@ html.page-fade-ready body {
       const state = window.modalFilterState;
       if (!state) return;
 
-      let list = activeData.branches;
+      // baseList is the set the summary-bar stat tiles (Total Branches,
+      // Improving, Declining, Stable, etc.) are always computed from. It
+      // deliberately does NOT get narrowed by state.statusValue — only by
+      // audit status — so clicking a Declining/Improving/etc. tile changes
+      // which branches the TABLE below shows without ever changing what the
+      // tiles themselves report. Without this, clicking "Declining" used to
+      // recompute Improving/Stable/etc. counts from the already-filtered
+      // (all-Declining) list, making every other number collapse to 0/near-0
+      // and the numbers stop being internally consistent with each other.
+      let baseList = activeData.branches;
+      if (state.auditStatus && state.auditStatus !== 'ALL') {
+          baseList = baseList.filter(b => (b.auditStatus || '').toUpperCase() === state.auditStatus);
+      }
+
+      let list = baseList;
       if ((state.type === 'collection' || state.type === 'sales' || state.type === 'service') && state.statusValue !== 'ALL') {
           list = list.filter(b => b[state.type] === state.statusValue);
-      }
-      if (state.auditStatus && state.auditStatus !== 'ALL') {
-          list = list.filter(b => (b.auditStatus || '').toUpperCase() === state.auditStatus);
       }
       if (state.type === 'sales') {
           list = [...list];
@@ -7456,11 +7467,11 @@ html.page-fade-ready body {
 
       let barsHtml = '';
       if (state.type === 'sales') {
-          barsHtml += buildSalesSummaryBar(list);
+          barsHtml += buildSalesSummaryBar(baseList);
       } else if (state.type === 'collection') {
-          barsHtml += buildCollectionSummaryBar(list);
+          barsHtml += buildCollectionSummaryBar(baseList);
       } else if (state.type === 'service') {
-          barsHtml += buildServiceSummaryBar(list);
+          barsHtml += buildServiceSummaryBar(baseList);
       } else if (state.type === 'all') {
           barsHtml += buildAllBranchesSummaryBar(list, 'setModalAuditFilter', state.auditStatus);
       }
@@ -8243,17 +8254,25 @@ html.page-fade-ready body {
     }
 
     function buildSalesSummaryBar(list) {
+      const totalBranches = list.length;
       const improving = list.filter(b => b.sales === 'Improving').length;
       const declining = list.filter(b => b.sales === 'Declining').length;
       const stable = list.filter(b => b.sales === 'Stable').length;
       const avgVals = list.map(computeAvgSales);
       const meanAvg = avgVals.length ? Math.round(avgVals.reduce((s, v) => s + v, 0) / avgVals.length) : 0;
-      const top5 = [...list].sort((a, b) => computeAvgSales(b) - computeAvgSales(a)).slice(0, 5);
+      // Top 5 Performers only ever draws from non-Declining branches — a
+      // branch whose sales are declining shouldn't be labeled a "performer"
+      // just because it ranked highest among an already-narrowed subset.
+      const top5 = [...list].filter(b => b.sales !== 'Declining').sort((a, b) => computeAvgSales(b) - computeAvgSales(a)).slice(0, 5);
       const activeStatus = (window.modalFilterState && window.modalFilterState.statusValue) || 'ALL';
       const ring = (v) => activeStatus === v ? 'ring-2 ring-offset-1' : '';
 
       return `
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
+      <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-2">
+        <div onclick="setModalStatusFilter('ALL')" role="button" tabindex="0" class="p-2 bg-slate-100 border border-coolBorder rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-slate-200 ring-slate-400 ${ring('ALL')}">
+          <div class="text-xl font-extrabold text-slate-700">${totalBranches}</div>
+          <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Branches</div>
+        </div>
         <div onclick="setModalStatusFilter('Improving')" role="button" tabindex="0" class="p-2 bg-accentEmerald/10 border border-accentEmerald/20 rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-accentEmerald/20 ring-accentEmerald ${ring('Improving')}">
           <div class="text-xl font-extrabold text-accentEmerald">${improving}</div>
           <div class="text-[10px] font-bold text-accentEmerald/80 uppercase tracking-wider">Improving</div>
@@ -8266,7 +8285,7 @@ html.page-fade-ready body {
           <div class="text-xl font-extrabold text-slate-600">${stable}</div>
           <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Stable</div>
         </div>
-        <div class="p-2 bg-accentIndigo/10 border border-accentIndigo/20 rounded-xl text-center">
+        <div class="p-2 bg-accentIndigo/10 border border-accentIndigo/20 rounded-xl text-center col-span-2 sm:col-span-1">
           <div class="text-xl font-extrabold text-accentIndigo">${meanAvg}</div>
           <div class="text-[8px] leading-tight font-bold text-accentIndigo/80 uppercase tracking-tight px-0.5">3-Mo Avg Sales (INS−CA)</div>
         </div>
@@ -8275,18 +8294,26 @@ html.page-fade-ready body {
     }
 
     function buildCollectionSummaryBar(list) {
+      const totalBranches = list.length;
       const improving = list.filter(b => b.collection === 'Improving').length;
       const declining = list.filter(b => b.collection === 'Declining').length;
       const stable = list.filter(b => b.collection === 'Stable').length;
       const recovering = list.filter(b => b.collection === 'Recovering').length;
       const effVals = list.map(b => b.effLatest);
       const meanEff = effVals.length ? Math.round(effVals.reduce((s, v) => s + v, 0) / effVals.length) : 0;
-      const top5 = [...list].sort((a, b) => b.effLatest - a.effLatest).slice(0, 5);
+      // Top 5 Performers only ever draws from non-Declining branches — a
+      // declining branch shouldn't be labeled a "performer" just because it
+      // ranked highest among an already-narrowed subset.
+      const top5 = [...list].filter(b => b.collection !== 'Declining').sort((a, b) => b.effLatest - a.effLatest).slice(0, 5);
       const activeStatus = (window.modalFilterState && window.modalFilterState.statusValue) || 'ALL';
       const ring = (v) => activeStatus === v ? 'ring-2 ring-offset-1' : '';
 
       return `
-      <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-2">
+      <div class="grid grid-cols-2 sm:grid-cols-6 gap-2 mb-2">
+        <div onclick="setModalStatusFilter('ALL')" role="button" tabindex="0" class="p-2 bg-slate-100 border border-coolBorder rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-slate-200 ring-slate-400 ${ring('ALL')}">
+          <div class="text-xl font-extrabold text-slate-700">${totalBranches}</div>
+          <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Branches</div>
+        </div>
         <div onclick="setModalStatusFilter('Improving')" role="button" tabindex="0" class="p-2 bg-accentEmerald/10 border border-accentEmerald/20 rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-accentEmerald/20 ring-accentEmerald ${ring('Improving')}">
           <div class="text-xl font-extrabold text-accentEmerald">${improving}</div>
           <div class="text-[10px] font-bold text-accentEmerald/80 uppercase tracking-wider">Improving</div>
@@ -8303,7 +8330,7 @@ html.page-fade-ready body {
           <div class="text-xl font-extrabold text-accentAmber">${recovering}</div>
           <div class="text-[10px] font-bold text-accentAmber/80 uppercase tracking-wider">Recovering</div>
         </div>
-        <div class="p-2 bg-accentIndigo/10 border border-accentIndigo/20 rounded-xl text-center col-span-2 sm:col-span-1">
+        <div class="p-2 bg-accentIndigo/10 border border-accentIndigo/20 rounded-xl text-center">
           <div class="text-xl font-extrabold text-accentIndigo">${meanEff}%</div>
           <div class="text-[10px] font-bold text-accentIndigo/80 uppercase tracking-wider">Avg Eff Latest</div>
         </div>
@@ -8312,16 +8339,24 @@ html.page-fade-ready body {
     }
 
     function buildServiceSummaryBar(list) {
+      const totalBranches = list.length;
       const onTarget = list.filter(b => b.service === 'Target').length;
       const declining = list.filter(b => b.service === 'Declining').length;
       const mayVals = list.map(b => Number(b.serviceMay) || 0);
       const totalMay = mayVals.reduce((s, v) => s + v, 0);
-      const top5 = [...list].sort((a, b) => Number(b.serviceMay) - Number(a.serviceMay)).slice(0, 5);
+      // Top 5 Performers only ever draws from non-Declining branches — a
+      // declining branch shouldn't be labeled a "performer" just because it
+      // ranked highest among an already-narrowed subset.
+      const top5 = [...list].filter(b => b.service !== 'Declining').sort((a, b) => Number(b.serviceMay) - Number(a.serviceMay)).slice(0, 5);
       const activeStatus = (window.modalFilterState && window.modalFilterState.statusValue) || 'ALL';
       const ring = (v) => activeStatus === v ? 'ring-2 ring-offset-1' : '';
 
       return `
-      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-2">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
+        <div onclick="setModalStatusFilter('ALL')" role="button" tabindex="0" class="p-2 bg-slate-100 border border-coolBorder rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-slate-200 ring-slate-400 ${ring('ALL')}">
+          <div class="text-xl font-extrabold text-slate-700">${totalBranches}</div>
+          <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Branches</div>
+        </div>
         <div onclick="setModalStatusFilter('Target')" role="button" tabindex="0" class="p-2 bg-accentEmerald/10 border border-accentEmerald/20 rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-accentEmerald/20 ring-accentEmerald ${ring('Target')}">
           <div class="text-xl font-extrabold text-accentEmerald">${onTarget}</div>
           <div class="text-[10px] font-bold text-accentEmerald/80 uppercase tracking-wider">On Target</div>
@@ -8330,7 +8365,7 @@ html.page-fade-ready body {
           <div class="text-xl font-extrabold text-accentRose">${declining}</div>
           <div class="text-[10px] font-bold text-accentRose/80 uppercase tracking-wider">Declining</div>
         </div>
-        <div class="p-2 bg-accentCyan/10 border border-accentCyan/20 rounded-xl text-center col-span-2 sm:col-span-1">
+        <div class="p-2 bg-accentCyan/10 border border-accentCyan/20 rounded-xl text-center">
           <div class="text-xl font-extrabold text-accentCyan">₱${totalMay.toLocaleString()}</div>
           <div class="text-[10px] font-bold text-accentCyan/80 uppercase tracking-wider">Total (Latest Mo.)</div>
         </div>
