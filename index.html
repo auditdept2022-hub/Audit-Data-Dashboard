@@ -7380,16 +7380,25 @@ html.page-fade-ready body {
     function renderAssignmentModalView() {
       const state = window.assignmentFilterState || (window.assignmentFilterState = defaultAssignmentFilterState());
 
-      let list = activeData.branches;
-      if (state.auditStatus && state.auditStatus !== 'ALL') {
-          list = list.filter(b => (b.auditStatus || '').toUpperCase() === state.auditStatus);
-      }
+      // baseList feeds the summary-bar tiles (Total Branches, Done, For
+      // Audit, Pending) so they always report the full, consistent picture.
+      // It's narrowed by auditor/search — filters on a DIFFERENT axis than
+      // what the tiles themselves show — but never by audit status, since
+      // that's the exact axis the tiles represent. Clicking a tile only
+      // changes which branches the TABLE below shows, the same fix already
+      // applied to the Collection/Sales/Service Overview popups.
+      let baseList = activeData.branches;
       if (state.auditor && state.auditor !== 'ALL') {
-          list = list.filter(b => getBranchAuditRoundInfo(b).recentAuditor === state.auditor);
+          baseList = baseList.filter(b => getBranchAuditRoundInfo(b).recentAuditor === state.auditor);
       }
       if (state.search) {
           const q = state.search.toLowerCase();
-          list = list.filter(b => b.name.toLowerCase().includes(q));
+          baseList = baseList.filter(b => b.name.toLowerCase().includes(q));
+      }
+
+      let list = baseList;
+      if (state.auditStatus && state.auditStatus !== 'ALL') {
+          list = list.filter(b => (b.auditStatus || '').toUpperCase() === state.auditStatus);
       }
 
       const modalTitle = document.getElementById('modalTitle');
@@ -7400,7 +7409,7 @@ html.page-fade-ready body {
 
       updateModalEditAssignButton(list);
 
-      const barsHtml = buildAllBranchesSummaryBar(list, 'setAssignmentAuditFilter', state.auditStatus) + buildAssignmentFilterBar(state);
+      const barsHtml = buildAllBranchesSummaryBar(baseList, 'setAssignmentAuditFilter', state.auditStatus) + buildAssignmentFilterBar(state);
 
       const modalBody = document.getElementById('modalBody');
       modalBody.innerHTML = `${barsHtml}<div id="modalTableContainer"></div>`;
@@ -7416,20 +7425,25 @@ html.page-fade-ready body {
       if (!state) return;
 
       // baseList is the set the summary-bar stat tiles (Total Branches,
-      // Improving, Declining, Stable, etc.) are always computed from. It
-      // deliberately does NOT get narrowed by state.statusValue — only by
-      // audit status — so clicking a Declining/Improving/etc. tile changes
-      // which branches the TABLE below shows without ever changing what the
-      // tiles themselves report. Without this, clicking "Declining" used to
-      // recompute Improving/Stable/etc. counts from the already-filtered
-      // (all-Declining) list, making every other number collapse to 0/near-0
-      // and the numbers stop being internally consistent with each other.
+      // Improving, Declining, Stable, etc. — or Done/For Audit/Pending for
+      // the 'all' type) are always computed from. It deliberately does NOT
+      // get narrowed by whichever axis the tiles themselves represent —
+      // state.statusValue for collection/sales/service, state.auditStatus
+      // for 'all' — so clicking a tile changes which branches the TABLE
+      // below shows without ever changing what the tiles themselves report.
+      // Without this, clicking e.g. "Declining" or "Pending" used to
+      // recompute every other tile's count from the already-filtered list,
+      // making the numbers collapse to 0/near-0 and stop being internally
+      // consistent with each other.
       let baseList = activeData.branches;
-      if (state.auditStatus && state.auditStatus !== 'ALL') {
+      if (state.type !== 'all' && state.auditStatus && state.auditStatus !== 'ALL') {
           baseList = baseList.filter(b => (b.auditStatus || '').toUpperCase() === state.auditStatus);
       }
 
       let list = baseList;
+      if (state.type === 'all' && state.auditStatus && state.auditStatus !== 'ALL') {
+          list = list.filter(b => (b.auditStatus || '').toUpperCase() === state.auditStatus);
+      }
       if ((state.type === 'collection' || state.type === 'sales' || state.type === 'service') && state.statusValue !== 'ALL') {
           list = list.filter(b => b[state.type] === state.statusValue);
       }
@@ -7473,7 +7487,7 @@ html.page-fade-ready body {
       } else if (state.type === 'service') {
           barsHtml += buildServiceSummaryBar(baseList);
       } else if (state.type === 'all') {
-          barsHtml += buildAllBranchesSummaryBar(list, 'setModalAuditFilter', state.auditStatus);
+          barsHtml += buildAllBranchesSummaryBar(baseList, 'setModalAuditFilter', state.auditStatus);
       }
       if (state.type === 'collection' || state.type === 'sales' || state.type === 'service') {
           barsHtml += buildStatusFilterBar(state.type, state.statusValue);
@@ -8233,19 +8247,32 @@ html.page-fade-ready body {
     // valueFn(branch) returns the already-formatted value string/number to
     // display next to each name. accentColor is one of the accent* Tailwind
     // color tokens already defined for this dashboard (accentIndigo/accentCyan).
+    // notPerformerFn(branch), if provided, flags a branch that ranked in the
+    // top 5 by raw number but is actually Declining in the metric this list
+    // is about — rather than silently dropping it from the ranking (which
+    // could shrink the list below 5 or hide a branch someone expects to
+    // see), it stays in its ranked position with a small "Not Performer"
+    // remark so it's clear at a glance it isn't one, despite the number.
     // Each row opens that branch's Detailed Profile (same popup used
     // everywhere else a branch name is clickable), navigating deeper within
     // the already-open modal so Back still returns to this breakdown.
-    function buildTopPerformersList(top5, valueFn, accentColor) {
+    function buildTopPerformersList(top5, valueFn, accentColor, notPerformerFn) {
       if (!top5 || top5.length === 0) return '';
-      const rows = top5.map((b, i) => `
+      const rows = top5.map((b, i) => {
+        const isNotPerformer = notPerformerFn ? !!notPerformerFn(b) : false;
+        const remark = isNotPerformer
+          ? `<span class="flex-shrink-0 text-[8px] font-bold text-accentRose bg-accentRose/10 border border-accentRose/30 rounded px-1 py-0.5 uppercase tracking-wide">Not Performer</span>`
+          : '';
+        return `
         <div onclick="openModalDetail('${String(b.name).replace(/'/g, "\\'")}')" role="button" tabindex="0" title="View ${b.name}'s detailed profile" class="flex items-center justify-between gap-2 text-[11px] bg-slate-200 border border-slate-300 rounded-lg px-2 py-1 cursor-pointer active:scale-95 transition-all hover:bg-white hover:border-${accentColor}/50 hover:shadow-sm hover:-translate-y-0.5">
           <div class="flex items-center gap-1.5 min-w-0">
             <span class="flex-shrink-0 w-4 h-4 rounded-full bg-${accentColor}/20 text-${accentColor} font-bold text-[9px] flex items-center justify-center">${i + 1}</span>
             <span class="truncate font-semibold text-slate-700">${b.name}</span>
+            ${remark}
           </div>
           <span class="flex-shrink-0 text-${accentColor} font-bold">${valueFn(b)}</span>
-        </div>`).join('');
+        </div>`;
+      }).join('');
       return `
       <div class="mb-2 px-1">
         <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Top 5 Performers</div>
@@ -8260,10 +8287,11 @@ html.page-fade-ready body {
       const stable = list.filter(b => b.sales === 'Stable').length;
       const avgVals = list.map(computeAvgSales);
       const meanAvg = avgVals.length ? Math.round(avgVals.reduce((s, v) => s + v, 0) / avgVals.length) : 0;
-      // Top 5 Performers only ever draws from non-Declining branches — a
-      // branch whose sales are declining shouldn't be labeled a "performer"
-      // just because it ranked highest among an already-narrowed subset.
-      const top5 = [...list].filter(b => b.sales !== 'Declining').sort((a, b) => computeAvgSales(b) - computeAvgSales(a)).slice(0, 5);
+      // Top 5 Performers ranks by raw sales average; any branch that lands
+      // in the top 5 while its sales status is Declining gets a "Not
+      // Performer" remark from buildTopPerformersList rather than being
+      // dropped out of the ranking.
+      const top5 = [...list].sort((a, b) => computeAvgSales(b) - computeAvgSales(a)).slice(0, 5);
       const activeStatus = (window.modalFilterState && window.modalFilterState.statusValue) || 'ALL';
       const ring = (v) => activeStatus === v ? 'ring-2 ring-offset-1' : '';
 
@@ -8290,7 +8318,7 @@ html.page-fade-ready body {
           <div class="text-[8px] leading-tight font-bold text-accentIndigo/80 uppercase tracking-tight px-0.5">3-Mo Avg Sales (INS−CA)</div>
         </div>
       </div>
-      ${buildTopPerformersList(top5, (b) => computeAvgSales(b), 'accentIndigo')}`;
+      ${buildTopPerformersList(top5, (b) => computeAvgSales(b), 'accentIndigo', (b) => b.sales === 'Declining')}`;
     }
 
     function buildCollectionSummaryBar(list) {
@@ -8301,10 +8329,11 @@ html.page-fade-ready body {
       const recovering = list.filter(b => b.collection === 'Recovering').length;
       const effVals = list.map(b => b.effLatest);
       const meanEff = effVals.length ? Math.round(effVals.reduce((s, v) => s + v, 0) / effVals.length) : 0;
-      // Top 5 Performers only ever draws from non-Declining branches — a
-      // declining branch shouldn't be labeled a "performer" just because it
-      // ranked highest among an already-narrowed subset.
-      const top5 = [...list].filter(b => b.collection !== 'Declining').sort((a, b) => b.effLatest - a.effLatest).slice(0, 5);
+      // Top 5 Performers ranks by raw latest efficiency; any branch that
+      // lands in the top 5 while its collection status is Declining gets a
+      // "Not Performer" remark from buildTopPerformersList rather than
+      // being dropped out of the ranking.
+      const top5 = [...list].sort((a, b) => b.effLatest - a.effLatest).slice(0, 5);
       const activeStatus = (window.modalFilterState && window.modalFilterState.statusValue) || 'ALL';
       const ring = (v) => activeStatus === v ? 'ring-2 ring-offset-1' : '';
 
@@ -8335,7 +8364,7 @@ html.page-fade-ready body {
           <div class="text-[10px] font-bold text-accentIndigo/80 uppercase tracking-wider">Avg Eff Latest</div>
         </div>
       </div>
-      ${buildTopPerformersList(top5, (b) => `${b.effLatest}%`, 'accentIndigo')}`;
+      ${buildTopPerformersList(top5, (b) => `${b.effLatest}%`, 'accentIndigo', (b) => b.collection === 'Declining')}`;
     }
 
     function buildServiceSummaryBar(list) {
@@ -8344,10 +8373,11 @@ html.page-fade-ready body {
       const declining = list.filter(b => b.service === 'Declining').length;
       const mayVals = list.map(b => Number(b.serviceMay) || 0);
       const totalMay = mayVals.reduce((s, v) => s + v, 0);
-      // Top 5 Performers only ever draws from non-Declining branches — a
-      // declining branch shouldn't be labeled a "performer" just because it
-      // ranked highest among an already-narrowed subset.
-      const top5 = [...list].filter(b => b.service !== 'Declining').sort((a, b) => Number(b.serviceMay) - Number(a.serviceMay)).slice(0, 5);
+      // Top 5 Performers ranks by raw latest-month service value; any
+      // branch that lands in the top 5 while its service status is
+      // Declining gets a "Not Performer" remark from buildTopPerformersList
+      // rather than being dropped out of the ranking.
+      const top5 = [...list].sort((a, b) => Number(b.serviceMay) - Number(a.serviceMay)).slice(0, 5);
       const activeStatus = (window.modalFilterState && window.modalFilterState.statusValue) || 'ALL';
       const ring = (v) => activeStatus === v ? 'ring-2 ring-offset-1' : '';
 
@@ -8370,7 +8400,7 @@ html.page-fade-ready body {
           <div class="text-[10px] font-bold text-accentCyan/80 uppercase tracking-wider">Total (Latest Mo.)</div>
         </div>
       </div>
-      ${buildTopPerformersList(top5, (b) => `₱${Number(b.serviceMay).toLocaleString()}`, 'accentCyan')}`;
+      ${buildTopPerformersList(top5, (b) => `₱${Number(b.serviceMay).toLocaleString()}`, 'accentCyan', (b) => b.service === 'Declining')}`;
     }
 
     // filterSetter is the name of the JS function to call when a pill is
