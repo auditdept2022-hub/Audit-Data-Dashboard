@@ -2651,34 +2651,6 @@ html.page-fade-ready body {
     }
   </script>
 
-  <!-- Online/offline badge (header, next to the title). Reflects the
-       browser's navigator.onLine flag, kept live via the 'online'/'offline'
-       window events — no polling needed, these fire the instant the OS
-       reports the network interface changed. Registered this early (before
-       the Firebase gate below) so the badge is correct even while someone
-       is still looking at the sign-in screen. -->
-  <script>
-    function updateConnectivityBadge() {
-      const dot = document.getElementById('connectivityDot');
-      const text = document.getElementById('connectivityText');
-      const badge = document.getElementById('connectivityBadge');
-      if (!dot || !text || !badge) return;
-      const online = navigator.onLine;
-      dot.classList.toggle('bg-emerald-400', online);
-      dot.classList.toggle('animate-pulse', online);
-      dot.classList.toggle('bg-rose-400', !online);
-      text.textContent = online ? 'Online' : 'Offline';
-      badge.classList.toggle('bg-white/10', online);
-      badge.classList.toggle('bg-rose-500/20', !online);
-      badge.title = online
-        ? 'Connected — data syncs live'
-        : 'No connection — showing the last data synced on this device';
-    }
-    window.addEventListener('online', updateConnectivityBadge);
-    window.addEventListener('offline', updateConnectivityBadge);
-    document.addEventListener('DOMContentLoaded', updateConnectivityBadge);
-  </script>
-
   <!-- ================= FIREBASE AUTH GATE =================
        Covers the whole dashboard until the user signs in.
        Pure add-on: no existing IDs/classes touched, so nothing
@@ -4359,23 +4331,6 @@ html.page-fade-ready body {
             <div class="leading-tight">
               <h1 class="text-xl font-bold tracking-tight text-white whitespace-nowrap">Audit Data Dashboard</h1>
               <p class="hidden sm:block text-[11px] text-white/60 font-medium tracking-wide whitespace-nowrap">Branch performance &amp; compliance monitoring</p>
-            </div>
-            <!-- Online/offline indicator. Purely a status readout (there's
-                 nothing to "switch" — you can't manually force the browser
-                 offline) driven by the standard navigator.onLine flag plus
-                 the window 'online'/'offline' events, kept in sync by
-                 updateConnectivityBadge() further down. Green pulsing dot +
-                 "Online" when connected; solid rose dot + "Offline" the
-                 moment the browser loses its network interface. Note this
-                 reflects whether the DEVICE has a network connection, not
-                 whether script.google.com specifically is reachable right
-                 now — a captive portal or a dead deployment URL can still
-                 show "Online" here even though a sync would fail; the
-                 "Last synced" label next to Update data is still the
-                 source of truth for whether data actually made it through. -->
-            <div id="connectivityBadge" title="Connected — data syncs live" class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/10 border border-white/15 text-[10px] font-bold uppercase tracking-wider text-white/80 whitespace-nowrap transition-colors duration-200">
-              <span id="connectivityDot" class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span id="connectivityText">Online</span>
             </div>
           </div>
         </div>
