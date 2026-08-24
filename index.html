@@ -7017,11 +7017,25 @@ html.page-fade-ready body {
     }
 
     // Returns the last-completed round and the most-recently-completed round
-    // for a branch, read straight from activeData.branchAuditSchedule (the
-    // full AUDIT ROTATION (FINAL) history). Falls back to the branch's own
-    // lastAuditDate/auditor (and its queued "assigned auditor") when no
-    // rotation-sheet rounds exist at all, so a never-audited branch still
-    // shows something useful.
+    // for a branch. Prefers the branch's OWN rotation rounds —
+    // b.assignmentRounds, parsed straight from AUDIT DATA (FINAL) AO:AV,
+    // the exact same sheet+row the Edit Assignment form saves into —
+    // whenever any round there has a date. Only falls back to
+    // activeData.branchAuditSchedule (the separate AUDIT ROTATION (FINAL)
+    // history) when AUDIT DATA (FINAL) has no dated rounds at all for the
+    // branch. This mirrors the same precedence already used to derive
+    // b.auditor/b.lastAuditDate elsewhere (see the "AUDIT DATA (FINAL) has
+    // its own rotation info — don't override it" comment above) — AUDIT
+    // ROTATION (FINAL) is legacy/history, AUDIT DATA (FINAL) is where
+    // saves actually land, so a save should never need a second manual
+    // entry in the other sheet before it shows up here.
+    //
+    // FIX: previously this read ONLY from activeData.branchAuditSchedule,
+    // so saving a new round via Edit Assignment (which writes to AUDIT
+    // DATA (FINAL) AO:AV) would silently not appear as "Recent Audit"
+    // whenever AUDIT ROTATION (FINAL) already had any dated round for
+    // that branch — the rotation sheet's (older, unsynced) rounds kept
+    // winning even though AUDIT DATA (FINAL) had newer/more of them.
     //
     // intervalDays here is the "Audit Interval" shown in the Assignment
     // Branches Overview table: days elapsed from the most recent audit
@@ -7030,8 +7044,29 @@ html.page-fade-ready body {
     // reading as current staleness ("how overdue is this branch right
     // now") rather than a historical, possibly stale, round-to-round gap.
     function getBranchAuditRoundInfo(b) {
+      // AUDIT DATA (FINAL)'s own rounds (AO:AV), sorted 1->4, dated ones
+      // only. This is what the Edit Assignment form actually writes to,
+      // so it's checked first and wins whenever it has anything.
+      const ownRoundsMap = b.assignmentRounds || {};
+      const ownDated = [];
+      for (let n = 1; n <= 4; n++) {
+          const r = ownRoundsMap[n];
+          if (!r || r.dateRaw === null || r.dateRaw === undefined) continue;
+          ownDated.push({
+              round: n,
+              auditor: r.auditor || 'Unassigned',
+              date: new Date(r.dateRaw).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+              dateRaw: r.dateRaw
+          });
+      }
+
       const schedule = (activeData.branchAuditSchedule || {})[b.name];
-      const dated = schedule ? (schedule.rounds || []).filter(r => r.dateRaw !== null && r.dateRaw !== undefined) : [];
+      const rotationDated = schedule ? (schedule.rounds || []).filter(r => r.dateRaw !== null && r.dateRaw !== undefined) : [];
+
+      // AUDIT DATA (FINAL) wins whenever it has at least one dated round;
+      // AUDIT ROTATION (FINAL) is only used as a fallback for branches
+      // that have never had a round saved through Edit Assignment yet.
+      const dated = ownDated.length > 0 ? ownDated : rotationDated;
       const today = Date.now();
 
       // Who's queued for the branch's NEXT audit round — read ONLY from
