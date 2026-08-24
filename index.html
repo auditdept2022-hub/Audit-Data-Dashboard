@@ -5908,14 +5908,17 @@ html.page-fade-ready body {
           }
           if (typeof updateCalculations === 'function') updateCalculations();
           if (typeof initDashboard === 'function') initDashboard();
-          // The write-back on the server already re-syncs the one sheet
-          // that changed and advances its own "last synced" marker before
-          // it reports success back to us — so by the time saveAuditorAssignmentRemote()
-          // has resolved, the authoritative data is already current. A
-          // short 500ms buffer (down from the old 2s) is just enough to
-          // let that settle without the dashboard needing to guess when
-          // it's safe to refetch.
-          if (typeof fetchSheet === 'function') setTimeout(function() { fetchSheet(true).catch(function(e) { console.warn('Post-save refresh failed (will retry next auto-refresh cycle):', e); }); }, 500);
+          // The write-back on the server now re-syncs the changed sheet to
+          // Firestore on a short-delay BACKGROUND trigger (~4s) instead of
+          // inline before responding — that's what makes the save itself
+          // fast. That also means the data isn't guaranteed to be back on
+          // the fast Firestore-synced path the instant saveAuditorAssignmentRemote()
+          // resolves. Either way this refetch gets fully correct data (the
+          // server falls back to reading the Sheet directly whenever
+          // Firestore isn't caught up yet), so this delay is really just
+          // "give the write a moment to settle" rather than "wait for the
+          // Firestore sync" — a few seconds is plenty either way.
+          if (typeof fetchSheet === 'function') setTimeout(function() { fetchSheet(true).catch(function(e) { console.warn('Post-save refresh failed (will retry next auto-refresh cycle):', e); }); }, 1200);
           // Close the popup now that the save has actually gone through —
           // the toast above confirms it, and the optimistic update already
           // landed, so there's nothing left to wait on here.
