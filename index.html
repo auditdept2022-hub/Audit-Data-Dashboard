@@ -6328,18 +6328,19 @@ html.page-fade-ready body {
               <p class="text-base font-extrabold tracking-tight leading-none ${colorClass}">${value}</p>
           </div>`;
 
-      // Compact, single-line version of the same clickable pills — text-only
-      // segments in one row instead of separate boxes, so the whole group
-      // never wraps onto a second line. Scrolls horizontally as a fallback
-      // on very narrow screens instead of wrapping. Ring/tint on the active
-      // segment still marks whichever filter is currently applied.
+      // Small "stack card" style boxes — same look as the statPill cards
+      // above (white bg, border, rounded, label-over-value), just shrunk
+      // down and kept shrink-0 inside a horizontally-scrolling row so the
+      // whole group always stays on ONE line, however many cycles exist,
+      // instead of wrapping like statPill does. Ring/tint on the active
+      // box still marks whichever filter is currently applied.
       const cyclePill = (label, value, colorClass, bgClass, filterValue) => {
           const active = roundFilter === filterValue;
           return `
           <button type="button" onclick="setAuditScheduleRoundFilter('${filterValue}')" title="Show only these branches"
-              class="shrink-0 flex items-baseline gap-1 px-2 py-1 rounded-md transition-colors cursor-pointer ${active ? `${bgClass} ring-1 ring-inset ${colorClass.replace('text-', 'ring-')}/40` : 'hover:bg-slate-100'}">
-              <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">${label}</span>
-              <span class="text-xs font-extrabold whitespace-nowrap ${colorClass}">${value}</span>
+              class="shrink-0 flex flex-col items-start gap-0 bg-white border border-coolBorder rounded-lg px-2 py-1 shadow-sm transition-colors cursor-pointer ${active ? `${bgClass} ring-1 ring-inset ${colorClass.replace('text-', 'ring-')}/40` : 'hover:bg-slate-50'}">
+              <span class="text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none whitespace-nowrap">${label}</span>
+              <span class="text-xs font-extrabold leading-none whitespace-nowrap mt-0.5 ${colorClass}">${value}</span>
           </button>`;
       };
 
@@ -6349,14 +6350,12 @@ html.page-fade-ready body {
               ${statPill('Audit Cycles', isFiltered ? `${totalAuditsFiltered}<span class="text-[11px] text-slate-400 font-semibold">/${totalAuditsAll}</span>` : totalAuditsAll, 'text-accentBlue')}
               ${statPill('Avg. Interval', avgInterval !== null ? avgInterval + '<span class="text-[11px] text-slate-400 font-semibold"> days</span>' : '—', 'text-accentEmerald')}
           </div>
-          <div class="flex items-center gap-0.5 overflow-x-auto whitespace-nowrap -mx-1 px-1 py-0.5 mb-2 bg-white border border-coolBorder rounded-lg shadow-sm">
+          <div class="flex items-center gap-1.5 overflow-x-auto -mx-1 px-1 py-0.5 mb-2">
               ${cyclePill('Cycle 1 Done', `${roundDoneCounts[1]}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>`, 'text-accentIndigo', 'bg-accentIndigo/10', 'round1')}
-              <span class="shrink-0 text-slate-200">|</span>
               ${cyclePill('Cycle 2 Done', `${roundDoneCounts[2]}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>`, 'text-accentBlue', 'bg-accentBlue/10', 'round2')}
-              <span class="shrink-0 text-slate-200">|</span>
               ${cyclePill('Awaiting Cycle 2', awaitingRound2, 'text-accentRose', 'bg-accentRose/10', 'awaiting2')}
-              ${roundDoneCounts[3] > 0 ? `<span class="shrink-0 text-slate-200">|</span>${cyclePill('Cycle 3 Done', `${roundDoneCounts[3]}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>`, 'text-accentEmerald', 'bg-accentEmerald/10', 'round3')}` : ''}
-              ${roundDoneCounts[4] > 0 ? `<span class="shrink-0 text-slate-200">|</span>${cyclePill('Cycle 4 Done', `${roundDoneCounts[4]}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>`, 'text-accentEmerald', 'bg-accentEmerald/10', 'round4')}` : ''}
+              ${roundDoneCounts[3] > 0 ? cyclePill('Cycle 3 Done', `${roundDoneCounts[3]}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>`, 'text-accentEmerald', 'bg-accentEmerald/10', 'round3') : ''}
+              ${roundDoneCounts[4] > 0 ? cyclePill('Cycle 4 Done', `${roundDoneCounts[4]}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>`, 'text-accentEmerald', 'bg-accentEmerald/10', 'round4') : ''}
           </div>
           ${roundFilter ? `<div class="mb-2 -mt-1"><button onclick="setAuditScheduleRoundFilter('${roundFilter}')" class="text-[10px] font-bold text-accentIndigo hover:underline">Showing: ${roundFilter === 'awaiting2' ? 'Awaiting Cycle 2' : 'Cycle ' + roundFilter.replace('round','') + ' Done'} — click to clear</button></div>` : ''}`;
 
