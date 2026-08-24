@@ -6091,6 +6091,7 @@ html.page-fade-ready body {
       window.auditScheduleSearchQuery = '';
       window.auditScheduleAuditorFilter = '';
       window.auditScheduleSortOption = 'name-asc';
+      window.auditScheduleRoundFilter = '';
       openModal('Branch Audit Interval — Full Schedule', 'auditSchedule', null);
     }
 
@@ -6208,6 +6209,18 @@ html.page-fade-ready body {
       window.auditScheduleFilterRange = { start: '', end: '' };
       window.auditScheduleSearchQuery = '';
       window.auditScheduleAuditorFilter = '';
+      window.auditScheduleRoundFilter = '';
+      const modalBody = document.getElementById('modalBody');
+      if (modalBody) renderAuditScheduleModal(modalBody);
+    }
+
+    // Clicking one of the round-progress tiles (Round 1 Done, Round 2 Done,
+    // Awaiting Round 2, etc.) filters the branch cards below to just that
+    // group. Clicking the same tile again clears it — same toggle pattern
+    // as the rest of the toolbar filters. Independent of (and combines
+    // with) the search/date/auditor filters.
+    function setAuditScheduleRoundFilter(value) {
+      window.auditScheduleRoundFilter = (window.auditScheduleRoundFilter === value) ? '' : value;
       const modalBody = document.getElementById('modalBody');
       if (modalBody) renderAuditScheduleModal(modalBody);
     }
@@ -6246,6 +6259,7 @@ html.page-fade-ready body {
       const endMs = range.end ? new Date(range.end + 'T23:59:59').getTime() : null;
       const searchQuery = (window.auditScheduleSearchQuery || '').trim().toLowerCase();
       const auditorFilter = (window.auditScheduleAuditorFilter || '').trim();
+      const roundFilter = window.auditScheduleRoundFilter || '';
 
       // Distinct auditor names across every recorded round, for the
       // auditor filter dropdown. Sorted alphabetically; blank/unassigned
@@ -6262,6 +6276,11 @@ html.page-fade-ready body {
           if (searchQuery && !branchName.toLowerCase().includes(searchQuery)) return false;
           const rounds = (schedule[branchName].rounds || []);
           if (auditorFilter && !rounds.some(r => (r.auditor || '').trim().toLowerCase() === auditorFilter.toLowerCase())) return false;
+          if (roundFilter) {
+              const roundsSet = new Set(rounds.map(r => r.round));
+              if (roundFilter === 'awaiting2' && roundsSet.has(2)) return false;
+              if (roundFilter !== 'awaiting2' && !roundsSet.has(Number(roundFilter.replace('round', '')))) return false;
+          }
           if (startMs === null && endMs === null) return true;
           const datedRounds = rounds.filter(r => r.dateRaw);
           return datedRounds.some(r => {
@@ -6288,7 +6307,7 @@ html.page-fade-ready body {
       }));
       const avgInterval = allIntervals.length ? Math.round(allIntervals.reduce((a, b) => a + b, 0) / allIntervals.length) : null;
 
-      const isFiltered = !!(range.start || range.end || searchQuery || auditorFilter);
+      const isFiltered = !!(range.start || range.end || searchQuery || auditorFilter || roundFilter);
 
       // Per-round completion counts — how many branches have a recorded
       // round 1 / round 2 / round 3 / round 4, so it's clear at a glance
@@ -6309,19 +6328,37 @@ html.page-fade-ready body {
               <p class="text-base font-extrabold tracking-tight leading-none ${colorClass}">${value}</p>
           </div>`;
 
+      // Compact, single-line version of the same clickable pills — text-only
+      // segments in one row instead of separate boxes, so the whole group
+      // never wraps onto a second line. Scrolls horizontally as a fallback
+      // on very narrow screens instead of wrapping. Ring/tint on the active
+      // segment still marks whichever filter is currently applied.
+      const cyclePill = (label, value, colorClass, bgClass, filterValue) => {
+          const active = roundFilter === filterValue;
+          return `
+          <button type="button" onclick="setAuditScheduleRoundFilter('${filterValue}')" title="Show only these branches"
+              class="shrink-0 flex items-baseline gap-1 px-2 py-1 rounded-md transition-colors cursor-pointer ${active ? `${bgClass} ring-1 ring-inset ${colorClass.replace('text-', 'ring-')}/40` : 'hover:bg-slate-100'}">
+              <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">${label}</span>
+              <span class="text-xs font-extrabold whitespace-nowrap ${colorClass}">${value}</span>
+          </button>`;
+      };
+
       const statsHtml = `
           <div class="flex flex-wrap gap-2 mb-2">
               ${statPill('Branches', isFiltered ? `${branchNames.length}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>` : allBranchNames.length, 'text-accentIndigo')}
-              ${statPill('Audit Rounds', isFiltered ? `${totalAuditsFiltered}<span class="text-[11px] text-slate-400 font-semibold">/${totalAuditsAll}</span>` : totalAuditsAll, 'text-accentBlue')}
+              ${statPill('Audit Cycles', isFiltered ? `${totalAuditsFiltered}<span class="text-[11px] text-slate-400 font-semibold">/${totalAuditsAll}</span>` : totalAuditsAll, 'text-accentBlue')}
               ${statPill('Avg. Interval', avgInterval !== null ? avgInterval + '<span class="text-[11px] text-slate-400 font-semibold"> days</span>' : '—', 'text-accentEmerald')}
           </div>
-          <div class="flex flex-wrap gap-2 mb-2">
-              ${statPill('Round 1 Done', `${roundDoneCounts[1]}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>`, 'text-accentIndigo')}
-              ${statPill('Round 2 Done', `${roundDoneCounts[2]}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>`, 'text-accentBlue')}
-              ${statPill('Awaiting Round 2', awaitingRound2, 'text-accentRose')}
-              ${roundDoneCounts[3] > 0 ? statPill('Round 3 Done', `${roundDoneCounts[3]}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>`, 'text-accentEmerald') : ''}
-              ${roundDoneCounts[4] > 0 ? statPill('Round 4 Done', `${roundDoneCounts[4]}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>`, 'text-accentEmerald') : ''}
-          </div>`;
+          <div class="flex items-center gap-0.5 overflow-x-auto whitespace-nowrap -mx-1 px-1 py-0.5 mb-2 bg-white border border-coolBorder rounded-lg shadow-sm">
+              ${cyclePill('Cycle 1 Done', `${roundDoneCounts[1]}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>`, 'text-accentIndigo', 'bg-accentIndigo/10', 'round1')}
+              <span class="shrink-0 text-slate-200">|</span>
+              ${cyclePill('Cycle 2 Done', `${roundDoneCounts[2]}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>`, 'text-accentBlue', 'bg-accentBlue/10', 'round2')}
+              <span class="shrink-0 text-slate-200">|</span>
+              ${cyclePill('Awaiting Cycle 2', awaitingRound2, 'text-accentRose', 'bg-accentRose/10', 'awaiting2')}
+              ${roundDoneCounts[3] > 0 ? `<span class="shrink-0 text-slate-200">|</span>${cyclePill('Cycle 3 Done', `${roundDoneCounts[3]}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>`, 'text-accentEmerald', 'bg-accentEmerald/10', 'round3')}` : ''}
+              ${roundDoneCounts[4] > 0 ? `<span class="shrink-0 text-slate-200">|</span>${cyclePill('Cycle 4 Done', `${roundDoneCounts[4]}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>`, 'text-accentEmerald', 'bg-accentEmerald/10', 'round4')}` : ''}
+          </div>
+          ${roundFilter ? `<div class="mb-2 -mt-1"><button onclick="setAuditScheduleRoundFilter('${roundFilter}')" class="text-[10px] font-bold text-accentIndigo hover:underline">Showing: ${roundFilter === 'awaiting2' ? 'Awaiting Cycle 2' : 'Cycle ' + roundFilter.replace('round','') + ' Done'} — click to clear</button></div>` : ''}`;
 
       const toolbarHtml = `
           <div class="sticky top-0 z-10 bg-white/95 backdrop-blur-sm pb-2 mb-1.5 border-b border-coolBorder">
