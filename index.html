@@ -5768,7 +5768,7 @@ html.page-fade-ready body {
 
       modalBody.innerHTML = `
         <div class="bg-white border border-coolBorder rounded-xl p-5 shadow-sm max-w-lg mx-auto">
-          <p class="text-xs text-slate-500 mb-4">Rotation fields and Up Next Auditor all save straight to <strong>AUDIT DATA (FINAL)</strong> (auditor names in columns AO/AQ/AS/AU, dates in AP/AR/AT/AV, Up Next Auditor in AW) — no need to open the Sheet. Status updates automatically from the Expected Audit Date formula, so it isn't set here.</p>
+          <p class="text-xs text-slate-500 mb-4">Rotation fields and Up Next Auditor all save straight to <strong>AUDIT DATA (FINAL)</strong> (auditor names in columns AO/AQ/AS/AU, dates in AP/AR/AT/AV, Up Next Auditor in AW) — no need to open the Sheet. Status updates automatically from the Expected Audit Date formula, so it isn't set here. Entering a date for any rotation round below automatically clears Expected Audit Date and Up Next Auditor for you, so the branch correctly flips to DONE instead of getting stuck — set a new Expected Audit Date + Up Next Auditor once the following round is actually scheduled.</p>
 
           <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Branch</label>
           <select id="editAssign-branch" onchange="openEditAssignmentModal(this.value)"
@@ -5803,6 +5803,33 @@ html.page-fade-ready body {
           </div>
         </div>
       `;
+
+      // Auto-reset Expected Audit Date + Up Next Auditor the moment a
+      // rotation round gets an actual completion date entered — this is
+      // exactly the manual "clear AM, then fill in the round date" step
+      // from the recommended workflow, just done automatically so it can't
+      // be forgotten. Entering ANY of the 4 rounds' dates counts, since
+      // whichever round just got recorded as done is the one the
+      // then-current Expected Audit Date/Up Next Auditor were scheduling.
+      // Deliberately listens on 'change' (fires on real user edits, not on
+      // the initial value="..." render above) so opening the form to view
+      // an already-completed round never wipes AM/AW on its own.
+      [1, 2, 3, 4].forEach(n => {
+          const dateInput = document.getElementById(`editAssign-date${n}`);
+          if (!dateInput) return;
+          dateInput.addEventListener('change', () => {
+              if (!dateInput.value) return; // cleared, not filled in — leave AM/AW alone
+              const expectedDateEl = document.getElementById('editAssign-expectedDate');
+              const upNextEl = document.getElementById('editAssign-upNextAuditor');
+              const hadExpected = expectedDateEl && expectedDateEl.value;
+              const hadUpNext = upNextEl && upNextEl.value;
+              if (expectedDateEl) expectedDateEl.value = '';
+              if (upNextEl) upNextEl.value = '';
+              if (hadExpected || hadUpNext) {
+                  showToast(`Round ${n} date entered — Expected Audit Date and Up Next Auditor cleared. Set new ones once the next round is scheduled.`);
+              }
+          });
+      });
     }
 
     // Step 1: person presses "Save Assignment" -> just collects the form
