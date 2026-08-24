@@ -169,6 +169,12 @@
     max-height: 100dvh !important;
     margin: 0 !important;
     border-radius: 0 !important;
+    /* The dialog also carries Tailwind's transform/scale-95→scale-100
+       open animation. Without neutralizing that here, a lingering
+       scale(0.95) shrinks this "fullscreen" box in from every edge,
+       which is exactly what reads as "still floating with spacing"
+       instead of truly edge-to-edge. */
+    transform: none !important;
   }
   /* Fullscreen used to just blow up the outer frame while the content
      inside stayed locked to the same widths it used in the small windowed
@@ -208,6 +214,42 @@
     #modalBody.audit-schedule-mode { overflow: hidden !important; display: flex; flex-direction: column; }
     #auditScheduleWrap { display: flex; flex-direction: column; height: 100%; min-height: 0; }
     #auditScheduleCards { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+
+    /* On phones, the Branch Audit Interval popup is ALWAYS edge-to-edge
+       full-screen — enforced purely in CSS (not via a JS class toggle
+       timed against the open animation) so it can never render as a
+       small floating card there. #modalBody already gets
+       "audit-schedule-mode" the instant this modal type opens (see
+       openModal), before it's ever shown, so :has() below is guaranteed
+       to already match by the time anything paints — no animation race
+       to lose. 639px matches the same mobile/desktop split (Tailwind's
+       "sm:") used everywhere else in this file. Desktop is completely
+       unaffected. */
+    @media (max-width: 639px) {
+      #modalDialog:has(#modalBody.audit-schedule-mode) {
+        position: fixed !important;
+        inset: 0 !important;
+        top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        height: 100dvh !important;
+        max-width: 100vw !important;
+        max-height: 100vh !important;
+        max-height: 100dvh !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        transform: none !important;
+      }
+      #modalDialog:has(#modalBody.audit-schedule-mode) #modalBody {
+        max-width: none !important;
+      }
+      /* The manual fullscreen button would be redundant/confusing here
+         since this popup is already forced fullscreen — hide it rather
+         than let someone tap "exit fullscreen" and see nothing change. */
+      #modalDialog:has(#modalBody.audit-schedule-mode) #modalFullscreenBtn {
+        display: none !important;
+      }
+    }
 
     #scorecardScrollWrap { -webkit-overflow-scrolling: touch; }
     @media (max-width: 767px) {
@@ -5561,23 +5603,6 @@ html.page-fade-ready body {
       const modal = document.getElementById('dataModal');
       const modalDialog = document.getElementById('modalDialog');
       modal.classList.remove('hidden');
-      // On phones, the Branch Audit Interval popup opens straight into
-      // fullscreen — there's no room for a small windowed card once the
-      // toolbar has search + auditor + date + sort controls on it. Applied
-      // synchronously, before the fade/scale-in transition below starts, so
-      // the dialog is already sized full-screen for that very first frame
-      // instead of momentarily appearing as a small card and then jumping.
-      // Desktop is completely unaffected — it keeps the normal windowed
-      // popup and only goes fullscreen if the fullscreen button is clicked.
-      if (type === 'auditSchedule' && !navOpts.fromBack && window.innerWidth < 640 && !modalDialog.classList.contains('modal-fullscreen')) {
-          modalDialog.classList.add('modal-fullscreen');
-          const expandIcon = document.getElementById('modalFullscreenIconExpand');
-          const collapseIcon = document.getElementById('modalFullscreenIconCollapse');
-          const fsBtn = document.getElementById('modalFullscreenBtn');
-          if (expandIcon) expandIcon.classList.add('hidden');
-          if (collapseIcon) collapseIcon.classList.remove('hidden');
-          if (fsBtn) { fsBtn.title = 'Exit fullscreen'; fsBtn.setAttribute('aria-label', 'Exit fullscreen'); }
-      }
       // Freeze the dashboard behind the popup — without this, scrolling
       // while the modal is open also scrolled the underlying dashboard,
       // which felt broken since the two would drift out of sync.
@@ -6261,10 +6286,13 @@ html.page-fade-ready body {
                       </select>
                       <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"><path d="m6 9 6 6 6-6"></path></svg>
                   </div>
-                  <input type="date" value="${range.start || ''}" onchange="setAuditScheduleFilterRange('start', this.value)" title="From"
-                         class="px-2 py-1.5 bg-gray-50 border border-coolBorder rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-accentIndigo/40 focus:border-accentIndigo">
-                  <input type="date" value="${range.end || ''}" onchange="setAuditScheduleFilterRange('end', this.value)" title="To"
-                         class="px-2 py-1.5 bg-gray-50 border border-coolBorder rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-accentIndigo/40 focus:border-accentIndigo">
+                  <div class="flex items-center bg-gray-50 border border-coolBorder rounded-lg flex-shrink-0 focus-within:ring-2 focus-within:ring-accentIndigo/40 focus-within:border-accentIndigo">
+                      <input type="date" value="${range.start || ''}" onchange="setAuditScheduleFilterRange('start', this.value)" title="From date" aria-label="From date"
+                             class="w-[116px] px-2 py-1.5 bg-transparent border-none text-xs font-semibold focus:outline-none focus:ring-0">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0 text-slate-300"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+                      <input type="date" value="${range.end || ''}" onchange="setAuditScheduleFilterRange('end', this.value)" title="To date" aria-label="To date"
+                             class="w-[116px] px-2 py-1.5 bg-transparent border-none text-xs font-semibold focus:outline-none focus:ring-0">
+                  </div>
                   <div class="relative">
                       <select id="auditScheduleSortSelect" onchange="setAuditScheduleSortOption(this.value)" title="Sort by"
                               class="appearance-none pl-2.5 pr-6 py-1.5 bg-gray-50 border border-coolBorder rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-accentIndigo/40 focus:border-accentIndigo cursor-pointer">
