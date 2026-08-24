@@ -3571,10 +3571,9 @@ html.page-fade-ready body {
           viewMonth = now.getMonth();
           renderCalendar();
         });
-        // Click-outside and Escape close the popup.
-        document.addEventListener('click', function(e) {
-          if (isOpen && !trigger.contains(e.target)) closePopup();
-        });
+        // Escape closes the popup. (Click-outside intentionally does NOT
+        // close it — an accidental tap outside the popup should not lose
+        // the open state; use the trigger or Escape to close instead.)
         document.addEventListener('keydown', function(e) {
           if (isOpen && e.key === 'Escape') closePopup();
         });
@@ -4098,8 +4097,8 @@ html.page-fade-ready body {
        correct. Keeping it out here, alongside the other top-level modals,
        is what makes `fixed inset-0` actually mean "the whole screen". -->
   <div id="branchFilterPanel" class="hidden fixed inset-0 z-50">
-    <div class="absolute inset-0 bg-slate-900/65" onclick="toggleBranchFilterPanel('close')"></div>
-    <div class="absolute inset-0 flex items-center justify-center overflow-y-auto p-3 sm:p-4" onclick="toggleBranchFilterPanel('close')">
+    <div class="absolute inset-0 bg-slate-900/65"></div>
+    <div class="absolute inset-0 flex items-center justify-center overflow-y-auto p-3 sm:p-4">
       <div id="branchFilterModalBox" class="bg-white w-[94vw] max-w-xs sm:max-w-sm max-h-[85vh] my-auto rounded-2xl shadow-2xl flex flex-col border border-coolBorder overflow-hidden" onclick="event.stopPropagation()">
         <div class="p-4 border-b border-coolBorder shrink-0">
           <div class="flex items-center justify-between mb-1.5">
@@ -4127,8 +4126,8 @@ html.page-fade-ready body {
   </div>
 
   <div id="dataModal" class="fixed inset-0 z-50 transition-opacity duration-300 opacity-0 hidden">
-    <div class="absolute inset-0 bg-slate-900/65" onclick="closeModal()"></div>
-    <div class="absolute inset-0 flex items-start sm:items-center justify-center overflow-y-auto p-3 sm:p-4 py-6" onclick="closeModal()">
+    <div class="absolute inset-0 bg-slate-900/65"></div>
+    <div class="absolute inset-0 flex items-start sm:items-center justify-center overflow-y-auto p-3 sm:p-4 py-6">
       <div class="bg-coolCard w-full max-w-5xl max-h-[85vh] max-h-[85dvh] my-auto rounded-2xl shadow-2xl flex flex-col transform transition-transform duration-300 border border-coolBorder scale-95" id="modalDialog" onclick="event.stopPropagation()">
         <div class="px-4 sm:px-5 py-2.5 sm:py-3 border-b border-coolBorder flex flex-wrap justify-between items-center gap-x-3 gap-y-1.5 bg-gray-50 rounded-t-2xl">
           <div class="flex items-center gap-2 min-w-0 w-full sm:w-auto sm:flex-1">
@@ -4162,7 +4161,7 @@ html.page-fade-ready body {
   </div>
 
   <div id="exportPickerModal" class="fixed inset-0 z-[60] hidden">
-    <div class="absolute inset-0 bg-slate-900/65" onclick="closeExportPicker()"></div>
+    <div class="absolute inset-0 bg-slate-900/65"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
       <div class="bg-coolCard w-full max-w-sm rounded-2xl shadow-2xl p-5 pointer-events-auto border border-coolBorder max-h-[85vh] flex flex-col">
         <div class="flex items-start justify-between gap-3 mb-1">
@@ -4204,7 +4203,7 @@ html.page-fade-ready body {
   </div>
 
   <div id="exportPasswordModal" class="fixed inset-0 z-[70] hidden">
-    <div class="absolute inset-0 bg-slate-900/70" onclick="cancelExportPassword()"></div>
+    <div class="absolute inset-0 bg-slate-900/70"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
       <div class="bg-coolCard w-full max-w-xs rounded-2xl shadow-2xl p-5 pointer-events-auto border border-coolBorder">
         <div class="flex items-start justify-between gap-3 mb-1">
@@ -4234,7 +4233,7 @@ html.page-fade-ready body {
   </div>
 
   <div id="quickLinkPasswordModal" class="fixed inset-0 z-[70] hidden">
-    <div class="absolute inset-0 bg-slate-900/70" onclick="cancelQuickLinkPassword()"></div>
+    <div class="absolute inset-0 bg-slate-900/70"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
       <div class="bg-coolCard w-full max-w-xs rounded-2xl shadow-2xl p-5 pointer-events-auto border border-coolBorder">
         <div class="flex items-start justify-between gap-3 mb-1">
@@ -4261,7 +4260,7 @@ html.page-fade-ready body {
   </div>
 
   <div id="editAssignPasswordModal" class="fixed inset-0 z-[70] hidden">
-    <div class="absolute inset-0 bg-slate-900/70" onclick="cancelEditAssignPassword()"></div>
+    <div class="absolute inset-0 bg-slate-900/70"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
       <div class="bg-coolCard w-full max-w-xs rounded-2xl shadow-2xl p-5 pointer-events-auto border border-coolBorder">
         <div class="flex items-start justify-between gap-3 mb-1">
@@ -5754,29 +5753,37 @@ html.page-fade-ready body {
           </div>`;
 
       modalBody.innerHTML = `
-        <div class="bg-white border border-coolBorder rounded-xl p-5 shadow-sm max-w-lg mx-auto">
-          <p class="text-xs text-slate-500 mb-4">Rotation fields and Up Next Auditor all save straight to <strong>AUDIT DATA (FINAL)</strong> (auditor names in columns AO/AQ/AS/AU, dates in AP/AR/AT/AV, Up Next Auditor in AW) — no need to open the Sheet. Status updates automatically from the Expected Audit Date formula, so it isn't set here. Touching any rotation round below (auditor name or date) automatically clears Expected Audit Date and Up Next Auditor for you — set new ones once the following round is actually scheduled.</p>
+        <div class="bg-white border border-coolBorder rounded-xl p-5 shadow-sm w-full max-w-3xl mx-auto">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+            <div>
+              <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Branch</label>
+              <select id="editAssign-branch" onchange="openEditAssignmentModal(this.value)"
+                      class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+                ${branchOptions}
+              </select>
+            </div>
 
-          <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Branch</label>
-          <select id="editAssign-branch" onchange="openEditAssignmentModal(this.value)"
-                  class="w-full mb-4 px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
-            ${branchOptions}
-          </select>
+            <div>
+              <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Expected Audit Date</label>
+              <input id="editAssign-expectedDate" type="date" value="${(b && b.expectedAuditDateInput) || ''}"
+                     class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+            </div>
 
-          <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Expected Audit Date <span class="normal-case font-normal text-slate-400">(col AM — drives status automatically)</span></label>
-          <input id="editAssign-expectedDate" type="date" value="${(b && b.expectedAuditDateInput) || ''}"
-                 class="w-full mb-5 px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
-
-          <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Up Next Auditor <span class="normal-case font-normal text-slate-400">(AUDIT DATA (FINAL) col AW — who's up next, shown on the Auditor Next Assignment card)</span></label>
-          <select id="editAssign-upNextAuditor" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
-            ${assignedAuditorOptions}
-          </select>
+            <div>
+              <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Up Next Auditor</label>
+              <select id="editAssign-upNextAuditor" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+                ${assignedAuditorOptions}
+              </select>
+            </div>
+          </div>
 
           <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 mt-5 border-t border-coolBorder pt-4">Audit Rotation Schedule</div>
-          ${rotationRowHtml(1, '1st Rotation')}
-          ${rotationRowHtml(2, '2nd Rotation')}
-          ${rotationRowHtml(3, '3rd Rotation')}
-          ${rotationRowHtml(4, '4th Rotation')}
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+            ${rotationRowHtml(1, '1st Rotation')}
+            ${rotationRowHtml(2, '2nd Rotation')}
+            ${rotationRowHtml(3, '3rd Rotation')}
+            ${rotationRowHtml(4, '4th Rotation')}
+          </div>
 
           <div id="editAssign-error" class="hidden text-xs text-accentRose font-semibold mb-3"></div>
 
@@ -11370,7 +11377,9 @@ html.page-fade-ready body {
         });
       }
       if (closeMenuBtn) closeMenuBtn.addEventListener('click', closeSideMenu);
-      if (menuOverlay) menuOverlay.addEventListener('click', closeSideMenu);
+      // Intentionally no outside-click-to-close on menuOverlay — an
+      // accidental tap outside the menu shouldn't dismiss it; use the
+      // close button, a menu link, or Escape instead.
       document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') closeSideMenu();
       });
