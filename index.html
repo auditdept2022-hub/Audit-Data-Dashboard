@@ -215,18 +215,21 @@
     #auditScheduleWrap { display: flex; flex-direction: column; height: 100%; min-height: 0; }
     #auditScheduleCards { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 
-    /* On phones, the Branch Audit Interval popup is ALWAYS edge-to-edge
+    /* On phones, EVERY data popup (#modalDialog) is ALWAYS edge-to-edge
        full-screen — enforced purely in CSS (not via a JS class toggle
-       timed against the open animation) so it can never render as a
-       small floating card there. #modalBody already gets
-       "audit-schedule-mode" the instant this modal type opens (see
-       openModal), before it's ever shown, so :has() below is guaranteed
-       to already match by the time anything paints — no animation race
-       to lose. 639px matches the same mobile/desktop split (Tailwind's
-       "sm:") used everywhere else in this file. Desktop is completely
-       unaffected. */
+       timed against the open animation) so none of them can ever render
+       as a small floating card there. This used to only cover the
+       Branch Audit Interval modal (via :has(#modalBody.audit-schedule-mode)),
+       which is why every other popup — e.g. the branch "Detailed Profile"
+       card — still opened as a small windowed dialog with the dashboard
+       header peeking out above/around it. Targeting #modalDialog directly
+       (no :has() scoping) makes this apply to all of them, including
+       ones opened straight into this state before any paint, so there's
+       no animation race to lose. 639px matches the same mobile/desktop
+       split (Tailwind's "sm:") used everywhere else in this file. Desktop
+       is completely unaffected. */
     @media (max-width: 639px) {
-      #modalDialog:has(#modalBody.audit-schedule-mode) {
+      #modalDialog {
         position: fixed !important;
         inset: 0 !important;
         top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
@@ -240,13 +243,14 @@
         border-radius: 0 !important;
         transform: none !important;
       }
-      #modalDialog:has(#modalBody.audit-schedule-mode) #modalBody {
+      #modalDialog #modalBody {
         max-width: none !important;
       }
       /* The manual fullscreen button would be redundant/confusing here
-         since this popup is already forced fullscreen — hide it rather
-         than let someone tap "exit fullscreen" and see nothing change. */
-      #modalDialog:has(#modalBody.audit-schedule-mode) #modalFullscreenBtn {
+         since every popup is already forced fullscreen on phones —
+         hide it rather than let someone tap "exit fullscreen" and see
+         nothing change. */
+      #modalDialog #modalFullscreenBtn {
         display: none !important;
       }
     }
