@@ -7694,6 +7694,14 @@ html.page-fade-ready body {
       
       const riskProfile = computeRiskProfile(b);
       let riskLevel = riskProfile.level;
+      // Who's queued for this branch's NEXT round (AUDIT DATA (FINAL) column
+      // AW, set via the Edit Assignment form's "Up Next Auditor" field) —
+      // same source/logic the Assignment Branches Overview table and the
+      // AUDITOR NEXT ASSIGNMENT dashboard card use, via getBranchAuditRoundInfo().
+      // Only applies once the branch is actually FOR AUDIT; upNextAuditor is
+      // null otherwise (see that function), in which case this profile just
+      // omits the block rather than showing a stale/irrelevant name.
+      const auditRoundInfo = getBranchAuditRoundInfo(b);
 
       const avgSales = (b.salesMar.ins + b.salesApr.ins + b.salesMay.ins) - (b.salesMar.ca + b.salesApr.ca + b.salesMay.ca);
       const labels = activeData.summary.trendLabels || ["MARCH", "APRIL", "LATEST"];
@@ -7778,6 +7786,12 @@ html.page-fade-ready body {
                           <p class="text-base font-bold leading-tight">${escapeHTML(b.auditor || 'Unassigned')}</p>
                           ${b.lastAuditDate ? `<p class="text-[10px] text-white/70 mt-0.5">${escapeHTML(b.lastAuditDate)}</p>` : ''}
                       </div>
+                      ${auditRoundInfo.upNextAuditor !== null ? `
+                      <div class="pl-3 ml-1 border-l border-white/25">
+                          <p class="text-[10px] uppercase tracking-wider text-white/70 font-semibold mb-0.5">Up Next Auditor</p>
+                          <p class="text-base font-bold leading-tight">${escapeHTML(auditRoundInfo.upNextAuditor)}</p>
+                          ${auditRoundInfo.expectedAuditDate ? `<p class="text-[10px] text-white/70 mt-0.5">Expected ${escapeHTML(auditRoundInfo.expectedAuditDate)}</p>` : ''}
+                      </div>` : ''}
                   </div>
                   <div class="flex flex-wrap items-center gap-1.5">
                       <span class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-white/15 border border-white/25 backdrop-blur-sm" title="Risk score: ${riskProfile.score}/100 — based on repo rate, findings, efficiency, collection, sales, and service trends">
