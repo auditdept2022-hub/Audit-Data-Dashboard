@@ -2368,6 +2368,53 @@ html.page-fade-ready body {
      size themselves via padding now — no fixed pixel height needed, they
      line up naturally since they share the same py-2 padding. */
 
+  /* ---------- Header icon buttons (Refresh / Notifications / Activity log) ---------- */
+  /* Small square icon-only buttons, grouped tightly, matching the compact
+     toolbar look — flat on the header background, a soft white wash on
+     hover/active so they still read as clickable without competing with
+     the header itself. */
+  .header-icon-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.65rem;
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.85);
+    transition: background-color .15s ease, color .15s ease, transform .1s ease;
+    flex-shrink: 0;
+  }
+  .header-icon-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+  .header-icon-btn:active { background: rgba(255,255,255,0.2); transform: scale(0.96); }
+  .header-icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  /* Small dot badge (unread notifications) */
+  .header-icon-badge-dot {
+    position: absolute;
+    top: 5px; right: 5px;
+    width: 8px; height: 8px;
+    border-radius: 999px;
+    background: #fb7185;
+    border: 2px solid #0f2547;
+  }
+  /* Small count badge (unread activity log entries) */
+  .header-icon-badge-count {
+    position: absolute;
+    top: -3px; right: -3px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 3px;
+    border-radius: 999px;
+    background: #fb7185;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+    border: 2px solid #0f2547;
+  }
+
   /* ---------- "Update data" road + motorcycle loader ---------- */
   /* A little lane the bike drives across in a loop. Each lap eases in
      (slow) then accelerates (fast) toward the end, so the motion itself
@@ -4377,32 +4424,45 @@ html.page-fade-ready body {
             <div class="leading-tight">
               <h1 class="text-base sm:text-xl font-bold tracking-tight text-white whitespace-nowrap">Audit Data Dashboard</h1>
               <p class="block text-[9px] sm:text-[11px] text-white/60 font-medium tracking-wide whitespace-nowrap">Branch performance &amp; compliance monitoring</p>
+              <!-- Moved down here (out of the Update data button) so it reads
+                   as dashboard metadata under the title, not as a button label. -->
+              <p class="flex items-center gap-1 text-[9px] sm:text-[10px] text-white/40 font-medium tracking-wide whitespace-nowrap mt-0.5">
+                <span id="autoRefreshDot" class="hidden w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" title="Auto-refreshing in the background"></span>
+                <span id="lastSyncedLabel"></span>
+              </p>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="flex items-center gap-0.5 w-full lg:w-auto justify-end">
-        <button id="updateDataBtn" onclick="fetchSheet().catch(function(e){console.warn('Update data failed:', e);})" title="Refresh dashboard data" class="group flex items-center gap-2 px-2.5 sm:px-3 py-2 rounded-lg hover:bg-white/10 active:bg-white/15 cursor-pointer text-sm font-medium transition-colors duration-150 text-white/90 hover:text-white whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
-          <span id="updateDataIconWrap" class="flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-cloud-download shrink-0 transition-transform duration-500 group-active:-rotate-180"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="m8 17 4 4 4-4"></path></svg>
-            <span class="hidden sm:flex sm:flex-col sm:items-start leading-tight">
-              <span>Update data</span>
-              <span class="flex items-center gap-1 h-[11px]">
-                <span id="autoRefreshDot" class="hidden w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" title="Auto-refreshing in the background"></span>
-                <span id="lastSyncedLabel" class="text-[9px] font-medium normal-case text-white/50"></span>
-              </span>
-            </span>
+      <div class="flex items-center gap-1.5 w-full lg:w-auto justify-end">
+        <!-- Notifications: warnings / status changes worth flagging. Pulls
+             from the same activity log as the bell button below, filtered
+             to non-routine entries. -->
+        <button id="notificationsBtn" type="button" onclick="openNotificationsPanel()" title="Notifications" aria-label="Notifications" class="header-icon-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-alert-triangle shrink-0"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+          <span id="notifBadge" class="hidden header-icon-badge-dot"></span>
+        </button>
+
+        <!-- Activity log: every change detected on the dashboard, in order. -->
+        <button id="activityLogBtn" type="button" onclick="openActivityLogPanel()" title="Activity log" aria-label="Activity log" class="header-icon-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bell shrink-0"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></svg>
+          <span id="activityLogBadge" class="hidden header-icon-badge-count"></span>
+        </button>
+
+        <button id="updateDataBtn" onclick="fetchSheet().catch(function(e){console.warn('Update data failed:', e);})" title="Refresh dashboard data" aria-label="Refresh dashboard data" class="group header-icon-btn">
+          <span id="updateDataIconWrap" class="flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-refresh-cw shrink-0 transition-transform duration-500 group-active:rotate-180"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M3 21v-5h5"></path></svg>
           </span>
-          <!-- Road + motorcycle loader: swapped in for the icon/label above
-               while an "Update data" fetch is in flight. The bike drives its
-               lane on a loop that eases in (slow) and speeds up (fast) each
-               pass, so the whole thing reads as building momentum for as
-               long as the real request takes, instead of a generic spinner. -->
-          <span id="updateDataRoadLoader" class="hidden items-center gap-2" aria-hidden="true">
-            <span class="road-loader">
+          <!-- Road + motorcycle loader: swapped in for the icon above while
+               an "Update data" fetch is in flight. The bike drives its lane
+               on a loop that eases in (slow) and speeds up (fast) each pass,
+               so the whole thing reads as building momentum for as long as
+               the real request takes, instead of a generic spinner. -->
+          <span id="updateDataRoadLoader" class="hidden items-center justify-center" aria-hidden="true">
+            <span class="road-loader" style="width:26px;">
               <span class="road-loader-track"></span>
-              <svg class="road-loader-bike" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg class="road-loader-bike" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="5.5" cy="17.5" r="2.5"></circle>
                 <circle cx="18.5" cy="17.5" r="2.5"></circle>
                 <path d="M5.5 17.5 9 10h3l1.5 3"></path>
@@ -4410,7 +4470,6 @@ html.page-fade-ready body {
                 <path d="M18.5 17.5 15.5 12H12"></path>
               </svg>
             </span>
-            <span class="text-[11px] font-semibold normal-case whitespace-nowrap">Updating&hellip;</span>
           </span>
         </button>
 
@@ -5465,6 +5524,153 @@ html.page-fade-ready body {
       openModal(prev.title, prev.type, prev.filterValue, { fromBack: true });
     }
 
+    // ---------- Activity log (tracks changes detected on the dashboard) ----------
+    // Stored client-side in localStorage: every entry is { ts, message, severity }.
+    // severity 'info' = routine change, 'warning' = worth flagging (status/
+    // collection/sales/service flips, new findings). The bell button shows
+    // the full log; the triangle "Notifications" button shows only the
+    // 'warning' entries. Both share one unread count, tracked by the
+    // timestamp of the last time either panel was opened.
+    const ACTIVITY_LOG_KEY = 'ADB_ACTIVITY_LOG_V1';
+    const ACTIVITY_LOG_SEEN_KEY = 'ADB_ACTIVITY_LOG_SEEN_V1';
+    const ACTIVITY_LOG_MAX = 200;
+
+    function escapeHtml(str) {
+      return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function loadActivityLog() {
+      try {
+        const raw = localStorage.getItem(ACTIVITY_LOG_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (e) { return []; }
+    }
+
+    function saveActivityLogList(list) {
+      try { localStorage.setItem(ACTIVITY_LOG_KEY, JSON.stringify(list)); } catch (e) { /* storage unavailable — log just won't persist across reloads */ }
+    }
+
+    function logActivity(message, severity) {
+      const list = loadActivityLog();
+      list.unshift({ ts: new Date().toISOString(), message: message, severity: severity || 'info' });
+      if (list.length > ACTIVITY_LOG_MAX) list.length = ACTIVITY_LOG_MAX;
+      saveActivityLogList(list);
+      refreshActivityBadges();
+    }
+
+    function refreshActivityBadges() {
+      const list = loadActivityLog();
+      let lastSeenTs = 0;
+      try {
+        const seen = localStorage.getItem(ACTIVITY_LOG_SEEN_KEY);
+        if (seen) lastSeenTs = new Date(seen).getTime();
+      } catch (e) {}
+
+      const unread = list.filter(e => new Date(e.ts).getTime() > lastSeenTs);
+      const unreadWarnings = unread.filter(e => e.severity === 'warning');
+
+      const logBadge = document.getElementById('activityLogBadge');
+      if (logBadge) {
+        if (unread.length > 0) {
+          logBadge.textContent = unread.length > 9 ? '9+' : String(unread.length);
+          logBadge.classList.remove('hidden');
+        } else {
+          logBadge.classList.add('hidden');
+        }
+      }
+      const notifBadge = document.getElementById('notifBadge');
+      if (notifBadge) notifBadge.classList.toggle('hidden', unreadWarnings.length === 0);
+    }
+
+    function markActivityLogSeen() {
+      try { localStorage.setItem(ACTIVITY_LOG_SEEN_KEY, new Date().toISOString()); } catch (e) {}
+      refreshActivityBadges();
+    }
+
+    function activityTimeAgo(iso) {
+      const d = new Date(iso);
+      const mins = Math.round((Date.now() - d.getTime()) / 60000);
+      if (mins < 1) return 'just now';
+      if (mins < 60) return mins + 'm ago';
+      const hrs = Math.round(mins / 60);
+      if (hrs < 24) return hrs + 'h ago';
+      const days = Math.round(hrs / 24);
+      if (days < 7) return days + 'd ago';
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    }
+
+    function activitySeverityIcon(sev) {
+      if (sev === 'warning') {
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentAmber"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>';
+      }
+      return '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentCyan"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></svg>';
+    }
+
+    function renderActivityLogList(filterFn) {
+      const list = loadActivityLog();
+      const filtered = filterFn ? list.filter(filterFn) : list;
+      if (filtered.length === 0) {
+        return '<div class="text-sm text-slate-500 italic p-6 text-center bg-gray-50 rounded-xl border border-coolBorder">Nothing to show yet — changes to the dashboard will appear here.</div>';
+      }
+      return '<div class="flex flex-col gap-2">' + filtered.map(e => `
+        <div class="flex items-start gap-3 p-3 bg-white border border-coolBorder rounded-xl shadow-sm">
+          <span class="mt-0.5 flex-shrink-0">${activitySeverityIcon(e.severity)}</span>
+          <div class="min-w-0 flex-1">
+            <p class="text-sm text-slate-700">${escapeHtml(e.message)}</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">${activityTimeAgo(e.ts)}</p>
+          </div>
+        </div>
+      `).join('') + '</div>';
+    }
+
+    function openActivityLogPanel() { openModal('Activity Log', 'activityLog'); }
+    function openNotificationsPanel() { openModal('Notifications', 'notifications'); }
+
+    // Compares the branch list from before a refresh to the branch list
+    // after it, and logs one activity-log entry per meaningful change —
+    // this is what lets the Activity Log answer "what changed on the main
+    // dashboard" without anyone having to compare screenshots by hand.
+    const ACTIVITY_DIFF_FIELDS = [
+      { key: 'auditStatus', label: 'audit status', severity: 'warning' },
+      { key: 'collection', label: 'collection status', severity: 'warning' },
+      { key: 'sales', label: 'sales status', severity: 'warning' },
+      { key: 'service', label: 'service status', severity: 'warning' },
+      { key: 'auditor', label: 'assigned auditor', severity: 'info' },
+      { key: 'expectedAuditDateInput', label: 'expected audit date', severity: 'info' }
+    ];
+
+    function logDashboardChanges(prevBranches, nextBranches) {
+      try {
+        if (!Array.isArray(prevBranches) || prevBranches.length === 0) return; // nothing to compare on first load
+        const prevMap = {};
+        prevBranches.forEach(b => { if (b && b.name) prevMap[b.name] = b; });
+
+        (nextBranches || []).forEach(nb => {
+          if (!nb || !nb.name) return;
+          const pb = prevMap[nb.name];
+          if (!pb) { logActivity(nb.name + ' was added to the dashboard.', 'info'); return; }
+
+          ACTIVITY_DIFF_FIELDS.forEach(f => {
+            const before = pb[f.key];
+            const after = nb[f.key];
+            const bothEmpty = (before == null || before === '') && (after == null || after === '');
+            if (before !== after && !bothEmpty) {
+              logActivity(nb.name + ': ' + f.label + ' changed from "' + (before || '—') + '" to "' + (after || '—') + '".', f.severity);
+            }
+          });
+
+          const beforeFindings = pb.findings2026 || 0;
+          const afterFindings = nb.findings2026 || 0;
+          if (afterFindings > beforeFindings) {
+            logActivity(nb.name + ': ' + (afterFindings - beforeFindings) + ' new finding(s) recorded.', 'warning');
+          }
+        });
+      } catch (e) { console.warn('logDashboardChanges failed:', e); }
+    }
+
     function openModal(title, type, filterValue, navOpts) {
       navOpts = navOpts || {};
       const modalEl = document.getElementById('dataModal');
@@ -5545,6 +5751,22 @@ html.page-fade-ready body {
                   ${branchesHtml}
               </div>
           </div>`;
+      } else if (type === 'activityLog') {
+          markActivityLogSeen();
+          modalBody.innerHTML = `
+          <div class="p-5 bg-accentCyan/10 border border-accentCyan/20 rounded-xl mb-4">
+            <h3 class="font-bold text-lg text-accentCyan mb-1">Activity Log</h3>
+            <p class="text-sm text-slate-700">Every change detected on the main dashboard, most recent first.</p>
+          </div>
+          ${renderActivityLogList(null)}`;
+      } else if (type === 'notifications') {
+          markActivityLogSeen();
+          modalBody.innerHTML = `
+          <div class="p-5 bg-accentAmber/10 border border-accentAmber/20 rounded-xl mb-4">
+            <h3 class="font-bold text-lg text-accentAmber mb-1">Notifications</h3>
+            <p class="text-sm text-slate-700">Status, collection, sales, and service changes that may need attention.</p>
+          </div>
+          ${renderActivityLogList(e => e.severity === 'warning')}`;
       } else if (type === 'emergency') {
           let historyHtml = '';
           if (activeData.emergencyHistory && activeData.emergencyHistory.length > 0) {
@@ -5948,6 +6170,7 @@ html.page-fade-ready body {
       try {
           await saveAuditorAssignmentRemote(branchName, fields);
           showToast('Assignment saved.');
+          logActivity('Assignment manually updated for ' + branchName + '.', 'info');
           // Pull the just-saved values back in so the dashboard reflects the
           // change immediately, without waiting on a full server refresh.
           const b = (activeData.branches || []).find(x => x.name === branchName);
@@ -11010,8 +11233,13 @@ html.page-fade-ready body {
             // animation) — a quick "boom" pulse on the dashboard sells the
             // reveal right as the fresh numbers land, in sync with wherever
             // the walk -> motorcycle -> ride-off overlay happened to be.
+            // Snapshot the branch list as it stood right before this refresh
+            // so it can be diffed against the freshly-parsed data below —
+            // this is what powers the Activity Log / Notifications panels.
+            const __prevBranchesSnapshot = JSON.parse(JSON.stringify(activeData.branches || []));
             settleRide(function() {
               processExcelData(workbook);
+              logDashboardChanges(__prevBranchesSnapshot, activeData.branches);
               updateLastSyncedLabel();
               triggerDataBoomReveal();
             });
@@ -11247,6 +11475,11 @@ html.page-fade-ready body {
     };
 
     document.addEventListener("DOMContentLoaded", () => {
+      // Reflect whatever activity log entries already exist from a previous
+      // session (localStorage persists across reloads) as soon as the
+      // header buttons exist.
+      if (typeof refreshActivityBadges === 'function') refreshActivityBadges();
+
       // NOTE: dashboard data is intentionally NOT loaded here. It's loaded
       // by window.loadInitialDashboardData(), called only after Firebase
       // confirms a signed-in user (see the auth logic further down). This
