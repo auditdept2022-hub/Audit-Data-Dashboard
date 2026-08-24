@@ -5462,6 +5462,25 @@ html.page-fade-ready body {
       } else if (type === 'auditSchedule') {
           modalBody.classList.add('audit-schedule-mode');
           renderAuditScheduleModal(modalBody);
+          // On phones, open this popup straight into fullscreen (there's no
+          // room for a small windowed card once the toolbar has search +
+          // auditor + date + sort controls on it). Desktop keeps its normal
+          // windowed popup and only goes fullscreen if the user clicks the
+          // fullscreen button themselves — unaffected by this.
+          if (!navOpts.fromBack && window.innerWidth < 640) {
+              requestAnimationFrame(function () {
+                  const dialog = document.getElementById('modalDialog');
+                  const expandIcon = document.getElementById('modalFullscreenIconExpand');
+                  const collapseIcon = document.getElementById('modalFullscreenIconCollapse');
+                  const btn = document.getElementById('modalFullscreenBtn');
+                  if (dialog && !dialog.classList.contains('modal-fullscreen')) {
+                      dialog.classList.add('modal-fullscreen');
+                      if (expandIcon) expandIcon.classList.add('hidden');
+                      if (collapseIcon) collapseIcon.classList.remove('hidden');
+                      if (btn) { btn.title = 'Exit fullscreen'; btn.setAttribute('aria-label', 'Exit fullscreen'); }
+                  }
+              });
+          }
       } else if (type === 'assignment') {
           if (!window.assignmentFilterState) window.assignmentFilterState = defaultAssignmentFilterState();
           renderAssignmentModalView();
@@ -6011,6 +6030,7 @@ html.page-fade-ready body {
     function openBranchAuditScheduleModal() {
       window.auditScheduleFilterRange = { start: '', end: '' };
       window.auditScheduleSearchQuery = '';
+      window.auditScheduleAuditorFilter = '';
       window.auditScheduleSortOption = 'name-asc';
       openModal('Branch Audit Interval — Full Schedule', 'auditSchedule', null);
     }
@@ -6100,6 +6120,16 @@ html.page-fade-ready body {
       if (modalBody) renderAuditScheduleModal(modalBody);
     }
 
+    // Auditor dropdown filter for the same modal — matches any branch that
+    // has at least one recorded round assigned to the selected auditor
+    // (exact match against the round's auditor name, case-insensitive).
+    // Sits right at the edge of the search bar in the toolbar.
+    function setAuditScheduleAuditorFilter(value) {
+      window.auditScheduleAuditorFilter = value || '';
+      const modalBody = document.getElementById('modalBody');
+      if (modalBody) renderAuditScheduleModal(modalBody);
+    }
+
     // Free-text branch name filter for the same modal — kept as a simple
     // substring match (case-insensitive) so it's forgiving of partial names.
     function setAuditScheduleSearchQuery(value) {
@@ -6118,6 +6148,7 @@ html.page-fade-ready body {
     function clearAuditScheduleFilterRange() {
       window.auditScheduleFilterRange = { start: '', end: '' };
       window.auditScheduleSearchQuery = '';
+      window.auditScheduleAuditorFilter = '';
       const modalBody = document.getElementById('modalBody');
       if (modalBody) renderAuditScheduleModal(modalBody);
     }
@@ -6155,12 +6186,26 @@ html.page-fade-ready body {
       const startMs = range.start ? new Date(range.start + 'T00:00:00').getTime() : null;
       const endMs = range.end ? new Date(range.end + 'T23:59:59').getTime() : null;
       const searchQuery = (window.auditScheduleSearchQuery || '').trim().toLowerCase();
+      const auditorFilter = (window.auditScheduleAuditorFilter || '').trim();
+
+      // Distinct auditor names across every recorded round, for the
+      // auditor filter dropdown. Sorted alphabetically; blank/unassigned
+      // rounds are excluded from the list itself but still show up as
+      // "Unassigned" cards when no auditor filter is active.
+      const auditorNameSet = new Set();
+      allBranchNames.forEach(n => (schedule[n].rounds || []).forEach(r => {
+          const name = (r.auditor || '').trim();
+          if (name) auditorNameSet.add(name);
+      }));
+      const auditorNames = Array.from(auditorNameSet).sort((a, b) => a.localeCompare(b));
 
       let branchNames = allBranchNames.filter(branchName => {
           if (searchQuery && !branchName.toLowerCase().includes(searchQuery)) return false;
+          const rounds = (schedule[branchName].rounds || []);
+          if (auditorFilter && !rounds.some(r => (r.auditor || '').trim().toLowerCase() === auditorFilter.toLowerCase())) return false;
           if (startMs === null && endMs === null) return true;
-          const rounds = (schedule[branchName].rounds || []).filter(r => r.dateRaw);
-          return rounds.some(r => {
+          const datedRounds = rounds.filter(r => r.dateRaw);
+          return datedRounds.some(r => {
               if (startMs !== null && r.dateRaw < startMs) return false;
               if (endMs !== null && r.dateRaw > endMs) return false;
               return true;
@@ -6180,7 +6225,7 @@ html.page-fade-ready body {
       }));
       const avgInterval = allIntervals.length ? Math.round(allIntervals.reduce((a, b) => a + b, 0) / allIntervals.length) : null;
 
-      const isFiltered = !!(range.start || range.end || searchQuery);
+      const isFiltered = !!(range.start || range.end || searchQuery || auditorFilter);
 
       const statPill = (label, value, colorClass) => `
           <div class="flex-1 min-w-[100px] bg-white border border-coolBorder rounded-lg px-3 py-1.5 shadow-sm">
@@ -6198,13 +6243,21 @@ html.page-fade-ready body {
       const toolbarHtml = `
           <div class="sticky top-0 z-10 bg-white/95 backdrop-blur-sm pb-2 mb-1.5 border-b border-coolBorder">
               <div class="flex flex-wrap items-end gap-2">
-                  <div class="flex-1 min-w-[160px]">
+                  <div class="flex-1 min-w-[90px] max-w-[220px]">
                       <div class="relative">
                           <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
                           <input id="auditScheduleSearchInput" type="text" placeholder="Search branch…" value="${escapeHTML(window.auditScheduleSearchQuery || '')}"
                                  oninput="setAuditScheduleSearchQuery(this.value)"
                                  class="w-full pl-7 pr-2 py-1.5 bg-gray-50 border border-coolBorder rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-accentIndigo/40 focus:border-accentIndigo">
                       </div>
+                  </div>
+                  <div class="relative flex-shrink-0 min-w-[92px] max-w-[150px]">
+                      <select id="auditScheduleAuditorSelect" onchange="setAuditScheduleAuditorFilter(this.value)" title="Filter by auditor"
+                              class="w-full appearance-none pl-2.5 pr-6 py-1.5 bg-gray-50 border border-coolBorder rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-accentIndigo/40 focus:border-accentIndigo cursor-pointer truncate">
+                          <option value="">All Auditors</option>
+                          ${auditorNames.map(name => `<option value="${escapeHTML(name)}" ${name === auditorFilter ? 'selected' : ''}>${escapeHTML(name)}</option>`).join('')}
+                      </select>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"><path d="m6 9 6 6 6-6"></path></svg>
                   </div>
                   <input type="date" value="${range.start || ''}" onchange="setAuditScheduleFilterRange('start', this.value)" title="From"
                          class="px-2 py-1.5 bg-gray-50 border border-coolBorder rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-accentIndigo/40 focus:border-accentIndigo">
