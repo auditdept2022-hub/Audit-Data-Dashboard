@@ -207,12 +207,12 @@
     max-height: calc(100dvh - 230px) !important;
   }
     #modalBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
-    /* Branch Audit Interval modal: previously had its own fixed-height
-       flex layout (only the cards grid scrolled, toolbar/stats stayed
-       pinned). Now the stack card + search/filter sit at the top and
-       the whole #modalBody scrolls normally, same as every other
-       modal, so no special layout is needed here anymore. */
-    #auditScheduleWrap { display: flex; flex-direction: column; }
+    /* Branch Audit Interval modal: the outer #modalBody must NOT scroll
+       itself here — the stack card + search/filter bar stay locked in
+       place at the top, and only the branch cards grid below scrolls. */
+    #modalBody.audit-schedule-mode { overflow: hidden !important; display: flex; flex-direction: column; }
+    #auditScheduleWrap { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+    #auditScheduleCards { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 
     /* On phones, EVERY data popup (#modalDialog) is ALWAYS edge-to-edge
        full-screen — enforced purely in CSS (not via a JS class toggle
@@ -5476,6 +5476,10 @@ html.page-fade-ready body {
       modalTitle.innerHTML = title;
       modalTitle.title = modalTitle.textContent;
       modalBody.innerHTML = ''; 
+      // Only the Branch Audit Interval modal uses the fixed-top /
+      // scrolling-cards-only layout; every other modal keeps the normal
+      // whole-body scroll, so make sure this doesn't leak between opens.
+      modalBody.classList.remove('audit-schedule-mode');
       // Default the header Edit button off; the 'all' branches-overview
       // path (renderModalFilteredView, below) turns it back on for its
       // own list right after this.
@@ -5489,6 +5493,7 @@ html.page-fade-ready body {
           // point it at this specific branch so it's consistent everywhere.
           updateModalEditAssignButton([filterValue]);
       } else if (type === 'auditSchedule') {
+          modalBody.classList.add('audit-schedule-mode');
           renderAuditScheduleModal(modalBody);
       } else if (type === 'assignment') {
           if (!window.assignmentFilterState) window.assignmentFilterState = defaultAssignmentFilterState();
@@ -6282,7 +6287,6 @@ html.page-fade-ready body {
       // actually display), not every round on the matching branches.
       const totalAuditsAll = allBranchNames.reduce((sum, n) => sum + ((schedule[n].rounds || []).length), 0);
       const roundMatchesAuditorFilter = r => !auditorFilter || (r.auditor || '').trim().toLowerCase() === auditorFilter.toLowerCase();
-      const totalAuditsFiltered = branchNames.reduce((sum, n) => sum + ((schedule[n].rounds || []).filter(roundMatchesAuditorFilter).length), 0);
       const allIntervals = [];
       branchNames.forEach(n => (schedule[n].rounds || []).forEach(r => {
           if (roundMatchesAuditorFilter(r) && r.intervalDays !== null && r.intervalDays !== undefined) allIntervals.push(r.intervalDays);
@@ -6336,14 +6340,14 @@ html.page-fade-ready body {
 
       const statsHtml = `
           <div class="flex items-stretch gap-2 overflow-x-auto -mx-1 px-1 py-0.5 mb-2">
-              ${statBox(isFiltered ? `${branchNames.length}<span class="text-[11px] font-semibold opacity-60">/${allBranchNames.length}</span>` : allBranchNames.length, 'Branches', { highlighted: true })}
-              ${statBox(isFiltered ? `${totalAuditsFiltered}<span class="text-[11px] font-semibold opacity-60">/${totalAuditsAll}</span>` : totalAuditsAll, 'Audit Cycles', { tint: 'accentBlue' })}
-              ${statBox(avgInterval !== null ? avgInterval + '<span class="text-[11px] font-semibold opacity-60"> days</span>' : '—', 'Avg. Interval', { tint: 'accentEmerald' })}
+              ${statBox(allBranchNames.length, 'Total Branches', { highlighted: true })}
+              ${statBox(totalAuditsAll, 'Overall Cycle', { tint: 'accentBlue' })}
               ${statBox(`${roundDoneCounts[1]}<span class="text-[11px] font-semibold opacity-60">/${allBranchNames.length}</span>`, 'Cycle 1 Done', { tint: 'accentIndigo', filterValue: 'round1' })}
               ${statBox(`${roundDoneCounts[2]}<span class="text-[11px] font-semibold opacity-60">/${allBranchNames.length}</span>`, 'Cycle 2 Done', { tint: 'accentBlue', filterValue: 'round2' })}
               ${statBox(awaitingRound2, 'Awaiting Cycle 2', { tint: 'accentRose', filterValue: 'awaiting2' })}
               ${roundDoneCounts[3] > 0 ? statBox(`${roundDoneCounts[3]}<span class="text-[11px] font-semibold opacity-60">/${allBranchNames.length}</span>`, 'Cycle 3 Done', { tint: 'accentEmerald', filterValue: 'round3' }) : ''}
               ${roundDoneCounts[4] > 0 ? statBox(`${roundDoneCounts[4]}<span class="text-[11px] font-semibold opacity-60">/${allBranchNames.length}</span>`, 'Cycle 4 Done', { tint: 'accentEmerald', filterValue: 'round4' }) : ''}
+              ${statBox(avgInterval !== null ? avgInterval + '<span class="text-[11px] font-semibold opacity-60"> days</span>' : '—', 'Avg. Interval', { tint: 'accentEmerald' })}
           </div>
           ${roundFilter ? `<div class="mb-2 -mt-1"><button onclick="setAuditScheduleRoundFilter('${roundFilter}')" class="text-[10px] font-bold text-accentIndigo hover:underline">Showing: ${roundFilter === 'awaiting2' ? 'Awaiting Cycle 2' : 'Cycle ' + roundFilter.replace('round','') + ' Done'} — click to clear</button></div>` : ''}`;
 
@@ -6394,7 +6398,13 @@ html.page-fade-ready body {
           // When an auditor filter is active, only show that auditor's own
           // rounds on the card (not every auditor who's ever audited this
           // branch) — matching "show my name only" instead of everyone's.
-          const rounds = (entry.rounds || []).filter(roundMatchesAuditorFilter);
+          // Likewise, when a specific Cycle N filter is active (clicked
+          // from the "Cycle N Done" stack card), only show that round —
+          // not every round the branch has ever had.
+          const roundNumberFilter = (roundFilter && roundFilter !== 'awaiting2') ? Number(roundFilter.replace('round', '')) : null;
+          const rounds = (entry.rounds || [])
+              .filter(roundMatchesAuditorFilter)
+              .filter(r => roundNumberFilter === null || r.round === roundNumberFilter);
 
           const roundsHtml = rounds.map((rnd, rIdx) => {
               const palette = AUDIT_ROUND_COLORS[(rnd.round - 1) % AUDIT_ROUND_COLORS.length] || AUDIT_ROUND_COLORS[0];
@@ -6432,10 +6442,10 @@ html.page-fade-ready body {
       }).join('');
 
       modalBody.innerHTML = `
-          <div class="flex flex-col" id="auditScheduleWrap">
+          <div class="flex flex-col h-full" id="auditScheduleWrap">
               ${statsHtml}
               ${toolbarHtml}
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pr-1" id="auditScheduleCards">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pr-1 flex-1 min-h-0 overflow-y-auto custom-scrollbar" id="auditScheduleCards">
                   ${cardsHtml}
               </div>
           </div>
