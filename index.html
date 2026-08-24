@@ -6263,7 +6263,7 @@ html.page-fade-ready body {
           if (searchQuery && !branchName.toLowerCase().includes(searchQuery)) return false;
           const rounds = (schedule[branchName].rounds || []);
           if (auditorFilter && !rounds.some(r => (r.auditor || '').trim().toLowerCase() === auditorFilter.toLowerCase())) return false;
-          if (roundFilter) {
+          if (roundFilter && roundFilter !== 'all') {
               const roundsSet = new Set(rounds.map(r => r.round));
               if (roundFilter === 'awaiting2' && roundsSet.has(2)) return false;
               if (roundFilter !== 'awaiting2' && !roundsSet.has(Number(roundFilter.replace('round', '')))) return false;
@@ -6341,7 +6341,7 @@ html.page-fade-ready body {
       const statsHtml = `
           <div class="flex flex-wrap items-stretch gap-2 -mx-1 px-1 py-0.5 mb-2">
               ${statBox(allBranchNames.length, 'Total Branches', { highlighted: true })}
-              ${statBox(totalAuditsAll, 'Overall Cycle', { tint: 'accentBlue' })}
+              ${statBox(totalAuditsAll, 'Overall Cycle', { tint: 'accentBlue', filterValue: 'all' })}
               ${statBox(`${roundDoneCounts[1]}<span class="text-[11px] font-semibold opacity-60">/${allBranchNames.length}</span>`, 'Cycle 1 Done', { tint: 'accentIndigo', filterValue: 'round1' })}
               ${statBox(`${roundDoneCounts[2]}<span class="text-[11px] font-semibold opacity-60">/${allBranchNames.length}</span>`, 'Cycle 2 Done', { tint: 'accentBlue', filterValue: 'round2' })}
               ${statBox(awaitingRound2, 'Awaiting Cycle 2', { tint: 'accentRose', filterValue: 'awaiting2' })}
@@ -6349,7 +6349,7 @@ html.page-fade-ready body {
               ${roundDoneCounts[4] > 0 ? statBox(`${roundDoneCounts[4]}<span class="text-[11px] font-semibold opacity-60">/${allBranchNames.length}</span>`, 'Cycle 4 Done', { tint: 'accentEmerald', filterValue: 'round4' }) : ''}
               ${statBox(avgInterval !== null ? avgInterval + '<span class="text-[11px] font-semibold opacity-60"> days</span>' : '—', 'Avg. Interval', { tint: 'accentEmerald' })}
           </div>
-          ${roundFilter ? `<div class="mb-2 -mt-1"><button onclick="setAuditScheduleRoundFilter('${roundFilter}')" class="text-[10px] font-bold text-accentIndigo hover:underline">Showing: ${roundFilter === 'awaiting2' ? 'Awaiting Cycle 2' : 'Cycle ' + roundFilter.replace('round','') + ' Done'} — click to clear</button></div>` : ''}`;
+          ${roundFilter ? `<div class="mb-2 -mt-1"><button onclick="setAuditScheduleRoundFilter('${roundFilter}')" class="text-[10px] font-bold text-accentIndigo hover:underline">Showing: ${roundFilter === 'awaiting2' ? 'Awaiting Cycle 2' : roundFilter === 'all' ? 'All Branches — Every Cycle' : 'Cycle ' + roundFilter.replace('round','') + ' Done'} — click to clear</button></div>` : ''}`;
 
       const toolbarHtml = `
           <div class="pb-2 mb-1.5 border-b border-coolBorder">
@@ -6401,7 +6401,7 @@ html.page-fade-ready body {
           // Likewise, when a specific Cycle N filter is active (clicked
           // from the "Cycle N Done" stack card), only show that round —
           // not every round the branch has ever had.
-          const roundNumberFilter = (roundFilter && roundFilter !== 'awaiting2') ? Number(roundFilter.replace('round', '')) : null;
+          const roundNumberFilter = (roundFilter && roundFilter !== 'awaiting2' && roundFilter !== 'all') ? Number(roundFilter.replace('round', '')) : null;
           const rounds = (entry.rounds || [])
               .filter(roundMatchesAuditorFilter)
               .filter(r => roundNumberFilter === null || r.round === roundNumberFilter);
