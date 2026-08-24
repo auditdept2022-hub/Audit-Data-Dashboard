@@ -6290,6 +6290,19 @@ html.page-fade-ready body {
 
       const isFiltered = !!(range.start || range.end || searchQuery || auditorFilter);
 
+      // Per-round completion counts — how many branches have a recorded
+      // round 1 / round 2 / round 3 / round 4, so it's clear at a glance
+      // how far the rotation has progressed. "Awaiting Round 2" is the
+      // complement of the round-2 count: branches that have only had
+      // their first round so far. Always computed off the full dataset
+      // (not the current filter) since this is an overall progress read.
+      const roundDoneCounts = { 1: 0, 2: 0, 3: 0, 4: 0 };
+      allBranchNames.forEach(n => {
+          const roundsSet = new Set((schedule[n].rounds || []).map(r => r.round));
+          [1, 2, 3, 4].forEach(rn => { if (roundsSet.has(rn)) roundDoneCounts[rn]++; });
+      });
+      const awaitingRound2 = allBranchNames.length - roundDoneCounts[2];
+
       const statPill = (label, value, colorClass) => `
           <div class="flex-1 min-w-[100px] bg-white border border-coolBorder rounded-lg px-3 py-1.5 shadow-sm">
               <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-0.5">${label}</p>
@@ -6301,6 +6314,13 @@ html.page-fade-ready body {
               ${statPill('Branches', isFiltered ? `${branchNames.length}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>` : allBranchNames.length, 'text-accentIndigo')}
               ${statPill('Audit Rounds', isFiltered ? `${totalAuditsFiltered}<span class="text-[11px] text-slate-400 font-semibold">/${totalAuditsAll}</span>` : totalAuditsAll, 'text-accentBlue')}
               ${statPill('Avg. Interval', avgInterval !== null ? avgInterval + '<span class="text-[11px] text-slate-400 font-semibold"> days</span>' : '—', 'text-accentEmerald')}
+          </div>
+          <div class="flex flex-wrap gap-2 mb-2">
+              ${statPill('Round 1 Done', `${roundDoneCounts[1]}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>`, 'text-accentIndigo')}
+              ${statPill('Round 2 Done', `${roundDoneCounts[2]}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>`, 'text-accentBlue')}
+              ${statPill('Awaiting Round 2', awaitingRound2, 'text-accentRose')}
+              ${roundDoneCounts[3] > 0 ? statPill('Round 3 Done', `${roundDoneCounts[3]}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>`, 'text-accentEmerald') : ''}
+              ${roundDoneCounts[4] > 0 ? statPill('Round 4 Done', `${roundDoneCounts[4]}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>`, 'text-accentEmerald') : ''}
           </div>`;
 
       const toolbarHtml = `
