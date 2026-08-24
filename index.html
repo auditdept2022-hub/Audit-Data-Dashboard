@@ -5462,25 +5462,6 @@ html.page-fade-ready body {
       } else if (type === 'auditSchedule') {
           modalBody.classList.add('audit-schedule-mode');
           renderAuditScheduleModal(modalBody);
-          // On phones, open this popup straight into fullscreen (there's no
-          // room for a small windowed card once the toolbar has search +
-          // auditor + date + sort controls on it). Desktop keeps its normal
-          // windowed popup and only goes fullscreen if the user clicks the
-          // fullscreen button themselves — unaffected by this.
-          if (!navOpts.fromBack && window.innerWidth < 640) {
-              requestAnimationFrame(function () {
-                  const dialog = document.getElementById('modalDialog');
-                  const expandIcon = document.getElementById('modalFullscreenIconExpand');
-                  const collapseIcon = document.getElementById('modalFullscreenIconCollapse');
-                  const btn = document.getElementById('modalFullscreenBtn');
-                  if (dialog && !dialog.classList.contains('modal-fullscreen')) {
-                      dialog.classList.add('modal-fullscreen');
-                      if (expandIcon) expandIcon.classList.add('hidden');
-                      if (collapseIcon) collapseIcon.classList.remove('hidden');
-                      if (btn) { btn.title = 'Exit fullscreen'; btn.setAttribute('aria-label', 'Exit fullscreen'); }
-                  }
-              });
-          }
       } else if (type === 'assignment') {
           if (!window.assignmentFilterState) window.assignmentFilterState = defaultAssignmentFilterState();
           renderAssignmentModalView();
@@ -5580,6 +5561,23 @@ html.page-fade-ready body {
       const modal = document.getElementById('dataModal');
       const modalDialog = document.getElementById('modalDialog');
       modal.classList.remove('hidden');
+      // On phones, the Branch Audit Interval popup opens straight into
+      // fullscreen — there's no room for a small windowed card once the
+      // toolbar has search + auditor + date + sort controls on it. Applied
+      // synchronously, before the fade/scale-in transition below starts, so
+      // the dialog is already sized full-screen for that very first frame
+      // instead of momentarily appearing as a small card and then jumping.
+      // Desktop is completely unaffected — it keeps the normal windowed
+      // popup and only goes fullscreen if the fullscreen button is clicked.
+      if (type === 'auditSchedule' && !navOpts.fromBack && window.innerWidth < 640 && !modalDialog.classList.contains('modal-fullscreen')) {
+          modalDialog.classList.add('modal-fullscreen');
+          const expandIcon = document.getElementById('modalFullscreenIconExpand');
+          const collapseIcon = document.getElementById('modalFullscreenIconCollapse');
+          const fsBtn = document.getElementById('modalFullscreenBtn');
+          if (expandIcon) expandIcon.classList.add('hidden');
+          if (collapseIcon) collapseIcon.classList.remove('hidden');
+          if (fsBtn) { fsBtn.title = 'Exit fullscreen'; fsBtn.setAttribute('aria-label', 'Exit fullscreen'); }
+      }
       // Freeze the dashboard behind the popup — without this, scrolling
       // while the modal is open also scrolled the underlying dashboard,
       // which felt broken since the two would drift out of sync.
@@ -6217,11 +6215,15 @@ html.page-fade-ready body {
 
       // Header summary stats — total branches/audits in view + average
       // interval — give an at-a-glance read before scanning individual rows.
+      // When an auditor filter is active, "audits" and "avg interval" only
+      // count that auditor's own rounds (matching what the cards below
+      // actually display), not every round on the matching branches.
       const totalAuditsAll = allBranchNames.reduce((sum, n) => sum + ((schedule[n].rounds || []).length), 0);
-      const totalAuditsFiltered = branchNames.reduce((sum, n) => sum + ((schedule[n].rounds || []).length), 0);
+      const roundMatchesAuditorFilter = r => !auditorFilter || (r.auditor || '').trim().toLowerCase() === auditorFilter.toLowerCase();
+      const totalAuditsFiltered = branchNames.reduce((sum, n) => sum + ((schedule[n].rounds || []).filter(roundMatchesAuditorFilter).length), 0);
       const allIntervals = [];
       branchNames.forEach(n => (schedule[n].rounds || []).forEach(r => {
-          if (r.intervalDays !== null && r.intervalDays !== undefined) allIntervals.push(r.intervalDays);
+          if (roundMatchesAuditorFilter(r) && r.intervalDays !== null && r.intervalDays !== undefined) allIntervals.push(r.intervalDays);
       }));
       const avgInterval = allIntervals.length ? Math.round(allIntervals.reduce((a, b) => a + b, 0) / allIntervals.length) : null;
 
@@ -6281,7 +6283,10 @@ html.page-fade-ready body {
 
       const cardsHtml = branchNames.map((branchName, idx) => {
           const entry = schedule[branchName];
-          const rounds = entry.rounds || [];
+          // When an auditor filter is active, only show that auditor's own
+          // rounds on the card (not every auditor who's ever audited this
+          // branch) — matching "show my name only" instead of everyone's.
+          const rounds = (entry.rounds || []).filter(roundMatchesAuditorFilter);
 
           const roundsHtml = rounds.map((rnd, rIdx) => {
               const palette = AUDIT_ROUND_COLORS[(rnd.round - 1) % AUDIT_ROUND_COLORS.length] || AUDIT_ROUND_COLORS[0];
@@ -6311,7 +6316,7 @@ html.page-fade-ready body {
                       <span class="flex-shrink-0 text-[10px] font-bold bg-accentIndigo/10 text-accentIndigo rounded-full px-2 py-0.5">${rounds.length}</span>
                   </div>
                   <div class="flex flex-wrap items-center gap-1">
-                      ${roundsHtml || '<span class="text-[11px] text-slate-400 italic">No rounds recorded.</span>'}
+                      ${roundsHtml || `<span class="text-[11px] text-slate-400 italic">${auditorFilter ? 'No rounds for ' + escapeHTML(auditorFilter) + '.' : 'No rounds recorded.'}</span>`}
                   </div>
                   ${entry.note ? `<p class="text-[10px] text-slate-400 italic mt-1 truncate">Note: ${escapeHTML(entry.note)}</p>` : ''}
               </div>
