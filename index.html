@@ -6322,40 +6322,46 @@ html.page-fade-ready body {
       });
       const awaitingRound2 = allBranchNames.length - roundDoneCounts[2];
 
-      const statPill = (label, value, colorClass) => `
-          <div class="flex-1 min-w-[100px] bg-white border border-coolBorder rounded-lg px-3 py-1.5 shadow-sm">
-              <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-0.5">${label}</p>
-              <p class="text-base font-extrabold tracking-tight leading-none ${colorClass}">${value}</p>
-          </div>`;
-
-      // Small "stack card" style boxes — same look as the statPill cards
-      // above (white bg, border, rounded, label-over-value), just shrunk
-      // down and kept shrink-0 inside a horizontally-scrolling row so the
-      // whole group always stays on ONE line, however many cycles exist,
-      // instead of wrapping like statPill does. Ring/tint on the active
-      // box still marks whichever filter is currently applied.
-      const cyclePill = (label, value, colorClass, bgClass, filterValue) => {
-          const active = roundFilter === filterValue;
+      // Redesigned as one unified row of small "stack cards" — matching
+      // the reference look exactly: a bordered/highlighted first box
+      // (like Total Branches) followed by soft-tinted colour boxes, each
+      // with a big centered number on top and an uppercase label below.
+      // Everything (branch/cycle/interval stats AND the per-round done
+      // counts) lives in ONE flex row now instead of two separate rows,
+      // and it's forced to stay on exactly one line: shrink-0 boxes in a
+      // non-wrapping flex container that scrolls horizontally as the
+      // fallback on narrow screens instead of ever wrapping.
+      const statBox = (value, label, opts = {}) => {
+          const { tint, ring, filterValue, highlighted } = opts;
+          const clickable = !!filterValue;
+          const active = clickable && roundFilter === filterValue;
+          const base = highlighted
+              ? 'bg-slate-50 border-2 border-slate-300'
+              : tint
+                  ? `bg-${tint}/10 border border-${tint}/20`
+                  : 'bg-slate-50 border border-coolBorder';
+          const textColor = tint ? `text-${tint}` : 'text-slate-800';
+          const activeRing = active ? `ring-2 ring-offset-1 ring-${ring || tint}` : '';
+          const tag = clickable ? 'button' : 'div';
+          const clickAttr = clickable ? `type="button" onclick="setAuditScheduleRoundFilter('${filterValue}')" title="Show only these branches"` : '';
           return `
-          <button type="button" onclick="setAuditScheduleRoundFilter('${filterValue}')" title="Show only these branches"
-              class="shrink-0 flex flex-col items-start gap-0 bg-white border border-coolBorder rounded-lg px-2 py-1 shadow-sm transition-colors cursor-pointer ${active ? `${bgClass} ring-1 ring-inset ${colorClass.replace('text-', 'ring-')}/40` : 'hover:bg-slate-50'}">
-              <span class="text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none whitespace-nowrap">${label}</span>
-              <span class="text-xs font-extrabold leading-none whitespace-nowrap mt-0.5 ${colorClass}">${value}</span>
-          </button>`;
+          <${tag} ${clickAttr}
+              class="shrink-0 min-w-[84px] px-2.5 py-2 rounded-2xl text-center transition-all ${clickable ? 'active:scale-95 cursor-pointer' : ''} ${base} ${activeRing}">
+              <div class="text-lg font-extrabold leading-none whitespace-nowrap ${textColor}">${value}</div>
+              <div class="text-[9px] font-bold ${tint ? `text-${tint}/80` : 'text-slate-500'} uppercase tracking-wider leading-none whitespace-nowrap mt-1.5">${label}</div>
+          </${tag}>`;
       };
 
       const statsHtml = `
-          <div class="flex flex-wrap gap-2 mb-2">
-              ${statPill('Branches', isFiltered ? `${branchNames.length}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>` : allBranchNames.length, 'text-accentIndigo')}
-              ${statPill('Audit Cycles', isFiltered ? `${totalAuditsFiltered}<span class="text-[11px] text-slate-400 font-semibold">/${totalAuditsAll}</span>` : totalAuditsAll, 'text-accentBlue')}
-              ${statPill('Avg. Interval', avgInterval !== null ? avgInterval + '<span class="text-[11px] text-slate-400 font-semibold"> days</span>' : '—', 'text-accentEmerald')}
-          </div>
-          <div class="flex items-center gap-1.5 overflow-x-auto -mx-1 px-1 py-0.5 mb-2">
-              ${cyclePill('Cycle 1 Done', `${roundDoneCounts[1]}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>`, 'text-accentIndigo', 'bg-accentIndigo/10', 'round1')}
-              ${cyclePill('Cycle 2 Done', `${roundDoneCounts[2]}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>`, 'text-accentBlue', 'bg-accentBlue/10', 'round2')}
-              ${cyclePill('Awaiting Cycle 2', awaitingRound2, 'text-accentRose', 'bg-accentRose/10', 'awaiting2')}
-              ${roundDoneCounts[3] > 0 ? cyclePill('Cycle 3 Done', `${roundDoneCounts[3]}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>`, 'text-accentEmerald', 'bg-accentEmerald/10', 'round3') : ''}
-              ${roundDoneCounts[4] > 0 ? cyclePill('Cycle 4 Done', `${roundDoneCounts[4]}<span class="text-[11px] text-slate-400 font-semibold">/${allBranchNames.length}</span>`, 'text-accentEmerald', 'bg-accentEmerald/10', 'round4') : ''}
+          <div class="flex items-stretch gap-2 overflow-x-auto -mx-1 px-1 py-0.5 mb-2">
+              ${statBox(isFiltered ? `${branchNames.length}<span class="text-[11px] font-semibold opacity-60">/${allBranchNames.length}</span>` : allBranchNames.length, 'Branches', { highlighted: true })}
+              ${statBox(isFiltered ? `${totalAuditsFiltered}<span class="text-[11px] font-semibold opacity-60">/${totalAuditsAll}</span>` : totalAuditsAll, 'Audit Cycles', { tint: 'accentBlue' })}
+              ${statBox(avgInterval !== null ? avgInterval + '<span class="text-[11px] font-semibold opacity-60"> days</span>' : '—', 'Avg. Interval', { tint: 'accentEmerald' })}
+              ${statBox(`${roundDoneCounts[1]}<span class="text-[11px] font-semibold opacity-60">/${allBranchNames.length}</span>`, 'Cycle 1 Done', { tint: 'accentIndigo', filterValue: 'round1' })}
+              ${statBox(`${roundDoneCounts[2]}<span class="text-[11px] font-semibold opacity-60">/${allBranchNames.length}</span>`, 'Cycle 2 Done', { tint: 'accentBlue', filterValue: 'round2' })}
+              ${statBox(awaitingRound2, 'Awaiting Cycle 2', { tint: 'accentRose', filterValue: 'awaiting2' })}
+              ${roundDoneCounts[3] > 0 ? statBox(`${roundDoneCounts[3]}<span class="text-[11px] font-semibold opacity-60">/${allBranchNames.length}</span>`, 'Cycle 3 Done', { tint: 'accentEmerald', filterValue: 'round3' }) : ''}
+              ${roundDoneCounts[4] > 0 ? statBox(`${roundDoneCounts[4]}<span class="text-[11px] font-semibold opacity-60">/${allBranchNames.length}</span>`, 'Cycle 4 Done', { tint: 'accentEmerald', filterValue: 'round4' }) : ''}
           </div>
           ${roundFilter ? `<div class="mb-2 -mt-1"><button onclick="setAuditScheduleRoundFilter('${roundFilter}')" class="text-[10px] font-bold text-accentIndigo hover:underline">Showing: ${roundFilter === 'awaiting2' ? 'Awaiting Cycle 2' : 'Cycle ' + roundFilter.replace('round','') + ' Done'} — click to clear</button></div>` : ''}`;
 
