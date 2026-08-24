@@ -7174,14 +7174,18 @@ html.page-fade-ready body {
           ? b.assignedAuditorRaw
           : 'Unassigned';
 
-      // "Up Next Auditor" only applies once a branch has actually been set
-      // for audit (Audit Status = FOR AUDIT, saved via Edit Assignment) —
-      // this is the exact same filter the AUDITOR NEXT ASSIGNMENT dashboard
-      // tile uses for its "queued" count/breakdown, so the table column and
-      // that tile always agree on who's really up next. A DONE or PENDING
-      // branch shows nothing here even if column AW has a leftover name.
-      const isForAudit = (b.auditStatus || '').toUpperCase() === 'FOR AUDIT';
-      const upNextAuditor = isForAudit ? queuedAuditor : null;
+      // "Up Next Auditor" reflects whatever is actually saved in column AW
+      // — it does NOT require Audit Status to already be "FOR AUDIT".
+      // Audit Status is itself computed FROM the Expected Audit Date (see
+      // formatExpectedAuditDate above), so a branch can have a real,
+      // person-saved AW value + Expected Audit Date sitting in the future
+      // while Status still reads PENDING because that date hasn't arrived
+      // yet. Gating on isForAudit hid exactly that case — a branch like
+      // Laiya with AW="Edison" and an Expected Audit Date already set,
+      // but Status not yet flipped to FOR AUDIT — so real saved data
+      // silently disappeared from the Detailed Profile/table. This only
+      // shows nothing when AW itself is genuinely blank/UNASSIGNED.
+      const upNextAuditor = (queuedAuditor !== 'Unassigned') ? queuedAuditor : null;
 
       // Expected Audit Date (AUDIT DATA (FINAL) column AM) — shown right next
       // to Up Next Auditor in the Assignment Branches Overview table. Uses
