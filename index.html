@@ -4428,7 +4428,7 @@ html.page-fade-ready body {
       <details class="side-menu-group-details" open>
         <summary class="side-menu-group-summary">
           <span class="side-menu-group-title">Quick actions</span>
-          <span class="side-menu-group-count">6</span>
+          <span class="side-menu-group-count">7</span>
           <svg class="side-menu-group-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
         </summary>
 
@@ -4462,6 +4462,19 @@ html.page-fade-ready body {
         <div role="button" tabindex="0" onclick="updateDataFromMenu()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();updateDataFromMenu();}" class="menu-tile cursor-pointer select-none">
           <span class="menu-tile-icon"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue shrink-0"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="m8 17 4 4 4-4"></path></svg></span>
           <span class="menu-tile-label">Update Data</span>
+        </div>
+
+        <!-- "Update Sheet" -> calls action=updateOverallData on the same
+             Apps Script deployment. That backend reads whichever month is
+             currently the RIGHTMOST/newest column in AUDIT DATA (FINAL)
+             (Collection + Sales + Service all have to agree on the label,
+             or it refuses and tells you why) and appends it as a brand-new
+             month column onto the OVERALL DATA sheet for every branch —
+             same allowlist gate as Add Assignment (EDITOR_EMAILS in
+             Code.gs). See updateOverallDataFromMenu() further down. -->
+        <div role="button" tabindex="0" onclick="updateOverallDataFromMenu()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();updateOverallDataFromMenu();}" class="menu-tile cursor-pointer select-none">
+          <span class="menu-tile-icon" style="background:rgba(5,150,105,0.10);"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentEmerald shrink-0"><path d="M21 15V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9"></path><path d="M3 15h18"></path><path d="M3 11h18"></path><path d="M9 4v11"></path><path d="M15 4v11"></path><path d="m16 19 2 2 4-4"></path></svg></span>
+          <span class="menu-tile-label">Update Sheet</span>
         </div>
 
       </div>
@@ -6485,6 +6498,55 @@ html.page-fade-ready body {
     function updateDataFromMenu() {
       fetchSheet().catch(function(e) { console.warn('Update data failed:', e); });
       if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
+    }
+
+    // Fired from the shortcuts menu's "Update Sheet" item. Tells the Apps
+    // Script backend (action=updateOverallData) to pull this run's newest
+    // month out of AUDIT DATA (FINAL) — whatever's currently the rightmost
+    // column in Collection/Sales/Service — and append it as a new month
+    // column onto OVERALL DATA for every branch. This actually changes the
+    // structure of that sheet (inserts columns), so it confirms first, and
+    // only accounts on EDITOR_EMAILS in Code.gs are allowed to run it —
+    // anyone else gets a clear "Unauthorized" message back from the
+    // backend instead of silently doing nothing.
+    async function updateOverallDataFromMenu() {
+      if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
+
+      const proceed = confirm(
+        "Update OVERALL DATA with this month's numbers from AUDIT DATA (FINAL)?\n\n" +
+        "This adds a new month column to OVERALL DATA for every branch. Make sure AUDIT DATA (FINAL) already has this month's Collection, Sales, and Service columns filled in before continuing."
+      );
+      if (!proceed) return;
+
+      showToast('Updating Overall Data\u2026');
+      try {
+        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+        if (!idToken) throw new Error('Not signed in \u2014 please sign in again.');
+
+        const params = new URLSearchParams({
+          action: 'updateOverallData',
+          secret: appsScriptSecret,
+          idToken: idToken
+        });
+        const url = defaultAppsScriptUrl + '?' + params.toString();
+        const json = await fetchSheetOnce(url);
+
+        if (json && json.error) throw new Error(json.error);
+        if (!json || !json.success) throw new Error("Update didn't complete \u2014 please try again.");
+
+        if (json.alreadyUpToDate) {
+          showToast(json.message || 'Overall Data is already up to date.');
+        } else {
+          let msg = 'Overall Data updated with ' + json.month + ' for ' + json.branchesUpdated + ' branch(es).';
+          if (json.branchesAdded && json.branchesAdded.length) {
+            msg += ' Added new row(s): ' + json.branchesAdded.join(', ') + '.';
+          }
+          showToast(msg);
+        }
+      } catch (err) {
+        console.warn('Update Overall Data failed:', err);
+        alert((err && err.message) ? err.message : "Couldn't update Overall Data \u2014 please try again.");
+      }
     }
 
     // Fired from the shortcuts menu's "Emergency Auditor" item.
