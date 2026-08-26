@@ -2069,11 +2069,84 @@ input#tableSearch:focus, select:focus{
   background:rgba(15,16,35,0.72) !important;
 }
 
-/* ---------- toast ---------- */
-#toast.bg-coolCard{
-  background:linear-gradient(135deg,#ffffff,#f5f7ff) !important;
-  border-color:rgba(14,165,199,0.35) !important;
-  box-shadow:0 18px 40px -16px rgba(14,165,199,0.35) !important;
+/* ---------- toast (redesigned) ---------- */
+#toast{
+  position:fixed;
+  bottom:1.5rem;
+  right:1.5rem;
+  z-index:50;
+  display:flex;
+  align-items:flex-start;
+  gap:0.7rem;
+  width:min(92vw,380px);
+  padding:0.85rem 0.9rem 1rem 0.85rem;
+  border-radius:1rem;
+  background:linear-gradient(150deg,#ffffff,#f5f8ff);
+  border:1px solid rgba(15,23,42,0.06);
+  box-shadow:0 22px 46px -16px rgba(15,23,42,0.30), 0 6px 16px -6px rgba(15,23,42,0.14);
+  overflow:hidden;
+  transform:translateY(28px) scale(.96);
+  opacity:0;
+  transition:transform .4s cubic-bezier(.32,1.5,.5,1), opacity .3s ease;
+  pointer-events:none;
+}
+#toast.toast-visible{
+  transform:translateY(0) scale(1);
+  opacity:1;
+  pointer-events:auto;
+}
+#toast .toast-icon{
+  flex-shrink:0;
+  width:2.2rem;
+  height:2.2rem;
+  border-radius:9999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin-top:.05rem;
+  background:rgba(8,145,178,0.12);
+  color:#0891b2;
+}
+#toast .toast-icon svg{ width:1.1rem; height:1.1rem; display:block; }
+#toast .toast-body{ flex:1 1 auto; min-width:0; padding-top:.32rem; }
+#toast .toast-message{ font-size:.85rem; font-weight:600; line-height:1.4; color:#1e293b; display:block; }
+#toast .toast-close{
+  flex-shrink:0;
+  margin:-.2rem -.2rem 0 0;
+  padding:.4rem;
+  border-radius:.6rem;
+  color:#94a3b8;
+  background:transparent;
+  border:none;
+  cursor:pointer;
+  transition:color .15s, background-color .15s;
+}
+#toast .toast-close:hover{ color:#334155; background:rgba(148,163,184,0.16); }
+#toast .toast-close svg{ width:.85rem; height:.85rem; display:block; }
+#toast .toast-progress{
+  position:absolute; left:0; right:0; bottom:0; height:3px;
+  background:rgba(15,23,42,0.06);
+}
+#toast .toast-progress-bar{
+  height:100%; width:100%;
+  transform:scaleX(1);
+  transform-origin:left;
+  background:linear-gradient(90deg,var(--toast-accent,#0891b2),var(--toast-accent-2,#2563eb));
+}
+#toast.toast-visible .toast-progress-bar{
+  animation:toastShrink var(--toast-duration,4000ms) linear forwards;
+}
+@keyframes toastShrink{ from{ transform:scaleX(1);} to{ transform:scaleX(0);} }
+
+#toast[data-type="success"] .toast-icon{ background:rgba(5,150,105,0.12); color:#059669; }
+#toast[data-type="success"]{ --toast-accent:#059669; --toast-accent-2:#10b981; }
+#toast[data-type="error"] .toast-icon{ background:rgba(225,29,72,0.12); color:#e11d48; }
+#toast[data-type="error"]{ --toast-accent:#e11d48; --toast-accent-2:#f43f5e; }
+#toast[data-type="info"] .toast-icon{ background:rgba(8,145,178,0.12); color:#0891b2; }
+#toast[data-type="info"]{ --toast-accent:#0891b2; --toast-accent-2:#2563eb; }
+
+@media (max-width: 480px){
+  #toast{ right:.85rem; left:.85rem; bottom:1rem; width:auto; }
 }
 
 /* ---------- misc polish ---------- */
@@ -4317,9 +4390,18 @@ html.page-fade-ready body {
 
   <div id="printArea"></div>
 
-  <div id="toast" class="fixed bottom-6 right-6 z-50 transform transition-all duration-300 bg-coolCard border border-accentCyan/50 text-slate-700 px-5 py-3 rounded-xl shadow-lg shadow-accentCyan/10 flex items-center gap-3 translate-y-20 opacity-0">
-    <div class="w-2 h-2 rounded-full bg-accentCyan animate-ping"></div>
-    <span id="toast-message" class="text-sm font-semibold">Dashboard successfully updated from Web Link!</span>
+  <div id="toast" data-type="info" role="status" aria-live="polite">
+    <div class="toast-icon" id="toastIcon">
+      <!-- info icon (default); swapped by JS based on message type -->
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4"></path><path d="M12 16h.01"></path><circle cx="12" cy="12" r="9"></circle></svg>
+    </div>
+    <div class="toast-body">
+      <span id="toast-message" class="toast-message">Dashboard successfully updated from Web Link!</span>
+    </div>
+    <button type="button" class="toast-close" onclick="hideToast()" aria-label="Dismiss notification">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+    </button>
+    <div class="toast-progress"><div class="toast-progress-bar" id="toastProgressBar"></div></div>
   </div>
 
   <header class="relative border-b border-blue-800 sticky top-0 z-40 shadow-md app-header-reveal" style="background: #0f2547; padding-top: env(safe-area-inset-top, 0px);">
@@ -5183,13 +5265,54 @@ html.page-fade-ready body {
 
 
   <script>
-    function showToast(message) {
+    const TOAST_ICONS = {
+      success: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>',
+      error: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5"></path><path d="M12 16h.01"></path></svg>',
+      info: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4"></path><path d="M12 16h.01"></path><circle cx="12" cy="12" r="9"></circle></svg>'
+    };
+    let toastHideTimer = null;
+
+    // Picks an icon/color for the toast based on the message text, unless
+    // the caller passes an explicit type. Callers throughout the dashboard
+    // just pass a plain sentence, so this keeps every existing showToast(...)
+    // call working without having to touch each call site.
+    function inferToastType(message) {
+      const m = (message || '').toLowerCase();
+      if (/(fail|failed|error|couldn.?t|can.?t\b|unable|not found|no matching)/.test(m)) return 'error';
+      if (/(success|updated|saved|downloaded|already up to date|complete)/.test(m)) return 'success';
+      return 'info';
+    }
+
+    function hideToast() {
+      const toast = document.getElementById('toast');
+      toast.classList.remove('toast-visible');
+      if (toastHideTimer) { clearTimeout(toastHideTimer); toastHideTimer = null; }
+    }
+
+    function showToast(message, type) {
       const toast = document.getElementById('toast');
       const toastMsg = document.getElementById('toast-message');
+      const toastIcon = document.getElementById('toastIcon');
+      const progressBar = document.getElementById('toastProgressBar');
+      const resolvedType = type || inferToastType(message);
+
       toastMsg.innerText = message;
-      toast.classList.remove('translate-y-20', 'opacity-0');
-      setTimeout(() => {
-        toast.classList.add('translate-y-20', 'opacity-0');
+      toast.setAttribute('data-type', resolvedType);
+      toastIcon.innerHTML = TOAST_ICONS[resolvedType] || TOAST_ICONS.info;
+
+      // Restart the shrinking progress bar from full width every time,
+      // even if a toast is already showing (re-triggering the animation
+      // needs a reflow in between, or the browser just no-ops it).
+      toast.classList.remove('toast-visible');
+      progressBar.style.animation = 'none';
+      void progressBar.offsetWidth;
+      progressBar.style.animation = '';
+      toast.classList.add('toast-visible');
+
+      if (toastHideTimer) clearTimeout(toastHideTimer);
+      toastHideTimer = setTimeout(() => {
+        toast.classList.remove('toast-visible');
+        toastHideTimer = null;
       }, 4000);
     }
 
