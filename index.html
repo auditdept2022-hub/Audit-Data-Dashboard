@@ -2069,84 +2069,99 @@ input#tableSearch:focus, select:focus{
   background:rgba(15,16,35,0.72) !important;
 }
 
-/* ---------- toast (redesigned) ---------- */
+/* ---------- toast (redesigned: compact glass pill, top-center) ---------- */
 #toast{
   position:fixed;
-  bottom:1.5rem;
-  right:1.5rem;
-  z-index:50;
+  top:1.1rem;
+  left:50%;
+  z-index:60;
   display:flex;
-  align-items:flex-start;
-  gap:0.7rem;
-  width:min(92vw,380px);
-  padding:0.85rem 0.9rem 1rem 0.85rem;
-  border-radius:1rem;
-  background:linear-gradient(150deg,#ffffff,#f5f8ff);
-  border:1px solid rgba(15,23,42,0.06);
-  box-shadow:0 22px 46px -16px rgba(15,23,42,0.30), 0 6px 16px -6px rgba(15,23,42,0.14);
+  align-items:center;
+  gap:.55rem;
+  width:max-content;
+  max-width:min(90vw,380px);
+  padding:.5rem .65rem .6rem .5rem;
+  border-radius:9999px;
+  background:rgba(15,20,32,0.94);
+  border:1px solid rgba(255,255,255,0.08);
+  backdrop-filter:blur(18px) saturate(180%);
+  -webkit-backdrop-filter:blur(18px) saturate(180%);
+  box-shadow:0 16px 32px -12px rgba(0,0,0,0.45), 0 4px 10px -4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
   overflow:hidden;
-  transform:translateY(28px) scale(.96);
+  transform:translate(-50%,-16px) scale(.94);
   opacity:0;
-  transition:transform .4s cubic-bezier(.32,1.5,.5,1), opacity .3s ease;
+  transition:transform .45s cubic-bezier(.32,1.5,.5,1), opacity .3s ease;
   pointer-events:none;
 }
 #toast.toast-visible{
-  transform:translateY(0) scale(1);
+  transform:translate(-50%,0) scale(1);
   opacity:1;
   pointer-events:auto;
 }
 #toast .toast-icon{
   flex-shrink:0;
-  width:2.2rem;
-  height:2.2rem;
+  width:1.6rem;
+  height:1.6rem;
   border-radius:9999px;
   display:flex;
   align-items:center;
   justify-content:center;
-  margin-top:.05rem;
-  background:rgba(8,145,178,0.12);
-  color:#0891b2;
+  background:rgba(56,189,248,0.16);
+  color:#38bdf8;
 }
-#toast .toast-icon svg{ width:1.1rem; height:1.1rem; display:block; }
-#toast .toast-body{ flex:1 1 auto; min-width:0; padding-top:.32rem; }
-#toast .toast-message{ font-size:.85rem; font-weight:600; line-height:1.4; color:#1e293b; display:block; }
+#toast .toast-icon svg{ width:.9rem; height:.9rem; display:block; }
+#toast .toast-body{ flex:1 1 auto; min-width:0; }
+#toast .toast-message{ font-size:.8rem; font-weight:600; line-height:1.3; letter-spacing:-.01em; color:#f8fafc; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 #toast .toast-close{
   flex-shrink:0;
-  margin:-.2rem -.2rem 0 0;
-  padding:.4rem;
-  border-radius:.6rem;
-  color:#94a3b8;
+  width:1.4rem;
+  height:1.4rem;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:9999px;
+  color:rgba(248,250,252,0.5);
   background:transparent;
   border:none;
   cursor:pointer;
   transition:color .15s, background-color .15s;
 }
-#toast .toast-close:hover{ color:#334155; background:rgba(148,163,184,0.16); }
-#toast .toast-close svg{ width:.85rem; height:.85rem; display:block; }
+#toast .toast-close:hover{ color:#f8fafc; background:rgba(255,255,255,0.14); }
+#toast .toast-close svg{ width:.7rem; height:.7rem; display:block; }
 #toast .toast-progress{
-  position:absolute; left:0; right:0; bottom:0; height:3px;
-  background:rgba(15,23,42,0.06);
+  position:absolute; left:.5rem; right:.5rem; bottom:.32rem; height:2px;
+  border-radius:9999px;
+  background:rgba(255,255,255,0.1);
+  overflow:hidden;
 }
 #toast .toast-progress-bar{
   height:100%; width:100%;
   transform:scaleX(1);
   transform-origin:left;
-  background:linear-gradient(90deg,var(--toast-accent,#0891b2),var(--toast-accent-2,#2563eb));
+  border-radius:9999px;
+  background:linear-gradient(90deg,var(--toast-accent,#38bdf8),var(--toast-accent-2,#818cf8));
 }
 #toast.toast-visible .toast-progress-bar{
   animation:toastShrink var(--toast-duration,4000ms) linear forwards;
 }
 @keyframes toastShrink{ from{ transform:scaleX(1);} to{ transform:scaleX(0);} }
 
-#toast[data-type="success"] .toast-icon{ background:rgba(5,150,105,0.12); color:#059669; }
-#toast[data-type="success"]{ --toast-accent:#059669; --toast-accent-2:#10b981; }
-#toast[data-type="error"] .toast-icon{ background:rgba(225,29,72,0.12); color:#e11d48; }
-#toast[data-type="error"]{ --toast-accent:#e11d48; --toast-accent-2:#f43f5e; }
-#toast[data-type="info"] .toast-icon{ background:rgba(8,145,178,0.12); color:#0891b2; }
-#toast[data-type="info"]{ --toast-accent:#0891b2; --toast-accent-2:#2563eb; }
+#toast[data-type="success"] .toast-icon{ background:rgba(16,185,129,0.18); color:#34d399; }
+#toast[data-type="success"]{ --toast-accent:#10b981; --toast-accent-2:#34d399; }
+#toast[data-type="error"] .toast-icon{ background:rgba(244,63,94,0.18); color:#fb7185; }
+#toast[data-type="error"]{ --toast-accent:#f43f5e; --toast-accent-2:#fb7185; }
+#toast[data-type="info"] .toast-icon{ background:rgba(56,189,248,0.16); color:#38bdf8; }
+#toast[data-type="info"]{ --toast-accent:#0ea5e9; --toast-accent-2:#38bdf8; }
+#toast[data-type="loading"] .toast-icon{ background:rgba(129,140,248,0.18); color:#a5b4fc; }
+#toast[data-type="loading"]{ --toast-accent:#6366f1; --toast-accent-2:#a5b4fc; }
+#toast[data-type="loading"] .toast-icon svg{ animation:toastSpin .85s linear infinite; transform-origin:center; }
+#toast[data-type="loading"] .toast-progress{ display:none; }
+@keyframes toastSpin{ to{ transform:rotate(360deg); } }
 
 @media (max-width: 480px){
-  #toast{ right:.85rem; left:.85rem; bottom:1rem; width:auto; }
+  #toast{ left:.85rem; right:.85rem; top:.85rem; transform:translateY(-16px) scale(.94); max-width:none; width:auto; }
+  #toast.toast-visible{ transform:translateY(0) scale(1); }
+  #toast .toast-message{ white-space:normal; }
 }
 
 /* ---------- misc polish ---------- */
@@ -2335,7 +2350,7 @@ html.page-fade-ready body {
 
   /* Toast slides/settles instead of just appearing */
   #toast {
-    transition: transform .45s cubic-bezier(0.22, 1, 0.36, 1), opacity .35s ease !important;
+    transition: transform .5s cubic-bezier(0.22, 1, 0.36, 1), opacity .35s ease !important;
   }
 
   /* ---------- Performance: skip layout/paint work for offscreen sections ----------
@@ -5268,7 +5283,9 @@ html.page-fade-ready body {
     const TOAST_ICONS = {
       success: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>',
       error: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5"></path><path d="M12 16h.01"></path></svg>',
-      info: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4"></path><path d="M12 16h.01"></path><circle cx="12" cy="12" r="9"></circle></svg>'
+      info: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4"></path><path d="M12 16h.01"></path><circle cx="12" cy="12" r="9"></circle></svg>',
+      // Open arc (not a closed circle) so the CSS spin animation reads as a spinner, not a static ring.
+      loading: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 3a9 9 0 1 0 9 9"></path></svg>'
     };
     let toastHideTimer = null;
 
@@ -5278,6 +5295,9 @@ html.page-fade-ready body {
     // call working without having to touch each call site.
     function inferToastType(message) {
       const m = (message || '').toLowerCase();
+      // Messages ending in an ellipsis ("Updating Overall Data…") are an
+      // in-progress action, not a result — show the spinner, not the info dot.
+      if (/(\u2026|\.\.\.)\s*$/.test(message || '')) return 'loading';
       if (/(fail|failed|error|couldn.?t|can.?t\b|unable|not found|no matching)/.test(m)) return 'error';
       if (/(success|updated|saved|downloaded|already up to date|complete)/.test(m)) return 'success';
       return 'info';
