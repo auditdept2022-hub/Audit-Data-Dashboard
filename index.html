@@ -6632,13 +6632,26 @@ html.page-fade-ready body {
     // only accounts on EDITOR_EMAILS in Code.gs are allowed to run it —
     // anyone else gets a clear "Unauthorized" message back from the
     // backend instead of silently doing nothing.
+    //
+    // Uses the styled __confirmAction modal (same rounded card + royalBlue
+    // accent as the password-gate modals) instead of a plain browser
+    // confirm() popup, so this reads as part of the app rather than a
+    // generic site alert — and pairs cleanly with the showToast() that
+    // follows once the update actually runs.
     async function updateOverallDataFromMenu() {
       if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
 
-      const proceed = confirm(
-        "Update OVERALL DATA with this month's numbers from AUDIT DATA (FINAL)?\n\n" +
-        "This adds a new month column to OVERALL DATA for every branch. Make sure AUDIT DATA (FINAL) already has this month's Collection, Sales, and Service columns filled in before continuing."
-      );
+      const proceed = window.__confirmAction
+        ? await window.__confirmAction(
+            'Update Overall Data?',
+            "This adds this month's numbers from AUDIT DATA (FINAL) as a new column to OVERALL DATA, for every branch. Make sure Collection, Sales, and Service are already filled in for this month before continuing.",
+            'Yes, update',
+            'info'
+          )
+        : confirm(
+            "Update OVERALL DATA with this month's numbers from AUDIT DATA (FINAL)?\n\n" +
+            "This adds a new month column to OVERALL DATA for every branch. Make sure AUDIT DATA (FINAL) already has this month's Collection, Sales, and Service columns filled in before continuing."
+          );
       if (!proceed) return;
 
       showToast('Updating Overall Data\u2026');
@@ -11710,23 +11723,55 @@ html.page-fade-ready body {
     });
 
     // ================= "ARE YOU SURE?" CONFIRM MODAL =================
-    // One reusable modal for two situations people asked to be warned
-    // about: (1) tapping Log out, and (2) pressing the browser back
-    // button / swiping back on mobile — which on some phones exits the
-    // site straight away and forces a reload next time it's opened.
+    // One reusable modal, styled to match the password-gate modals
+    // (quickLinkPasswordModal / editAssignPasswordModal) so every "are you
+    // sure?" / confirmation surface in the app looks like it belongs to
+    // the same design system, instead of some being a styled card and
+    // others being the browser's own plain confirm() dialog.
+    //
+    // Used for: (1) tapping Log out, (2) pressing the browser back button
+    // / swiping back on mobile, and (3) the "Update Sheet" (Overall Data)
+    // action — each passes its own icon/color "variant" so a destructive
+    // action (log out, quit) still reads as amber/rose, while a routine
+    // data action (Update Sheet) reads as the same calm royalBlue used by
+    // the password modals, rather than every confirmation looking like a
+    // warning.
     (function() {
       const modal = document.getElementById('exitConfirmModal');
       const card = document.getElementById('exitConfirmCard');
+      const iconWrapEl = document.getElementById('exitConfirmIconWrap');
       const titleEl = document.getElementById('exitConfirmTitle');
       const messageEl = document.getElementById('exitConfirmMessage');
       const cancelBtn = document.getElementById('exitConfirmCancelBtn');
       const okBtn = document.getElementById('exitConfirmOkBtn');
       let pendingResolve = null;
 
-      function openModal(title, message, okLabel) {
+      // Icon markup + colors per variant. "danger" (default) preserves the
+      // original amber-icon / rose-button look used for log out and the
+      // back/swipe-exit guard. "info" mirrors the royalBlue accent the
+      // password modals already use, for confirmations that aren't
+      // destructive — just something worth double-checking first.
+      const VARIANTS = {
+        danger: {
+          iconWrapClass: 'w-10 h-10 rounded-xl bg-accentAmber/10 flex items-center justify-center shrink-0',
+          iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentAmber"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>',
+          okBtnClass: 'flex-1 text-xs font-semibold text-white bg-accentRose hover:bg-rose-700 py-2.5 rounded-xl transition-colors active:scale-[0.98] cursor-pointer'
+        },
+        info: {
+          iconWrapClass: 'w-10 h-10 rounded-xl bg-royalBlue/10 flex items-center justify-center shrink-0',
+          iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>',
+          okBtnClass: 'flex-1 text-xs font-semibold text-white bg-royalBlue hover:bg-blue-700 py-2.5 rounded-xl transition-colors active:scale-[0.98] cursor-pointer'
+        }
+      };
+
+      function openModal(title, message, okLabel, variant) {
+        const v = VARIANTS[variant] || VARIANTS.danger;
         titleEl.textContent = title;
         messageEl.textContent = message;
         okBtn.textContent = okLabel;
+        iconWrapEl.className = v.iconWrapClass;
+        iconWrapEl.innerHTML = v.iconSvg;
+        okBtn.className = v.okBtnClass;
         modal.classList.remove('hidden');
         requestAnimationFrame(() => {
           card.classList.remove('scale-95', 'opacity-0');
@@ -11747,8 +11792,18 @@ html.page-fade-ready body {
       document.getElementById('exitConfirmBackdrop').addEventListener('click', () => closeModal(false));
 
       // Exposed for the logout buttons and the back/swipe handler below.
+      // Always renders the "danger" (amber/rose) look, same as before.
       window.__confirmExit = function(title, message, okLabel) {
-        return openModal(title, message, okLabel || 'Yes, quit');
+        return openModal(title, message, okLabel || 'Yes, quit', 'danger');
+      };
+
+      // Exposed for any non-destructive "are you sure?" confirmation that
+      // still wants the styled card instead of a native confirm() popup —
+      // e.g. the "Update Sheet" (Overall Data) action. Defaults to the
+      // calm "info" (royalBlue) look; pass 'danger' explicitly if a future
+      // caller wants the amber/rose treatment instead.
+      window.__confirmAction = function(title, message, okLabel, variant) {
+        return openModal(title, message, okLabel || 'Continue', variant || 'info');
       };
     })();
 
