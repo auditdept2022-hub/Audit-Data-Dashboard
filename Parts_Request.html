@@ -27,8 +27,8 @@
     --su: #3D6FB5;
     --good: #2F8A5E;
     --danger: #C0392B;
-    --board-light: #EFE3CC;
-    --board-dark: #5E7FA8;
+    --board-light: #E4DFD4;
+    --board-dark: #8B96A3;
     --emp-accent-1: #2F6FCE;
     --emp-accent-2: #C07A1E;
     --emp-accent-3: #7C4FBF;
@@ -1122,6 +1122,11 @@
           <button class="conn-btn" id="ckResignBtn" type="button">Resign / New</button>
         </div>
         <div class="chess-board" id="checkersBoard"></div>
+        <div class="chess-size-row">
+          <span>Size</span>
+          <input type="range" id="ckSizeRange" min="160" max="320" step="10" value="200" aria-label="Checkers board size" />
+          <span class="chess-size-val" id="ckSizeVal">200px</span>
+        </div>
         <div class="chess-status" id="ckStatus">Red's turn</div>
         <div class="chess-you" id="ckYou"></div>
       </div>
@@ -3849,6 +3854,27 @@ if (WEB_APP_URL) loadAll(); else setConnStatus(false);
   const ckMyCodeEl      = $('ckMyCode');
   const ckStatusDot     = $('ckStatusDot');
   const ckStatusText    = $('ckStatusText');
+  const ckSizeRange     = $('ckSizeRange');
+  const ckSizeVal       = $('ckSizeVal');
+
+  const CK_SIZE_KEY = 'partsAppCheckersBoardSize';
+  function ckApplySize(px){
+    checkersBoardEl.style.setProperty('--chess-size', px + 'px');
+    ckSizeVal.textContent = px + 'px';
+  }
+  function ckLoadSize(){
+    let v;
+    try { v = parseInt(localStorage.getItem(CK_SIZE_KEY), 10); } catch(e){}
+    if (!v || isNaN(v)) v = 200;
+    ckSizeRange.value = v;
+    ckApplySize(v);
+  }
+  ckSizeRange.addEventListener('input', () => {
+    const v = parseInt(ckSizeRange.value, 10);
+    ckApplySize(v);
+    try { localStorage.setItem(CK_SIZE_KEY, String(v)); } catch(e){}
+  });
+  ckLoadSize();
 
   let ckBoardState, ckTurn, ckSelected = null, ckLegalForSelected = [], ckForcedFrom = null;
   let ckMyColor = null, ckConnected = false, ckGameOver = false;
