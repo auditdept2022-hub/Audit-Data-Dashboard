@@ -160,13 +160,16 @@
   #modalDialog.modal-fullscreen {
     position: fixed !important;
     inset: 0 !important;
-    top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+    /* Leave the device status bar (time/battery/signal) visible instead of
+       drawing the popup's opaque header straight under/over it — same
+       env(safe-area-inset-top) used by the page's own sticky header. */
+    top: env(safe-area-inset-top, 0px) !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
     width: 100vw !important;
-    height: 100vh !important;
-    height: 100dvh !important;
+    height: calc(100vh - env(safe-area-inset-top, 0px)) !important;
+    height: calc(100dvh - env(safe-area-inset-top, 0px)) !important;
     max-width: 100vw !important;
-    max-height: 100vh !important;
-    max-height: 100dvh !important;
+    max-height: calc(100vh - env(safe-area-inset-top, 0px)) !important;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px)) !important;
     margin: 0 !important;
     border-radius: 0 !important;
     /* The dialog also carries Tailwind's transform/scale-95→scale-100
@@ -231,13 +234,16 @@
       #modalDialog {
         position: fixed !important;
         inset: 0 !important;
-        top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+        /* Same as the manual fullscreen toggle above: stop short of the
+           very top edge so the phone's status bar (time/battery/signal)
+           stays visible above the popup instead of being covered by it. */
+        top: env(safe-area-inset-top, 0px) !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
         width: 100vw !important;
-        height: 100vh !important;
-        height: 100dvh !important;
+        height: calc(100vh - env(safe-area-inset-top, 0px)) !important;
+        height: calc(100dvh - env(safe-area-inset-top, 0px)) !important;
         max-width: 100vw !important;
-        max-height: 100vh !important;
-        max-height: 100dvh !important;
+        max-height: calc(100vh - env(safe-area-inset-top, 0px)) !important;
+        max-height: calc(100dvh - env(safe-area-inset-top, 0px)) !important;
         margin: 0 !important;
         border-radius: 0 !important;
         transform: none !important;
@@ -7077,6 +7083,26 @@ html.page-fade-ready body {
           ]};
       }
 
+      // The Branch Audit Interval / Full Schedule popup renders its data as
+      // cards (see renderAuditScheduleModal), not a <table> — so it used to
+      // fall through to extractVisibleModalTables() below, find nothing,
+      // and show "Nothing to export yet." even though the data was right
+      // there on screen. Build its rows directly from the same source data
+      // instead.
+      if (type === 'auditSchedule') {
+          const schedule = activeData.branchAuditSchedule || {};
+          const rows = [];
+          Object.keys(schedule).sort().forEach(function(bName) {
+              const entry = schedule[bName] || {};
+              (entry.rounds || []).forEach(function(r) {
+                  rows.push([bName, r.round, r.auditor || '', r.date || '', (r.intervalDays === null || r.intervalDays === undefined) ? '' : r.intervalDays, entry.note || '']);
+              });
+          });
+          return { title: plainTitle, filenameBase: 'Audit_Rotation_Schedule', sheets: [
+              { name: 'Audit Rotation Schedule', headers: ['Branch', 'Round', 'Auditor', 'Date', 'Interval (days)', 'Note'], rows: rows }
+          ]};
+      }
+
       // findings / accounts / all / collection / sales / service
       const tables = extractVisibleModalTables();
       return { title: plainTitle, filenameBase: plainTitle, sheets: tables };
@@ -7162,6 +7188,19 @@ html.page-fade-ready body {
           });
       });
 
+      // Every recorded audit round from the Branch Audit Interval / Full
+      // Schedule view (activeData.branchAuditSchedule), flattened the same
+      // way as the other detail sheets above — this section was added to
+      // the dashboard after the consolidated report was first built, so it
+      // was missing here even though it has its own popup and stat cards.
+      const auditScheduleRows = [];
+      Object.keys(activeData.branchAuditSchedule || {}).sort().forEach(function(bName) {
+          const entry = activeData.branchAuditSchedule[bName] || {};
+          (entry.rounds || []).forEach(function(r) {
+              auditScheduleRows.push([bName, r.round, r.auditor || '', r.date || '', (r.intervalDays === null || r.intervalDays === undefined) ? '' : r.intervalDays, entry.note || '']);
+          });
+      });
+
       // Real month names off the sheet's own header row, same source as
       // everywhere else (see activeData.summary.trendLabels), so this
       // export's column headers always match the sheet's actual rolling
@@ -7184,7 +7223,8 @@ html.page-fade-ready body {
           { name: 'Auditors', headers: ['Auditor', 'Assigned Branches'], rows: (activeData.auditors || []).map(function(a) { return [a.name, a.count]; }) },
           { name: 'Emergency History', headers: ['Auditor', 'Branch', 'Date of Audit'], rows: (activeData.emergencyHistory || []).map(function(h) { return [h.auditor || '', h.branch || '', h.details || '']; }) },
           { name: 'Data Audit Remarks', headers: ['Branch', 'Auditor', 'Remark'], rows: dataAuditRows },
-          { name: 'Audit Findings Detail', headers: ['Branch', 'Date', 'Year', 'Category', 'Finding'], rows: findingsDetailRows }
+          { name: 'Audit Findings Detail', headers: ['Branch', 'Date', 'Year', 'Category', 'Finding'], rows: findingsDetailRows },
+          { name: 'Audit Rotation Schedule', headers: ['Branch', 'Round', 'Auditor', 'Date', 'Interval (days)', 'Note'], rows: auditScheduleRows }
       ];
 
       return { title: 'Audit Data Dashboard \u2014 Consolidated Report', filenameBase: 'Audit_Dashboard_Consolidated_Report', sheets: sheets };
