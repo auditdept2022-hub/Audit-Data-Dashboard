@@ -27,6 +27,8 @@
     --su: #3D6FB5;
     --good: #2F8A5E;
     --danger: #C0392B;
+    --board-light: #EFE3CC;
+    --board-dark: #5E7FA8;
     --emp-accent-1: #2F6FCE;
     --emp-accent-2: #C07A1E;
     --emp-accent-3: #7C4FBF;
@@ -716,11 +718,11 @@
     box-shadow: 0 6px 18px rgba(0,0,0,0.18);
   }
   .chess-sq{ position:relative; display:flex; align-items:center; justify-content:center; font-size: calc(var(--chess-size, 220px) / 8 * 0.62); cursor:pointer; user-select:none; }
-  .chess-sq.light{ background: var(--paper-2); }
-  .chess-sq.dark{ background: var(--bg-2); }
+  .chess-sq.light{ background: var(--board-light); }
+  .chess-sq.dark{ background: var(--board-dark); }
   .chess-sq.selected{ outline: 3px solid var(--gold); outline-offset: -3px; z-index:1; }
-  .chess-sq.lastmove{ background: color-mix(in srgb, var(--gold) 30%, var(--paper-2)); }
-  .chess-sq.dark.lastmove{ background: color-mix(in srgb, var(--gold) 30%, var(--bg-2)); }
+  .chess-sq.lastmove{ background: color-mix(in srgb, var(--gold) 30%, var(--board-light)); }
+  .chess-sq.dark.lastmove{ background: color-mix(in srgb, var(--gold) 30%, var(--board-dark)); }
   .chess-sq.movehint::after{
     content:''; position:absolute; width:16px; height:16px; border-radius:50%;
     background: color-mix(in srgb, var(--gold) 55%, transparent);
@@ -749,6 +751,20 @@
   }
   .chess-size-row input[type="range"]{ flex:1; accent-color: var(--gold); }
   .chess-size-row .chess-size-val{ flex:none; width: 34px; text-align:right; font-weight:600; }
+
+  /* checkers (reuses .chess-board / .chess-sq grid + hint/selected states above) */
+  .checkers-piece{
+    position:relative; width:76%; height:76%; border-radius:50%;
+    box-shadow: inset 0 -4px 6px rgba(0,0,0,0.28), inset 0 2px 3px rgba(255,255,255,0.25), 0 2px 4px rgba(0,0,0,0.35);
+    transition: transform .1s ease;
+  }
+  .chess-sq:hover .checkers-piece{ transform: scale(1.08); }
+  .checkers-piece.red{ background: radial-gradient(circle at 34% 28%, #e3766a 0%, #a3281a 70%, #8c2015 100%); }
+  .checkers-piece.black{ background: radial-gradient(circle at 34% 28%, #55545c 0%, #201f24 70%, #121114 100%); }
+  .checkers-piece.king::after{
+    content:'♛'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    color: var(--gold); font-size: 62%; text-shadow: 0 1px 1px rgba(0,0,0,0.5);
+  }
 
   /* snake */
   .snake-topline{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:4px; font-family: var(--mono); font-size: 12.5px; color: var(--ink-soft); }
@@ -939,6 +955,7 @@
       <option value="memory">Memory Match (online, 2 players)</option>
       <option value="connect4">Connect 4 (online, 2 players / vs Computer)</option>
       <option value="chess">Chess (online, 2 players / vs Computer)</option>
+      <option value="checkers">Checkers (online, 2 players / vs Computer)</option>
       <option value="snake">Snake</option>
     </select>
 
@@ -959,7 +976,7 @@
       <div class="chess-setup" id="tttSetup">
         <button class="conn-btn" id="tttHostBtn" type="button">Host a game (get a room code)</button>
         <div class="chess-code-row">
-          <input type="text" id="tttJoinInput" placeholder="Enter room code to join" autocomplete="off" />
+          <input type="text" id="tttJoinInput" placeholder="Enter 4-digit code" autocomplete="off" maxlength="4" inputmode="numeric" pattern="[0-9]*" />
           <button class="conn-btn" id="tttJoinBtn" type="button">Join</button>
         </div>
         <div id="tttMyCodeWrap" style="display:none;">
@@ -982,7 +999,7 @@
       <div class="chess-setup" id="memSetup">
         <button class="conn-btn" id="memHostBtn" type="button">Host a game (get a room code)</button>
         <div class="chess-code-row">
-          <input type="text" id="memJoinInput" placeholder="Enter room code to join" autocomplete="off" />
+          <input type="text" id="memJoinInput" placeholder="Enter 4-digit code" autocomplete="off" maxlength="4" inputmode="numeric" pattern="[0-9]*" />
           <button class="conn-btn" id="memJoinBtn" type="button">Join</button>
         </div>
         <div id="memMyCodeWrap" style="display:none;">
@@ -1005,7 +1022,7 @@
       <div class="chess-setup" id="c4Setup">
         <button class="conn-btn" id="c4HostBtn" type="button">Host a game (get a room code)</button>
         <div class="chess-code-row">
-          <input type="text" id="c4JoinInput" placeholder="Enter room code to join" autocomplete="off" />
+          <input type="text" id="c4JoinInput" placeholder="Enter 4-digit code" autocomplete="off" maxlength="4" inputmode="numeric" pattern="[0-9]*" />
           <button class="conn-btn" id="c4JoinBtn" type="button">Join</button>
         </div>
         <div id="c4MyCodeWrap" style="display:none;">
@@ -1040,7 +1057,7 @@
       <div class="chess-setup" id="chessSetup">
         <button class="conn-btn" id="chessHostBtn" type="button">Host a game (get a room code)</button>
         <div class="chess-code-row">
-          <input type="text" id="chessJoinInput" placeholder="Enter room code to join" autocomplete="off" />
+          <input type="text" id="chessJoinInput" placeholder="Enter 4-digit code" autocomplete="off" maxlength="4" inputmode="numeric" pattern="[0-9]*" />
           <button class="conn-btn" id="chessJoinBtn" type="button">Join</button>
         </div>
         <div id="chessMyCodeWrap" style="display:none;">
@@ -1072,6 +1089,41 @@
         </div>
         <div class="chess-status" id="chessStatus">White's turn</div>
         <div class="chess-you" id="chessYou"></div>
+      </div>
+    </div>
+
+    <!-- Checkers (online, 2 players via WebRTC, or vs Computer) -->
+    <div class="mg-panel" id="mg-checkers">
+      <div class="chess-setup" id="ckSetup">
+        <button class="conn-btn" id="ckHostBtn" type="button">Host a game (get a room code)</button>
+        <div class="chess-code-row">
+          <input type="text" id="ckJoinInput" placeholder="Enter 4-digit code" autocomplete="off" maxlength="4" inputmode="numeric" pattern="[0-9]*" />
+          <button class="conn-btn" id="ckJoinBtn" type="button">Join</button>
+        </div>
+        <div id="ckMyCodeWrap" style="display:none;">
+          <div class="chess-mycode" id="ckMyCode">—</div>
+        </div>
+        <div class="chess-status-line"><span class="chess-status-dot" id="ckStatusDot"></span><span id="ckStatusText">Not connected — host or join to play.</span></div>
+        <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--panel-line);">
+          <label style="margin:0 0 5px;">Or play vs Computer</label>
+          <select id="ckAIDifficulty" style="margin-bottom:8px;">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+          <div style="display:flex; gap:6px;">
+            <button class="conn-btn" id="ckAIRedBtn" type="button" style="flex:1;">Play as Red</button>
+            <button class="conn-btn" id="ckAIBlackBtn" type="button" style="flex:1;">Play as Black</button>
+          </div>
+        </div>
+      </div>
+      <div id="ckGameWrap" style="display:none;">
+        <div class="mg-toolbar">
+          <button class="conn-btn" id="ckResignBtn" type="button">Resign / New</button>
+        </div>
+        <div class="chess-board" id="checkersBoard"></div>
+        <div class="chess-status" id="ckStatus">Red's turn</div>
+        <div class="chess-you" id="ckYou"></div>
       </div>
     </div>
 
@@ -2557,7 +2609,7 @@ if (WEB_APP_URL) loadAll(); else setConnStatus(false);
 
   // ---- game switcher ----
   const select = $('miniGameSelect');
-  const panels = { sudoku: $('mg-sudoku'), ttt: $('mg-ttt'), memory: $('mg-memory'), connect4: $('mg-connect4'), chess: $('mg-chess'), snake: $('mg-snake') };
+  const panels = { sudoku: $('mg-sudoku'), ttt: $('mg-ttt'), memory: $('mg-memory'), connect4: $('mg-connect4'), chess: $('mg-chess'), checkers: $('mg-checkers'), snake: $('mg-snake') };
   select.addEventListener('change', () => {
     Object.entries(panels).forEach(([key, el]) => el.classList.toggle('active', key === select.value));
     if (select.value !== 'snake' && typeof snakePause === 'function') snakePause();
@@ -2733,6 +2785,13 @@ if (WEB_APP_URL) loadAll(); else setConnStatus(false);
      and Memory Match below. Chess has its own copy further down
      (kept separate so it's untouched/lower-risk since it already works).
      ========================================================= */
+  /* Short, easy-to-share 4-digit invite codes for all online minigames.
+     PeerJS lets us pick our own peer id, so instead of its long default id
+     we generate a random 4-digit code and retry with a new one on the rare
+     chance it's already taken. */
+  function genRoomCode(){
+    return String(Math.floor(1000 + Math.random() * 9000));
+  }
   function createOnlineGame(opts){
     // opts: { hostBtn, joinBtn, joinInput, myCodeWrap, myCodeEl, statusDot, statusText,
     //         onConnected(isHost), onData(msg), onClose() }
@@ -2750,12 +2809,20 @@ if (WEB_APP_URL) loadAll(); else setConnStatus(false);
       c.on('close', () => { setStatus(false, 'Opponent disconnected.'); opts.onClose && opts.onClose(); });
       c.on('error', () => setStatus(false, 'Connection error.'));
     }
-    function ensurePeer(onOpen){
+    function ensurePeer(onOpen, attemptsLeft){
       if (peer){ onOpen(peer.id); return; }
-      peer = new Peer();
-      peer.on('open', (id) => onOpen(id));
-      peer.on('error', (err) => setStatus(false, 'Peer error: ' + (err && err.type ? err.type : 'unknown')));
-      peer.on('connection', (c) => {
+      if (attemptsLeft === undefined) attemptsLeft = 6;
+      const p = new Peer(genRoomCode());
+      p.on('open', (id) => { peer = p; onOpen(id); });
+      p.on('error', (err) => {
+        if (err && err.type === 'unavailable-id' && attemptsLeft > 0){
+          p.destroy();
+          ensurePeer(onOpen, attemptsLeft - 1);
+          return;
+        }
+        setStatus(false, 'Peer error: ' + (err && err.type ? err.type : 'unknown'));
+      });
+      p.on('connection', (c) => {
         if (conn) { c.close(); return; } // only one opponent
         isHost = true;
         setupConn(c);
@@ -3622,14 +3689,20 @@ if (WEB_APP_URL) loadAll(); else setConnStatus(false);
       chessSetConnStatus(false, 'Connection error.');
     });
   }
-  function chessEnsurePeer(onOpen){
+  function chessEnsurePeer(onOpen, attemptsLeft){
     if (chessPeer){ onOpen(chessPeer.id); return; }
-    chessPeer = new Peer();
-    chessPeer.on('open', (id) => onOpen(id));
-    chessPeer.on('error', (err) => {
+    if (attemptsLeft === undefined) attemptsLeft = 6;
+    const p = new Peer(genRoomCode());
+    p.on('open', (id) => { chessPeer = p; onOpen(id); });
+    p.on('error', (err) => {
+      if (err && err.type === 'unavailable-id' && attemptsLeft > 0){
+        p.destroy();
+        chessEnsurePeer(onOpen, attemptsLeft - 1);
+        return;
+      }
       chessSetConnStatus(false, 'Peer error: ' + (err && err.type ? err.type : 'unknown'));
     });
-    chessPeer.on('connection', (conn) => {
+    p.on('connection', (conn) => {
       if (chessConn) { conn.close(); return; } // only one opponent
       chessIsHost = true;
       chessMyColor = 'w';
@@ -3761,6 +3834,337 @@ if (WEB_APP_URL) loadAll(); else setConnStatus(false);
   }
   $('chessAIWhiteBtn').addEventListener('click', () => chessStartVsComputer('w'));
   $('chessAIBlackBtn').addEventListener('click', () => chessStartVsComputer('b'));
+
+  /* =========================================================
+     CHECKERS — online 2-player via WebRTC (PeerJS), or vs Computer
+     (Board/square styling reuses .chess-board / .chess-sq above;
+     pieces are plain drawn discs — see .checkers-piece CSS.)
+     ========================================================= */
+  const checkersBoardEl = $('checkersBoard');
+  const ckStatusEl      = $('ckStatus');
+  const ckYouEl         = $('ckYou');
+  const ckSetupEl       = $('ckSetup');
+  const ckGameWrapEl    = $('ckGameWrap');
+  const ckMyCodeWrap    = $('ckMyCodeWrap');
+  const ckMyCodeEl      = $('ckMyCode');
+  const ckStatusDot     = $('ckStatusDot');
+  const ckStatusText    = $('ckStatusText');
+
+  let ckBoardState, ckTurn, ckSelected = null, ckLegalForSelected = [], ckForcedFrom = null;
+  let ckMyColor = null, ckConnected = false, ckGameOver = false;
+  let ckPeer = null, ckConn = null, ckIsHost = false;
+  let ckVsComputer = false, ckAIColor = null, ckAIDifficulty = 'medium';
+  const CK_AI_DEPTH = { easy: 0, medium: 3, hard: 5 };
+
+  function ckInBounds(r, c){ return r >= 0 && r < 8 && c >= 0 && c < 8; }
+  function ckInitBoard(){
+    const board = Array.from({length:8}, () => Array(8).fill(null));
+    for (let r = 0; r < 8; r++){
+      for (let c = 0; c < 8; c++){
+        if ((r + c) % 2 !== 1) continue;
+        if (r <= 2) board[r][c] = { color:'b', king:false };
+        else if (r >= 5) board[r][c] = { color:'r', king:false };
+      }
+    }
+    return board;
+  }
+  function ckNewGame(){
+    ckBoardState = ckInitBoard();
+    ckTurn = 'r';
+    ckSelected = null;
+    ckLegalForSelected = [];
+    ckForcedFrom = null;
+    ckGameOver = false;
+    renderCheckersBoard();
+    updateCkStatus();
+  }
+  function ckCloneBoard(b){ return b.map(row => row.map(cell => cell ? {...cell} : null)); }
+  function ckDirs(piece){
+    if (piece.king) return [[-1,-1],[-1,1],[1,-1],[1,1]];
+    return piece.color === 'r' ? [[-1,-1],[-1,1]] : [[1,-1],[1,1]];
+  }
+  function ckCapturesFor(board, r, c){
+    const piece = board[r][c];
+    if (!piece) return [];
+    const moves = [];
+    ckDirs(piece).forEach(([dr,dc]) => {
+      const mr = r+dr, mc = c+dc, jr = r+2*dr, jc = c+2*dc;
+      if (ckInBounds(jr,jc) && !board[jr][jc] && ckInBounds(mr,mc) && board[mr][mc] && board[mr][mc].color !== piece.color){
+        moves.push({ r: jr, c: jc, capture:true, capR:mr, capC:mc });
+      }
+    });
+    return moves;
+  }
+  function ckSimpleMovesFor(board, r, c){
+    const piece = board[r][c];
+    if (!piece) return [];
+    const moves = [];
+    ckDirs(piece).forEach(([dr,dc]) => {
+      const nr = r+dr, nc = c+dc;
+      if (ckInBounds(nr,nc) && !board[nr][nc]) moves.push({ r:nr, c:nc, capture:false });
+    });
+    return moves;
+  }
+  function ckAllMovesFor(board, color){
+    const captures = [], simples = [];
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++){
+      const p = board[r][c];
+      if (!p || p.color !== color) continue;
+      ckCapturesFor(board, r, c).forEach(m => captures.push({ from:{r,c}, to:{r:m.r,c:m.c}, capture:true, capR:m.capR, capC:m.capC }));
+      ckSimpleMovesFor(board, r, c).forEach(m => simples.push({ from:{r,c}, to:{r:m.r,c:m.c}, capture:false }));
+    }
+    return captures.length ? captures : simples; // captures are mandatory when available
+  }
+  function ckLegalMoves(board, r, c, color){
+    return ckAllMovesFor(board, color).filter(m => m.from.r === r && m.from.c === c);
+  }
+  function ckAnyLegalMoves(board, color){ return ckAllMovesFor(board, color).length > 0; }
+  function ckApplyMove(board, move){
+    const piece = board[move.from.r][move.from.c];
+    board[move.from.r][move.from.c] = null;
+    if (move.capture) board[move.capR][move.capC] = null;
+    if (!piece.king && ((piece.color === 'r' && move.to.r === 0) || (piece.color === 'b' && move.to.r === 7))){
+      piece.king = true;
+    }
+    board[move.to.r][move.to.c] = piece;
+  }
+  function renderCheckersBoard(){
+    checkersBoardEl.innerHTML = '';
+    for (let r = 0; r < 8; r++){
+      for (let c = 0; c < 8; c++){
+        const sq = document.createElement('div');
+        const light = (r + c) % 2 === 0;
+        sq.className = 'chess-sq ' + (light ? 'light' : 'dark');
+        if (ckSelected && ckSelected.r === r && ckSelected.c === c) sq.classList.add('selected');
+        const legal = ckLegalForSelected.find(m => m.to.r === r && m.to.c === c);
+        if (legal) sq.classList.add(legal.capture ? 'capturehint' : 'movehint');
+        const p = ckBoardState[r][c];
+        if (p){
+          const span = document.createElement('span');
+          span.className = 'checkers-piece ' + (p.color === 'r' ? 'red' : 'black') + (p.king ? ' king' : '');
+          sq.appendChild(span);
+        }
+        sq.addEventListener('click', () => ckSquareClick(r, c));
+        checkersBoardEl.appendChild(sq);
+      }
+    }
+  }
+  function updateCkStatus(){
+    if (ckGameOver) return;
+    if (!ckAnyLegalMoves(ckBoardState, ckTurn)){
+      ckGameOver = true;
+      const winner = ckTurn === 'r' ? 'Black' : 'Red';
+      ckStatusEl.textContent = `${winner} wins! 🎉`;
+      return;
+    }
+    const turnName = ckTurn === 'r' ? 'Red' : 'Black';
+    ckStatusEl.textContent = ckForcedFrom ? `${turnName} must continue capturing…` : `${turnName}'s turn`;
+  }
+  function ckSendMove(move){
+    if (ckConn && ckConn.open) ckConn.send({ type:'ckmove', move });
+  }
+  function ckPerformMove(move, isLocal){
+    ckApplyMove(ckBoardState, move);
+    if (isLocal) ckSendMove(move);
+    let continueTurn = false;
+    if (move.capture){
+      const further = ckCapturesFor(ckBoardState, move.to.r, move.to.c);
+      if (further.length) continueTurn = true;
+    }
+    if (continueTurn){
+      ckSelected = { r: move.to.r, c: move.to.c };
+      ckForcedFrom = ckSelected;
+      ckLegalForSelected = ckCapturesFor(ckBoardState, move.to.r, move.to.c)
+        .map(m => ({ from: ckSelected, to:{r:m.r,c:m.c}, capture:true, capR:m.capR, capC:m.capC }));
+    } else {
+      ckSelected = null; ckLegalForSelected = []; ckForcedFrom = null;
+      ckTurn = ckTurn === 'r' ? 'b' : 'r';
+    }
+    renderCheckersBoard();
+    updateCkStatus();
+    if (!continueTurn && ckVsComputer && !ckGameOver && ckTurn === ckAIColor) ckScheduleAIMove();
+  }
+  function ckSquareClick(r, c){
+    if (!ckConnected || ckGameOver) return;
+    if (ckTurn !== ckMyColor) return;
+    const piece = ckBoardState[r][c];
+    if (ckSelected){
+      const move = ckLegalForSelected.find(m => m.to.r === r && m.to.c === c);
+      if (move){ ckPerformMove(move, true); return; }
+      if (!ckForcedFrom && piece && piece.color === ckMyColor){
+        ckSelected = { r, c };
+        ckLegalForSelected = ckLegalMoves(ckBoardState, r, c, ckMyColor);
+        renderCheckersBoard();
+        return;
+      }
+      if (!ckForcedFrom){ ckSelected = null; ckLegalForSelected = []; renderCheckersBoard(); }
+      return;
+    }
+    if (piece && piece.color === ckMyColor){
+      ckSelected = { r, c };
+      ckLegalForSelected = ckLegalMoves(ckBoardState, r, c, ckMyColor);
+      renderCheckersBoard();
+    }
+  }
+  function ckHandleRemoteMove(msg){
+    ckPerformMove(msg.move, false);
+  }
+  function ckSetConnStatus(ok, text){
+    ckStatusDot.classList.toggle('ok', !!ok);
+    ckStatusDot.classList.toggle('bad', ok === false);
+    ckStatusText.textContent = text;
+  }
+  function ckStartLocalGame(){
+    ckVsComputer = false;
+    ckConnected = true;
+    ckSetupEl.style.display = 'none';
+    ckGameWrapEl.style.display = 'block';
+    ckYouEl.textContent = `You are playing ${ckMyColor === 'r' ? 'Red' : 'Black'}`;
+    ckNewGame();
+  }
+  function ckSetupConnHandlers(conn){
+    ckConn = conn;
+    conn.on('open', () => { ckSetConnStatus(true, 'Connected!'); ckStartLocalGame(); });
+    conn.on('data', (msg) => {
+      if (!msg || !msg.type) return;
+      if (msg.type === 'ckmove') ckHandleRemoteMove(msg);
+      else if (msg.type === 'ckrestart') ckNewGame();
+    });
+    conn.on('close', () => { ckConnected = false; ckSetConnStatus(false, 'Opponent disconnected.'); });
+    conn.on('error', () => ckSetConnStatus(false, 'Connection error.'));
+  }
+  function ckEnsurePeer(onOpen, attemptsLeft){
+    if (ckPeer){ onOpen(ckPeer.id); return; }
+    if (attemptsLeft === undefined) attemptsLeft = 6;
+    const p = new Peer(genRoomCode());
+    p.on('open', (id) => { ckPeer = p; onOpen(id); });
+    p.on('error', (err) => {
+      if (err && err.type === 'unavailable-id' && attemptsLeft > 0){
+        p.destroy();
+        ckEnsurePeer(onOpen, attemptsLeft - 1);
+        return;
+      }
+      ckSetConnStatus(false, 'Peer error: ' + (err && err.type ? err.type : 'unknown'));
+    });
+    p.on('connection', (conn) => {
+      if (ckConn) { conn.close(); return; } // only one opponent
+      ckIsHost = true;
+      ckMyColor = 'r';
+      ckSetupConnHandlers(conn);
+    });
+  }
+  $('ckHostBtn').addEventListener('click', () => {
+    ckSetConnStatus(null, 'Generating room code…');
+    ckEnsurePeer((id) => {
+      ckMyCodeWrap.style.display = 'block';
+      ckMyCodeEl.textContent = id;
+      ckSetConnStatus(null, 'Share this code — waiting for opponent to join…');
+    });
+  });
+  $('ckJoinBtn').addEventListener('click', () => {
+    const code = $('ckJoinInput').value.trim();
+    if (!code) return;
+    ckSetConnStatus(null, 'Connecting…');
+    ckEnsurePeer(() => {
+      ckIsHost = false;
+      ckMyColor = 'b';
+      const conn = ckPeer.connect(code, { reliable: true });
+      ckSetupConnHandlers(conn);
+    });
+  });
+  $('ckResignBtn').addEventListener('click', () => {
+    if (ckConn && ckConn.open) ckConn.send({ type:'ckrestart' });
+    ckNewGame();
+  });
+
+  function ckAllMovesForSim(board, color){ return ckAllMovesFor(board, color); }
+  function ckEvaluate(board){
+    let score = 0;
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++){
+      const p = board[r][c];
+      if (!p) continue;
+      const val = p.king ? 3 : 1;
+      score += (p.color === 'r' ? val : -val);
+    }
+    return score;
+  }
+  function ckMinimax(board, depth, alpha, beta, maximizing){
+    const color = maximizing ? 'r' : 'b';
+    const moves = ckAllMovesForSim(board, color);
+    if (moves.length === 0) return { score: maximizing ? -10000 - depth : 10000 + depth };
+    if (depth === 0) return { score: ckEvaluate(board) };
+    let best = maximizing ? -Infinity : Infinity, bestMove = null;
+    for (const mv of moves){
+      const sim = ckCloneBoard(board);
+      ckApplyMove(sim, mv);
+      let nextBoard = sim, nextMaximizing = !maximizing, nextDepth = depth - 1;
+      // if this move captured and the same piece has further captures, it stays that color's turn
+      if (mv.capture && ckCapturesFor(sim, mv.to.r, mv.to.c).length){
+        nextMaximizing = maximizing;
+        nextDepth = depth; // don't burn depth on forced continuations
+      }
+      const result = ckMinimax(nextBoard, nextDepth, alpha, beta, nextMaximizing);
+      if (maximizing){
+        if (result.score > best){ best = result.score; bestMove = mv; }
+        alpha = Math.max(alpha, best);
+      } else {
+        if (result.score < best){ best = result.score; bestMove = mv; }
+        beta = Math.min(beta, best);
+      }
+      if (beta <= alpha) break;
+    }
+    return { score: best, move: bestMove };
+  }
+  function ckComputeAIMove(){
+    if (ckAIDifficulty === 'easy'){
+      const moves = ckAllMovesFor(ckBoardState, ckAIColor);
+      if (!moves.length) return null;
+      return moves[Math.floor(Math.random() * moves.length)];
+    }
+    const depth = CK_AI_DEPTH[ckAIDifficulty] || 3;
+    const maximizing = ckAIColor === 'r';
+    const result = ckMinimax(ckBoardState, depth, -Infinity, Infinity, maximizing);
+    return result.move || null;
+  }
+  function ckScheduleAIMove(){
+    if (!ckVsComputer || ckGameOver) return;
+    ckStatusEl.textContent = ckStatusEl.textContent + ' — Computer is thinking…';
+    setTimeout(() => {
+      if (!ckVsComputer || ckGameOver) return;
+      const mv = ckComputeAIMove();
+      if (!mv) return;
+      ckApplyMove(ckBoardState, mv);
+      let continueTurn = false;
+      if (mv.capture && ckCapturesFor(ckBoardState, mv.to.r, mv.to.c).length) continueTurn = true;
+      if (continueTurn){
+        renderCheckersBoard();
+        updateCkStatus();
+        ckScheduleAIMove();
+        return;
+      }
+      ckTurn = ckTurn === 'r' ? 'b' : 'r';
+      ckSelected = null; ckLegalForSelected = []; ckForcedFrom = null;
+      renderCheckersBoard();
+      updateCkStatus();
+    }, 400);
+  }
+  function ckStartVsComputer(color){
+    ckVsComputer = true;
+    ckIsHost = false;
+    if (ckConn) { ckConn.close(); ckConn = null; }
+    ckConnected = true;
+    ckMyColor = color;
+    ckAIColor = color === 'r' ? 'b' : 'r';
+    ckAIDifficulty = $('ckAIDifficulty').value;
+    ckSetupEl.style.display = 'none';
+    ckGameWrapEl.style.display = 'block';
+    const diffLabel = ckAIDifficulty.charAt(0).toUpperCase() + ckAIDifficulty.slice(1);
+    ckYouEl.textContent = `You are playing ${color === 'r' ? 'Red' : 'Black'} vs Computer (${diffLabel})`;
+    ckNewGame();
+    if (ckTurn === ckAIColor) ckScheduleAIMove();
+  }
+  $('ckAIRedBtn').addEventListener('click', () => ckStartVsComputer('r'));
+  $('ckAIBlackBtn').addEventListener('click', () => ckStartVsComputer('b'));
 
   /* =========================================================
      SNAKE
