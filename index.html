@@ -7512,10 +7512,10 @@ html.page-fade-ready body {
     // pushes past the "Filter by status:" bar on Collection/Sales/Service.
     function monthlyStackCardRow(color, label, valueHtml, subtitleHtml) {
       return `
-        <div class="rounded-lg border border-coolBorder bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all px-2.5 py-1.5 w-[104px] shrink-0">
-          <div class="text-[9px] font-bold text-slate-400 uppercase tracking-wide truncate">${label}</div>
-          <div class="text-sm font-extrabold text-${color} tabular-nums mt-0.5 truncate">${valueHtml}</div>
-          ${subtitleHtml ? `<div class="text-[9px] text-slate-500 mt-1 pt-1 border-t border-coolBorder leading-tight whitespace-nowrap" title="${subtitleHtml.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]*>/g, '')}">${subtitleHtml}</div>` : ''}
+        <div class="rounded-lg border border-coolBorder bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all px-2 py-1 w-[118px] shrink-0">
+          <div class="text-[8px] font-bold text-slate-400 uppercase tracking-wide truncate">${label}</div>
+          <div class="text-xs font-extrabold text-${color} tabular-nums truncate">${valueHtml}</div>
+          ${subtitleHtml ? `<div class="text-[8px] text-slate-500 mt-0.5 pt-0.5 border-t border-coolBorder leading-tight" title="${subtitleHtml.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]*>/g, '')}">${subtitleHtml}</div>` : ''}
         </div>`;
     }
 
@@ -7584,7 +7584,7 @@ html.page-fade-ready body {
               const diff = monthActuals[i] - targetTotal;
               const diffClass = diff >= 0 ? 'text-accentEmerald' : 'text-accentRose';
               const diffSign = diff >= 0 ? '+' : '';
-              const subtitle = `T:₱${formatCompactPeso(targetTotal)} <span class="${diffClass} font-bold">${diffSign}${formatCompactPeso(diff)}</span>`;
+              const subtitle = `T:₱${targetTotal.toLocaleString()}<br><span class="${diffClass} font-bold">${diffSign}${diff.toLocaleString()}</span>`;
               return monthlyStackCardRow(style.color, lbl, `₱${monthActuals[i].toLocaleString()}`, subtitle);
           }).join('');
       } else if (type === 'collection') {
