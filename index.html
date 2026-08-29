@@ -7512,10 +7512,10 @@ html.page-fade-ready body {
     // pushes past the "Filter by status:" bar on Collection/Sales/Service.
     function monthlyStackCardRow(color, label, valueHtml, subtitleHtml) {
       return `
-        <div class="rounded-lg border border-coolBorder bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all px-2 py-1 w-[118px] shrink-0">
+        <div class="rounded-lg border border-coolBorder bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all px-2 py-1 w-[132px] shrink-0">
           <div class="text-[8px] font-bold text-slate-400 uppercase tracking-wide truncate">${label}</div>
           <div class="text-xs font-extrabold text-${color} tabular-nums truncate">${valueHtml}</div>
-          ${subtitleHtml ? `<div class="text-[8px] text-slate-500 mt-0.5 pt-0.5 border-t border-coolBorder leading-tight" title="${subtitleHtml.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]*>/g, '')}">${subtitleHtml}</div>` : ''}
+          ${subtitleHtml ? `<div class="text-[8px] text-slate-500 mt-0.5 pt-0.5 border-t border-coolBorder leading-tight whitespace-nowrap" title="${subtitleHtml.replace(/<[^>]*>/g, '')}">${subtitleHtml}</div>` : ''}
         </div>`;
     }
 
@@ -7530,7 +7530,7 @@ html.page-fade-ready body {
       const net = insVal - caVal;
       const netColor = net >= 0 ? 'accentEmerald' : 'accentRose';
       const netSign = net > 0 ? '+' : '';
-      const subtitle = `<span class="text-accentEmerald font-semibold">INS ${insVal.toLocaleString()}</span><br><span class="text-accentRose font-semibold">CA ${caVal.toLocaleString()}</span>`;
+      const subtitle = `<span class="text-accentEmerald font-semibold">INS ${insVal.toLocaleString()}</span> · <span class="text-accentRose font-semibold">CA ${caVal.toLocaleString()}</span>`;
       return monthlyStackCardRow(netColor, label, `${netSign}${net.toLocaleString()}`, subtitle);
     }
 
@@ -7584,7 +7584,7 @@ html.page-fade-ready body {
               const diff = monthActuals[i] - targetTotal;
               const diffClass = diff >= 0 ? 'text-accentEmerald' : 'text-accentRose';
               const diffSign = diff >= 0 ? '+' : '';
-              const subtitle = `T:₱${targetTotal.toLocaleString()}<br><span class="${diffClass} font-bold">${diffSign}${diff.toLocaleString()}</span>`;
+              const subtitle = `T:₱${targetTotal.toLocaleString()} <span class="${diffClass} font-bold">${diffSign}${diff.toLocaleString()}</span>`;
               return monthlyStackCardRow(style.color, lbl, `₱${monthActuals[i].toLocaleString()}`, subtitle);
           }).join('');
       } else if (type === 'collection') {
@@ -7595,7 +7595,7 @@ html.page-fade-ready body {
           return '';
       }
 
-      return `<div class="flex items-center gap-1.5 flex-wrap justify-end ml-auto max-w-full">${rowsHtml}</div>`;
+      return `<div class="flex items-center gap-1.5 flex-nowrap overflow-x-auto ml-auto max-w-full w-full sm:w-auto pb-0.5">${rowsHtml}</div>`;
     }
 
     function buildAuditStatusFilterBar(activeAudit) {
