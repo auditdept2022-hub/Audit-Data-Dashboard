@@ -7518,6 +7518,32 @@ html.page-fade-ready body {
         </div>`;
     }
 
+    // Sales-specific month card: Installment (INS) vs Closed Account (CA)
+    // shown side by side as two plainly-labelled counts — no target, no
+    // percentage, no derived math — since that's literally what was asked
+    // for and is the most direct way to read "how many new installment
+    // accounts vs how many accounts closed this month". Uses the same
+    // INS=green / CA=rose color coding as the rest of the dashboard (the
+    // branch detail table, the sales list) so it matches at a glance.
+    function monthlySalesInsCaCard(label, insVal, caVal) {
+      return `
+        <div class="rounded-xl border border-coolBorder bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all p-2.5">
+          <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">${label}</div>
+          <div class="flex items-center justify-between gap-3">
+            <span class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-accentEmerald shrink-0"></span>
+              <span class="text-[10px] font-semibold text-slate-500">INS</span>
+              <span class="text-sm font-extrabold text-accentEmerald tabular-nums">${insVal.toLocaleString()}</span>
+            </span>
+            <span class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-accentRose shrink-0"></span>
+              <span class="text-[10px] font-semibold text-slate-500">CA</span>
+              <span class="text-sm font-extrabold text-accentRose tabular-nums">${caVal.toLocaleString()}</span>
+            </span>
+          </div>
+        </div>`;
+    }
+
     function buildMonthlyStackCard(type, list) {
       if (!STATUS_FILTER_OPTIONS[type] || !list) return '';
       const trendLbls = (activeData.summary && activeData.summary.trendLabels) || ['MAR', 'APR', 'MAY'];
@@ -7530,28 +7556,19 @@ html.page-fade-ready body {
       let rowsHtml = '';
 
       if (type === 'sales') {
-          // Sales now gets the same "actual vs target" treatment as
-          // Service: expectedIns/expectedCod (set once per branch, same
-          // shape as serviceTarget) is the monthly quota; actual
-          // production for the month is ins + cod - ca (new accounts
-          // opened minus cancellations) summed across branches. NOTE:
-          // these are unit COUNTS (Installment / Cash-on-Delivery /
-          // Cancelled Accounts), not currency — every other place in the
-          // dashboard that shows INS/COD/CA renders them as plain numbers
-          // with no peso sign, so this card does too.
-          const targetTotal = list.reduce((s, b) => s + (Number(b.expectedIns) || 0) + (Number(b.expectedCod) || 0), 0);
+          // Per month: Installment (INS) opened vs Closed Account (CA) —
+          // the two raw counts side by side, nothing derived. NOTE: these
+          // are unit COUNTS, not currency — every other place in the
+          // dashboard that shows INS/CA renders them as plain numbers with
+          // no peso sign, so this card does too.
           const keys = ['salesMar', 'salesApr', 'salesMay'];
-          const monthActuals = keys.map(k => list.reduce((s, b) => s + ((b[k].ins || 0) + (b[k].cod || 0) - (b[k].ca || 0)), 0));
-          const latestDiff = monthActuals[monthActuals.length - 1] - targetTotal;
-          headline = `${latestDiff >= 0 ? '+' : ''}${latestDiff.toLocaleString()}`;
-          unitLabel = 'vs target';
-          rowsHtml = salesLbls.map((lbl, i) => {
-              const diff = monthActuals[i] - targetTotal;
-              const diffClass = diff >= 0 ? 'text-accentEmerald' : 'text-accentRose';
-              const diffSign = diff >= 0 ? '+' : '';
-              const subtitle = `<span>Target ${targetTotal.toLocaleString()}</span><span class="${diffClass} font-bold">${diffSign}${diff.toLocaleString()}</span>`;
-              return monthlyStackCardRow(style.color, lbl, monthActuals[i].toLocaleString(), subtitle);
-          }).join('');
+          const monthIns = keys.map(k => list.reduce((s, b) => s + (b[k].ins || 0), 0));
+          const monthCa = keys.map(k => list.reduce((s, b) => s + (b[k].ca || 0), 0));
+          const lastIns = monthIns[monthIns.length - 1];
+          const lastCa = monthCa[monthCa.length - 1];
+          headline = `<span class="text-accentEmerald">${lastIns.toLocaleString()}</span><span class="text-slate-300 mx-0.5">/</span><span class="text-accentRose">${lastCa.toLocaleString()}</span>`;
+          unitLabel = 'INS / CA';
+          rowsHtml = salesLbls.map((lbl, i) => monthlySalesInsCaCard(lbl, monthIns[i], monthCa[i])).join('');
       } else if (type === 'service') {
           const targetTotal = list.reduce((s, b) => s + (Number(b.serviceTarget) || 0), 0);
           const keys = ['serviceMar', 'serviceApr', 'serviceMay'];
