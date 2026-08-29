@@ -7491,41 +7491,47 @@ html.page-fade-ready body {
       service: { color: 'accentCyan' }
     };
 
+    // Compact number formatter used ONLY inside these small stack-card
+    // subtitles (e.g. "Target ₱414.3K  +108K") — keeps the card narrow
+    // even when the underlying totals run into 6-7 figures. Full,
+    // un-rounded values are still shown elsewhere (KPI cards, tables);
+    // this is purely a space-saving label. Falls back to a plain
+    // toLocaleString() for small numbers so short values aren't
+    // needlessly abbreviated (e.g. "₱850" stays "₱850", not "₱0.9K").
+    function formatCompactPeso(n) {
+      const sign = n < 0 ? '-' : '';
+      const abs = Math.abs(n);
+      if (abs >= 1000000) return sign + (abs / 1000000).toFixed(abs % 1000000 === 0 ? 0 : 1) + 'M';
+      if (abs >= 10000) return sign + (abs / 1000).toFixed(abs % 1000 === 0 ? 0 : 1) + 'K';
+      return sign + abs.toLocaleString();
+    }
+
     // One month, one small card (label on top, headline value, optional
-    // target/diff subtitle) — sized to sit three-in-a-row.
+    // target/diff subtitle) — sized to sit three-in-a-row, kept narrow
+    // (fixed width rather than flex-growing) so a row of these never
+    // pushes past the "Filter by status:" bar on Collection/Sales/Service.
     function monthlyStackCardRow(color, label, valueHtml, subtitleHtml) {
       return `
-        <div class="rounded-xl border border-coolBorder bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all p-2 min-w-[88px] flex-1">
-          <div class="text-[9px] font-bold text-slate-400 uppercase tracking-wide">${label}</div>
-          <div class="text-sm font-extrabold text-${color} tabular-nums mt-0.5">${valueHtml}</div>
-          ${subtitleHtml ? `<div class="text-[9px] text-slate-400 mt-1 pt-1 border-t border-coolBorder leading-tight">${subtitleHtml}</div>` : ''}
+        <div class="rounded-lg border border-coolBorder bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all px-2 py-1.5 w-[68px] shrink-0">
+          <div class="text-[8px] font-bold text-slate-400 uppercase tracking-wide truncate">${label}</div>
+          <div class="text-xs font-extrabold text-${color} tabular-nums mt-0.5 truncate">${valueHtml}</div>
+          ${subtitleHtml ? `<div class="text-[8px] text-slate-400 mt-1 pt-1 border-t border-coolBorder leading-tight truncate" title="${subtitleHtml.replace(/<[^>]*>/g, '')}">${subtitleHtml}</div>` : ''}
         </div>`;
     }
 
-    // Sales-specific month card: Installment (INS) vs Closed Account (CA)
-    // shown side by side as two plainly-labelled counts — no target, no
-    // percentage, no derived math — since that's literally what was asked
-    // for and is the most direct way to read "how many new installment
-    // accounts vs how many accounts closed this month". Uses the same
-    // INS=green / CA=rose color coding as the rest of the dashboard (the
-    // branch detail table, the sales list) so it matches at a glance.
+    // Sales-specific month card: headline is the NET figure — INS minus
+    // CA (Installment opened minus Closed Accounts) — matching the same
+    // "Sales (INS−CA)" metric used by the KPI summary bar above this
+    // card (buildSalesSummaryBar's "3-Mo Avg Sales (INS−CA)" tile), so
+    // the two never disagree. The raw INS/CA counts that make up the net
+    // are kept as a small subtitle underneath for reference, same
+    // pattern as the Service card's "Target / diff" subtitle.
     function monthlySalesInsCaCard(label, insVal, caVal) {
-      return `
-        <div class="rounded-xl border border-coolBorder bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all p-2 min-w-[110px] flex-1">
-          <div class="text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">${label}</div>
-          <div class="flex items-center justify-between gap-2">
-            <span class="flex items-center gap-1">
-              <span class="w-1.5 h-1.5 rounded-full bg-accentEmerald shrink-0"></span>
-              <span class="text-[9px] font-semibold text-slate-500">INS</span>
-              <span class="text-xs font-extrabold text-accentEmerald tabular-nums">${insVal.toLocaleString()}</span>
-            </span>
-            <span class="flex items-center gap-1">
-              <span class="w-1.5 h-1.5 rounded-full bg-accentRose shrink-0"></span>
-              <span class="text-[9px] font-semibold text-slate-500">CA</span>
-              <span class="text-xs font-extrabold text-accentRose tabular-nums">${caVal.toLocaleString()}</span>
-            </span>
-          </div>
-        </div>`;
+      const net = insVal - caVal;
+      const netColor = net >= 0 ? 'accentEmerald' : 'accentRose';
+      const netSign = net > 0 ? '+' : '';
+      const subtitle = `<span class="text-accentEmerald font-semibold">INS ${insVal.toLocaleString()}</span> · <span class="text-accentRose font-semibold">CA ${caVal.toLocaleString()}</span>`;
+      return monthlyStackCardRow(netColor, label, `${netSign}${net.toLocaleString()}`, subtitle);
     }
 
     function buildMonthlyStackCard(type, list) {
@@ -7554,7 +7560,7 @@ html.page-fade-ready body {
               const diff = monthActuals[i] - targetTotal;
               const diffClass = diff >= 0 ? 'text-accentEmerald' : 'text-accentRose';
               const diffSign = diff >= 0 ? '+' : '';
-              const subtitle = `Target ₱${targetTotal.toLocaleString()} <span class="${diffClass} font-bold">${diffSign}${diff.toLocaleString()}</span>`;
+              const subtitle = `T:₱${formatCompactPeso(targetTotal)} <span class="${diffClass} font-bold">${diffSign}${formatCompactPeso(diff)}</span>`;
               return monthlyStackCardRow(style.color, lbl, `₱${monthActuals[i].toLocaleString()}`, subtitle);
           }).join('');
       } else if (type === 'collection') {
@@ -7565,7 +7571,7 @@ html.page-fade-ready body {
           return '';
       }
 
-      return `<div class="flex items-center gap-2 flex-wrap ml-auto">${rowsHtml}</div>`;
+      return `<div class="flex items-center gap-1.5 flex-wrap justify-end ml-auto max-w-full">${rowsHtml}</div>`;
     }
 
     function buildAuditStatusFilterBar(activeAudit) {
