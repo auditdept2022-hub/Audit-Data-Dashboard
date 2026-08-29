@@ -4247,7 +4247,7 @@ html.page-fade-ready body {
   <div id="dataModal" class="fixed inset-0 z-50 transition-opacity duration-300 opacity-0 hidden">
     <div class="absolute inset-0 bg-slate-900/65"></div>
     <div class="absolute inset-0 flex items-start sm:items-center justify-center overflow-y-auto p-3 sm:p-4 py-6">
-      <div class="bg-coolCard w-[85vw] max-h-[85vh] max-h-[85dvh] my-auto rounded-2xl shadow-2xl flex flex-col transform transition-transform duration-300 border border-coolBorder scale-95" id="modalDialog" onclick="event.stopPropagation()">
+      <div class="bg-coolCard w-[85vw] min-h-[60vh] max-h-[85vh] max-h-[85dvh] my-auto rounded-2xl shadow-2xl flex flex-col transform transition-transform duration-300 border border-coolBorder scale-95" id="modalDialog" onclick="event.stopPropagation()">
         <div class="px-4 sm:px-5 py-2.5 sm:py-3 border-b border-coolBorder flex flex-wrap justify-between items-center gap-x-3 gap-y-1.5 bg-gray-50 rounded-t-2xl">
           <div class="flex items-center gap-2 min-w-0 w-full sm:w-auto sm:flex-1">
             <button id="modalBackBtn" onclick="modalGoBack()" title="Back" aria-label="Back to previous view" class="hidden p-2 -ml-1 text-slate-400 hover:text-accentBlue hover:bg-accentBlue/10 active:scale-95 rounded-xl transition-all cursor-pointer flex-shrink-0">
@@ -4794,15 +4794,15 @@ html.page-fade-ready body {
           <span class="p-1.5 bg-accentCyan/10 text-accentCyan rounded-lg group-hover:bg-accentCyan group-hover:text-white transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-alert-triangle w-4 h-4"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg></span>
         </div>
         <div class="mt-4 grid grid-cols-3 divide-x divide-coolBorder text-center">
-          <div class="cursor-pointer rounded-xl py-1.5 transition-all duration-150 hover:bg-slate-900/[0.04] hover:scale-105 hover:shadow-sm" onclick="event.stopPropagation(); openModal('Audit Findings FY2024 Breakdown', 'findings', 'findings2024')">
+          <div class="py-1.5">
             <h3 class="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900" id="stat-findings-2024">197</h3>
             <p class="text-[10px] font-semibold text-slate-400 mt-0.5 uppercase tracking-wide">FY2024</p>
           </div>
-          <div class="cursor-pointer rounded-xl py-1.5 transition-all duration-150 hover:bg-accentRose/10 hover:scale-105 hover:shadow-sm" onclick="event.stopPropagation(); openModal('Audit Findings FY2025 Breakdown', 'findings', 'findings2025')">
+          <div class="py-1.5">
             <h3 class="text-xl sm:text-2xl font-extrabold tracking-tight text-accentRose" id="stat-findings-2025">280</h3>
             <p class="text-[10px] font-semibold text-slate-400 mt-0.5 uppercase tracking-wide">FY2025</p>
           </div>
-          <div class="cursor-pointer rounded-xl py-1.5 transition-all duration-150 hover:bg-accentCyan/10 hover:scale-105 hover:shadow-sm" onclick="event.stopPropagation(); openModal('Audit Findings FY2026 Breakdown', 'findings', 'findings2026')">
+          <div class="py-1.5">
             <h3 class="text-xl sm:text-2xl font-extrabold tracking-tight text-accentCyan" id="stat-findings-2026">202</h3>
             <p class="text-[10px] font-semibold text-slate-400 mt-0.5 uppercase tracking-wide">FY2026</p>
           </div>
@@ -5758,7 +5758,7 @@ html.page-fade-ready body {
           if (type === 'findings') {
               branchesToDisplay = [...activeData.branches].sort((a, b) => b[filterValue] - a[filterValue]);
               window.findingsModalState = { type, filterValue, allBranches: branchesToDisplay };
-              modalBody.innerHTML = '<div id="modalTableContainer"></div>';
+              modalBody.innerHTML = renderFindingsYearTabs(filterValue) + '<div id="modalTableContainer"></div>';
               const tableContainer = document.getElementById('modalTableContainer');
               if (branchesToDisplay.length > 0) renderBranchTable(branchesToDisplay, tableContainer, type, filterValue);
               else tableContainer.innerHTML = '<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No targeted branch parameters found.</div>';
@@ -9437,7 +9437,56 @@ html.page-fade-ready body {
       container.innerHTML = tableHtml;
     }
 
-    function toggleInlineFindings(index, branchName, year) {
+    // Year-switcher for the Audit Findings popup — a single stack-card row
+    // (FY2024 / FY2025 / FY2026, each showing that year's branch-wide
+    // total) so the dashboard tile only needs ONE click to get in, and
+    // switching years happens inside the popup instead of needing 3
+    // separate click targets on the dashboard itself. Totals come straight
+    // from activeData.summary (already computed on upload), so a new
+    // upload updates these automatically, same as everywhere else.
+    const FINDINGS_YEAR_TABS = [
+      { key: 'findings2024', label: 'FY2024' },
+      { key: 'findings2025', label: 'FY2025' },
+      { key: 'findings2026', label: 'FY2026' }
+    ];
+
+    function renderFindingsYearTabs(activeFilterValue) {
+      const sum = activeData.summary || {};
+      const rows = FINDINGS_YEAR_TABS.map(y => {
+          const isActive = y.key === activeFilterValue;
+          const activeClass = isActive
+              ? 'bg-accentCyan text-white border-accentCyan shadow-sm'
+              : 'bg-white text-slate-600 border-coolBorder hover:border-accentCyan/50 hover:bg-accentCyan/5';
+          const total = Number(sum[y.key]) || 0;
+          return `<button onclick="switchFindingsYear('${y.key}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all active:scale-95 ${activeClass}">${y.label} <span class="ml-1 font-extrabold">${total.toLocaleString()}</span></button>`;
+      }).join('');
+      return `<div id="findingsYearTabs" class="flex flex-wrap items-center gap-2 mb-3"><span class="text-xs font-semibold text-slate-500 mr-1">Findings Year:</span>${rows}</div>`;
+    }
+
+    function switchFindingsYear(filterValue) {
+      const yearLabel = (FINDINGS_YEAR_TABS.find(y => y.key === filterValue) || {}).label || filterValue;
+      const title = `Audit Findings ${yearLabel} Breakdown`;
+      const modalTitle = document.getElementById('modalTitle');
+      if (modalTitle) { modalTitle.innerHTML = title; modalTitle.title = title; }
+      modalCurrentState = { title, type: 'findings', filterValue };
+
+      const branchesToDisplay = [...activeData.branches].sort((a, b) => b[filterValue] - a[filterValue]);
+      window.findingsModalState = { type: 'findings', filterValue, allBranches: branchesToDisplay };
+
+      const backBar = document.getElementById('findingsBackBar');
+      if (backBar) backBar.remove();
+
+      const tableContainer = document.getElementById('modalTableContainer');
+      if (tableContainer) {
+          if (branchesToDisplay.length > 0) renderBranchTable(branchesToDisplay, tableContainer, 'findings', filterValue);
+          else tableContainer.innerHTML = '<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No targeted branch parameters found.</div>';
+      }
+
+      const tabsEl = document.getElementById('findingsYearTabs');
+      if (tabsEl) tabsEl.outerHTML = renderFindingsYearTabs(filterValue);
+    }
+
+
         const row = document.getElementById(`findingsPanelRow-${index}`);
         const body = document.getElementById(`findingsPanelBody-${index}`);
         if (!row || !body) return;
