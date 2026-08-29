@@ -7512,10 +7512,10 @@ html.page-fade-ready body {
     // pushes past the "Filter by status:" bar on Collection/Sales/Service.
     function monthlyStackCardRow(color, label, valueHtml, subtitleHtml) {
       return `
-        <div class="rounded-lg border border-coolBorder bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all px-2 py-1.5 w-[68px] shrink-0">
-          <div class="text-[8px] font-bold text-slate-400 uppercase tracking-wide truncate">${label}</div>
-          <div class="text-xs font-extrabold text-${color} tabular-nums mt-0.5 truncate">${valueHtml}</div>
-          ${subtitleHtml ? `<div class="text-[8px] text-slate-400 mt-1 pt-1 border-t border-coolBorder leading-tight truncate" title="${subtitleHtml.replace(/<[^>]*>/g, '')}">${subtitleHtml}</div>` : ''}
+        <div class="rounded-lg border border-coolBorder bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all px-2.5 py-1.5 w-[104px] shrink-0">
+          <div class="text-[9px] font-bold text-slate-400 uppercase tracking-wide truncate">${label}</div>
+          <div class="text-sm font-extrabold text-${color} tabular-nums mt-0.5 truncate">${valueHtml}</div>
+          ${subtitleHtml ? `<div class="text-[9px] text-slate-500 mt-1 pt-1 border-t border-coolBorder leading-tight whitespace-nowrap" title="${subtitleHtml.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]*>/g, '')}">${subtitleHtml}</div>` : ''}
         </div>`;
     }
 
@@ -7530,7 +7530,7 @@ html.page-fade-ready body {
       const net = insVal - caVal;
       const netColor = net >= 0 ? 'accentEmerald' : 'accentRose';
       const netSign = net > 0 ? '+' : '';
-      const subtitle = `<span class="text-accentEmerald font-semibold">INS ${insVal.toLocaleString()}</span> · <span class="text-accentRose font-semibold">CA ${caVal.toLocaleString()}</span>`;
+      const subtitle = `<span class="text-accentEmerald font-semibold">INS ${insVal.toLocaleString()}</span><br><span class="text-accentRose font-semibold">CA ${caVal.toLocaleString()}</span>`;
       return monthlyStackCardRow(netColor, label, `${netSign}${net.toLocaleString()}`, subtitle);
     }
 
@@ -7551,7 +7551,31 @@ html.page-fade-ready body {
           const keys = ['salesMar', 'salesApr', 'salesMay'];
           const monthIns = keys.map(k => list.reduce((s, b) => s + (b[k].ins || 0), 0));
           const monthCa = keys.map(k => list.reduce((s, b) => s + (b[k].ca || 0), 0));
-          rowsHtml = salesLbls.map((lbl, i) => monthlySalesInsCaCard(lbl, monthIns[i], monthCa[i])).join('');
+          const netRows = salesLbls.map((lbl, i) => monthlySalesInsCaCard(lbl, monthIns[i], monthCa[i])).join('');
+
+          // Total Accounts, same 3 months, appended right after the INS/CA
+          // net cards so Sales shows 6 stack cards total (3 net + 3
+          // accounts) instead of 3 — Service/Collection stay at 3, they
+          // don't carry an accounts breakdown. Pulled fresh from `list`
+          // every render, same as the net cards above, so a new upload
+          // (new totals AND/OR new month labels via salesTrendLabels)
+          // updates both rows together automatically — nothing hardcoded.
+          // NOTE: accountsMar/Apr/May are keyed to the main audit trend
+          // (activeData.summary.trendLabels), which is normally the same
+          // 3 months as the Sales section's own salesTrendLabels, but the
+          // two CAN drift if the Sales sheet is rolled forward on a
+          // different schedule (see the salesTrendLabels comment further
+          // down) — in that edge case the accounts total shown here would
+          // be labeled with the Sales month name but come from whichever
+          // month sits in that same column position under the main trend.
+          const acctKeys = ['accountsMar', 'accountsApr', 'accountsMay'];
+          const monthAccts = acctKeys.map(k => list.reduce((s, b) => s + (Number(b[k]) || 0), 0));
+          const acctRows = salesLbls.map((lbl, i) =>
+              monthlyStackCardRow('accentBlue', lbl, monthAccts[i].toLocaleString(),
+                  '<span class="text-accentBlue font-semibold">Total Accts</span>')
+          ).join('');
+
+          rowsHtml = netRows + acctRows;
       } else if (type === 'service') {
           const targetTotal = list.reduce((s, b) => s + (Number(b.serviceTarget) || 0), 0);
           const keys = ['serviceMar', 'serviceApr', 'serviceMay'];
