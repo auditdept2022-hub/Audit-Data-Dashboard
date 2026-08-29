@@ -7476,45 +7476,29 @@ html.page-fade-ready body {
       return `<div class="flex flex-wrap items-center justify-between gap-2 mb-2">${filterRow}${monthlyCard}</div>`;
     }
 
-    // "Stack card" — a compact pill (icon + headline) that expands into a
-    // popup of individual per-month cards, matching the same visual
-    // language as the mini calendar popup (each row is its own bordered,
-    // shadowed card rather than a flat divide-y list). Color and icon per
-    // type mirror the corresponding top KPI tile (Collection/Sales/Service
-    // Status cards above) — accentEmerald + trending-up for collection,
-    // accentIndigo + shopping-cart for sales, accentCyan + target for
-    // service — so the pill visually ties back to its KPI card. Sits at
-    // the right edge, in line with "Filter by status:". Reuses the trend
-    // month labels already computed from the uploaded sheet
+    // "Stack cards" — three small per-month cards shown inline, side by
+    // side, next to "Filter by status:" — no click-to-expand needed, all
+    // three months are visible at once. Color/icon per type mirror the
+    // corresponding top KPI tile (Collection/Sales/Service Status cards
+    // above) so the row visually ties back to its KPI card. Reuses the
+    // trend month labels already computed from the uploaded sheet
     // (activeData.summary.trendLabels / salesTrendLabels) so the labels
     // always match whatever 3 months are actually loaded — not hardcoded
     // to June/July/August.
     const MONTHLY_CARD_STYLE = {
-      collection: {
-        color: 'accentEmerald',
-        icon: '<path d="M16 7h6v6"></path><path d="m22 7-8.5 8.5-5-5L2 17"></path>'
-      },
-      sales: {
-        color: 'accentIndigo',
-        icon: '<circle cx="8" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"></path>'
-      },
-      service: {
-        color: 'accentCyan',
-        icon: '<circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle>'
-      }
+      collection: { color: 'accentEmerald' },
+      sales: { color: 'accentIndigo' },
+      service: { color: 'accentCyan' }
     };
 
-    // Renders one month as its own small elevated card (label on top,
-    // headline value, optional target/diff subtitle row) instead of a
-    // plain divide-y row.
+    // One month, one small card (label on top, headline value, optional
+    // target/diff subtitle) — sized to sit three-in-a-row.
     function monthlyStackCardRow(color, label, valueHtml, subtitleHtml) {
       return `
-        <div class="rounded-xl border border-coolBorder bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all p-2.5">
-          <div class="flex items-center justify-between gap-3">
-            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide">${label}</span>
-            <span class="text-sm font-extrabold text-${color} tabular-nums">${valueHtml}</span>
-          </div>
-          ${subtitleHtml ? `<div class="flex items-center justify-between gap-3 text-[10px] text-slate-400 mt-1.5 pt-1.5 border-t border-coolBorder">${subtitleHtml}</div>` : ''}
+        <div class="rounded-xl border border-coolBorder bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all p-2 min-w-[88px] flex-1">
+          <div class="text-[9px] font-bold text-slate-400 uppercase tracking-wide">${label}</div>
+          <div class="text-sm font-extrabold text-${color} tabular-nums mt-0.5">${valueHtml}</div>
+          ${subtitleHtml ? `<div class="text-[9px] text-slate-400 mt-1 pt-1 border-t border-coolBorder leading-tight">${subtitleHtml}</div>` : ''}
         </div>`;
     }
 
@@ -7527,18 +7511,18 @@ html.page-fade-ready body {
     // branch detail table, the sales list) so it matches at a glance.
     function monthlySalesInsCaCard(label, insVal, caVal) {
       return `
-        <div class="rounded-xl border border-coolBorder bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all p-2.5">
-          <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">${label}</div>
-          <div class="flex items-center justify-between gap-3">
-            <span class="flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-accentEmerald shrink-0"></span>
-              <span class="text-[10px] font-semibold text-slate-500">INS</span>
-              <span class="text-sm font-extrabold text-accentEmerald tabular-nums">${insVal.toLocaleString()}</span>
+        <div class="rounded-xl border border-coolBorder bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all p-2 min-w-[110px] flex-1">
+          <div class="text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">${label}</div>
+          <div class="flex items-center justify-between gap-2">
+            <span class="flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-accentEmerald shrink-0"></span>
+              <span class="text-[9px] font-semibold text-slate-500">INS</span>
+              <span class="text-xs font-extrabold text-accentEmerald tabular-nums">${insVal.toLocaleString()}</span>
             </span>
-            <span class="flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-accentRose shrink-0"></span>
-              <span class="text-[10px] font-semibold text-slate-500">CA</span>
-              <span class="text-sm font-extrabold text-accentRose tabular-nums">${caVal.toLocaleString()}</span>
+            <span class="flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-accentRose shrink-0"></span>
+              <span class="text-[9px] font-semibold text-slate-500">CA</span>
+              <span class="text-xs font-extrabold text-accentRose tabular-nums">${caVal.toLocaleString()}</span>
             </span>
           </div>
         </div>`;
@@ -7548,11 +7532,8 @@ html.page-fade-ready body {
       if (!STATUS_FILTER_OPTIONS[type] || !list) return '';
       const trendLbls = (activeData.summary && activeData.summary.trendLabels) || ['MAR', 'APR', 'MAY'];
       const salesLbls = (activeData.summary && activeData.summary.salesTrendLabels) || trendLbls;
-      const isOpen = !!window.modalMonthlyOpen;
       const n = list.length || 1;
       const style = MONTHLY_CARD_STYLE[type];
-      let headline = '';
-      let unitLabel = '/mo';
       let rowsHtml = '';
 
       if (type === 'sales') {
@@ -7564,49 +7545,27 @@ html.page-fade-ready body {
           const keys = ['salesMar', 'salesApr', 'salesMay'];
           const monthIns = keys.map(k => list.reduce((s, b) => s + (b[k].ins || 0), 0));
           const monthCa = keys.map(k => list.reduce((s, b) => s + (b[k].ca || 0), 0));
-          const lastIns = monthIns[monthIns.length - 1];
-          const lastCa = monthCa[monthCa.length - 1];
-          headline = `<span class="text-accentEmerald">${lastIns.toLocaleString()}</span><span class="text-slate-300 mx-0.5">/</span><span class="text-accentRose">${lastCa.toLocaleString()}</span>`;
-          unitLabel = 'INS / CA';
           rowsHtml = salesLbls.map((lbl, i) => monthlySalesInsCaCard(lbl, monthIns[i], monthCa[i])).join('');
       } else if (type === 'service') {
           const targetTotal = list.reduce((s, b) => s + (Number(b.serviceTarget) || 0), 0);
           const keys = ['serviceMar', 'serviceApr', 'serviceMay'];
           const monthActuals = keys.map(k => list.reduce((s, b) => s + (Number(b[k]) || 0), 0));
-          const latestDiff = monthActuals[monthActuals.length - 1] - targetTotal;
-          headline = `${latestDiff >= 0 ? '+' : ''}₱${latestDiff.toLocaleString()}`;
-          unitLabel = 'vs target';
           rowsHtml = trendLbls.map((lbl, i) => {
               const diff = monthActuals[i] - targetTotal;
               const diffClass = diff >= 0 ? 'text-accentEmerald' : 'text-accentRose';
               const diffSign = diff >= 0 ? '+' : '';
-              const subtitle = `<span>Target ₱${targetTotal.toLocaleString()}</span><span class="${diffClass} font-bold">${diffSign}${diff.toLocaleString()}</span>`;
+              const subtitle = `Target ₱${targetTotal.toLocaleString()} <span class="${diffClass} font-bold">${diffSign}${diff.toLocaleString()}</span>`;
               return monthlyStackCardRow(style.color, lbl, `₱${monthActuals[i].toLocaleString()}`, subtitle);
           }).join('');
       } else if (type === 'collection') {
           const keys = ['effMar', 'effApr', 'effLatest'];
           const monthAvgs = keys.map(k => Math.round(list.reduce((s, b) => s + (Number(b[k]) || 0), 0) / n));
-          headline = `${monthAvgs[monthAvgs.length - 1]}%`;
           rowsHtml = trendLbls.map((lbl, i) => monthlyStackCardRow(style.color, lbl, `${monthAvgs[i]}%`, '')).join('');
       } else {
           return '';
       }
 
-      return `
-      <div class="relative shrink-0 ml-auto">
-        <div onclick="toggleMonthlyStackCard()" role="button" tabindex="0" aria-haspopup="true" aria-expanded="${isOpen}" title="Monthly breakdown" class="flex items-center gap-1.5 leading-tight pl-1 pr-2.5 py-1 rounded-xl bg-coolCard border border-coolBorder shadow-sm whitespace-nowrap select-none cursor-pointer hover:border-${style.color}/50 hover:shadow-md active:scale-95 transition-all">
-          <span class="p-1 bg-${style.color}/10 text-${style.color} rounded-lg shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${style.icon}</svg></span>
-          <span class="text-xs sm:text-sm font-extrabold text-slate-900 tabular-nums">${headline}</span>
-          <span class="text-[10px] text-slate-400 font-semibold">${unitLabel}</span>
-          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}"><path d="m6 9 6 6 6-6"></path></svg>
-        </div>
-        <div class="${isOpen ? '' : 'hidden'} absolute right-0 top-full mt-2 w-60 bg-coolCard border border-coolBorder rounded-2xl shadow-2xl p-2 z-50 text-left cursor-default flex flex-col gap-1.5" onclick="event.stopPropagation()">${rowsHtml}</div>
-      </div>`;
-    }
-
-    function toggleMonthlyStackCard() {
-      window.modalMonthlyOpen = !window.modalMonthlyOpen;
-      renderModalFilteredView();
+      return `<div class="flex items-center gap-2 flex-wrap ml-auto">${rowsHtml}</div>`;
     }
 
     function buildAuditStatusFilterBar(activeAudit) {
