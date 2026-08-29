@@ -73,6 +73,8 @@
     width: 1360px; /* fixed design width; JS scales it to fit */
   }
   @media(min-width:1500px){ body.auto-fit .wrap{ width:1480px; } }
+  @media(min-width:1900px){ body.auto-fit .wrap{ width:1650px; } }
+  @media(min-width:2200px){ body.auto-fit .wrap{ width:1850px; } }
 
   /* ---------- Ocean background (decorative, non-interactive) ----------
      Lives inside the header banner only (see .banner markup) rather than
@@ -6531,12 +6533,15 @@ updateVoucherTabState();
       return;
     }
     body.classList.add('auto-fit');
-    var design = w >= 1500 ? 1480 : 1360;
-    var available = w - 24; // small side margin so it never touches edges
-    // No upper cap: on large monitors the canvas scales UP to fill the
-    // available width instead of staying pinned at the 1360/1480px design
-    // size, so the dashboard truly fits whatever resolution it's opened on.
-    var scale = available / design;
+    var design = w >= 2200 ? 1850 : w >= 1900 ? 1650 : w >= 1500 ? 1480 : 1360;
+    var available = w - 48; // side allowance so the canvas never touches the screen edges
+    // Capped at 1: scaling UP past the design's real pixel size just blows
+    // the canvas up (blurry text, and the enlarged box overflows the
+    // viewport, which is what caused the double/horizontal scrollbar).
+    // Wider screens instead get a bigger design width (see @media rules
+    // above) so they still use more of the screen, without ever
+    // transform-scaling past 1.
+    var scale = Math.min(1, available / design);
     scale = Math.max(0.55, scale); // don't shrink past readability
     wrap.style.transform = 'scale(' + scale + ')';
     // transform doesn't affect document flow height, so compensate the
