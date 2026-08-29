@@ -4,6 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
+<!-- Warm up the connection to the Apps Script backend before the first
+     fetch() fires, so DNS lookup + TLS handshake happen in the background
+     during page paint instead of adding to the very first request's
+     latency. Every action=... call this page makes goes to one of these
+     two hosts (script.google.com issues the request, which redirects to
+     script.googleusercontent.com to actually serve the response). -->
+<link rel="preconnect" href="https://script.google.com" crossorigin>
+<link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
+<link rel="dns-prefetch" href="https://script.google.com">
+<link rel="dns-prefetch" href="https://script.googleusercontent.com">
+
 <!-- PWA: installable app config, shared across the whole site. -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f2547">
@@ -49,7 +60,13 @@
     background:var(--bg);
     font-family:'Inter',system-ui,sans-serif;
     color:var(--text);
-    padding:24px 20px 60px;
+    /* Top padding reserves room for the now-fixed, edge-to-edge .banner
+       (see below) so page content never sits underneath it. --header-h is
+       kept in sync with the banner's real rendered height by the small
+       script near the end of the file (it changes across breakpoints via
+       the clamp() on .banner's min-height), with a safe fallback for the
+       instant before that script runs. */
+    padding:calc(var(--header-h, 148px) + 20px) 20px 60px;
     overflow-x:hidden;
     max-width:100vw;
   }
@@ -1067,24 +1084,42 @@
     .ocean-bg{ opacity:.25; }
   }
 
-  /* Header banner */
+  /* Header banner
+     Fixed to the very top of the viewport and stretched full-width (no
+     left/right/top gap, no rounded corners) so it reads as a proper
+     app-style pinned header instead of a rounded card floating with
+     margins around it. The banner itself is now just the full-bleed
+     background; its actual content (title, buttons, sync status) lives
+     in .banner-inner, a centered max-width row inside it, so the text
+     doesn't stretch edge-to-edge on very wide monitors. Page content is
+     pushed down to clear it via body's padding-top (see --header-h,
+     kept in sync by the small script near the end of the file). */
   .banner{
-    position:relative;
+    position:fixed;
+    top:0;left:0;right:0;
+    width:100%;
+    z-index:40;
     background:
       linear-gradient(120deg, rgba(5,28,42,.55) 0%, rgba(5,28,42,.16) 32%, rgba(5,28,42,.4) 100%),
       radial-gradient(560px 320px at 10% -25%, rgba(255,255,255,.95), rgba(255,255,255,.22) 42%, transparent 68%),
       linear-gradient(160deg, #EAFDFF 0%, #B4EFF4 16%, #67D6E4 38%, #22B4CE 60%, #1495B8 80%, #0C6E8C 100%);
-    border-radius:10px;
+    border-radius:0;
     padding:14px 26px;
     min-height:clamp(104px,13vw,148px);
     overflow:hidden;
-    margin-bottom:20px;
+    margin:0;
+    box-shadow:0 10px 26px rgba(9,60,80,.32);
+    border-bottom:2px solid var(--flag-red);
+  }
+  .banner-inner{
+    position:relative;
+    z-index:1;
+    max-width:1480px;
+    margin:0 auto;
     display:flex;
     align-items:flex-start;
     justify-content:space-between;
     gap:16px;
-    box-shadow:0 10px 26px rgba(9,60,80,.32);
-    border-bottom:2px solid var(--flag-red);
   }
   @media(max-width:640px){
     .banner{ min-height:clamp(96px,26vw,130px); padding:12px 18px; }
@@ -1252,7 +1287,7 @@
   /* Toast notification — phone-style pop-up for sync feedback */
   .toast-wrap{
     position:fixed;
-    top:20px;left:50%;
+    top:calc(var(--header-h, 148px) + 14px);left:50%;
     transform:translateX(-50%) translateY(-130%);
     z-index:200;
     display:flex;
@@ -2296,12 +2331,12 @@
   }
 
   @media(max-width:900px){
-    body{ padding:16px 12px 60px; }
+    body{ padding:calc(var(--header-h, 130px) + 16px) 12px 60px; }
     .card{ padding:16px; }
   }
 
   @media(max-width:640px){
-    body{ padding:12px 10px 74px; }
+    body{ padding:calc(var(--header-h, 130px) + 12px) 10px 74px; }
     .wrap{ max-width:100%; }
     .card{ padding:14px; border-radius:10px; }
 
@@ -2374,9 +2409,12 @@
   <span class="toast-icon" id="toastIcon">&#10003;</span>
   <span id="toastMsg"></span>
 </div>
-<div class="wrap">
 
-  <div class="banner">
+<!-- Header banner lives outside .wrap so it isn't constrained by .wrap's
+     max-width or affected by the auto-fit canvas-scaling transform below --
+     it's fixed edge-to-edge to the viewport, independent of the scaled
+     dashboard content underneath it. -->
+<div class="banner">
 <div class="ocean-bg" aria-hidden="true">
 
   <!-- ===== Global reusable defs: a tiled scale-texture pattern layered
@@ -3635,28 +3673,32 @@
   </div>
 
 </div>
-    <div class="title-block">
-      <h1>Operating Expenses</h1>
-    </div>
-    <div class="banner-right">
-      <div class="banner-actions">
-        <button type="button" class="banner-btn" id="headerDashboardBtn" title="Back to the main dashboard" onclick="window.location.href='index.html?skipLoading=1'">
-          <span class="bi">&#8962;</span> Dashboard
-        </button>
-        <button type="button" class="banner-btn" id="headerNewBtn" title="Start a blank request on the current tab">
-          <span class="bi">&#10010;</span> New
-        </button>
-        <button type="button" class="banner-btn" id="headerRefreshBtn" title="Re-sync Req No list and line limits from the sheet">
-          <span class="bi">&#8635;</span> Refresh
-        </button>
-        <div class="datetime">
-          <div class="d" id="bannerDate"></div>
-          <div class="t" id="bannerTime"></div>
-        </div>
+    <div class="banner-inner">
+      <div class="title-block">
+        <h1>Operating Expenses</h1>
       </div>
-      <div class="sync-status stale" id="syncStatus"><span class="dot"></span> Not synced yet</div>
+      <div class="banner-right">
+        <div class="banner-actions">
+          <button type="button" class="banner-btn" id="headerDashboardBtn" title="Back to the main dashboard" onclick="window.location.href='index.html?skipLoading=1'">
+            <span class="bi">&#8962;</span> Dashboard
+          </button>
+          <button type="button" class="banner-btn" id="headerNewBtn" title="Start a blank request on the current tab">
+            <span class="bi">&#10010;</span> New
+          </button>
+          <button type="button" class="banner-btn" id="headerRefreshBtn" title="Re-sync Req No list and line limits from the sheet">
+            <span class="bi">&#8635;</span> Refresh
+          </button>
+          <div class="datetime">
+            <div class="d" id="bannerDate"></div>
+            <div class="t" id="bannerTime"></div>
+          </div>
+        </div>
+        <div class="sync-status stale" id="syncStatus"><span class="dot"></span> Not synced yet</div>
+      </div>
     </div>
   </div>
+
+  <div class="wrap">
 
   <div class="tabs">
     <button class="tab active" data-type="budget">Request Budget</button>
@@ -6416,6 +6458,34 @@ if(mainTotalsRow && miniTotalsBar && 'IntersectionObserver' in window){
   }, {threshold:0}).observe(mainTotalsRow);
 }
 
+// A plain page reload used to be just as slow as the very first load of the
+// session -- every one of the calls below forced fresh=1, which bypasses
+// even the Apps Script side's own 5-minute cache, so each reload re-ran a
+// full sheet scan from scratch server-side. A reload seconds after the last
+// one almost never means the sheet actually changed in that gap, so a
+// forced-fresh scan now only happens once per short window (below) and
+// reloads within that window instead ride the backend's own cache -- much
+// faster, especially since Apps Script's per-request overhead is the real
+// cost here, not this page's own JS. The header's Refresh button
+// (headerRefreshBtn) still always forces a real fresh=1 sync on demand,
+// unaffected by this window, for whenever you specifically need the latest.
+const BOOT_FRESH_WINDOW_MS = 45000;
+function shouldForceFreshBoot(){
+  try{
+    const last = Number(sessionStorage.getItem('opexLastFreshBoot') || 0);
+    const now = Date.now();
+    if(now - last > BOOT_FRESH_WINDOW_MS){
+      sessionStorage.setItem('opexLastFreshBoot', String(now));
+      return true;
+    }
+    return false;
+  }catch(e){
+    // sessionStorage unavailable (e.g. private browsing) -- fail safe to
+    // the original always-fresh behavior rather than risk stale data.
+    return true;
+  }
+}
+
 // init
 document.getElementById('date').value = new Date().toISOString().slice(0,10);
 setAuditorValue('');
@@ -6424,13 +6494,10 @@ addLineItem();
 updateTotals();
 fetchNextReqNo();
 fetchBudgetLimits();
-// fresh=true on the very first load, same as the header Refresh button --
-// otherwise a plain page reload could still surface the Apps Script side's
-// list/total cache (up to 5 min TTL) instead of what's actually on the
-// sheet right now, e.g. a row deleted directly in Sheets moments ago.
-fetchOpexBadges(true);
-loadReqNoList(true);
-fetchLiquidatedAreas(true);
+const bootFresh = shouldForceFreshBoot();
+fetchOpexBadges(bootFresh);
+loadReqNoList(bootFresh);
+fetchLiquidatedAreas(bootFresh);
 updateVoucherTabState();
 </script>
 <!-- Sticky mini totals bar: mirrors the main totals row in condensed form,
@@ -6508,6 +6575,38 @@ updateVoucherTabState();
       navigator.serviceWorker.register('service-worker.js').catch(function () {});
     });
   }
+</script>
+
+<script>
+// ---------- Fixed header height sync ----------
+// .banner is now position:fixed and full-bleed (no left/right/top gap), so
+// page content below it is offset via body's padding-top using the
+// --header-h CSS variable. The banner's real height changes across
+// breakpoints (see the clamp() on .banner's min-height / mobile padding),
+// so this measures it live instead of hard-coding a pixel value, and keeps
+// it in sync on resize, orientation change, and font/content load.
+(function(){
+  var banner = document.querySelector('.banner');
+  if(!banner) return;
+  var root = document.documentElement;
+
+  function syncHeaderHeight(){
+    var h = banner.getBoundingClientRect().height;
+    if(h > 0) root.style.setProperty('--header-h', h + 'px');
+  }
+
+  if('ResizeObserver' in window){
+    new ResizeObserver(syncHeaderHeight).observe(banner);
+  } else {
+    window.addEventListener('resize', syncHeaderHeight);
+    window.addEventListener('orientationchange', syncHeaderHeight);
+  }
+  syncHeaderHeight();
+  // A couple of follow-up passes catch late-loading webfonts nudging the
+  // banner's height by a few pixels right after first paint.
+  window.addEventListener('load', syncHeaderHeight);
+  setTimeout(syncHeaderHeight, 300);
+})();
 </script>
 
 <script>
