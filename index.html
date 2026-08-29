@@ -333,15 +333,12 @@
        on large monitors/TVs, stays comfortably padded on small ones. */
     .dash-container {
       width: 100%;
-      max-width: min(1800px, 96vw);
+      max-width: 100%;
       margin-left: auto;
       margin-right: auto;
       padding-left: clamp(1rem, 2vw, 2.5rem);
       padding-right: clamp(1rem, 2vw, 2.5rem);
       box-sizing: border-box;
-    }
-    @media (min-width: 1600px) {
-      .dash-container { max-width: min(2200px, 94vw); }
     }
 
     /* Header uses its own, wider container so the title/buttons stretch
@@ -5748,6 +5745,7 @@ html.page-fade-ready body {
                   statusValue: (type === 'all') ? null : filterValue,
                   auditStatus: 'ALL'
               };
+              window.modalMonthlyOpen = false;
               renderModalFilteredView();
           }
       }
@@ -7435,7 +7433,7 @@ html.page-fade-ready body {
 
     const AUDIT_STATUS_OPTIONS = ['DONE', 'PENDING', 'FOR AUDIT'];
 
-    function buildStatusFilterBar(type, activeValue) {
+    function buildStatusFilterBar(type, activeValue, list) {
       const options = ['ALL', ...(STATUS_FILTER_OPTIONS[type] || [])];
       const buttonsHtml = options.map(opt => {
           const isActive = opt === (activeValue || 'ALL');
@@ -7445,7 +7443,87 @@ html.page-fade-ready body {
           const label = opt === 'ALL' ? `All ${type.charAt(0).toUpperCase() + type.slice(1)}` : opt;
           return `<button onclick="setModalStatusFilter('${opt}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all active:scale-95 ${activeClass}">${label}</button>`;
       }).join('');
-      return `<div class="flex flex-wrap items-center gap-2 mb-2"><span class="text-xs font-semibold text-slate-500 mr-1">Filter by status:</span>${buttonsHtml}</div>`;
+      const filterRow = `<div class="flex flex-wrap items-center gap-2"><span class="text-xs font-semibold text-slate-500 mr-1">Filter by status:</span>${buttonsHtml}</div>`;
+      const monthlyCard = buildMonthlyStackCard(type, list);
+      return `<div class="flex flex-wrap items-center justify-between gap-2 mb-2">${filterRow}${monthlyCard}</div>`;
+    }
+
+    // Small "stack card" — same visual language as the live clock pill next
+    // to "Branch Performance" (a compact pill that expands into a popup on
+    // click) — showing a per-month breakdown for whichever overview popup
+    // is open (Sales/Service/Collection). Sits at the right edge, in line
+    // with "Filter by status:", per the dashboard owner's request. Reuses
+    // the trend month labels already computed from the uploaded sheet
+    // (activeData.summary.trendLabels / salesTrendLabels) so the labels
+    // always match whatever 3 months are actually loaded — not hardcoded
+    // to June/July/August.
+    function buildMonthlyStackCard(type, list) {
+      if (!STATUS_FILTER_OPTIONS[type] || !list) return '';
+      const trendLbls = (activeData.summary && activeData.summary.trendLabels) || ['MAR', 'APR', 'MAY'];
+      const salesLbls = (activeData.summary && activeData.summary.salesTrendLabels) || trendLbls;
+      const isOpen = !!window.modalMonthlyOpen;
+      const n = list.length || 1;
+      let headline = '';
+      let rowsHtml = '';
+
+      if (type === 'sales') {
+          const keys = ['salesMar', 'salesApr', 'salesMay'];
+          const monthAvgs = keys.map(k => Math.round(list.reduce((s, b) => s + ((b[k].ins || 0) - (b[k].ca || 0)), 0) / n));
+          headline = `₱${monthAvgs[monthAvgs.length - 1].toLocaleString()}`;
+          rowsHtml = salesLbls.map((lbl, i) => `
+            <div class="flex items-center justify-between gap-3 px-2 py-1.5 text-[11px]">
+              <span class="font-semibold text-slate-500">${lbl}</span>
+              <span class="font-bold text-accentIndigo">₱${monthAvgs[i].toLocaleString()}</span>
+            </div>`).join('');
+      } else if (type === 'service') {
+          const targetTotal = list.reduce((s, b) => s + (Number(b.serviceTarget) || 0), 0);
+          const keys = ['serviceMar', 'serviceApr', 'serviceMay'];
+          const monthActuals = keys.map(k => list.reduce((s, b) => s + (Number(b[k]) || 0), 0));
+          headline = `${monthActuals[monthActuals.length - 1] >= targetTotal ? '+' : ''}₱${(monthActuals[monthActuals.length - 1] - targetTotal).toLocaleString()}`;
+          rowsHtml = trendLbls.map((lbl, i) => {
+              const diff = monthActuals[i] - targetTotal;
+              const diffClass = diff >= 0 ? 'text-accentEmerald' : 'text-accentRose';
+              const diffSign = diff >= 0 ? '+' : '';
+              return `
+              <div class="px-2 py-1.5 text-[11px]">
+                <div class="flex items-center justify-between gap-3">
+                  <span class="font-semibold text-slate-500">${lbl}</span>
+                  <span class="font-bold text-accentCyan">₱${monthActuals[i].toLocaleString()}</span>
+                </div>
+                <div class="flex items-center justify-between gap-3 text-[10px] text-slate-400 mt-0.5">
+                  <span>Target ₱${targetTotal.toLocaleString()}</span>
+                  <span class="${diffClass} font-bold">${diffSign}${diff.toLocaleString()}</span>
+                </div>
+              </div>`;
+          }).join('');
+      } else if (type === 'collection') {
+          const keys = ['effMar', 'effApr', 'effLatest'];
+          const monthAvgs = keys.map(k => Math.round(list.reduce((s, b) => s + (Number(b[k]) || 0), 0) / n));
+          headline = `${monthAvgs[monthAvgs.length - 1]}%`;
+          rowsHtml = trendLbls.map((lbl, i) => `
+            <div class="flex items-center justify-between gap-3 px-2 py-1.5 text-[11px]">
+              <span class="font-semibold text-slate-500">${lbl}</span>
+              <span class="font-bold text-accentIndigo">${monthAvgs[i]}%</span>
+            </div>`).join('');
+      } else {
+          return '';
+      }
+
+      return `
+      <div class="relative shrink-0 ml-auto">
+        <div onclick="toggleMonthlyStackCard()" role="button" tabindex="0" aria-haspopup="true" aria-expanded="${isOpen}" title="Monthly breakdown" class="flex items-center gap-1.5 leading-tight px-2.5 py-1 rounded-xl bg-coolCard border border-coolBorder shadow-sm whitespace-nowrap select-none cursor-pointer hover:border-accentIndigo/50 hover:shadow-md active:scale-95 transition-all">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 shrink-0"><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path><path d="M8 2v4"></path><path d="M16 2v4"></path></svg>
+          <span class="text-xs sm:text-sm font-extrabold text-slate-900 tabular-nums">${headline}</span>
+          <span class="text-[10px] text-slate-400 font-semibold">/mo</span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}"><path d="m6 9 6 6 6-6"></path></svg>
+        </div>
+        <div class="${isOpen ? '' : 'hidden'} absolute right-0 top-full mt-2 w-56 bg-coolCard border border-coolBorder rounded-2xl shadow-2xl p-2 z-50 text-left cursor-default divide-y divide-coolBorder" onclick="event.stopPropagation()">${rowsHtml}</div>
+      </div>`;
+    }
+
+    function toggleMonthlyStackCard() {
+      window.modalMonthlyOpen = !window.modalMonthlyOpen;
+      renderModalFilteredView();
     }
 
     function buildAuditStatusFilterBar(activeAudit) {
@@ -7973,7 +8051,7 @@ html.page-fade-ready body {
           barsHtml += buildAllBranchesSummaryBar(baseList, 'setModalAuditFilter', state.auditStatus);
       }
       if (state.type === 'collection' || state.type === 'sales' || state.type === 'service') {
-          barsHtml += buildStatusFilterBar(state.type, state.statusValue);
+          barsHtml += buildStatusFilterBar(state.type, state.statusValue, baseList);
       }
       if (state.type === 'all') {
           barsHtml += buildAuditStatusFilterBar(state.auditStatus);
@@ -8791,11 +8869,17 @@ html.page-fade-ready body {
       const stable = list.filter(b => b.sales === 'Stable').length;
       const avgVals = list.map(computeAvgSales);
       const meanAvg = avgVals.length ? Math.round(avgVals.reduce((s, v) => s + v, 0) / avgVals.length) : 0;
+      const acctVals = list.map(b => ((b.accountsMar || 0) + (b.accountsApr || 0) + (b.accountsMay || 0)) / 3);
+      const meanAcct = acctVals.length ? Math.round(acctVals.reduce((s, v) => s + v, 0) / acctVals.length) : 0;
       const activeStatus = (window.modalFilterState && window.modalFilterState.statusValue) || 'ALL';
       const ring = (v) => activeStatus === v ? 'ring-2 ring-offset-1' : '';
 
       return `
-      <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-2">
+      <div class="grid grid-cols-2 sm:grid-cols-6 gap-2 mb-2">
+        <div class="p-2 bg-accentBlue/10 border border-accentBlue/20 rounded-xl text-center">
+          <div class="text-xl font-extrabold text-accentBlue">${meanAcct}</div>
+          <div class="text-[8px] leading-tight font-bold text-accentBlue/80 uppercase tracking-tight px-0.5">Avg Closed Accts/Mo</div>
+        </div>
         <div onclick="setModalStatusFilter('ALL')" role="button" tabindex="0" class="p-2 bg-slate-100 border border-coolBorder rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-slate-200 ring-slate-400 ${ring('ALL')}">
           <div class="text-xl font-extrabold text-slate-700">${totalBranches}</div>
           <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Branches</div>

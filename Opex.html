@@ -6533,7 +6533,10 @@ updateVoucherTabState();
     body.classList.add('auto-fit');
     var design = w >= 1500 ? 1480 : 1360;
     var available = w - 24; // small side margin so it never touches edges
-    var scale = Math.min(1, available / design);
+    // No upper cap: on large monitors the canvas scales UP to fill the
+    // available width instead of staying pinned at the 1360/1480px design
+    // size, so the dashboard truly fits whatever resolution it's opened on.
+    var scale = available / design;
     scale = Math.max(0.55, scale); // don't shrink past readability
     wrap.style.transform = 'scale(' + scale + ')';
     // transform doesn't affect document flow height, so compensate the
