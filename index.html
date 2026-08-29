@@ -2413,24 +2413,52 @@ html.page-fade-ready body {
     grid-template-columns: repeat(7, minmax(0, 1fr));
     row-gap: 0.25rem;
   }
+  /* "Stack card" day cells — same visual language as the rest of the
+     dashboard's cards (white surface, coolBorder outline, soft shadow,
+     slight lift on hover) instead of flat, borderless grid squares. Each
+     day is its own tiny elevated card sitting in a loose stack/grid. */
+  #miniCalendarPopup #miniCalGrid { row-gap: 3px; column-gap: 3px; }
   #miniCalGrid .mini-cal-day {
     display: flex; align-items: center; justify-content: center;
-    height: 1.75rem; border-radius: .5rem; cursor: default;
-    transition: background-color .15s ease, color .15s ease;
+    height: 1.9rem; border-radius: .5rem; cursor: default;
+    background: #fff; border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 2px rgba(15,23,42,.05);
+    transition: background-color .15s ease, color .15s ease, border-color .15s ease,
+                box-shadow .15s ease, transform .15s ease;
+  }
+  #miniCalGrid .mini-cal-day:hover {
+    border-color: rgba(79,70,229,.4);
+    box-shadow: 0 4px 8px -2px rgba(15,23,42,.12);
+    transform: translateY(-1px);
   }
   #miniCalGrid .mini-cal-day.is-today {
-    background: linear-gradient(90deg,#3730a3,#4f46e5); color: #fff; font-weight: 700;
+    background: linear-gradient(180deg,#4f46e5,#3730a3); color: #fff; font-weight: 700;
+    border-color: #3730a3;
+    box-shadow: 0 4px 10px -2px rgba(67,56,202,.45);
   }
-  #miniCalGrid .mini-cal-day.is-muted { color: #cbd5e1; }
+  #miniCalGrid .mini-cal-day.is-today:hover { transform: translateY(-1px); }
+  #miniCalGrid .mini-cal-day.is-muted {
+    color: #cbd5e1; background: #f8fafc; border-color: #eef1f6;
+    box-shadow: none;
+  }
+  #miniCalGrid .mini-cal-day.is-muted:hover {
+    border-color: #e2e8f0; box-shadow: none; transform: none;
+  }
   /* Philippine holidays: a small coloured dot under the day number so the
-     day itself stays legible; regular holidays (fixed by law, e.g. RA 9849)
-     use royal blue, special non-working days use amber. The dot sits under
-     "today"'s number too (white, since today's background is already blue). */
+     day itself stays legible, plus a subtle tinted card background/border
+     so a holiday reads as its own "stacked" card at a glance; regular
+     holidays (fixed by law, e.g. RA 9849) use royal blue, special
+     non-working days use amber. The dot sits under "today"'s number too
+     (white, since today's background is already blue). */
   #miniCalGrid .mini-cal-day { position: relative; flex-direction: column; gap: 1px; padding-top: 2px; }
   #miniCalGrid .mini-cal-day.is-holiday-regular,
   #miniCalGrid .mini-cal-day.is-holiday-special { font-weight: 700; }
-  #miniCalGrid .mini-cal-day.is-holiday-regular:not(.is-today) { color: #4f46e5; }
-  #miniCalGrid .mini-cal-day.is-holiday-special:not(.is-today) { color: #b45309; }
+  #miniCalGrid .mini-cal-day.is-holiday-regular:not(.is-today) {
+    color: #4f46e5; background: rgba(79,70,229,.06); border-color: rgba(79,70,229,.25);
+  }
+  #miniCalGrid .mini-cal-day.is-holiday-special:not(.is-today) {
+    color: #b45309; background: rgba(217,119,6,.07); border-color: rgba(217,119,6,.25);
+  }
   #miniCalGrid .mini-cal-day .ph-holiday-dot {
     width: 4px; height: 4px; border-radius: 50%; margin-top: 1px;
   }
@@ -4702,7 +4730,7 @@ html.page-fade-ready body {
           <div class="grid grid-cols-7 gap-y-1 text-center text-[10px] font-bold text-slate-400 mb-1">
             <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
           </div>
-          <div id="miniCalGrid" class="grid grid-cols-7 gap-y-1 text-center text-xs"></div>
+          <div id="miniCalGrid" class="grid grid-cols-7 text-center text-xs"></div>
           <div class="flex items-center gap-3 mt-2 px-1 text-[9px] font-semibold text-slate-400">
             <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full" style="background:#4f46e5"></span>Regular holiday</span>
             <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full" style="background:#d97706"></span>Special day</span>
@@ -7467,13 +7495,19 @@ html.page-fade-ready body {
       let rowsHtml = '';
 
       if (type === 'sales') {
+          // NOTE: salesMar/Apr/May .ins/.cod/.ca are unit COUNTS (Installment /
+          // Cash-on-Delivery / Cancelled Accounts), not currency — every other
+          // place in the dashboard that shows INS/COD/CA (branch detail, the
+          // sales table, the summary bar) renders them as plain numbers with
+          // no peso sign. This card previously formatted the same figures with
+          // "₱", which made it look like a different (and wrong) number.
           const keys = ['salesMar', 'salesApr', 'salesMay'];
           const monthAvgs = keys.map(k => Math.round(list.reduce((s, b) => s + ((b[k].ins || 0) - (b[k].ca || 0)), 0) / n));
-          headline = `₱${monthAvgs[monthAvgs.length - 1].toLocaleString()}`;
+          headline = `${monthAvgs[monthAvgs.length - 1].toLocaleString()}`;
           rowsHtml = salesLbls.map((lbl, i) => `
             <div class="flex items-center justify-between gap-3 px-2 py-1.5 text-[11px]">
               <span class="font-semibold text-slate-500">${lbl}</span>
-              <span class="font-bold text-accentIndigo">₱${monthAvgs[i].toLocaleString()}</span>
+              <span class="font-bold text-accentIndigo">${monthAvgs[i].toLocaleString()}</span>
             </div>`).join('');
       } else if (type === 'service') {
           const targetTotal = list.reduce((s, b) => s + (Number(b.serviceTarget) || 0), 0);
@@ -7514,7 +7548,7 @@ html.page-fade-ready body {
         <div onclick="toggleMonthlyStackCard()" role="button" tabindex="0" aria-haspopup="true" aria-expanded="${isOpen}" title="Monthly breakdown" class="flex items-center gap-1.5 leading-tight px-2.5 py-1 rounded-xl bg-coolCard border border-coolBorder shadow-sm whitespace-nowrap select-none cursor-pointer hover:border-accentIndigo/50 hover:shadow-md active:scale-95 transition-all">
           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 shrink-0"><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path><path d="M8 2v4"></path><path d="M16 2v4"></path></svg>
           <span class="text-xs sm:text-sm font-extrabold text-slate-900 tabular-nums">${headline}</span>
-          <span class="text-[10px] text-slate-400 font-semibold">/mo</span>
+          <span class="text-[10px] text-slate-400 font-semibold">${type === 'sales' ? 'net/mo' : '/mo'}</span>
           <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}"><path d="m6 9 6 6 6-6"></path></svg>
         </div>
         <div class="${isOpen ? '' : 'hidden'} absolute right-0 top-full mt-2 w-56 bg-coolCard border border-coolBorder rounded-2xl shadow-2xl p-2 z-50 text-left cursor-default divide-y divide-coolBorder" onclick="event.stopPropagation()">${rowsHtml}</div>
