@@ -232,11 +232,16 @@
   }
   @media (max-width: 780px){
     .workspace-grid{ grid-template-columns: 1fr; }
-    /* Phone mode only: show attached screenshots above the summary card
-       (desktop/tablet keep Summary first, unchanged). */
-    .col-summary .attachments-card{ order: 1; }
-    .col-summary .summary-card{ order: 2; }
-    .col-main{ grid-column: auto; }
+    .col-main{ grid-column: auto; order: 1; }
+    /* Phone mode only: screenshots, then requester details, then summary.
+       Promoting these two columns to display:contents lets their individual
+       cards reorder freely among each other (desktop/tablet keep their
+       original order — form, summary, screenshots, requester details — unchanged). */
+    .col-summary{ display:contents; }
+    .col-details{ display:contents; }
+    .col-summary .attachments-card{ order: 2; }
+    .col-details .profile-card{ order: 3; }
+    .col-summary .summary-card{ order: 4; }
   }
 
   .type-toggle, .segmented{ display:inline-flex; background:#EDF1FA; border-radius:999px; padding:2px; gap:2px; }
