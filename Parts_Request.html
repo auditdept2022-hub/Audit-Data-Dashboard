@@ -74,7 +74,11 @@
   .brand{ display:flex; align-items:center; gap:14px; min-width:0; }
   .brand .eyebrow{ font-size:11px; letter-spacing:.09em; text-transform:uppercase; opacity:.75; margin-bottom:2px; }
   .brand h1{ margin:0; font-size:21px; font-weight:700; letter-spacing:-.01em; }
-  .topbar-actions{ display:flex; gap:10px; flex-wrap:wrap; }
+  .brand .sync-status{ font-size:11.5px; font-weight:500; color:rgba(255,255,255,.72); margin-top:4px; display:flex; align-items:center; gap:6px; }
+  .brand .sync-status.err{ color:#FFC8BE; }
+  .brand .sync-status .sync-dot{ width:6px; height:6px; border-radius:50%; background:#63D08C; flex:none; }
+  .brand .sync-status.err .sync-dot{ background:#FF8A78; }
+  .topbar-actions{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 
   .btn{
     display:inline-flex; align-items:center; gap:7px; justify-content:center;
@@ -97,16 +101,18 @@
   .dot{ width:8px; height:8px; border-radius:50%; background:#E4785A; flex:none; }
   .dot.on{ background: #63D08C; }
   .spin svg{ animation: spin 0.8s linear infinite; }
-  .btn-ghost.on-dark.sync-btn{ align-items:center; gap:10px; padding:7px 6px; text-align:left; border-color:transparent; background:transparent; box-shadow:none; }
-  .btn-ghost.on-dark.sync-btn:hover{ border-color:transparent; background:transparent; }
-  #dashboardBtn.btn-ghost.on-dark{ border-color:transparent; background:transparent; padding:7px 6px; }
-  #dashboardBtn.btn-ghost.on-dark:hover{ border-color:transparent; background:transparent; }
-  .sync-btn-icon{ display:flex; flex:none; }
-  .sync-btn-icon svg{ width:18px; height:18px; }
-  .sync-btn-text{ display:flex; flex-direction:column; line-height:1.3; gap:1px; }
-  .sync-btn-title{ font-size:13.5px; font-weight:700; color:#fff; }
-  .sync-btn-sub{ font-size:11px; font-weight:500; color:rgba(255,255,255,.72); }
-  .sync-btn-sub.err{ color:#FFC8BE; }
+
+  /* icon-only header buttons (logo-style): dashboard + reload, no text labels */
+  .icon-btn-round{
+    display:flex; align-items:center; justify-content:center; flex:none;
+    width:38px; height:38px; border-radius:50%;
+    background: rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.28); color:#fff;
+    cursor:pointer; transition: all .15s ease; padding:0;
+  }
+  .icon-btn-round:hover{ background: rgba(255,255,255,.22); border-color:#fff; transform: translateY(-1px); }
+  .icon-btn-round:active{ transform: translateY(0); }
+  .icon-btn-round:disabled{ opacity:.55; cursor:not-allowed; transform:none; }
+  .icon-btn-round svg{ width:19px; height:19px; }
   @keyframes spin{ to{ transform: rotate(360deg); } }
 
   @keyframes itemRowIn{
@@ -447,16 +453,15 @@
       <div>
         <div class="eyebrow">Audit Department · Head Office</div>
         <h1>Parts &amp; Oil Requests</h1>
+        <div class="sync-status" id="syncStatus"><span class="sync-dot"></span><span id="syncLabel">Not synced yet</span></div>
       </div>
     </div>
     <div class="topbar-actions">
-      <button class="btn btn-ghost on-dark" id="dashboardBtn" type="button">Dashboard</button>
-      <button class="btn btn-ghost on-dark sync-btn" id="syncBtn" type="button">
-        <span id="syncIcon" class="sync-btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></span>
-        <span class="sync-btn-text">
-          <span class="sync-btn-title">Update data</span>
-          <span class="sync-btn-sub" id="syncLabel">Not synced yet</span>
-        </span>
+      <button class="icon-btn-round" id="dashboardBtn" type="button" title="Dashboard" aria-label="Dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg>
+      </button>
+      <button class="icon-btn-round" id="syncBtn" type="button" title="Reload data" aria-label="Reload data">
+        <span id="syncIcon" style="display:flex;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></span>
       </button>
     </div>
   </header>
@@ -738,14 +743,15 @@ function formatSyncTime(d){
 }
 function setConnStatus(on){
   const sub = $('syncLabel');
+  const wrap = $('syncStatus');
   if (!sub) return;
   if (on) {
     lastSyncedAt = new Date();
     sub.textContent = 'Last synced ' + formatSyncTime(lastSyncedAt);
-    sub.classList.remove('err');
+    if (wrap) wrap.classList.remove('err');
   } else {
     sub.textContent = lastSyncedAt ? ('Sync failed \u00b7 last synced ' + formatSyncTime(lastSyncedAt)) : 'Could not sync';
-    sub.classList.add('err');
+    if (wrap) wrap.classList.add('err');
   }
 }
 
