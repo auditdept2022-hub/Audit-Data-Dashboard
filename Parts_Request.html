@@ -1710,7 +1710,7 @@ function renderHistory(){
 
 // ---------- auto-sync: quietly re-pull from the sheet so changes made ----------
 // ---------- elsewhere (another device, hand-edits, etc.) show up here, fast ----------
-const AUTO_SYNC_MS = 4000; // short interval so everyone's changes show up almost live
+const AUTO_SYNC_MS = 5 * 60 * 1000; // background refresh every 5 minutes — data's already loaded, no need to poll constantly
 let autoSyncInFlight = false;
 async function autoSyncTick(){
   if (!WEB_APP_URL) return;
