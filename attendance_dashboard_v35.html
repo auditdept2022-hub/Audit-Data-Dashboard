@@ -123,7 +123,7 @@
   .topbar{
     position:sticky; top:0; z-index:50; overflow:hidden;
     background:#1B2A52;
-    min-height:122px; display:flex; align-items:center;
+    min-height:122px; display:flex; align-items:flex-start;
     padding:0 0 16px; margin-bottom:8px;
     border-bottom:3px solid var(--gold);
     box-shadow:0 6px 20px rgba(16,40,107,.32);
@@ -186,12 +186,12 @@
     background:linear-gradient(180deg, rgba(4,10,28,.16) 0%, rgba(4,10,28,.24) 42%, rgba(3,8,22,.5) 100%);
   }
   .topbar-inner{
-    max-width:none; margin:0; display:flex; align-items:center; justify-content:space-between;
+    max-width:none; margin:0; display:flex; align-items:flex-start; justify-content:space-between;
     gap:20px; flex-wrap:wrap; position:relative; z-index:1; width:100%;
     padding:10px 8px;
     background:none;
   }
-  .topbar-left{display:flex; align-items:center; gap:12px; min-width:0;}
+  .topbar-left{display:flex; align-items:flex-start; gap:12px; min-width:0;}
   .header-logo{height:48px; width:auto; flex:none; display:block; filter:drop-shadow(0 2px 6px rgba(4,10,28,.5));}
   .menu-btn{
     display:flex; align-items:center; justify-content:center; width:42px; height:42px; flex:none;
@@ -201,13 +201,14 @@
   }
   .menu-btn:hover{background:rgba(255,255,255,.28);}
   .accent-bar{width:3px; height:27px; border-radius:2px; background:var(--gold); flex:none;}
-  .brand{display:flex; align-items:baseline; gap:10px; min-width:0; flex-wrap:wrap;}
+  .brand{display:flex; flex-direction:column; align-items:flex-start; gap:4px; min-width:0;}
   .topbar .brand h1{
     font-weight:700; font-size:20.5px; margin:0; letter-spacing:-.01em; color:#fff; white-space:nowrap;
     text-shadow:0 1px 3px rgba(4,10,28,.6), 0 1px 12px rgba(4,10,28,.4);
   }
   .topbar .brand .sub{font-size:11.5px; color:rgba(255,255,255,.88); white-space:nowrap; text-shadow:0 1px 3px rgba(4,10,28,.55), 0 1px 10px rgba(4,10,28,.35);}
-  .header-actions{display:flex; align-items:center; gap:12px; flex:none; flex-wrap:wrap; position:relative; z-index:1;}
+  .brand .header-clock{margin-top:1px;}
+  .header-actions{display:flex; align-items:flex-start; gap:12px; flex:none; flex-wrap:wrap; position:relative; z-index:1;}
 
   /* Motorcycle loading strip: a subtle road along the bottom of the header.
      The bike rides across only while data is actively syncing/connecting. */
@@ -437,32 +438,27 @@
   .header-clock .clock-date{font-family:'Inter'; font-size:11.5px; font-weight:600; color:rgba(255,255,255,.92); letter-spacing:.01em; white-space:nowrap; text-shadow:0 1px 3px rgba(4,10,32,.55), 0 1px 10px rgba(4,10,32,.35);}
   .header-clock .clock-time{font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:700; color:#fff; letter-spacing:.02em; white-space:nowrap; text-shadow:0 1px 3px rgba(4,10,32,.55), 0 1px 10px rgba(4,10,32,.35);}
 
-  .sync-badge{
-    display:inline-flex; align-items:center; gap:6px; flex:none; font-family:'Inter'; font-size:11.5px; font-weight:700;
-    color:#fff; padding:0; text-shadow:0 1px 3px rgba(4,10,32,.55), 0 1px 10px rgba(4,10,32,.35);
-    white-space:nowrap;
+  .sync-update-btn{
+    display:inline-flex; align-items:center; gap:9px; flex:none; font-family:'Inter'; height:34px;
+    background:rgba(255,255,255,.16); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,.22);
+    border-radius:9px; padding:0 13px; cursor:pointer; white-space:nowrap;
+    transition:background .15s, transform .1s, box-shadow .15s;
   }
-  .sync-badge .dot{width:7px; height:7px; border-radius:50%; flex:none; background:#C7D2E0; transition:background .2s; box-shadow:0 0 0 2px rgba(4,10,32,.2);}
-  .sync-badge.mode-live .dot{background:#22D48B; box-shadow:0 0 0 3px rgba(34,212,139,.35);}
-  .sync-badge.mode-snapshot .dot{background:#FFC02E; box-shadow:0 0 0 3px rgba(255,192,46,.35);}
-  .sync-badge.mode-uploaded .dot{background:#4FA8FF; box-shadow:0 0 0 3px rgba(79,168,255,.35);}
-  .sync-badge.mode-connecting .dot{background:#E4E9FA; animation:sync-pulse 1.1s ease-in-out infinite;}
-  .sync-badge.mode-offline-cache .dot{background:#FF8A4C; box-shadow:0 0 0 3px rgba(255,138,76,.35);}
-  @keyframes sync-pulse{ 0%,100%{opacity:.4;} 50%{opacity:1;} }
+  .sync-update-btn:hover{background:rgba(255,255,255,.3);}
+  .sync-update-btn:active{transform:translateY(1px);}
+  .sync-update-btn .sync-update-icon{flex:none; color:#fff; opacity:.92; transition:transform .5s ease;}
+  .sync-update-btn.is-spinning .sync-update-icon{animation:sync-spin .8s linear infinite;}
+  @keyframes sync-spin{ to{transform:rotate(360deg);} }
+  .sync-update-text{display:flex; flex-direction:column; align-items:flex-start; gap:1px; line-height:1.15; min-width:0;}
+  .sync-update-title{font-size:12.5px; font-weight:700; color:#fff; letter-spacing:.005em; text-shadow:0 1px 2px rgba(4,10,32,.3);}
+  .sync-update-sub{font-size:10.5px; font-weight:500; color:rgba(255,255,255,.78); white-space:nowrap;}
   .offline-pending-badge{
     display:none; align-items:center; gap:5px; flex:none; font-family:'Inter'; font-size:11px; font-weight:700;
     color:#3A2200; background:#FFC02E; border-radius:999px; padding:3px 9px; white-space:nowrap; cursor:pointer;
     box-shadow:0 1px 4px rgba(4,10,32,.25);
   }
   .offline-pending-badge:hover{filter:brightness(1.06);}
-  .sync-refresh-btn{
-    display:flex; align-items:center; justify-content:center; width:20px; height:20px; flex:none; margin-left:1px;
-    background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); border-radius:5px; color:#fff; cursor:pointer; transition:background .15s;
-  }
-  .sync-refresh-btn:hover{background:rgba(255,255,255,.26);}
-  .sync-refresh-btn svg{transition:transform .5s ease;}
-  .sync-refresh-btn.is-spinning svg{animation:sync-spin .8s linear infinite;}
-  @keyframes sync-spin{ to{transform:rotate(360deg);} }
 
   .pill-btn{
     display:inline-flex; align-items:center; gap:7px; font-family:'Inter'; font-size:12.5px; font-weight:600;
@@ -1865,6 +1861,13 @@
       <span class="accent-bar"></span>
       <div class="brand">
         <h1>Attendance Dashboard</h1>
+        <div class="header-clock" aria-live="polite">
+          <svg class="clock-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+          <div class="clock-text">
+            <span class="clock-date" id="clockDate">&mdash;</span>
+            <span class="clock-time" id="clockTime">&mdash;</span>
+          </div>
+        </div>
       </div>
     </div>
     <div class="header-actions">
@@ -1873,21 +1876,14 @@
         <span>Dashboard</span>
       </a>
       <div class="header-status-bar">
-        <div class="header-clock" aria-live="polite">
-          <svg class="clock-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
-          <div class="clock-text">
-            <span class="clock-date" id="clockDate">&mdash;</span>
-            <span class="clock-time" id="clockTime">&mdash;</span>
-          </div>
-        </div>
-        <span class="status-divider" aria-hidden="true"></span>
-        <span class="sync-badge mode-connecting" id="syncInline" title="Live data sync status">
-          <span class="dot"></span><span id="syncInlineText">Update &middot; Connecting&hellip;</span>
-        </span>
-        <span class="offline-pending-badge" id="offlineBadge" title="Click to try syncing now" role="button"></span>
-        <button class="sync-refresh-btn" id="syncRefreshBtn" type="button" aria-label="Refresh data from the sheet now">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"/><path d="M3 21v-5h5"/></svg>
+        <button class="sync-update-btn mode-connecting" id="syncInline" type="button" title="Click to sync now" aria-label="Refresh data from the sheet now">
+          <svg class="sync-update-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 13v8"/><path d="m8 17 4 4 4-4"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 4 16.3"/></svg>
+          <span class="sync-update-text">
+            <span class="sync-update-title" id="syncUpdateTitle">Update data</span>
+            <span class="sync-update-sub" id="syncUpdateSub">Connecting&hellip;</span>
+          </span>
         </button>
+        <span class="offline-pending-badge" id="offlineBadge" title="Click to try syncing now" role="button"></span>
       </div>
       <a class="icon-btn" id="sheetLink" href="https://docs.google.com/spreadsheets/d/1BUeSUuFzYnLnEVrmeNZuzpcrwgbxjMQytkIp0YMVlSw/edit?usp=sharing" target="_blank" rel="noopener" style="display:none;" aria-label="Open sheet">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
@@ -2952,7 +2948,7 @@ function populateControls(){
   document.getElementById('menuBtn').addEventListener('click', toggleSidebar);
   document.getElementById('sidebarCloseBtn').addEventListener('click', closeSidebar);
   document.getElementById('sidebarOverlay').addEventListener('click', closeSidebar);
-  document.getElementById('syncRefreshBtn').addEventListener('click', (e) => {
+  document.getElementById('syncInline').addEventListener('click', (e) => {
     e.stopPropagation();
     refresh();
   });
@@ -3649,23 +3645,26 @@ function setSyncBadge(mode){
   const sheetLink = document.getElementById('sheetLink');
   if(sheetLink) sheetLink.style.display = ADMIN_MODE ? '' : 'none';
   const badge = document.getElementById('syncInline');
-  const inline = document.getElementById('syncInlineText');
-  if(!badge || !inline) return;
+  const title = document.getElementById('syncUpdateTitle');
+  const sub = document.getElementById('syncUpdateSub');
+  if(!badge || !title || !sub) return;
   setMotoRiding(mode);
-  badge.title = '';
-  badge.className = 'sync-badge mode-' + mode;
+  badge.title = 'Click to sync now';
+  badge.className = 'sync-update-btn mode-' + mode;
+  title.textContent = 'Update data';
   if(mode==='live'){
-    inline.textContent = 'Update \u00b7 ' + (state.lastSynced ? 'Synced ' + formatSyncStamp(state.lastSynced) : 'Live');
+    sub.textContent = state.lastSynced ? 'Last synced ' + formatSyncStamp(state.lastSynced) : 'Live';
   } else if(mode==='uploaded'){
-    inline.textContent = 'Update \u00b7 ' + (state.lastSynced ? 'From file ' + formatSyncStamp(state.lastSynced) : 'File uploaded');
+    sub.textContent = state.lastSynced ? 'From file ' + formatSyncStamp(state.lastSynced) : 'File uploaded';
   } else if(mode==='snapshot'){
-    inline.textContent = 'Update \u00b7 ' + (state.lastSynced ? 'Synced ' + formatSyncStamp(state.lastSynced) + ' (offline)' : 'Showing snapshot');
+    sub.textContent = state.lastSynced ? 'Last synced ' + formatSyncStamp(state.lastSynced) + ' (offline)' : 'Showing snapshot';
     if(state.lastError) badge.title = 'Reason: ' + state.lastError;
   } else if(mode==='offline-cache'){
-    inline.textContent = 'Update \u00b7 Offline' + (state.lastSynced ? ' (last synced ' + formatSyncStamp(state.lastSynced) + ')' : ' (using data saved on this device)');
+    sub.textContent = state.lastSynced ? 'Last synced ' + formatSyncStamp(state.lastSynced) : 'Offline \u2014 using saved data';
     badge.title = 'No connection right now \u2014 showing the last data saved on this device. Any edits you make will sync automatically once you\u2019re back online.';
   } else {
-    inline.textContent = 'Update \u00b7 Connecting\u2026';
+    title.textContent = 'Updating data';
+    sub.textContent = 'Connecting\u2026';
   }
 }
 
@@ -5712,7 +5711,7 @@ window.addEventListener('afterprint', () => {
 });
 
 async function refresh(){
-  const btn = document.getElementById('syncRefreshBtn');
+  const btn = document.getElementById('syncInline');
   if(btn) btn.classList.add('is-spinning');
   try{
     await getSheetData(state.month, true);
