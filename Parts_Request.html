@@ -562,7 +562,7 @@
         </div>
 
         <div class="card attachments-card" id="imgPreviewLedgerCard" hidden>
-          <div class="card-head"><h3>Attached screenshots</h3><button class="btn btn-ghost btn-sm" id="printImageBtn" type="button">Print</button></div>
+          <div class="card-head"><h3 id="imgPreviewLedgerTitle">Attached screenshots</h3><button class="btn btn-ghost btn-sm" id="printImageBtn" type="button">Print</button></div>
           <div class="attach-grid" id="imgPreviewLedgerBody"></div>
         </div>
       </div>
@@ -975,7 +975,7 @@ function renderAttachChip(){
     btn.textContent = '📎 Replace screenshot';
     chip.innerHTML = `<img src="${currentImage.data}" alt="Attached screenshot" /><span>${escapeHtml(currentImage.name)}</span><button type="button" id="removeAttachBtn" title="Remove">×</button>`;
     chip.querySelector('img').onclick = () => openImgLightbox(currentImage.data);
-    $('removeAttachBtn').onclick = () => { currentImage = null; renderAttachChip(); };
+    $('removeAttachBtn').onclick = () => { currentImage = null; renderAttachChip(); renderImgPreviewLedger(); };
   } else {
     chip.hidden = true;
     chip.innerHTML = '';
@@ -1163,6 +1163,7 @@ function loadEntryIntoForm(r){
   $('remarksInput').value = r.remarks || '';
   currentImage = r.image ? { data: r.image, name: r.imageName || 'attachment' } : null;
   renderAttachChip();
+  renderImgPreviewLedger();
 }
 
 // ---------- summary ----------
@@ -1203,9 +1204,11 @@ function collectPreviewImages(){
 function renderImgPreviewLedger(){
   const card = $('imgPreviewLedgerCard');
   const body = $('imgPreviewLedgerBody');
+  const title = $('imgPreviewLedgerTitle');
   const images = collectPreviewImages();
   if (!images.length){ card.hidden = true; return; }
   card.hidden = false;
+  if (title) title.textContent = editingRecordId ? 'Attached screenshot (editing this request)' : 'Attached screenshots';
   body.innerHTML = images.map((im, i) => `<img src="${im.src}" data-ilp-idx="${i}" alt="${escapeHtml(im.label)}" title="${escapeHtml(im.label)}" />`).join('');
   body.querySelectorAll('img[data-ilp-idx]').forEach(img => { img.onclick = () => openImgLightbox(img.getAttribute('src')); });
 }
