@@ -929,6 +929,18 @@ $('splitToggle').querySelectorAll('button').forEach(btn => {
 // format the browser can decode, we always re-encode the picked file into a
 // JPEG on a <canvas> before sending it, so the backend never sees anything
 // but a format Sheets is guaranteed to accept.
+// Google Sheets caps a single cell at 50,000 characters, and the backend
+// keeps a safety margin under that (45,000). A full-resolution phone
+// screenshot re-encoded at quality 0.92 routinely produces a base64 string
+// well past that limit. When that happened, the backend silently refused to
+// save the photo — but the app still *showed* it right after submitting
+// (from the echoed response), so it looked attached until the request was
+// reloaded or edited, at which point it had "disappeared" because it was
+// never actually saved. Downscaling + compressing here so the result reliably
+// fits in one cell is what actually fixes that, not just re-encoding format.
+const IMAGE_DATAURL_CHAR_LIMIT = 42000; // headroom under the backend's 45,000-char cap
+const IMAGE_MAX_DIMENSION = 1000; // px, longest edge — plenty legible for a screenshot
+
 function fileToSupportedImage(file){
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -938,15 +950,38 @@ function fileToSupportedImage(file){
       img.onerror = () => reject(new Error('decode-failed'));
       img.onload = () => {
         try {
+          const srcW = img.naturalWidth || img.width;
+          const srcH = img.naturalHeight || img.height;
+          const scale = Math.min(1, IMAGE_MAX_DIMENSION / Math.max(srcW, srcH));
+
           const canvas = document.createElement('canvas');
-          canvas.width = img.naturalWidth || img.width;
-          canvas.height = img.naturalHeight || img.height;
+          canvas.width = Math.max(1, Math.round(srcW * scale));
+          canvas.height = Math.max(1, Math.round(srcH * scale));
           const ctx = canvas.getContext('2d');
           // Flatten onto white first so any transparency doesn't turn black in JPEG.
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0);
-          resolve(canvas.toDataURL('image/jpeg', 0.92));
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          // Step quality down first...
+          let quality = 0.9;
+          let dataUrl = canvas.toDataURL('image/jpeg', quality);
+          while (dataUrl.length > IMAGE_DATAURL_CHAR_LIMIT && quality > 0.4) {
+            quality -= 0.1;
+            dataUrl = canvas.toDataURL('image/jpeg', quality);
+          }
+          // ...and if it's still too big (e.g. a very tall/detailed screenshot),
+          // shrink the canvas itself and re-encode once more.
+          if (dataUrl.length > IMAGE_DATAURL_CHAR_LIMIT) {
+            const shrink = Math.sqrt(IMAGE_DATAURL_CHAR_LIMIT / dataUrl.length);
+            canvas.width = Math.max(1, Math.round(canvas.width * shrink));
+            canvas.height = Math.max(1, Math.round(canvas.height * shrink));
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          }
+          resolve(dataUrl);
         } catch (err) {
           reject(err);
         }
@@ -1484,6 +1519,20 @@ function printItemsSlip(items, dateVal){
     node.querySelector('.ps-totalamount').textContent = totalAmount ? peso(totalAmount) : '';
     slip.appendChild(node);
   }
+
+  // Bring along any attached screenshot(s) automatically, right after the
+  // three slip copies, so "Print request" always includes the photo — no
+  // separate "Print image" click needed. (Reuses the same .pi-page/.pi-img
+  // markup the standalone image-print button uses.)
+  const seenPrintImgs = new Set();
+  items.forEach(entry => {
+    if (!entry.image || seenPrintImgs.has(entry.image)) return;
+    seenPrintImgs.add(entry.image);
+    const page = document.createElement('div');
+    page.className = 'pi-page';
+    page.innerHTML = `<div class="pi-title">Attachment — ${escapeHtml(entry.item || '')}</div><img class="pi-img" src="${entry.image}" alt="Order screenshot" />`;
+    slip.appendChild(page);
+  });
 
   waitForImagesThenPrint(slip);
 }
