@@ -45,9 +45,10 @@
     --ec-yellow: #E0A419;
   }
   *{ box-sizing:border-box; }
-  html{ height:100%; height:100dvh; overflow:hidden; }
+  html{ height:100%; overflow:hidden; }
   body{
-    margin:0; padding:0; height:100%; height:100dvh; overflow:hidden;
+    position:fixed; inset:0;
+    margin:0; padding:0; overflow:hidden;
     padding-left: env(safe-area-inset-left, 0px);
     padding-right: env(safe-area-inset-right, 0px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -123,6 +124,8 @@
   .btn-sm{ padding:6px 10px; font-size:12.5px; }
   .btn-danger-text{ color: var(--danger); }
   .btn-danger-text:hover{ border-color: var(--danger); color: var(--danger); }
+  .btn-danger{ background: var(--danger); border-color: var(--danger); color:#fff; }
+  .btn-danger:hover{ background:#9a3a30; border-color:#9a3a30; color:#fff; }
   .dot{ width:8px; height:8px; border-radius:50%; background:#E4785A; flex:none; }
   .dot.on{ background: #63D08C; }
   .spin svg{ animation: spin 0.8s linear infinite; }
@@ -241,7 +244,9 @@
   .col-main .form-card{ flex:1; display:flex; flex-direction:column; }
   .col-summary{ display:flex; flex-direction:column; gap:14px; min-width:0; height:100%; }
   .col-summary .summary-card{ flex:1; display:flex; flex-direction:column; }
-  .col-summary .summary-card #submitBtn{ margin-top:auto; }
+  .col-summary .summary-card .summary-actions{ margin-top:auto; display:flex; gap:8px; }
+  .col-summary .summary-card .summary-actions #cancelRequestBtn{ flex:1; }
+  .col-summary .summary-card .summary-actions #submitBtn{ flex:2; }
   .col-details{ min-width:0; height:100%; display:flex; flex-direction:column; }
   .col-details .profile-card{ flex:1; display:flex; flex-direction:column; }
   .items-card{ margin-top:24px; }
@@ -596,7 +601,10 @@
           <div class="summary-row"><span>Total amount</span><span id="summaryTotal" class="num">₱0.00</span></div>
           <div class="summary-row"><span>Company share</span><span id="summaryCompany" class="num">₱0.00</span></div>
           <div class="summary-row"><span>Employee share</span><span id="summaryEmployee" class="num">₱0.00</span></div>
-          <button type="button" class="btn btn-primary btn-block" id="submitBtn">Submit request</button>
+          <div class="summary-actions">
+            <button type="button" class="btn btn-ghost" id="cancelRequestBtn">Cancel request</button>
+            <button type="button" class="btn btn-primary" id="submitBtn">Submit request</button>
+          </div>
         </div>
 
         <div class="card attachments-card" id="imgPreviewLedgerCard">
@@ -652,6 +660,18 @@
     <img id="imgOverlayImg" src="" alt="Order screenshot" />
     <div class="modal-actions">
       <button class="btn btn-ghost" id="imgOverlayClose" type="button">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- confirm dialog (used for delete / submit / cancel confirmations) -->
+<div class="overlay" id="confirmOverlay">
+  <div class="modal">
+    <h3 id="confirmTitle">Are you sure?</h3>
+    <p id="confirmMessage"></p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="confirmNoBtn" type="button">No</button>
+      <button class="btn btn-primary" id="confirmYesBtn" type="button">Yes</button>
     </div>
   </div>
 </div>
@@ -771,6 +791,40 @@ function showToast(text, isErr){
   toastTimer = setTimeout(() => { t.classList.remove('show'); }, 3000);
 }
 
+// ---------- confirm dialog (nice popup instead of the native confirm()) ----------
+// Usage: const ok = await confirmDialog({ title, message, confirmText, cancelText, danger });
+function confirmDialog(opts){
+  opts = opts || {};
+  const overlay = $('confirmOverlay');
+  const yesBtn = $('confirmYesBtn');
+  const noBtn = $('confirmNoBtn');
+  $('confirmTitle').textContent = opts.title || 'Are you sure?';
+  $('confirmMessage').textContent = opts.message || '';
+  yesBtn.textContent = opts.confirmText || 'Yes';
+  noBtn.textContent = opts.cancelText || 'No';
+  yesBtn.classList.toggle('btn-danger', !!opts.danger);
+  yesBtn.classList.toggle('btn-primary', !opts.danger);
+
+  return new Promise(resolve => {
+    function cleanup(result){
+      overlay.classList.remove('show');
+      overlay.removeEventListener('mousedown', onBackdrop);
+      document.removeEventListener('keydown', onKey);
+      yesBtn.onclick = null;
+      noBtn.onclick = null;
+      resolve(result);
+    }
+    function onBackdrop(e){ if (e.target === overlay) cleanup(false); }
+    function onKey(e){ if (e.key === 'Escape') cleanup(false); if (e.key === 'Enter') cleanup(true); }
+    yesBtn.onclick = () => cleanup(true);
+    noBtn.onclick = () => cleanup(false);
+    overlay.addEventListener('mousedown', onBackdrop);
+    document.addEventListener('keydown', onKey);
+    overlay.classList.add('show');
+    yesBtn.focus();
+  });
+}
+
 function peso(n){
   n = Number(n) || 0;
   return '\u20B1' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -803,12 +857,21 @@ function setConnStatus(on){
 $('dashboardBtn').onclick = () => { window.location.href = 'index.html'; };
 
 // ---------- sync ----------
-$('syncBtn').onclick = async () => {
+// Shared "refresh everything" action: re-fetches users, requests, records from
+// the sheet and re-renders whichever screen (employee picker or workspace) is
+// currently showing. Used by the reload button, the pull-to-refresh gesture,
+// and automatically whenever an employee is selected.
+async function refreshEverything(){
   const icon = $('syncIcon');
   icon.classList.add('spin');
-  await loadAll();
-  setTimeout(() => icon.classList.remove('spin'), 300);
-};
+  try {
+    await loadAll();
+  } finally {
+    setTimeout(() => icon.classList.remove('spin'), 300);
+  }
+}
+
+$('syncBtn').onclick = refreshEverything;
 
 // long-press the reload button to force-reset the app (clears cache & does a hard reload)
 (function setupForceReset(){
@@ -900,7 +963,7 @@ async function forceResetApp(){
       indicator.classList.add('loading');
       label.textContent = 'Refreshing…';
       setIndicatorHeight(56);
-      try { await loadAll(); } finally {
+      try { await refreshEverything(); } finally {
         indicator.classList.remove('loading', 'ready');
         setIndicatorHeight(0);
         label.textContent = 'Pull to refresh';
@@ -1034,16 +1097,22 @@ $('changeEmployeeBtn').onclick = () => {
   $('employeePicker').scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 
-function selectEmployee(userKey, fallbackName){
+async function selectEmployee(userKey, fallbackName){
   selectedUser = userKey;
   profileOverride = fallbackName ? { fullName: fallbackName } : {};
   startNewRequest();
   renderEmployeeCards();
+  // Render instantly from whatever's already cached, so the workspace opens
+  // without waiting on the network...
   renderWorkspace();
   renderMyRecords();
   hideEmployeePicker();
   $('workspace').hidden = false;
   $('workspace').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // ...then pull everything fresh from the sheet, same as a manual
+  // pull-to-refresh, so the workspace is guaranteed current the moment
+  // someone is picked.
+  await refreshEverything();
 }
 
 // ---------- type (merged single "Parts & Oil" tab) ----------
@@ -1463,12 +1532,30 @@ $('submitBtn').onclick = async () => {
   if (!WEB_APP_URL) { msg.textContent = 'Connect your sheet first.'; msg.className = 'msg err'; return; }
   if (!selectedUser) { msg.textContent = 'Pick an employee first.'; msg.className = 'msg err'; return; }
 
-  if (editingRecordId) { await saveEditedRecord(); return; }
+  if (editingRecordId) {
+    const okEdit = await confirmDialog({
+      title: 'Save changes?',
+      message: 'Save changes to this request?',
+      confirmText: 'Save'
+    });
+    if (!okEdit) return;
+    await saveEditedRecord();
+    return;
+  }
 
   const leftover = readCurrentEntry();
   if (leftover) pendingRequests.push(leftover);
 
   if (!pendingRequests.length) { msg.textContent = 'Add at least one item.'; msg.className = 'msg err'; return; }
+
+  const okSubmit = await confirmDialog({
+    title: 'Submit request?',
+    message: pendingRequests.length > 1
+      ? `Submit ${pendingRequests.length} items for approval?`
+      : 'Submit this request for approval?',
+    confirmText: 'Submit'
+  });
+  if (!okSubmit) return;
 
   $('submitBtn').disabled = true;
   const batch = pendingRequests.slice();
@@ -1538,6 +1625,33 @@ function startNewRequest(){
   renderWorkspace();
 }
 $('cancelEditBtn').onclick = startNewRequest;
+
+// ---------- cancel request (discard unsaved items / an in-progress edit) ----------
+// Does nothing to anything that has already been successfully submitted —
+// it only clears items sitting in the form/pending list that haven't been sent yet.
+$('cancelRequestBtn').onclick = async () => {
+  const hasUnsavedEntry = !!readCurrentEntry();
+  const hasPendingItems = pendingRequests.length > 0;
+  const isEditing = !!editingRecordId;
+
+  if (!hasUnsavedEntry && !hasPendingItems && !isEditing) {
+    showToast('Nothing to cancel.');
+    return;
+  }
+
+  const ok = await confirmDialog({
+    title: 'Cancel request?',
+    message: isEditing
+      ? 'Discard your changes to this request? This cannot be undone.'
+      : 'Discard this request and any items you\u2019ve added? This cannot be undone.',
+    confirmText: 'Discard',
+    danger: true
+  });
+  if (!ok) return;
+
+  startNewRequest();
+  showToast('Request cancelled.');
+};
 
 function setEditModeUI(isEditing){
   $('editBadge').hidden = !isEditing;
@@ -1795,7 +1909,13 @@ function renderMyRecords(){
       const g = groups[Number(btn.dataset.deleteGroup)];
       if (!g) return;
       const label = g.items.length > 1 ? `all ${g.items.length} items in this request` : 'this request';
-      if (!confirm(`Delete ${label}? This cannot be undone.`)) return;
+      const ok = await confirmDialog({
+        title: 'Delete request?',
+        message: `Delete ${label}? This cannot be undone.`,
+        confirmText: 'Delete',
+        danger: true
+      });
+      if (!ok) return;
       btn.disabled = true;
       try {
         for (const it of g.items) {
@@ -1829,7 +1949,13 @@ function renderMyRecords(){
   bodyEl.querySelectorAll('button[data-delete-id]').forEach(btn => {
     btn.onclick = async (e) => {
       e.stopPropagation();
-      if (!confirm('Delete this item? This cannot be undone.')) return;
+      const ok = await confirmDialog({
+        title: 'Delete item?',
+        message: 'Delete this item? This cannot be undone.',
+        confirmText: 'Delete',
+        danger: true
+      });
+      if (!ok) return;
       btn.disabled = true;
       try {
         const result = await apiPost({ action: 'deleteRequest', id: btn.dataset.deleteId });
