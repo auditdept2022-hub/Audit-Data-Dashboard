@@ -244,10 +244,6 @@
   .col-main .form-card{ flex:1; display:flex; flex-direction:column; }
   .col-summary{ display:flex; flex-direction:column; gap:14px; min-width:0; height:100%; }
   .col-summary .summary-card{ flex:1; display:flex; flex-direction:column; }
-  .col-summary .summary-card .summary-actions{ margin-top:20px; display:flex; gap:10px; }
-  .col-summary .summary-card .summary-actions .btn{ padding-top:11px; padding-bottom:11px; }
-  .col-summary .summary-card .summary-actions #cancelRequestBtn{ flex:1; }
-  .col-summary .summary-card .summary-actions #submitBtn{ flex:2; }
   .col-details{ min-width:0; height:100%; display:flex; flex-direction:column; }
   .col-details .profile-card{ flex:1; display:flex; flex-direction:column; }
   .items-card{ margin-top:24px; }
@@ -269,7 +265,6 @@
        original order — form, summary, screenshots, requester details — unchanged). */
     .col-summary{ display:contents; }
     .col-details{ display:contents; }
-    .col-summary .attachments-card{ order: 2; }
     .col-details .profile-card{ order: 3; }
     .col-summary .summary-card{ order: 4; }
   }
@@ -327,8 +322,9 @@
   .split-label{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color: var(--text-faint); white-space:nowrap; flex:none; }
 
   .col-main .form-card .form-actions{ margin-top:auto; padding-top:16px; }
-  .form-actions{ display:flex; gap:12px; margin-top:16px; }
-  .form-actions .btn{ flex:1; }
+  .form-actions{ display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; }
+  .form-actions .btn{ flex:1 1 150px; padding-top:11px; padding-bottom:11px; }
+  .form-actions #submitBtn{ flex:1 1 180px; }
   .msg{ margin-top:12px; font-size:13px; min-height:18px; }
   .msg.ok{ color: var(--good); }
   .msg.err{ color: var(--danger); }
@@ -364,9 +360,6 @@
   .summary-row span:first-child{ color: var(--text-soft); }
   .summary-row span:last-child{ font-weight:700; color: var(--navy); }
 
-  .attach-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap:10px; }
-  .attach-grid img{ width:100%; aspect-ratio:1; object-fit:cover; border-radius:8px; cursor:pointer; border:1px solid var(--border); }
-  .attach-empty{ font-size:13px; color: var(--text-faint); padding:6px 2px; }
 
   /* records table */
   .records-row{ display:grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap:16px; align-items:stretch; }
@@ -439,16 +432,13 @@
   #imgOverlay .modal-actions{ justify-content:center; }
 
   /* ---------- print ---------- */
-  #printSlip, #printImageSlip{ display:none; }
+  #printSlip{ display:none; }
   @media print{
     @page{ size:letter; margin:10mm; }
     html, body{ height:auto !important; overflow:visible !important; position:static !important; }
     body *{ visibility:hidden; }
     #printSlip, #printSlip *{ visibility:visible; -webkit-print-color-adjust:exact; print-color-adjust:exact; color-adjust:exact; }
     #printSlip{ display:block; position:absolute; left:0; top:0; width:100%; }
-    body.printing-image #printSlip{ display:none; }
-    body.printing-image #printImageSlip, body.printing-image #printImageSlip *{ visibility:visible; }
-    body.printing-image #printImageSlip{ display:block; position:absolute; left:0; top:0; width:100%; }
   }
   .ps-copy{ width:100%; max-width:700px; min-height:47vh; margin:0 auto; padding:8px 22px; box-sizing:border-box; font-family: Arial, Helvetica, sans-serif; color:#111; page-break-inside: avoid; break-inside: avoid; }
   .ps-copy:not(:last-child){ border-bottom:2px dashed #999; }
@@ -590,8 +580,11 @@
 
           <div class="msg" id="formMsg"></div>
           <div class="form-actions">
+            <button type="button" class="btn btn-ghost" id="cancelRequestBtn">Cancel request</button>
+            <button type="button" class="btn btn-ghost" id="attachBtn">📎 Attach order screenshot</button>
             <button type="button" class="btn btn-ghost" id="cancelEditBtn" hidden>Cancel edit</button>
             <button type="button" class="btn btn-primary" id="addItemBtn">+ Add item</button>
+            <button type="button" class="btn btn-primary" id="submitBtn">Submit request</button>
           </div>
         </div>
       </div>
@@ -603,23 +596,8 @@
           <div class="summary-row"><span>Total amount</span><span id="summaryTotal" class="num">₱0.00</span></div>
           <div class="summary-row"><span>Company share</span><span id="summaryCompany" class="num">₱0.00</span></div>
           <div class="summary-row"><span>Employee share</span><span id="summaryEmployee" class="num">₱0.00</span></div>
-          <div class="summary-actions">
-            <button type="button" class="btn btn-ghost" id="cancelRequestBtn">Cancel request</button>
-            <button type="button" class="btn btn-primary" id="submitBtn">Submit request</button>
-          </div>
         </div>
 
-        <div class="card attachments-card" id="imgPreviewLedgerCard">
-          <div class="card-head">
-            <h3 id="imgPreviewLedgerTitle">Attached screenshots</h3>
-            <div style="display:flex; align-items:center; gap:8px;">
-              <button type="button" class="btn btn-ghost btn-sm" id="attachBtn">📎 Attach order screenshot</button>
-              <button class="btn btn-ghost btn-sm" id="printImageBtn" type="button">Print</button>
-            </div>
-          </div>
-          <div class="attach-grid" id="imgPreviewLedgerBody"></div>
-          <div class="attach-empty" id="imgPreviewLedgerEmpty">No screenshots attached yet.</div>
-        </div>
       </div>
 
       <div class="col-details">
@@ -680,7 +658,6 @@
 
 <!-- print templates -->
 <div id="printSlip"></div>
-<div id="printImageSlip"></div>
 
 <template id="psTemplate">
   <div class="ps-copy">
@@ -1235,7 +1212,7 @@ function renderAttachChip(){
     btn.textContent = '📎 Replace screenshot';
     chip.innerHTML = `<img src="${currentImage.data}" alt="Attached screenshot" /><span>${escapeHtml(currentImage.name)}</span><button type="button" id="removeAttachBtn" title="Remove">×</button>`;
     chip.querySelector('img').onclick = () => openImgLightbox(currentImage.data);
-    $('removeAttachBtn').onclick = () => { currentImage = null; renderAttachChip(); renderImgPreviewLedger(); };
+    $('removeAttachBtn').onclick = () => { currentImage = null; renderAttachChip(); };
   } else {
     chip.hidden = true;
     chip.innerHTML = '';
@@ -1423,7 +1400,6 @@ function loadEntryIntoForm(r){
   $('remarksInput').value = r.remarks || '';
   currentImage = r.image ? { data: r.image, name: r.imageName || 'attachment' } : null;
   renderAttachChip();
-  renderImgPreviewLedger();
 }
 
 // ---------- summary ----------
@@ -1447,49 +1423,6 @@ function renderSummary(){
   $('summaryEmployee').textContent = peso(employee);
 }
 
-// ---------- attachments preview panel ----------
-function collectPreviewImages(){
-  const seen = new Set();
-  const out = [];
-  const add = (src, label) => {
-    if (!src || seen.has(src)) return;
-    seen.add(src);
-    out.push({ src, label: label || '' });
-  };
-  pendingRequests.forEach(r => add(r.image, r.item));
-  if (currentImage) add(currentImage.data, $('itemInput').value.trim() || currentImage.name);
-  return out;
-}
-
-function renderImgPreviewLedger(){
-  const body = $('imgPreviewLedgerBody');
-  const title = $('imgPreviewLedgerTitle');
-  const empty = $('imgPreviewLedgerEmpty');
-  const images = collectPreviewImages();
-  if (title) title.textContent = editingRecordId ? 'Attached screenshot (editing this request)' : 'Attached screenshots';
-  if (!images.length){
-    body.innerHTML = '';
-    if (empty) empty.hidden = false;
-    return;
-  }
-  if (empty) empty.hidden = true;
-  body.innerHTML = images.map((im, i) => `<img src="${im.src}" data-ilp-idx="${i}" alt="${escapeHtml(im.label)}" title="${escapeHtml(im.label)}" />`).join('');
-  body.querySelectorAll('img[data-ilp-idx]').forEach(img => { img.onclick = () => openImgLightbox(img.getAttribute('src')); });
-}
-
-$('printImageBtn').onclick = () => {
-  const images = collectPreviewImages();
-  if (!images.length){ showToast('No image to print yet.', true); return; }
-  $('printImageSlip').innerHTML = images.map(im => `
-    <div class="pi-page">
-      <div class="pi-title">Attachment${im.label ? ' — ' + escapeHtml(im.label) : ''}</div>
-      <img class="pi-img" src="${im.src}" alt="Order screenshot" />
-    </div>`).join('');
-  document.body.classList.add('printing-image');
-  waitForImagesThenPrint($('printImageSlip'));
-};
-window.addEventListener('afterprint', () => document.body.classList.remove('printing-image'));
-
 // ---------- profile fields ----------
 function bindProfile(id, key){
   $(id).addEventListener('input', () => { profileOverride[key] = $(id).value; });
@@ -1511,7 +1444,7 @@ function renderProfileFields(){
 
 // ---------- master render for the workspace ----------
 ['itemInput','qtyInput','amountInput','dateInput','odoInput','nextChangeInput','remarksInput'].forEach(id => {
-  $(id).addEventListener('input', () => { renderSummary(); renderImgPreviewLedger(); });
+  $(id).addEventListener('input', () => { renderSummary(); });
 });
 
 function renderWorkspace(){
@@ -1524,7 +1457,6 @@ function renderWorkspace(){
   renderProfileFields();
   renderItemsList();
   renderSummary();
-  renderImgPreviewLedger();
 }
 
 // ---------- submit ----------
