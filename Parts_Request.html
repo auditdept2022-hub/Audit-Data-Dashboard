@@ -367,20 +367,22 @@
   @media (max-width: 980px){ .records-row{ grid-template-columns: 1fr; } }
   .records-card{ overflow-x:auto; display:flex; flex-direction:column; }
   .records-card > #myRecordsBody, .records-card > #historyBody{ flex:1; display:flex; flex-direction:column; }
-  .group-card{ border:1px solid var(--border); border-radius:10px; margin-bottom:12px; overflow:hidden; }
+  .group-card{ border:1px solid var(--border); border-radius:8px; margin-bottom:8px; overflow:hidden; }
   .group-card:last-child{ margin-bottom:0; }
-  .group-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; background: var(--bg-2); cursor:pointer; }
-  .group-head:hover{ background: var(--bg); }
-  .group-head-left{ display:flex; flex-direction:column; gap:2px; }
-  .group-date{ font-size:12px; color:var(--text-soft); }
-  .group-items-summary{ font-size:13px; font-weight:600; color:var(--text); }
-  .group-head-right{ display:flex; align-items:center; gap:14px; }
-  .group-amt{ font-weight:700; color:var(--navy); }
-  .group-toggle{ font-size:12px; color:var(--text-faint); transition: transform .15s; }
+  .group-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 10px; background:#fff; cursor:pointer; }
+  .group-head:hover{ background: var(--bg-2); }
+  .group-head-info{ display:flex; align-items:center; gap:8px; min-width:0; flex:1; }
+  .group-head-left{ display:flex; flex-direction:column; gap:1px; min-width:0; }
+  .group-date{ font-size:10.5px; color:var(--text-faint); }
+  .group-items-summary{ font-size:12.5px; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .group-head-right{ display:flex; align-items:center; gap:8px; flex:none; }
+  .group-amt{ font-size:12.5px; font-weight:700; color:var(--navy); white-space:nowrap; }
+  .group-toggle{ font-size:11px; color:var(--text-faint); transition: transform .15s; }
   .group-card.open .group-toggle{ transform: rotate(180deg); }
-  .group-body{ display:none; padding:4px 0; }
+  .group-body{ display:none; padding:2px 0; }
   .group-card.open .group-body{ display:block; }
-  .group-actions{ display:flex; gap:8px; padding:8px 12px; border-top:1px solid var(--border); background: var(--bg-2); }
+  .group-actions{ display:flex; gap:6px; padding:6px 10px; border-top:1px solid var(--border); background: var(--bg-2); }
+  .group-actions .btn{ padding:4px 8px; font-size:11.5px; }
   .history-list{ display:flex; flex-direction:column; gap:0; max-height:560px; overflow-y:auto; }
   .history-row{ display:flex; justify-content:space-between; gap:10px; padding:9px 4px; border-bottom:1px solid var(--border); font-size:13px; }
   .history-row:last-child{ border-bottom:none; }
@@ -403,7 +405,7 @@
   table.records tfoot td{ font-weight:700; color: var(--navy); border-top:2px solid var(--border); border-bottom:none; }
   .rec-actions{ display:flex; gap:4px; white-space:nowrap; }
   .rec-thumb{ width:44px; height:44px; border-radius:8px; object-fit:cover; cursor:pointer; flex:none; border:1px solid var(--border); }
-  .group-thumb{ margin-right:2px; }
+  .group-thumb{ width:30px; height:30px; border-radius:6px; margin:0; }
 
   /* cards view for records on mobile */
   .records-cards{ display:none; flex-direction:column; gap:12px; }
@@ -411,13 +413,14 @@
     table.records{ display:none; }
     .records-cards{ display:flex; }
   }
-  .rec-card{ border:1px solid var(--border); border-radius:10px; padding:14px 16px; background:#FBFCFE; }
-  .rec-card-top{ display:flex; align-items:flex-start; gap:10px; }
+  .rec-card{ border:none; border-top:1px solid var(--border); border-radius:0; padding:8px 10px; background:none; }
+  .rec-card-top{ display:flex; align-items:center; gap:8px; }
   .rec-card .rc-info{ flex:1; min-width:0; }
-  .rec-card .rc-name{ font-weight:600; font-size:14px; }
-  .rec-card .rc-amt{ font-weight:700; color: var(--navy); flex:none; }
-  .rec-card .rc-meta{ font-size:12px; color: var(--text-soft); margin-top:8px; line-height:1.7; }
-  .rec-card .rc-actions{ display:flex; gap:10px; margin-top:12px; }
+  .rec-card .rc-name{ font-weight:600; font-size:12.5px; }
+  .rec-card .rc-amt{ font-weight:700; font-size:12.5px; color: var(--navy); flex:none; }
+  .rec-card .rc-meta{ font-size:10.5px; color: var(--text-faint); margin-top:2px; line-height:1.4; }
+  .rec-card .rc-actions{ display:flex; gap:8px; margin-top:4px; }
+  .rec-card .rc-actions .btn{ padding:3px 8px; font-size:11px; }
 
   footer{ text-align:center; color: var(--text-faint); font-size:12px; margin-top:36px; padding-bottom:14px; }
 
@@ -561,7 +564,7 @@
             </label>
             <label class="field" id="nextChangeField" hidden>
               <span>Next change due (km)</span>
-              <input id="nextChangeInput" type="number" min="0" placeholder="auto-suggested" />
+              <input id="nextChangeInput" type="text" inputmode="numeric" placeholder="auto-suggested, or type your own" />
             </label>
           </div>
 
@@ -1281,7 +1284,9 @@ function readCurrentEntry(){
     amount: Number($('amountInput').value) || 0,
     date: entryDate,
     odometer: $('odoInput').value ? Number($('odoInput').value) : null,
-    nextChangeOdometer: $('nextChangeInput').value ? Number($('nextChangeInput').value) : null,
+    // Free-typed field now (may be a plain number or text like "TBD"/"~4000"),
+    // so keep it as the raw trimmed string instead of forcing Number().
+    nextChangeOdometer: $('nextChangeInput').value.trim() ? $('nextChangeInput').value.trim() : null,
     splitLabel: splitLabel,
     remarks: $('remarksInput').value.trim()
     // NOTE: no image/imageName here anymore. The attached screenshot is
@@ -1928,7 +1933,7 @@ function renderMyRecords(){
     const groupImageRecord = g.items.find(it => it.image);
 
     const itemRows = g.items.map(r => `
-      <div class="rec-card" style="margin:0 12px 10px;">
+      <div class="rec-card">
         <div class="rec-card-top">
           <div class="rc-info">
             <div class="rc-name">${escapeHtml(r.item || '')}</div>
@@ -1936,8 +1941,7 @@ function renderMyRecords(){
           <div class="rc-amt num">${peso(r.amount)}</div>
         </div>
         <div class="rc-meta">
-          ${escapeHtml(r.date || '')}${r.qty != null ? ' · Qty ' + r.qty : ''}<br>
-          ${r.type === 'OIL' ? `Company ${peso(r.companyShare)} · Employee ${peso(r.employeeShare)}` : `Employee ${peso(r.employeeShare)}`}
+          ${escapeHtml(r.date || '')}${r.qty != null ? ' · Qty ' + r.qty : ''}${r.type === 'OIL' ? ` · Company ${peso(r.companyShare)} · Employee ${peso(r.employeeShare)}` : ` · Employee ${peso(r.employeeShare)}`}
         </div>
         <div class="rc-actions">
           <button type="button" class="btn btn-ghost btn-sm btn-danger-text" data-delete-id="${escapeHtml(r.id)}">Delete item</button>
@@ -1947,10 +1951,12 @@ function renderMyRecords(){
     return `
       <div class="group-card${openGroupIds.has(String(g.batchId)) ? ' open' : ''}" data-group-idx="${gi}" data-batch-id="${escapeHtml(String(g.batchId))}">
         <div class="group-head" data-toggle-idx="${gi}">
-          ${groupImageRecord ? `<img class="rec-thumb group-thumb" src="${groupImageRecord.image}" data-rec-img-id="${escapeHtml(groupImageRecord.id)}" alt="Screenshot" title="Request screenshot" />` : ''}
-          <div class="group-head-left">
-            <span class="group-items-summary">${summary || '(no items)'}</span>
-            <span class="group-date">${escapeHtml(g.date || '')} · ${countLabel}</span>
+          <div class="group-head-info">
+            <div class="group-head-left">
+              <span class="group-items-summary">${summary || '(no items)'}</span>
+              <span class="group-date">${escapeHtml(g.date || '')} · ${countLabel}</span>
+            </div>
+            ${groupImageRecord ? `<img class="rec-thumb group-thumb" src="${groupImageRecord.image}" data-rec-img-id="${escapeHtml(groupImageRecord.id)}" alt="Screenshot" title="Request screenshot" />` : ''}
           </div>
           <div class="group-head-right">
             <span class="group-amt num">${peso(g.totalAmount)}</span>
@@ -2106,16 +2112,22 @@ function renderHistory(){
     return;
   }
 
-  bodyEl.innerHTML = `<div class="history-list">${rows.map(r => `
+  bodyEl.innerHTML = `<div class="history-list">${rows.map(r => {
+    const metaBits = [r.date || ''];
+    if (r.odometer) metaBits.push(r.odometer + ' km');
+    if (r.nextChangeOdometer) metaBits.push('Next: ' + r.nextChangeOdometer + ' km');
+    return `
     <div class="history-row">
       <div class="history-left">
-        <span class="history-meta">${escapeHtml(r.date || '')}</span>
+        <span class="history-item">${escapeHtml(r.item || '')}</span>
+        <span class="history-meta">${escapeHtml(metaBits.filter(Boolean).join(' · '))}</span>
       </div>
       <div class="history-right">
         <div class="history-amt num">${escapeHtml(String(r.amount || ''))}</div>
         <div class="history-shares">${escapeHtml(r.shares || '')}</div>
       </div>
-    </div>`).join('')}</div>`;
+    </div>`;
+  }).join('')}</div>`;
 }
 
 // ---------- auto-sync: quietly re-pull from the sheet so changes made ----------
