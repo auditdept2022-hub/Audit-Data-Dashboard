@@ -328,6 +328,7 @@
   .msg{ margin-top:12px; font-size:13px; min-height:18px; }
   .msg.ok{ color: var(--good); }
   .msg.err{ color: var(--danger); }
+  .msg.warn{ color: #8A5A00; background:#FFF6E5; border:1px solid #F0C36B; border-radius:8px; padding:8px 10px; margin-top:8px; }
 
   /* items list */
   .items-list{ display:flex; flex-direction:column; gap:0; border:1px solid var(--border); border-radius:9px; overflow:hidden; }
@@ -402,6 +403,7 @@
   table.records tfoot td{ font-weight:700; color: var(--navy); border-top:2px solid var(--border); border-bottom:none; }
   .rec-actions{ display:flex; gap:4px; white-space:nowrap; }
   .rec-thumb{ width:44px; height:44px; border-radius:8px; object-fit:cover; cursor:pointer; flex:none; border:1px solid var(--border); }
+  .group-thumb{ margin-right:2px; }
 
   /* cards view for records on mobile */
   .records-cards{ display:none; flex-direction:column; gap:12px; }
@@ -1281,9 +1283,11 @@ function readCurrentEntry(){
     odometer: $('odoInput').value ? Number($('odoInput').value) : null,
     nextChangeOdometer: $('nextChangeInput').value ? Number($('nextChangeInput').value) : null,
     splitLabel: splitLabel,
-    remarks: $('remarksInput').value.trim(),
-    image: currentImage ? currentImage.data : null,
-    imageName: currentImage ? currentImage.name : null
+    remarks: $('remarksInput').value.trim()
+    // NOTE: no image/imageName here anymore. The attached screenshot is
+    // scoped to the whole request now, not to whichever single item is
+    // currently in the draft fields — see the submit handler, which stamps
+    // it onto the batch once, right before sending it.
   };
 }
 
@@ -1295,8 +1299,18 @@ function clearItemFields(opts){
   $('odoInput').value = '';
   $('nextChangeInput').value = '';
   $('remarksInput').value = '';
-  currentImage = null;
-  renderAttachChip();
+  // FIX: the attached screenshot is now for the whole request (batch), not
+  // just the single item that happened to be on-screen when it was
+  // attached. Clearing the item fields after "Add item" must NOT drop the
+  // photo — otherwise, with 3 items in one request, the screenshot only
+  // ever ends up tied to whichever single item was on-screen at submit
+  // time, and looks "missing" from the request once saved. Callers that
+  // really do want a full reset (new request, cancel, after submit, after
+  // save) pass { keepImage: false }.
+  if (!opts || opts.keepImage !== true) {
+    currentImage = null;
+    renderAttachChip();
+  }
 
   if (pulse) {
     const itemEl = $('itemInput');
@@ -1323,7 +1337,11 @@ $('addItemBtn').onclick = () => {
   lastSubmittedBatch = [];
   pendingRequests.push(entry);
   lastAddedIndex = pendingRequests.length - 1;
-  clearItemFields();
+  // keepImage: the attached screenshot belongs to the whole request, so it
+  // should still be sitting there (ready to go out with the NEXT item too,
+  // or with the final submit) instead of vanishing as soon as one item is
+  // added.
+  clearItemFields({ keepImage: true });
   msg.textContent = 'Added. Add another item or submit when ready.'; msg.className = 'msg ok';
   renderWorkspace();
 };
@@ -1461,6 +1479,18 @@ function renderWorkspace(){
   renderSummary();
 }
 
+// FIX: stamp the one attached screenshot onto a SINGLE item in the batch
+// being sent to the backend, instead of every item carrying its own copy.
+// The backend still only has a place to store an image per PARTS row, so
+// "one screenshot per request" means: attach it to exactly one row rather
+// than duplicating it (and its Shopee Parts thumbnail) onto every item.
+function applyBatchImage(items){
+  if (!currentImage || !items || !items.length) return;
+  const target = items.find(it => !it.image) || items[0];
+  target.image = currentImage.data;
+  target.imageName = currentImage.name;
+}
+
 // ---------- submit ----------
 $('submitBtn').onclick = async () => {
   const msg = $('formMsg');
@@ -1499,6 +1529,7 @@ $('submitBtn').onclick = async () => {
 
   $('submitBtn').disabled = true;
   const batch = pendingRequests.slice();
+  applyBatchImage(batch);
   msg.textContent = batch.length > 1 ? `Submitting ${batch.length} items…` : 'Submitting…';
   msg.className = 'msg';
 
@@ -1518,30 +1549,61 @@ $('submitBtn').onclick = async () => {
 
     const succeeded = outcomes.filter(o => o.ok);
     const failedOutcomes = outcomes.filter(o => !o.ok);
-    const shopeeWarnings = [];
+    // FIX: collect BOTH kinds of attachment problem. `result.imageWarning`
+    // (the actual saved screenshot, used everywhere the request is viewed
+    // or edited) used to be computed by the backend but never even looked
+    // at here — so if it failed to save, nothing told the user; the photo
+    // just silently wasn't there. `result.shopee.warning` is the separate,
+    // best-effort copy/thumbnail placed on the SHOPEE PARTS sheet. Either
+    // one failing means "the attach photo isn't saving" from the user's
+    // point of view, so both now get surfaced.
+    const attachWarnings = [];
     succeeded.forEach(({ entry, result }) => {
-      if (entry.image && (!result.shopee || !result.shopee.ok)) {
-        shopeeWarnings.push((result.shopee && result.shopee.warning) || 'Screenshot was not saved to the sheet.');
+      if (!entry.image) return;
+      if (result.imageWarning) attachWarnings.push(result.imageWarning);
+      else if (!result.shopee || !result.shopee.ok) {
+        attachWarnings.push((result.shopee && result.shopee.warning) || 'Screenshot was not saved.');
       }
     });
 
+    // Work out what the banner should say, but don't write it into
+    // formMsg yet — loadAll() resets formMsg the moment it starts, so
+    // anything set before that call would just be erased again.
+    let finalMsgText, finalMsgClass;
     if (failedOutcomes.length) {
       pendingRequests = failedOutcomes.map(o => o.entry);
-      msg.textContent = succeeded.length
+      finalMsgText = succeeded.length
         ? `Saved ${succeeded.length} of ${batch.length}. ${failedOutcomes[0].result.error}`
         : failedOutcomes[0].result.error;
-      msg.className = 'msg err';
+      finalMsgClass = 'msg err';
       if (succeeded.length) lastSubmittedBatch = succeeded.map(o => o.entry);
     } else {
-      msg.textContent = 'Request submitted.'; msg.className = 'msg ok';
       showToast(batch.length > 1 ? `${batch.length} requests saved to the sheet.` : 'Request saved to the sheet.');
-      if (shopeeWarnings.length) setTimeout(() => showToast('Attachment issue: ' + shopeeWarnings[0], true), 3200);
+      if (attachWarnings.length) {
+        // FIX: this used to be a second toast fired 3.2s later, which could
+        // easily be missed (or get pushed off-screen/replaced) — the exact
+        // reason a genuine attachment failure looked like "nothing happened".
+        // It's now shown right away as a message that stays on the page.
+        finalMsgText = 'Request submitted, but the screenshot didn\'t save: ' + attachWarnings[0];
+        finalMsgClass = 'msg warn';
+      } else {
+        finalMsgText = 'Request submitted.'; finalMsgClass = 'msg ok';
+      }
       lastSubmittedBatch = batch;
       pendingRequests = [];
       clearItemFields();
     }
     renderWorkspace();
-    loadAll();
+    // FIX: this was previously fire-and-forget ("loadAll();" with no
+    // await). The `finally` below re-enables the Submit button — and with
+    // it, the auto-sync background poll (which only skips itself while
+    // Submit is disabled) — the instant this line returned, NOT once the
+    // refresh actually finished. If a background sync landed in that gap
+    // it could race the still-in-flight refresh. Awaiting it keeps the
+    // button (and the guard) held until the workspace is fully current.
+    await loadAll();
+    msg.textContent = finalMsgText;
+    msg.className = finalMsgClass;
   } catch (err) {
     msg.textContent = err.message;
     msg.className = 'msg err';
@@ -1643,7 +1705,7 @@ async function saveEditedRecord(){
     setEditModeUI(false);
     clearItemFields();
     renderWorkspace();
-    loadAll();
+    await loadAll(); // FIX: was fire-and-forget — see note in the Submit handler above
     renderMyRecords();
   } catch (err) {
     msg.textContent = err.message; msg.className = 'msg err';
@@ -1677,6 +1739,11 @@ async function saveEditedGroup(){
   const keptIds = new Set(toUpdate.map(it => String(it.id)));
   const toDeleteIds = (editingGroupIds || []).filter(id => !keptIds.has(String(id)));
 
+  // If a new screenshot was attached while editing, it belongs to the whole
+  // request — same as on a fresh submit. Only stamp it onto a newly-added
+  // item (never overwrite an existing saved item's own photo here).
+  if (currentImage && toCreate.length) applyBatchImage(toCreate);
+
   const fields = ['item', 'qty', 'amount', 'date', 'odometer', 'nextChangeOdometer', 'splitLabel', 'remarks', 'image', 'imageName'];
 
   try {
@@ -1709,7 +1776,7 @@ async function saveEditedGroup(){
     setEditModeUI(false);
     clearItemFields();
     renderWorkspace();
-    loadAll();
+    await loadAll(); // FIX: was fire-and-forget — see note in the Submit handler above
     renderMyRecords();
   } catch (err) {
     msg.textContent = err.message; msg.className = 'msg err';
@@ -1852,10 +1919,17 @@ function renderMyRecords(){
       : names.map(escapeHtml).join('/');
     const countLabel = g.items.length === 1 ? '1 item' : `${g.items.length} items`;
 
+    // FIX: one screenshot belongs to the whole request, not to whichever
+    // single item happens to carry it on the backend. Find it once here and
+    // show it on the group itself (inside the request card, next to the
+    // summary) instead of nested under just one of the item rows below —
+    // that's what made it look like it had "gone missing" from a
+    // multi-item request after saving.
+    const groupImageRecord = g.items.find(it => it.image);
+
     const itemRows = g.items.map(r => `
       <div class="rec-card" style="margin:0 12px 10px;">
         <div class="rec-card-top">
-          ${r.image ? `<img class="rec-thumb" src="${r.image}" data-rec-img-id="${escapeHtml(r.id)}" alt="Screenshot" />` : ''}
           <div class="rc-info">
             <div class="rc-name">${escapeHtml(r.item || '')}</div>
           </div>
@@ -1873,6 +1947,7 @@ function renderMyRecords(){
     return `
       <div class="group-card${openGroupIds.has(String(g.batchId)) ? ' open' : ''}" data-group-idx="${gi}" data-batch-id="${escapeHtml(String(g.batchId))}">
         <div class="group-head" data-toggle-idx="${gi}">
+          ${groupImageRecord ? `<img class="rec-thumb group-thumb" src="${groupImageRecord.image}" data-rec-img-id="${escapeHtml(groupImageRecord.id)}" alt="Screenshot" title="Request screenshot" />` : ''}
           <div class="group-head-left">
             <span class="group-items-summary">${summary || '(no items)'}</span>
             <span class="group-date">${escapeHtml(g.date || '')} · ${countLabel}</span>
@@ -2058,12 +2133,21 @@ async function autoSyncTick(){
   try {
     const data = await apiGet();
     if (data.error) return;
+    // FIX: a background poll used to null out selectedUser and hide the
+    // whole workspace the instant this particular snapshot didn't contain
+    // the current user (e.g. a stale/partial read right after another
+    // write). That made the entire screen appear to "disappear" — the
+    // employee profile, summary, etc. — leaving only the request list
+    // behind, even though nothing was actually wrong. A silent background
+    // refresh should never rip the UI out from under someone; if the user
+    // is genuinely missing we just skip updating from this snapshot and
+    // let the next successful sync (or a manual pull-to-refresh) confirm it.
+    if (selectedUser && !data.users.find(u => u.key === selectedUser)) {
+      console.warn('autoSyncTick: selected user not present in this sync snapshot — skipping to avoid clobbering the open workspace.');
+      return;
+    }
     STATE = data;
     setConnStatus(true);
-    if (selectedUser && !STATE.users.find(u => u.key === selectedUser)) {
-      selectedUser = null;
-      $('workspace').hidden = true;
-    }
     renderEmployeeCards();
     if (selectedUser) {
       renderMyRecords(); // also refreshes the History panel
