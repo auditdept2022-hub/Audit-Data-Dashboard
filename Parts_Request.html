@@ -170,13 +170,30 @@
   .empty{ display:flex; align-items:center; justify-content:center; min-height:220px; padding: 32px 18px; text-align:center; color: var(--text-faint); font-size:13.5px; }
 
   .toast{
-    position: fixed; left:50%; bottom: calc(26px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px);
-    background: var(--navy); color:#fff; padding:11px 18px; border-radius:10px; font-size:13.5px;
-    opacity:0; pointer-events:none; transition: all .25s ease; z-index:60; box-shadow: var(--shadow);
-    max-width: 90vw;
+    position: fixed; left:50%; top: calc(14px + env(safe-area-inset-top, 0px));
+    transform: translate(-50%, -18px) scale(.97);
+    display:flex; align-items:flex-start; gap:10px;
+    background: var(--card); color: var(--text);
+    padding:13px 16px 13px 13px; border-radius:14px; font-size:13.5px; line-height:1.42; font-weight:600;
+    border:1px solid var(--border); border-left:4px solid var(--good);
+    opacity:0; pointer-events:none;
+    transition: transform .32s cubic-bezier(.32,1.15,.5,1), opacity .22s ease;
+    box-shadow: 0 16px 34px -10px rgba(11,37,69,.32), 0 3px 10px rgba(11,37,69,.10);
+    max-width: min(420px, 92vw);
+    z-index: 70;
   }
-  .toast.show{ opacity:1; transform: translate(-50%, 0); }
-  .toast.err{ background: var(--danger); }
+  .toast.show{ opacity:1; transform: translate(-50%, 0) scale(1); pointer-events:auto; }
+  .toast.err{ border-left-color: var(--danger); }
+  .toast-icon{
+    flex:none; width:22px; height:22px; margin-top:1px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background: var(--good-bg); color: var(--good);
+  }
+  .toast-icon svg{ width:13px; height:13px; }
+  .toast-icon-err{ display:none; background: var(--danger-bg); color: var(--danger); }
+  .toast.err .toast-icon-ok{ display:none; }
+  .toast.err .toast-icon-err{ display:flex; }
+  .toast-msg{ flex:1; padding-top:1px; word-break: break-word; }
 
   /* ---------- inline employee picker: infographic-style numbered ribbon cards ---------- */
   .employee-picker-card{ margin-top:4px; background:transparent; border:none; box-shadow:none; padding:8px 0 0; }
@@ -484,7 +501,15 @@
 </style>
 </head>
 <body>
-<div id="toast" class="toast"></div>
+<div id="toast" class="toast" role="status" aria-live="polite">
+  <span class="toast-icon toast-icon-ok">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+  </span>
+  <span class="toast-icon toast-icon-err">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.6" x2="12" y2="16.61"></line><circle cx="12" cy="12" r="9"></circle></svg>
+  </span>
+  <span class="toast-msg" id="toastMsg"></span>
+</div>
 
   <header class="topbar">
     <div class="brand">
@@ -771,7 +796,7 @@ const $ = (id) => document.getElementById(id);
 let toastTimer = null;
 function showToast(text, isErr){
   const t = $('toast');
-  t.textContent = text;
+  $('toastMsg').textContent = text;
   t.className = 'toast show' + (isErr ? ' err' : '');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { t.classList.remove('show'); }, 3000);
