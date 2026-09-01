@@ -805,6 +805,37 @@ function rememberDate(d){
   // never to whatever date was last typed/used.
 }
 
+// ---------- recency sorting (used by both "My requests" and "History") ----------
+// FIX (recent sort): the "Last Date Request" field is free text (see
+// parseFlexibleDate above), so it can hold real dates OR plain notes like
+// "TBD". Sorting by that text alone is unreliable — a note like "TBD" can
+// sort as if it were "more recent" than an actual date. `submittedDate` is
+// different: it's stamped by the server itself the instant a request is
+// created, so it's always a real, comparable date. This is now the single
+// sort function every "most recent first" list in the app goes through, so
+// the ordering logic only has to be right in one place.
+//   1) submittedDate (the real, always-reliable timestamp) — newest first
+//   2) the typed date field, as a fallback for records saved before
+//      submittedDate existed
+//   3) the row number embedded in the id/batchId (higher = added later),
+//      as a final tiebreaker
+function recencySortKey(item){
+  const id = String((item && item.id) || (item && item.batchId) || '');
+  const m = /-(\d+)$/.exec(id);
+  return m ? Number(m[1]) : -1;
+}
+function sortByRecency(list){
+  return (list || []).slice().sort((a, b) => {
+    const as = (a && a.submittedDate) || '';
+    const bs = (b && b.submittedDate) || '';
+    if (as !== bs) return bs.localeCompare(as);
+    const ad = (a && a.date) || '';
+    const bd = (b && b.date) || '';
+    if (ad !== bd) return bd.localeCompare(ad);
+    return recencySortKey(b) - recencySortKey(a);
+  });
+}
+
 // FIX (date entry): the date field is free-text on purpose (its own
 // placeholder says "e.g. 01/01/2025 or 1st"), but nothing ever actually
 // turned casual text like "1st" into a real date before it was saved.
@@ -2062,14 +2093,12 @@ function renderMyRecords(){
 
   // Items submitted together (one "Submit request" click, possibly several
   // items) are grouped into a single card, instead of one row per item.
-  const groups = (STATE.requestGroupsByUser && STATE.requestGroupsByUser[selectedUser])
-    ? STATE.requestGroupsByUser[selectedUser].slice()
+  const rawGroups = (STATE.requestGroupsByUser && STATE.requestGroupsByUser[selectedUser])
+    ? STATE.requestGroupsByUser[selectedUser]
     : groupLocally(STATE.requestsByUser[selectedUser] || []);
 
-  // Most recently submitted first. Reverse first so that requests made on the
-  // same date still show the newer one on top after the stable date sort.
-  groups.reverse();
-  groups.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  // Always most recently submitted first — see sortByRecency() above.
+  const groups = sortByRecency(rawGroups);
 
   if (!groups.length) {
     bodyEl.innerHTML = '<div class="empty">No requests yet.</div>';
@@ -2232,16 +2261,15 @@ function renderMyRecords(){
 // been updated to send requestGroupsByUser yet — keeps the dashboard working
 // either way (each item just becomes its own single-item group).
 function groupLocally(list){
-  return list.slice()
-    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
-    .map(r => ({
-      batchId: r.batchId || r.id,
-      date: r.date,
-      items: [r],
-      totalAmount: Number(r.amount) || 0,
-      totalCompany: Number(r.companyShare) || 0,
-      totalEmployee: Number(r.employeeShare) || 0
-    }));
+  return (list || []).map(r => ({
+    batchId: r.batchId || r.id,
+    date: r.date,
+    submittedDate: r.submittedDate || '',
+    items: [r],
+    totalAmount: Number(r.amount) || 0,
+    totalCompany: Number(r.companyShare) || 0,
+    totalEmployee: Number(r.employeeShare) || 0
+  }));
 }
 
 function findRecordById(groups, id){
@@ -2262,10 +2290,8 @@ function renderHistory(){
     return;
   }
 
-  const rows = ((STATE.historyByUser && STATE.historyByUser[selectedUser]) || []).slice();
-  // Most recently submitted first, same-day ties broken by submission order.
-  rows.reverse();
-  rows.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  // Always most recently submitted first — see sortByRecency() above.
+  const rows = sortByRecency((STATE.historyByUser && STATE.historyByUser[selectedUser]) || []);
   if (!rows.length) {
     bodyEl.innerHTML = '<div class="empty">No history yet.</div>';
     return;
@@ -2276,13 +2302,14 @@ function renderHistory(){
     // (YYYY-MM-DD); show them as MM/DD/YYYY like everywhere else in the app.
     // Each row now shows its own two real dates: "Last" is the date typed
     // into the "Last Date Request" field on that request (r.date), and
-    // "New" is the date the request was actually created/logged, captured
-    // automatically server-side at submit time (r.submittedDate). Older
-    // rows logged before this field existed won't have a submittedDate, so
-    // those just fall back to showing the single date they do have.
+    // "Recent" is the date the request was actually created/logged,
+    // captured automatically server-side at submit time (r.submittedDate).
+    // Older rows logged before this field existed won't have a
+    // submittedDate, so those just fall back to showing the single date
+    // they do have.
     const lastLabel = isoToMDY(r.date) || r.date || '';
-    const newLabel = r.submittedDate ? (isoToMDY(r.submittedDate) || r.submittedDate) : '';
-    const dateLabel = newLabel ? `Last: ${lastLabel} \u2192 New: ${newLabel}` : lastLabel;
+    const recentLabel = r.submittedDate ? (isoToMDY(r.submittedDate) || r.submittedDate) : '';
+    const dateLabel = recentLabel ? `Last: ${lastLabel} \u2192 Recent: ${recentLabel}` : lastLabel;
     const metaBits = [dateLabel];
     if (r.odometer) metaBits.push(r.odometer + ' km');
     if (r.nextChangeOdometer) metaBits.push('Next: ' + r.nextChangeOdometer + ' km');
