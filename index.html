@@ -2111,6 +2111,18 @@ input#tableSearch:focus, select:focus{
   justify-content:center;
   background:rgba(56,189,248,0.16);
   color:#38bdf8;
+  transition:background-color .3s ease, color .3s ease;
+}
+/* Plays once when a "loading" toast resolves into success/error/info, so
+   the icon visibly "lands" on the result instead of an abrupt swap. */
+#toast .toast-icon.toast-icon-pop{
+  animation:toastIconPop .46s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes toastIconPop{
+  0%{ transform:scale(.4) rotate(-25deg); opacity:.3; }
+  55%{ transform:scale(1.2) rotate(4deg); opacity:1; }
+  80%{ transform:scale(.94) rotate(0deg); }
+  100%{ transform:scale(1) rotate(0deg); }
 }
 #toast .toast-icon svg{ width:.9rem; height:.9rem; display:block; }
 #toast .toast-body{ flex:1 1 auto; min-width:0; }
@@ -2155,11 +2167,17 @@ input#tableSearch:focus, select:focus{
 #toast[data-type="error"]{ --toast-accent:#f43f5e; --toast-accent-2:#fb7185; }
 #toast[data-type="info"] .toast-icon{ background:rgba(56,189,248,0.16); color:#38bdf8; }
 #toast[data-type="info"]{ --toast-accent:#0ea5e9; --toast-accent-2:#38bdf8; }
-#toast[data-type="loading"] .toast-icon{ background:rgba(129,140,248,0.18); color:#a5b4fc; }
+#toast[data-type="loading"] .toast-icon{ background:rgba(129,140,248,0.18); color:#a5b4fc; animation:toastLoadingPulse 1.7s ease-in-out infinite; }
 #toast[data-type="loading"]{ --toast-accent:#6366f1; --toast-accent-2:#a5b4fc; }
 #toast[data-type="loading"] .toast-icon svg{ animation:toastSpin .85s linear infinite; transform-origin:center; }
 #toast[data-type="loading"] .toast-progress{ display:none; }
 @keyframes toastSpin{ to{ transform:rotate(360deg); } }
+/* Soft breathing ring around the spinner so a long-running "loading" toast
+   still reads as active/alive rather than a static, possibly-frozen icon. */
+@keyframes toastLoadingPulse{
+  0%,100%{ box-shadow:0 0 0 0 rgba(129,140,248,0.35); }
+  50%{ box-shadow:0 0 0 5px rgba(129,140,248,0); }
+}
 
 @media (max-width: 480px){
   #toast{ left:.85rem; right:.85rem; top:.85rem; transform:translateY(-16px) scale(.94); max-width:none; width:auto; }
@@ -5337,9 +5355,23 @@ html.page-fade-ready body {
       const progressBar = document.getElementById('toastProgressBar');
       const resolvedType = type || inferToastType(message);
 
+      // If a "loading" toast is currently up and this call is resolving it
+      // (success/error/info), give the icon a little pop-in on the swap so
+      // the spinner visibly "lands" on a result instead of just being
+      // replaced — reads as one continuous action finishing, not two
+      // unrelated toasts.
+      const wasLoading = toast.getAttribute('data-type') === 'loading' && toast.classList.contains('toast-visible');
+      const isResolving = wasLoading && resolvedType !== 'loading';
+
       toastMsg.innerText = message;
       toast.setAttribute('data-type', resolvedType);
       toastIcon.innerHTML = TOAST_ICONS[resolvedType] || TOAST_ICONS.info;
+
+      toastIcon.classList.remove('toast-icon-pop');
+      if (isResolving) {
+        void toastIcon.offsetWidth; // restart the animation
+        toastIcon.classList.add('toast-icon-pop');
+      }
 
       // Restart the shrinking progress bar from full width every time,
       // even if a toast is already showing (re-triggering the animation
@@ -5350,11 +5382,23 @@ html.page-fade-ready body {
       progressBar.style.animation = '';
       toast.classList.add('toast-visible');
 
-      if (toastHideTimer) clearTimeout(toastHideTimer);
-      toastHideTimer = setTimeout(() => {
-        toast.classList.remove('toast-visible');
-        toastHideTimer = null;
-      }, 4000);
+      if (toastHideTimer) { clearTimeout(toastHideTimer); toastHideTimer = null; }
+
+      // FIX: a "loading" toast (e.g. "Updating Overall Data…") used to
+      // auto-hide after 4s exactly like every other toast, even if the
+      // request it represents was still in flight — so mid-way through a
+      // slow update the toast would just vanish, making it look like
+      // nothing was happening (or that it had silently failed) even
+      // though the update was still running. Loading toasts now stay up
+      // indefinitely and only go away when the caller explicitly replaces
+      // them with a success/error/info result (or calls hideToast()) —
+      // that's the actual signal that the operation finished.
+      if (resolvedType !== 'loading') {
+        toastHideTimer = setTimeout(() => {
+          toast.classList.remove('toast-visible');
+          toastHideTimer = null;
+        }, 4000);
+      }
     }
 
     function setScorecardSort(field) {
@@ -6697,6 +6741,17 @@ html.page-fade-ready body {
       if (!proceed) return;
 
       showToast('Updating Overall Data\u2026');
+
+      // If a big catch-up (several missing months, or lots of row/cell
+      // repair) is genuinely still running after a while, swap in a
+      // reassurance message so a long wait reads as "still working on a
+      // lot of data," not "did this freeze?" — the toast itself is
+      // already staying on screen (see showToast's loading-type handling),
+      // this just updates its text in place.
+      const stillWorkingTimer = setTimeout(function() {
+        showToast('Still updating\u2026 this can take a bit longer with a lot of branches/months.', 'loading');
+      }, 12000);
+
       try {
         const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
         if (!idToken) throw new Error('Not signed in \u2014 please sign in again.');
@@ -6707,7 +6762,11 @@ html.page-fade-ready body {
           idToken: idToken
         });
         const url = defaultAppsScriptUrl + '?' + params.toString();
-        const json = await fetchSheetOnce(url);
+        // This is a write that can insert columns and backfill cells across
+        // every branch — heavier than a normal dashboard read — so it gets
+        // the longer HEAVY_*_TIMEOUT_MS budget instead of the default
+        // read-sized one. See fetchSheetOnce()'s `timeouts` param.
+        const json = await fetchSheetOnce(url, { directMs: HEAVY_DIRECT_FETCH_TIMEOUT_MS, jsonpMs: HEAVY_JSONP_FETCH_TIMEOUT_MS });
 
         if (json && json.error) throw new Error(json.error);
         if (!json || !json.success) throw new Error("Update didn't complete \u2014 please try again.");
@@ -6723,7 +6782,15 @@ html.page-fade-ready body {
         }
       } catch (err) {
         console.warn('Update Overall Data failed:', err);
-        alert((err && err.message) ? err.message : "Couldn't update Overall Data \u2014 please try again.");
+        const friendlyMsg = (err && err.message) ? err.message : "Couldn't update Overall Data \u2014 please try again.";
+        // Resolves the still-open "Updating Overall Data…" loading toast
+        // into an error state, in-place, instead of popping a separate
+        // native alert() on top of it (which reads as jarring, and used to
+        // show raw browser text like "signal is aborted without reason" on
+        // a timeout instead of something a person can actually act on).
+        showToast(friendlyMsg, 'error');
+      } finally {
+        clearTimeout(stillWorkingTimer);
       }
     }
 
@@ -10885,7 +10952,19 @@ html.page-fade-ready body {
     // server other than Google's and your own device.
     async function fetchDirect(url, ms) {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), ms || 6000);
+        // FIX: calling controller.abort() with no argument makes the browser
+        // throw a DOMException whose own message is literally "signal is
+        // aborted without reason" — that's not a bug message, it's the
+        // generic default, and it was leaking straight into the user-facing
+        // alert() on timeout. Passing an explicit reason here means the
+        // error surfaced to callers already has a real, readable message.
+        const timeoutMs = ms || 6000;
+        const timer = setTimeout(() => {
+          const reason = (typeof DOMException !== 'undefined')
+            ? new DOMException('Request timed out after ' + Math.round(timeoutMs / 1000) + 's', 'TimeoutError')
+            : new Error('Request timed out after ' + Math.round(timeoutMs / 1000) + 's');
+          controller.abort(reason);
+        }, timeoutMs);
         const __t0 = performance.now();
         try {
             const res = await fetch(url, { signal: controller.signal });
@@ -10894,8 +10973,16 @@ html.page-fade-ready body {
             console.log('[dashboard-timing] direct fetch succeeded in ' + Math.round(performance.now() - __t0) + 'ms');
             return json;
         } catch (err) {
+            // Belt-and-suspenders: even on a browser that ignores the abort
+            // reason above and still throws the generic AbortError, translate
+            // it into something readable rather than letting it bubble up
+            // verbatim to a user-facing toast/alert.
+            const isAbort = err && (err.name === 'AbortError' || err.name === 'TimeoutError');
+            const friendly = isAbort
+              ? new Error('Request timed out after ' + Math.round(timeoutMs / 1000) + 's \u2014 please try again.')
+              : err;
             console.warn('[dashboard-timing] direct fetch failed after ' + Math.round(performance.now() - __t0) + 'ms: ' + err);
-            throw err;
+            throw friendly;
         } finally {
             clearTimeout(timer);
         }
@@ -11203,27 +11290,44 @@ html.page-fade-ready body {
     const DIRECT_FETCH_TIMEOUT_MS = 25000;
     const JSONP_FETCH_TIMEOUT_MS = 28000;
 
-    async function fetchSheetOnce(url) {
+    // Heavier write actions (currently: Update Sheet / updateOverallData)
+    // aren't a simple data read — they can insert columns and backfill
+    // cells across every branch, which genuinely takes longer than loading
+    // the dashboard does, especially the first time it's catching up on
+    // several missing months at once. Giving those calls a longer budget
+    // means the browser doesn't give up (and show a false "failed" error)
+    // while Apps Script is still legitimately working through a big write.
+    const HEAVY_DIRECT_FETCH_TIMEOUT_MS = 55000;
+    const HEAVY_JSONP_FETCH_TIMEOUT_MS = 58000;
+
+    // `timeouts` is optional — pass { directMs, jsonpMs } to override the
+    // default read-sized budgets above for a specific, known-heavier call
+    // (see HEAVY_*_TIMEOUT_MS). Every existing caller that doesn't pass it
+    // behaves exactly as before.
+    async function fetchSheetOnce(url, timeouts) {
+      const directMs = (timeouts && timeouts.directMs) || DIRECT_FETCH_TIMEOUT_MS;
+      const jsonpMs = (timeouts && timeouts.jsonpMs) || JSONP_FETCH_TIMEOUT_MS;
+
       // Fast path: we already know which transport gets through on this
       // network/browser (learned just now, or remembered from a previous
       // visit — see setLearnedTransport above). Use only that one — no
       // duplicate request sent, no race, no hedge delay.
       if (learnedTransport === 'jsonp') {
         try {
-          return await fetchJSONP(url, JSONP_FETCH_TIMEOUT_MS);
+          return await fetchJSONP(url, jsonpMs);
         } catch (err) {
           // The learned transport failed this time (e.g. a network change) —
           // fall back to the other one just for this call, and re-learn.
           setLearnedTransport(null);
-          return await fetchDirect(url, DIRECT_FETCH_TIMEOUT_MS).then(function(d) { setLearnedTransport('direct'); return d; });
+          return await fetchDirect(url, directMs).then(function(d) { setLearnedTransport('direct'); return d; });
         }
       }
       if (learnedTransport === 'direct') {
         try {
-          return await fetchDirect(url, DIRECT_FETCH_TIMEOUT_MS);
+          return await fetchDirect(url, directMs);
         } catch (err) {
           setLearnedTransport(null);
-          return await fetchJSONP(url, JSONP_FETCH_TIMEOUT_MS).then(function(d) { setLearnedTransport('jsonp'); return d; });
+          return await fetchJSONP(url, jsonpMs).then(function(d) { setLearnedTransport('jsonp'); return d; });
         }
       }
 
@@ -11240,11 +11344,11 @@ html.page-fade-ready body {
       // entirely), so go straight there first and skip the race — direct is
       // still there as a fallback if JSONP itself ever fails.
       try {
-        const data = await fetchJSONP(url, JSONP_FETCH_TIMEOUT_MS);
+        const data = await fetchJSONP(url, jsonpMs);
         setLearnedTransport('jsonp');
         return data;
       } catch (jsonpErr) {
-        const data = await fetchDirect(url, DIRECT_FETCH_TIMEOUT_MS);
+        const data = await fetchDirect(url, directMs);
         setLearnedTransport('direct');
         return data;
       }
