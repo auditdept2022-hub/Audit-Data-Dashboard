@@ -805,6 +805,73 @@ function rememberDate(d){
   // never to whatever date was last typed/used.
 }
 
+// FIX (date entry): the date field is free-text on purpose (its own
+// placeholder says "e.g. 01/01/2025 or 1st"), but nothing ever actually
+// turned casual text like "1st" into a real date before it was saved.
+// readCurrentEntry() used to hand that raw text straight to the backend,
+// which did `new Date(record.date)` — for text like "1st" that produces an
+// Invalid Date, and Google Sheets stores that as 1/1/1970 instead of
+// leaving the intended day alone. This function is what actually resolves
+// any of the shapes a person might type into a real calendar date:
+//   - "01/01/2025" / "1/1/2025"  -> passed through, just re-padded
+//   - "2025-01-01" (old ISO)      -> converted to MM/DD/YYYY
+//   - "6/29" (no year)            -> current year assumed
+//   - "1" / "1st" / "21st"        -> that day of the CURRENT month/year
+//   - "June 29" / "Jun 29 2025"   -> month name + day (+ optional year)
+//   - "today"                     -> today's date
+// Anything it truly can't make sense of returns null, and callers fall
+// back to today's date rather than saving something broken.
+function parseFlexibleDate(raw){
+  const str = String(raw || '').trim();
+  if (!str) return null;
+  const pad2 = n => String(n).padStart(2, '0');
+  const now = new Date();
+
+  let m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(str);
+  if (m) {
+    const mm = Number(m[1]), dd = Number(m[2]), yyyy = Number(m[3]);
+    if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) return `${pad2(mm)}/${pad2(dd)}/${yyyy}`;
+  }
+
+  m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(str);
+  if (m) {
+    const yyyy = Number(m[1]), mm = Number(m[2]), dd = Number(m[3]);
+    if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) return `${pad2(mm)}/${pad2(dd)}/${yyyy}`;
+  }
+
+  m = /^(\d{1,2})\/(\d{1,2})$/.exec(str);
+  if (m) {
+    const mm = Number(m[1]), dd = Number(m[2]);
+    if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) return `${pad2(mm)}/${pad2(dd)}/${now.getFullYear()}`;
+  }
+
+  if (/^today$/i.test(str)) return todayMDY();
+
+  m = /^(\d{1,2})(st|nd|rd|th)?$/i.exec(str);
+  if (m) {
+    const dd = Number(m[1]);
+    if (dd >= 1 && dd <= 31) return `${pad2(now.getMonth() + 1)}/${pad2(dd)}/${now.getFullYear()}`;
+  }
+
+  m = /^([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{4}))?$/.exec(str);
+  if (m) {
+    const monthNames = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+    const mi = monthNames.indexOf(m[1].slice(0, 3).toLowerCase());
+    if (mi !== -1) {
+      const dd = Number(m[2]);
+      const yyyy = m[3] ? Number(m[3]) : now.getFullYear();
+      if (dd >= 1 && dd <= 31) return `${pad2(mi + 1)}/${pad2(dd)}/${yyyy}`;
+    }
+  }
+
+  // Last resort: let the browser's own date parsing take a shot, but only
+  // trust it if it actually resolved to a real date and not "Invalid Date".
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) return `${pad2(d.getMonth() + 1)}/${pad2(d.getDate())}/${d.getFullYear()}`;
+
+  return null;
+}
+
 const $ = (id) => document.getElementById(id);
 
 let toastTimer = null;
@@ -1277,6 +1344,16 @@ $('imgOverlay').addEventListener('click', (e) => { if (e.target.id === 'imgOverl
 // Keep lastUsedDate in sync the moment the user picks/types a date, not just when
 // an item is added/submitted.
 $('dateInput').addEventListener('input', () => { if ($('dateInput').value) rememberDate($('dateInput').value); });
+// FIX (date entry): as soon as the person leaves the field, show them the
+// actual date their text resolved to (e.g. typing "1st" on a September day
+// becomes "09/01/2026") so a typo or an unrecognized entry is obvious
+// immediately instead of silently saving wrong later.
+$('dateInput').addEventListener('blur', () => {
+  const val = $('dateInput').value.trim();
+  if (!val) return;
+  const parsed = parseFlexibleDate(val);
+  if (parsed && parsed !== val) $('dateInput').value = parsed;
+});
 
 // The date field is free-text (so a word like "1st" can be typed), but the calendar
 // button next to it opens a native date picker for people who want to click a date.
@@ -1314,7 +1391,13 @@ function suggestNextChange(){
 function readCurrentEntry(){
   const item = $('itemInput').value.trim();
   if (!item) return null;
-  const entryDate = $('dateInput').value || lastUsedDate;
+  // FIX (date entry): resolve whatever was typed ("1st", "6/29", etc.) into
+  // a real MM/DD/YYYY date instead of passing the raw text straight through
+  // — see parseFlexibleDate() for why that used to end up saved as 1/1/1970.
+  // If it truly can't be understood, fall back to today rather than saving
+  // something broken.
+  const rawDate = $('dateInput').value.trim();
+  const entryDate = rawDate ? (parseFlexibleDate(rawDate) || todayMDY()) : lastUsedDate;
   rememberDate(entryDate);
   const entry = {
     type: requestType,
@@ -1731,7 +1814,11 @@ function setEditModeUI(mode){
 function editGroup(g){
   lastSubmittedBatch = [];
   editingRecordId = null;
-  pendingRequests = g.items.map(it => ({ ...it }));
+  // FIX (date format): dates coming back from the sheet are ISO
+  // (YYYY-MM-DD). Converting them to MM/DD/YYYY here means the item list
+  // and the date field show the same format the person actually types in,
+  // instead of flashing the raw ISO string while editing a saved request.
+  pendingRequests = g.items.map(it => ({ ...it, date: isoToMDY(it.date) }));
   editingGroupIds = g.items.map(it => it.id);
   setEditModeUI('group');
   clearItemFields({ pulse: false });
@@ -2001,7 +2088,7 @@ function renderMyRecords(){
           <div class="rc-amt num">${peso(r.amount)}</div>
         </div>
         <div class="rc-meta">
-          ${escapeHtml(r.date || '')}${r.qty != null ? ' · Qty ' + r.qty : ''}${r.type === 'OIL' ? ` · Company ${peso(r.companyShare)} · Employee ${peso(r.employeeShare)}` : ` · Employee ${peso(r.employeeShare)}`}
+          ${escapeHtml(isoToMDY(r.date) || '')}${r.qty != null ? ' · Qty ' + r.qty : ''}${r.type === 'OIL' ? ` · Company ${peso(r.companyShare)} · Employee ${peso(r.employeeShare)}` : ` · Employee ${peso(r.employeeShare)}`}
         </div>
         <div class="rc-actions">
           <button type="button" class="btn btn-ghost btn-sm btn-danger-text" data-delete-id="${escapeHtml(r.id)}">Delete item</button>
@@ -2014,7 +2101,7 @@ function renderMyRecords(){
           <div class="group-head-info">
             <div class="group-head-left">
               <span class="group-items-summary">${summary || '(no items)'}</span>
-              <span class="group-date">${escapeHtml(g.date || '')} · ${countLabel}</span>
+              <span class="group-date">${escapeHtml(isoToMDY(g.date) || '')} · ${countLabel}</span>
             </div>
             ${groupImageRecord ? `<img class="rec-thumb group-thumb" src="${groupImageRecord.image}" data-rec-img-id="${escapeHtml(groupImageRecord.id)}" alt="Screenshot" title="Request screenshot" />` : ''}
           </div>
@@ -2172,8 +2259,22 @@ function renderHistory(){
     return;
   }
 
-  bodyEl.innerHTML = `<div class="history-list">${rows.map(r => {
-    const metaBits = [r.date || ''];
+  bodyEl.innerHTML = `<div class="history-list">${rows.map((r, idx) => {
+    // FIX (date format): History dates come back from the sheet as ISO
+    // (YYYY-MM-DD); show them as MM/DD/YYYY like everywhere else in the app.
+    // Also log the PREVIOUS request for this same item right alongside the
+    // new one, so the card reads "Last: <old date> → New: <this date>"
+    // instead of just the latest date on its own. `rows` is already sorted
+    // newest-first, so the "previous" occurrence of this item is simply the
+    // next matching entry further down the list.
+    const sameItem = String(r.item || '').trim().toLowerCase();
+    const prev = sameItem
+      ? rows.slice(idx + 1).find(x => String(x.item || '').trim().toLowerCase() === sameItem)
+      : null;
+    const dateLabel = prev
+      ? `Last: ${isoToMDY(prev.date) || prev.date} → New: ${isoToMDY(r.date) || r.date}`
+      : (isoToMDY(r.date) || '');
+    const metaBits = [dateLabel];
     if (r.odometer) metaBits.push(r.odometer + ' km');
     if (r.nextChangeOdometer) metaBits.push('Next: ' + r.nextChangeOdometer + ' km');
     return `
