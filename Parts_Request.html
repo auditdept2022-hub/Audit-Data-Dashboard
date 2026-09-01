@@ -766,6 +766,22 @@ let pendingRequests = [];  // items added via "+ Add item" but not yet submitted
 let lastSubmittedBatch = []; // items from the most recent successful submit
 let lastAddedIndex = -1; // index of the most recently added pending item, for the entry animation
 let editingRecordId = null;  // when set, the form is editing this existing saved request
+// FIX: when the "edit" pencil is clicked on an item inside an in-progress
+// group edit, loadEntryIntoForm() pulls that item's fields into the form
+// and removes it from pendingRequests. Previously, readCurrentEntry() had
+// no way to say "this is item X being edited" — it always built a brand
+// new object with no id. So the moment that item was pushed back onto
+// pendingRequests (via "+ Add item", or automatically as the "leftover"
+// item when clicking "Save changes"), saveEditedGroup() saw an item with
+// id == null and treated it as a NEW item to create, while the original
+// row (with its real id) got queued for deletion since it was no longer
+// present with a matching id. The net effect was delete-old-row +
+// create-new-row instead of a simple field update — which is why changes
+// like the Service unit / Service to own split (and the attached photo)
+// could appear to silently revert instead of saving. editingItemId tracks
+// the id of whichever existing item is currently loaded into the form so
+// readCurrentEntry() can stamp it back on, keeping the update in-place.
+let editingItemId = null;
 let editingGroupIds = null;  // when set, the form is editing every item in this saved request (a whole "batch") at once
 let currentImage = null;     // { data: base64DataUrl, name: filename }
 
@@ -1300,7 +1316,7 @@ function readCurrentEntry(){
   if (!item) return null;
   const entryDate = $('dateInput').value || lastUsedDate;
   rememberDate(entryDate);
-  return {
+  const entry = {
     type: requestType,
     item: item,
     qty: Number($('qtyInput').value) || 1,
@@ -1312,15 +1328,31 @@ function readCurrentEntry(){
     nextChangeOdometer: $('nextChangeInput').value.trim() ? $('nextChangeInput').value.trim() : null,
     splitLabel: splitLabel,
     remarks: $('remarksInput').value.trim()
-    // NOTE: no image/imageName here anymore. The attached screenshot is
-    // scoped to the whole request now, not to whichever single item is
-    // currently in the draft fields — see the submit handler, which stamps
-    // it onto the batch once, right before sending it.
+    // NOTE: no image/imageName here for brand-new items. The attached
+    // screenshot is scoped to the whole request in that case — see the
+    // submit handler, which stamps it onto the batch once, right before
+    // sending it (applyBatchImage()).
   };
+  // FIX: if these fields belong to an EXISTING item that's being edited in
+  // place (loaded via loadEntryIntoForm), carry its id back through so the
+  // save logic updates that row instead of deleting it and creating a new
+  // one. Also carry the current attachment state explicitly in this case —
+  // otherwise the missing image/imageName above would read as "no photo"
+  // and wipe out a previously-saved attachment during the update.
+  if (editingItemId != null) {
+    entry.id = editingItemId;
+    entry.image = currentImage ? currentImage.data : null;
+    entry.imageName = currentImage ? currentImage.name : null;
+  }
+  return entry;
 }
 
 function clearItemFields(opts){
   const pulse = !opts || opts.pulse !== false;
+  // FIX: once the current draft has been pushed back onto pendingRequests
+  // (carrying its id, if any), the form is clear for either a fresh new
+  // item or the next edit — either way editingItemId must not leak forward.
+  editingItemId = null;
   $('itemInput').value = '';
   $('qtyInput').value = 1;
   $('amountInput').value = '';
@@ -1436,6 +1468,9 @@ function renderItemsList(){
 }
 
 function loadEntryIntoForm(r){
+  // FIX: remember which saved item this is so readCurrentEntry() can stamp
+  // its id back on when it's re-added — see the note by editingItemId.
+  editingItemId = r.id != null ? r.id : null;
   setType(r.type || 'PARTS');
   splitLabel = r.splitLabel === '40/60' ? '40/60' : '60/40';
   $('splitToggle').querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.split === splitLabel));
