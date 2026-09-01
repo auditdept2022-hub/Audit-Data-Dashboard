@@ -2270,17 +2270,14 @@ function renderHistory(){
   bodyEl.innerHTML = `<div class="history-list">${rows.map((r, idx) => {
     // FIX (date format): History dates come back from the sheet as ISO
     // (YYYY-MM-DD); show them as MM/DD/YYYY like everywhere else in the app.
-    // Also log the PREVIOUS request for this same item right alongside the
-    // new one, so the card reads "Last: <old date> → New: <this date>"
-    // instead of just the latest date on its own. `rows` is already sorted
-    // newest-first, so the "previous" occurrence of this item is simply the
-    // next matching entry further down the list.
-    const sameItem = String(r.item || '').trim().toLowerCase();
-    const prev = sameItem
-      ? rows.slice(idx + 1).find(x => String(x.item || '').trim().toLowerCase() === sameItem)
-      : null;
+    // Every row now shows "Last: <previous request's date> → New: <this
+    // request's date>" — `rows` is already sorted newest-first, so the
+    // "previous" request is simply the very next row below this one. Only
+    // the oldest row in the whole list (nothing before it) falls back to
+    // showing just its own date.
+    const prev = rows[idx + 1];
     const dateLabel = prev
-      ? `Last: ${isoToMDY(prev.date) || prev.date} → New: ${isoToMDY(r.date) || r.date}`
+      ? `Last: ${isoToMDY(prev.date) || prev.date} \u2192 New: ${isoToMDY(r.date) || r.date}`
       : (isoToMDY(r.date) || '');
     const metaBits = [dateLabel];
     if (r.odometer) metaBits.push(r.odometer + ' km');
