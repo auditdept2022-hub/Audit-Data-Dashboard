@@ -1715,6 +1715,11 @@ $('submitBtn').onclick = async () => {
     // Work out what the banner should say, but don't write it into
     // formMsg yet — loadAll() resets formMsg the moment it starts, so
     // anything set before that call would just be erased again.
+    // FIX (silent history failures): the backend now reports if writing to
+    // the History sheet failed (historyWarning), even though the Parts/Oil
+    // row itself saved fine. Surface it the same way an attach-photo
+    // failure is surfaced, so "submitted but not logged to History" is
+    // never invisible again.
     let finalMsgText, finalMsgClass;
     if (failedOutcomes.length) {
       pendingRequests = failedOutcomes.map(o => o.entry);
@@ -1725,7 +1730,10 @@ $('submitBtn').onclick = async () => {
       if (succeeded.length) lastSubmittedBatch = succeeded.map(o => o.entry);
     } else {
       showToast(batch.length > 1 ? `${batch.length} requests saved to the sheet.` : 'Request saved to the sheet.');
-      if (attachWarnings.length) {
+      if (batchResult.historyWarning) {
+        finalMsgText = 'Request submitted, but it wasn\'t logged to the History tab: ' + batchResult.historyWarning;
+        finalMsgClass = 'msg warn';
+      } else if (attachWarnings.length) {
         // FIX: this used to be a second toast fired 3.2s later, which could
         // easily be missed (or get pushed off-screen/replaced) — the exact
         // reason a genuine attachment failure looked like "nothing happened".
