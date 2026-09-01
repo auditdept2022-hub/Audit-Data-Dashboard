@@ -1867,7 +1867,9 @@ function printItemsSlip(items, dateVal){
     node.querySelector('.ps-position').textContent = profileOverride.position != null ? profileOverride.position : (u.position || '');
     node.querySelector('.ps-sutype').textContent = profileOverride.suType != null ? profileOverride.suType : (u.suType || '');
     node.querySelector('.ps-engine').textContent = profileOverride.engine != null ? profileOverride.engine : (u.engine || '');
-    node.querySelector('.ps-date').textContent = formatPrintDate(dateVal);
+    // The printed voucher always shows today's date, not the date the
+    // request was originally filed/saved with.
+    node.querySelector('.ps-date').textContent = todayMDY();
     node.querySelector('.ps-check-6040').classList.toggle('checked', splitLabelForPrint === '60/40');
     node.querySelector('.ps-check-4060').classList.toggle('checked', splitLabelForPrint === '40/60');
 
