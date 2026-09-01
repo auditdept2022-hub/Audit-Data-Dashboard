@@ -1397,7 +1397,11 @@ function readCurrentEntry(){
   // If it truly can't be understood, fall back to today rather than saving
   // something broken.
   const rawDate = $('dateInput').value.trim();
-  const entryDate = rawDate ? (parseFlexibleDate(rawDate) || todayMDY()) : lastUsedDate;
+  // FIX (text vs date): if what was typed actually looks like a date,
+  // normalize it (e.g. "1st" -> "09/01/2026"). If it doesn't look like a
+  // date at all (free text, notes, etc.), keep it exactly as typed instead
+  // of silently overwriting it with today's date.
+  const entryDate = rawDate ? (parseFlexibleDate(rawDate) || rawDate) : lastUsedDate;
   rememberDate(entryDate);
   const entry = {
     type: requestType,
@@ -2270,15 +2274,15 @@ function renderHistory(){
   bodyEl.innerHTML = `<div class="history-list">${rows.map((r, idx) => {
     // FIX (date format): History dates come back from the sheet as ISO
     // (YYYY-MM-DD); show them as MM/DD/YYYY like everywhere else in the app.
-    // Every row now shows "Last: <previous request's date> → New: <this
-    // request's date>" — `rows` is already sorted newest-first, so the
-    // "previous" request is simply the very next row below this one. Only
-    // the oldest row in the whole list (nothing before it) falls back to
-    // showing just its own date.
-    const prev = rows[idx + 1];
-    const dateLabel = prev
-      ? `Last: ${isoToMDY(prev.date) || prev.date} \u2192 New: ${isoToMDY(r.date) || r.date}`
-      : (isoToMDY(r.date) || '');
+    // Each row now shows its own two real dates: "Last" is the date typed
+    // into the "Last Date Request" field on that request (r.date), and
+    // "New" is the date the request was actually created/logged, captured
+    // automatically server-side at submit time (r.submittedDate). Older
+    // rows logged before this field existed won't have a submittedDate, so
+    // those just fall back to showing the single date they do have.
+    const lastLabel = isoToMDY(r.date) || r.date || '';
+    const newLabel = r.submittedDate ? (isoToMDY(r.submittedDate) || r.submittedDate) : '';
+    const dateLabel = newLabel ? `Last: ${lastLabel} \u2192 New: ${newLabel}` : lastLabel;
     const metaBits = [dateLabel];
     if (r.odometer) metaBits.push(r.odometer + ' km');
     if (r.nextChangeOdometer) metaBits.push('Next: ' + r.nextChangeOdometer + ' km');
