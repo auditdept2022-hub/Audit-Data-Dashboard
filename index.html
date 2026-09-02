@@ -1750,17 +1750,23 @@ rect.legend-mouseover-inactive,
 <style id="print-styles">
   #printArea{display:none;}
   @media print{
+    /* Landscape with slim margins — the tables being printed (branch
+       lists, findings, workload breakdowns) are wide, and the Excel/Word/
+       PDF exports already use landscape for the same reason. Portrait
+       (the browser's default) left far less usable width and was a big
+       part of why columns ran off the page. */
+    @page{ size: landscape; margin: 10mm; }
     body > *:not(#printArea){display:none !important;}
     #printArea{
       display:block !important;
-      position:absolute; left:0; top:0; width:100%;
-      padding:24px; box-sizing:border-box;
+      position:static !important; left:auto; top:auto; width:100%;
+      padding:0; box-sizing:border-box;
       color:#0f172a; font-family: ui-sans-serif, system-ui, sans-serif;
     }
-    #printArea h1{font-size:20px;font-weight:800;margin-bottom:4px;}
-    #printArea .print-meta{font-size:11px;color:#64748b;margin-bottom:16px;}
-    #printArea table{width:100%;border-collapse:collapse;font-size:11px;}
-    #printArea th, #printArea td{border:1px solid #cbd5e1;padding:4px 6px;text-align:left;}
+    #printArea h1{font-size:18px;font-weight:800;margin-bottom:4px;}
+    #printArea .print-meta{font-size:10px;color:#64748b;margin-bottom:14px;}
+    #printArea table{width:100% !important;table-layout:auto;border-collapse:collapse;font-size:9.5px;}
+    #printArea th, #printArea td{border:1px solid #cbd5e1;padding:3px 5px;text-align:left;word-break:break-word;}
     #printArea .no-print, #printArea button{display:none !important;}
     /* Any nested "scroll box" (max-h-* + overflow-y-auto) used for on-screen
        scrolling must expand fully when printing, otherwise only the
@@ -1770,6 +1776,27 @@ rect.legend-mouseover-inactive,
       max-height: none !important;
       overflow: visible !important;
     }
+    /* The on-screen tables live in horizontally-scrolling wrappers with a
+       fixed min-width (e.g. "min-w-[820px]") and their cells use
+       whitespace-nowrap so numbers don't wrap while scrolling — both are
+       fine for a scrollable popup, but on a fixed-width printed page they
+       force the table wider than the paper and everything past the right
+       margin gets silently sliced off. Neutralize both so wide tables
+       reflow to the actual page width instead of being cut. This targets
+       only elements that actually set these, so percentage-width bars
+       (progress/score indicators) are untouched. */
+    #printArea [class*="min-w-"]{min-width:0 !important;}
+    #printArea [class*="overflow-x-auto"]{overflow-x:visible !important;}
+    #printArea [class*="whitespace-nowrap"]{white-space:normal !important;}
+    /* Repeat the header row on every printed page of a long table, and
+       never slice a single data row in half across a page break. */
+    #printArea thead{display:table-header-group;}
+    #printArea tfoot{display:table-footer-group;}
+    #printArea tr{page-break-inside:avoid;break-inside:avoid;}
+    #printArea h1, #printArea h2, #printArea h3{page-break-after:avoid;break-after:avoid;}
+    /* Charts (SVG) and images must shrink to the page instead of
+       overflowing off the right edge. */
+    #printArea svg, #printArea img, #printArea canvas{max-width:100% !important;height:auto !important;}
   }
 </style>
 <style id="redesign-theme">
@@ -7580,6 +7607,16 @@ html.page-fade-ready body {
           doc.setTextColor(148, 163, 184);
           doc.text(generatedLabel, pageWidth - 40, 36, { align: 'right' });
 
+          // Which column(s) repeat on every continuation page of a wide,
+          // horizontally-split table. Repeating only column 0 used to mean
+          // continuation pages showed just a bare row number ("1", "2", "3"...)
+          // with no way to tell which branch/row that actually was — the data
+          // on those pages was effectively unreadable. Also repeat whichever
+          // column is the row's real identifier (its header contains "Branch"
+          // or "Name"), so every continuation page stays self-identifying.
+          const idColIdx = s.headers.findIndex(function(h) { return /branch|name/i.test(String(h)); });
+          const repeatCols = (idColIdx > 0) ? [0, idColIdx] : [0];
+
           doc.autoTable({
               head: [s.headers.map(function(h) { return String(h); })],
               body: s.rows.map(function(r) { return r.map(function(v) { return (v === undefined || v === null) ? '' : String(v); }); }),
@@ -7590,18 +7627,26 @@ html.page-fade-ready body {
               alternateRowStyles: { fillColor: [248, 250, 252] },
               theme: 'grid',
               // Split wide tables across extra pages column-wise instead of
-              // squeezing everything onto one page; the first column repeats
-              // on each continuation page so rows stay identifiable.
+              // squeezing everything onto one page; the identifying column(s)
+              // repeat on each continuation page so rows stay identifiable.
               horizontalPageBreak: colCount > 8,
-              horizontalPageBreakRepeat: 0,
-              didDrawPage: function() {
-                  const pageCount = doc.internal.getNumberOfPages();
-                  doc.setFontSize(8);
-                  doc.setTextColor(148, 163, 184);
-                  doc.text('Page ' + doc.internal.getCurrentPageInfo().pageNumber + ' of ' + pageCount, pageWidth - 40, doc.internal.pageSize.getHeight() - 14, { align: 'right' });
-              }
+              horizontalPageBreakRepeat: repeatCols
           });
       });
+
+      // "Page X of Y" is written in one final pass over every page, once the
+      // real total is known. Writing it during each page's own draw (as
+      // before) showed the *running* count at that point — e.g. "Page 1 of 1"
+      // on the very first page of a table that actually continues for 3 more
+      // pages — because the later continuation pages didn't exist yet when
+      // that page was drawn. Only the last page ever showed a correct total.
+      const totalPages = doc.internal.getNumberOfPages();
+      for (let p = 1; p <= totalPages; p++) {
+          doc.setPage(p);
+          doc.setFontSize(8);
+          doc.setTextColor(148, 163, 184);
+          doc.text('Page ' + p + ' of ' + totalPages, pageWidth - 40, doc.internal.pageSize.getHeight() - 14, { align: 'right' });
+      }
 
       doc.save(filename);
       showToast('PDF downloaded.');
