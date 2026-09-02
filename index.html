@@ -299,6 +299,34 @@
       flex-shrink: 0 !important;
     }
 
+    /* Auto-fit row for the Collection/Sales/Service monthly capsule strip
+       (buildStatusFilterBar / buildMonthlyStackCard). Instead of wrapping
+       to a second line — or letting individual capsules get visually
+       squeezed/cut off — the whole row is scaled down as one uniform unit
+       (via autoFitCapsuleRow, JS) so every capsule + its text shrinks
+       together in proportion until the full row fits on a single line.
+       The outer wrapper clips to that scaled size (no leftover blank
+       space) and, only in the extreme case where the floor scale is hit,
+       falls back to a quiet horizontal scroll so nothing is ever cropped. */
+    .capsule-row-fit-wrap {
+      width: 100%;
+      display: flex;
+      justify-content: flex-end;
+      overflow: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    .capsule-row-fit-wrap::-webkit-scrollbar { display: none; }
+    .capsule-row-fit {
+      display: inline-flex !important;
+      flex-wrap: nowrap !important;
+      align-items: center;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transform-origin: top right;
+    }
+
     /* Smooth, native-feeling momentum scrolling on every internal
        scroll region. overscroll-behavior is intentionally "auto" (not
        "contain") so that once a nested panel — like the branch
@@ -7592,8 +7620,62 @@ html.page-fade-ready body {
     // only renders the monthly stack cards.
     function buildStatusFilterBar(type, list) {
       const monthlyCard = buildMonthlyStackCard(type, list);
-      return `<div class="flex flex-wrap items-center justify-end gap-2 mb-2">${monthlyCard}</div>`;
+      return `<div class="capsule-row-fit-wrap mb-2" id="monthlyStackWrap-${type}">
+        <div class="capsule-row-fit gap-1.5 sm:gap-2" id="monthlyStackRow-${type}">${monthlyCard}</div>
+      </div>`;
     }
+
+    // Scales an entire monthly-capsule row down as one unit — text size,
+    // capsule padding, gaps, all together — so the row keeps its exact
+    // proportions and stays perfectly legible while shrinking just enough
+    // to sit on a single line. Re-run on every render of the row and on
+    // window resize (see the debounced listener below) so it re-fits as
+    // the popup/viewport width changes. Below a small floor scale (where
+    // shrinking further would make the text hard to read) it stops
+    // scaling down and lets the wrapper scroll horizontally instead, so
+    // content is never cropped or overlapped.
+    function autoFitCapsuleRow(wrapId, rowId) {
+      const wrap = document.getElementById(wrapId);
+      const row = document.getElementById(rowId);
+      if (!wrap || !row) return;
+      const FLOOR_SCALE = 0.62;
+      row.style.transform = 'none';
+      wrap.style.height = '';
+      wrap.style.overflowX = 'hidden';
+      wrap.style.justifyContent = 'flex-end';
+      const wrapWidth = wrap.clientWidth;
+      const rowWidth = row.scrollWidth;
+      const rowHeight = row.scrollHeight;
+      if (wrapWidth <= 0 || rowWidth <= wrapWidth) return;
+      let scale = wrapWidth / rowWidth;
+      if (scale < FLOOR_SCALE) {
+        // Even at the smallest readable scale it still doesn't fit —
+        // switch to a left-aligned horizontal scroll instead of
+        // flex-end (which can trap overflowed content off-screen to the
+        // left in some browsers), so every capsule stays reachable.
+        scale = FLOOR_SCALE;
+        wrap.style.overflowX = 'auto';
+        wrap.style.justifyContent = 'flex-start';
+      }
+      row.style.transform = `scale(${scale})`;
+      wrap.style.height = `${Math.ceil(rowHeight * scale)}px`;
+    }
+
+    // Re-fits whichever monthly capsule row(s) currently exist in the DOM
+    // (only one of collection/sales/service is present at a time inside
+    // the drill-down popup, but this stays generic instead of hardcoding
+    // a single type). Debounced so a window drag/resize doesn't re-run
+    // the measurement dozens of times a second.
+    let _capsuleRowFitTimer = null;
+    function refitAllCapsuleRows() {
+      ['collection', 'sales', 'service'].forEach(type => {
+        autoFitCapsuleRow(`monthlyStackWrap-${type}`, `monthlyStackRow-${type}`);
+      });
+    }
+    window.addEventListener('resize', () => {
+      clearTimeout(_capsuleRowFitTimer);
+      _capsuleRowFitTimer = setTimeout(refitAllCapsuleRows, 120);
+    });
 
     // "Stack cards" — three small per-month cards shown inline, right
     // above the branch table — no click-to-expand needed, all three
@@ -8253,6 +8335,12 @@ html.page-fade-ready body {
 
       if (list.length > 0) renderBranchTable(list, tableContainer, state.type, state.statusValue);
       else tableContainer.innerHTML = '<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No branches match your search/filter.</div>';
+
+      // Fit the just-rendered monthly capsule row to one line now that
+      // it's actually in the DOM (and has a real width to measure).
+      if (state.type === 'collection' || state.type === 'sales' || state.type === 'service') {
+          requestAnimationFrame(() => autoFitCapsuleRow(`monthlyStackWrap-${state.type}`, `monthlyStackRow-${state.type}`));
+      }
     }
 
     // Free-text branch search box shared by the Collection / Sales / Service /
