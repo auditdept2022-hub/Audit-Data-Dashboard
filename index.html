@@ -1789,6 +1789,30 @@ header .bg-white:hover{
 header .text-royalBlue{ color:#1e3a8a !important; }
 header svg.text-royalBlue{ color:#1e3a8a !important; }
 
+/* ---------- popup/modal header bar ---------- */
+/* Same navy gradient as the page header, so the data-popup header reads
+   as an extension of it — title and icon buttons switch to white so
+   they stay legible against the dark background. */
+.modal-header-bar{
+  background:linear-gradient(90deg, #0a1a3a 0%, #12295c 30%, #1d3f8f 65%, #2f5fc7 100%);
+  border-bottom:none;
+  box-shadow:0 1px 0 rgba(255,255,255,0.06) inset, 0 4px 14px -8px rgba(15,23,42,0.45);
+}
+.modal-header-icon-btn{
+  color:rgba(255,255,255,0.75);
+}
+.modal-header-icon-btn:hover{
+  color:#ffffff;
+  background:rgba(255,255,255,0.16);
+}
+.modal-header-icon-btn.modal-header-icon-btn-close:hover{
+  color:#ffffff;
+  background:rgba(225,29,72,0.55);
+}
+#modalDialog #modalTitle{
+  text-shadow:0 1px 2px rgba(0,0,0,0.25);
+}
+
 /* ---------- hamburger button ---------- */
 .hamburger-btn{
   position:relative;
@@ -4284,28 +4308,28 @@ html.page-fade-ready body {
     <div class="absolute inset-0 bg-slate-900/65"></div>
     <div class="absolute inset-0 flex items-start sm:items-center justify-center overflow-y-auto p-3 sm:p-4 py-6">
       <div class="bg-coolCard w-[85vw] min-h-[60vh] max-h-[85vh] max-h-[85dvh] my-auto rounded-2xl shadow-2xl flex flex-col transform transition-transform duration-300 border border-coolBorder scale-95" id="modalDialog" onclick="event.stopPropagation()">
-        <div class="px-3 sm:px-4 py-2 sm:py-2.5 border-b border-coolBorder flex flex-wrap justify-between items-center gap-x-3 gap-y-1.5 bg-gray-50 rounded-t-2xl">
+        <div class="modal-header-bar px-3 sm:px-4 py-2 sm:py-2.5 flex flex-wrap justify-between items-center gap-x-3 gap-y-1.5 rounded-t-2xl">
           <div class="flex items-center gap-2 min-w-0 w-full sm:w-auto sm:flex-1">
-            <button id="modalBackBtn" onclick="modalGoBack()" title="Back" aria-label="Back to previous view" class="hidden p-2 -ml-1 text-slate-400 hover:text-accentBlue hover:bg-accentBlue/10 active:scale-95 rounded-xl transition-all cursor-pointer flex-shrink-0">
+            <button id="modalBackBtn" onclick="modalGoBack()" title="Back" aria-label="Back to previous view" class="hidden p-2 -ml-1 modal-header-icon-btn active:scale-95 rounded-xl transition-all cursor-pointer flex-shrink-0">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>
             </button>
-            <h2 class="text-sm sm:text-xl font-bold text-slate-800 truncate min-w-0" id="modalTitle" title="BINALONAN — Detailed Profile">BINALONAN — Detailed Profile</h2>
+            <h2 class="text-sm sm:text-xl font-bold text-white truncate min-w-0" id="modalTitle" title="BINALONAN — Detailed Profile">BINALONAN — Detailed Profile</h2>
           </div>
           <div class="flex items-center gap-1 flex-shrink-0 ml-auto sm:ml-0">
-            <button id="modalEditAssignBtn" onclick="openHeaderEditAssignment()" title="Edit assignment" aria-label="Edit assignment" class="hidden p-2 text-slate-400 hover:text-accentAmber hover:bg-accentAmber/10 active:scale-95 rounded-xl transition-all cursor-pointer">
+            <button id="modalEditAssignBtn" onclick="openHeaderEditAssignment()" title="Edit assignment" aria-label="Edit assignment" class="hidden p-2 modal-header-icon-btn active:scale-95 rounded-xl transition-all cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path><path d="m15 5 4 4"></path></svg>
             </button>
-            <button onclick="openExportPicker('current')" title="Download this data" aria-label="Download this data" class="p-2 text-slate-400 hover:text-accentEmerald hover:bg-accentEmerald/10 active:scale-95 rounded-xl transition-all cursor-pointer">
+            <button onclick="openExportPicker('current')" title="Download this data" aria-label="Download this data" class="p-2 modal-header-icon-btn active:scale-95 rounded-xl transition-all cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>
             </button>
-            <button onclick="printModalContent()" title="Print this data" aria-label="Print this data" class="p-2 text-slate-400 hover:text-accentBlue hover:bg-accentBlue/10 active:scale-95 rounded-xl transition-all cursor-pointer">
+            <button onclick="printModalContent()" title="Print this data" aria-label="Print this data" class="p-2 modal-header-icon-btn active:scale-95 rounded-xl transition-all cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
             </button>
-            <button id="modalFullscreenBtn" onclick="toggleModalFullscreen()" title="Fullscreen" aria-label="Toggle fullscreen" class="p-2 text-slate-400 hover:text-accentIndigo hover:bg-accentIndigo/10 active:scale-95 rounded-xl transition-all cursor-pointer">
+            <button id="modalFullscreenBtn" onclick="toggleModalFullscreen()" title="Fullscreen" aria-label="Toggle fullscreen" class="p-2 modal-header-icon-btn active:scale-95 rounded-xl transition-all cursor-pointer">
               <svg id="modalFullscreenIconExpand" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path></svg>
               <svg id="modalFullscreenIconCollapse" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 hidden"><path d="M8 3v3a2 2 0 0 1-2 2H3"></path><path d="M21 8h-3a2 2 0 0 1-2-2V3"></path><path d="M3 16h3a2 2 0 0 1 2 2v3"></path><path d="M16 21v-3a2 2 0 0 1 2-2h3"></path></svg>
             </button>
-            <button onclick="closeModal()" class="p-2 text-slate-400 hover:text-accentRose hover:bg-accentRose/10 active:scale-95 rounded-xl transition-all cursor-pointer">
+            <button onclick="closeModal()" class="p-2 modal-header-icon-btn modal-header-icon-btn-close active:scale-95 rounded-xl transition-all cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
             </button>
           </div>
@@ -7560,26 +7584,20 @@ html.page-fade-ready body {
       service: ['Target', 'Declining']
     };
 
-    const AUDIT_STATUS_OPTIONS = ['DONE', 'PENDING', 'FOR AUDIT'];
-
-    function buildStatusFilterBar(type, activeValue, list) {
-      const options = ['ALL', ...(STATUS_FILTER_OPTIONS[type] || [])];
-      const buttonsHtml = options.map(opt => {
-          const isActive = opt === (activeValue || 'ALL');
-          const activeClass = isActive
-              ? 'bg-accentCyan text-white border-accentCyan shadow-sm'
-              : 'bg-white text-slate-600 border-coolBorder hover:border-accentCyan/50 hover:bg-accentCyan/5';
-          const label = opt === 'ALL' ? `All ${type.charAt(0).toUpperCase() + type.slice(1)}` : opt;
-          return `<button onclick="setModalStatusFilter('${opt}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all active:scale-95 ${activeClass}">${label}</button>`;
-      }).join('');
-      const filterRow = `<div class="flex flex-wrap items-center gap-2"><span class="text-xs font-semibold text-slate-500 mr-1">Filter by status:</span>${buttonsHtml}</div>`;
+    // The explicit "Filter by status:" button row was removed — every
+    // status pill in the summary bar above (buildSalesSummaryBar /
+    // buildCollectionSummaryBar / buildServiceSummaryBar) is itself
+    // clickable and calls setModalStatusFilter, so the separate button
+    // row was a redundant second way to do the same thing. This now
+    // only renders the monthly stack cards.
+    function buildStatusFilterBar(type, list) {
       const monthlyCard = buildMonthlyStackCard(type, list);
-      return `<div class="flex flex-wrap items-center justify-between gap-2 mb-2">${filterRow}${monthlyCard}</div>`;
+      return `<div class="flex flex-wrap items-center justify-end gap-2 mb-2">${monthlyCard}</div>`;
     }
 
-    // "Stack cards" — three small per-month cards shown inline, side by
-    // side, next to "Filter by status:" — no click-to-expand needed, all
-    // three months are visible at once. Color/icon per type mirror the
+    // "Stack cards" — three small per-month cards shown inline, right
+    // above the branch table — no click-to-expand needed, all three
+    // months are visible at once. Color/icon per type mirror the
     // corresponding top KPI tile (Collection/Sales/Service Status cards
     // above) so the row visually ties back to its KPI card. Reuses the
     // trend month labels already computed from the uploaded sheet
@@ -7610,7 +7628,7 @@ html.page-fade-ready body {
     // One month, one small card (label on top, headline value, optional
     // target/diff subtitle) — sized to sit three-in-a-row, kept narrow
     // (fixed width rather than flex-growing) so a row of these never
-    // pushes past the "Filter by status:" bar on Collection/Sales/Service.
+    // wraps awkwardly on Collection/Sales/Service.
     // Capsule (pill) design — everything on ONE line (label · value · optional
     // subtitle) inside a fully-rounded rounded-full shell, instead of the old
     // 3-line stacked block. Cuts each card's height roughly in half so a full
@@ -7701,18 +7719,6 @@ html.page-fade-ready body {
       }
 
       return `<div class="flex flex-wrap items-center gap-1.5 max-w-full sm:ml-auto">${rowsHtml}</div>`;
-    }
-
-    function buildAuditStatusFilterBar(activeAudit) {
-      const options = ['ALL', ...AUDIT_STATUS_OPTIONS];
-      const buttonsHtml = options.map(opt => {
-          const isActive = opt === (activeAudit || 'ALL');
-          const activeClass = isActive
-              ? 'bg-slate-800 text-white border-slate-800 shadow-sm'
-              : 'bg-white text-slate-600 border-coolBorder hover:border-slate-400 hover:bg-slate-50';
-          return `<button onclick="setModalAuditFilter('${opt}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all active:scale-95 ${activeClass}">${opt}</button>`;
-      }).join('');
-      return `<div class="flex flex-wrap items-center gap-2 mb-2"><span class="text-xs font-semibold text-slate-500 mr-1">Filter by audit status:</span>${buttonsHtml}</div>`;
     }
 
     // Returns the last-completed round and the most-recently-completed round
@@ -8237,10 +8243,7 @@ html.page-fade-ready body {
           barsHtml += buildAllBranchesSummaryBar(baseList, 'setModalAuditFilter', state.auditStatus);
       }
       if (state.type === 'collection' || state.type === 'sales' || state.type === 'service') {
-          barsHtml += buildStatusFilterBar(state.type, state.statusValue, baseList);
-      }
-      if (state.type === 'all') {
-          barsHtml += buildAuditStatusFilterBar(state.auditStatus);
+          barsHtml += buildStatusFilterBar(state.type, baseList);
       }
       barsHtml += renderModalSearchBar(state, baseList.length, list.length);
 
@@ -9222,8 +9225,7 @@ html.page-fade-ready body {
     // filter state under a different key, so the caller passes in whichever
     // setter matches — setAssignmentAuditFilter for the Assignment Branches
     // Overview popup, setModalAuditFilter for the general All Branches
-    // popup). activeValue highlights whichever pill is currently applied,
-    // same visual language as buildAuditStatusFilterBar's own buttons.
+    // popup). activeValue highlights whichever pill is currently applied.
     // opts.hidePerformers suppresses the Top 5 Performers list entirely —
     // used by the Assignment Branches Overview popup, where the list isn't
     // wanted even on the Total Branches pill (unlike the general All
