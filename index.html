@@ -299,6 +299,24 @@
       flex-shrink: 0 !important;
     }
 
+    /* Two-line variant of .capsule-pill, used only by the Sales monthly
+       capsules (net INS−CA on top, raw INS/CA underneath — and the Total
+       Accts capsules, month on top / "Total Accts" underneath). Stacking
+       the label+value over the subtitle instead of putting everything on
+       one long horizontal line roughly halves each capsule's width, so
+       the whole Sales strip needs far less shrinking (or none) to fit on
+       one line next to the search box. */
+    .capsule-pill-stacked {
+      display: inline-flex !important;
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      justify-content: center !important;
+      white-space: nowrap !important;
+      border-radius: 14px !important;
+      flex-shrink: 0 !important;
+      line-height: 1.25 !important;
+    }
+
     /* Auto-fit row for the Collection/Sales/Service monthly capsule strip
        (buildStatusFilterBar / buildMonthlyStackCard). Instead of wrapping
        to a second line — or letting individual capsules get visually
@@ -7724,6 +7742,23 @@ html.page-fade-ready body {
         </div>`;
     }
 
+    // Two-line variant used by the Sales capsules only: label + headline
+    // value on the top line, the subtitle (raw INS/CA counts, or "Total
+    // Accts") on its own line underneath instead of trailing after a
+    // divider on the same line. Roughly halves each capsule's width so
+    // all 6 Sales capsules (3 net + 3 accounts) fit far more easily on
+    // one line next to the search box.
+    function monthlyStackCardStacked(color, label, valueHtml, subtitleHtml) {
+      return `
+        <div class="capsule-pill-stacked gap-0 border border-coolBorder bg-white shadow-sm px-2.5 py-1 sm:px-3 sm:py-1.5 shrink-0">
+          <div class="flex items-center gap-1">
+            <span class="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wide">${label}</span>
+            <span class="text-xs sm:text-sm font-extrabold text-${color} tabular-nums">${valueHtml}</span>
+          </div>
+          ${subtitleHtml ? `<span class="text-[9px] sm:text-[10px] text-slate-500">${subtitleHtml}</span>` : ''}
+        </div>`;
+    }
+
     // Sales-specific month card: headline is the NET figure — INS minus
     // CA (Installment opened minus Closed Accounts) — matching the same
     // "Sales (INS−CA)" metric used by the KPI summary bar above this
@@ -7736,7 +7771,7 @@ html.page-fade-ready body {
       const netColor = net >= 0 ? 'accentEmerald' : 'accentRose';
       const netSign = net > 0 ? '+' : '';
       const subtitle = `<span class="text-accentEmerald font-semibold">INS ${insVal.toLocaleString()}</span> · <span class="text-accentRose font-semibold">CA ${caVal.toLocaleString()}</span>`;
-      return monthlyStackCardRow(netColor, label, `${netSign}${net.toLocaleString()}`, subtitle);
+      return monthlyStackCardStacked(netColor, label, `${netSign}${net.toLocaleString()}`, subtitle);
     }
 
     function buildMonthlyStackCard(type, list) {
@@ -7776,7 +7811,7 @@ html.page-fade-ready body {
           const acctKeys = ['accountsMar', 'accountsApr', 'accountsMay'];
           const monthAccts = acctKeys.map(k => list.reduce((s, b) => s + (Number(b[k]) || 0), 0));
           const acctRows = salesLbls.map((lbl, i) =>
-              monthlyStackCardRow('accentBlue', lbl, monthAccts[i].toLocaleString(),
+              monthlyStackCardStacked('accentBlue', lbl, monthAccts[i].toLocaleString(),
                   '<span class="text-accentBlue font-semibold">Total Accts</span>')
           ).join('');
 
@@ -8367,29 +8402,26 @@ html.page-fade-ready body {
       </div>`;
     }
 
-    // Search box + monthly capsule strip on a single line (Collection /
-    // Sales / Service breakdown popups only). The search box keeps a
-    // fixed, readable width; the capsule row gets whatever space is left
-    // and auto-fits into it (see autoFitCapsuleRow) — so both sit on one
-    // line instead of the capsule row stacking above the search bar. The
-    // "Showing X of Y" count + Clear button move to their own compact
-    // line right underneath so the top line stays uncluttered.
+    // Search box + "Showing X of Y" count + monthly capsule strip, all on
+    // one single line (Collection / Sales / Service breakdown popups
+    // only). The count sits right at the edge of the search box (instead
+    // of on its own line below), the search box keeps a fixed, readable
+    // width, and the capsule row gets whatever space is left and
+    // auto-fits into it (see autoFitCapsuleRow).
     function renderCapsuleAndSearchBar(type, list, state, totalCount, shownCount) {
       const searchVal = escapeFindingHTML(state.search || '');
       const capsuleWrap = buildStatusFilterBar(type, list);
       return `
-      <div class="flex flex-nowrap items-center gap-2 mb-1.5">
+      <div class="flex flex-nowrap items-center gap-2 mb-3">
         <div class="relative shrink-0 w-[140px] sm:w-[190px]">
           <span class="absolute inset-y-0 left-0 flex items-center pl-2.5">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-slate-400"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
           </span>
           <input type="text" id="modalSearchInput" placeholder="Search branch..." value="${searchVal}" oninput="setModalSearch(this.value)" class="w-full pl-8 pr-2 py-1.5 bg-white border border-coolBorder rounded-lg text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all">
         </div>
+        <span class="shrink-0 text-[11px] font-semibold text-slate-400 whitespace-nowrap">Showing ${shownCount} of ${totalCount}</span>
+        ${searchVal ? `<button type="button" onclick="setModalSearch('')" class="shrink-0 px-2 py-1 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-lg text-[11px] font-semibold text-slate-600 transition-all active:scale-95 whitespace-nowrap">Clear</button>` : ''}
         ${capsuleWrap}
-      </div>
-      <div class="flex items-center justify-between gap-2 mb-3">
-        ${searchVal ? `<button type="button" onclick="setModalSearch('')" class="px-2.5 py-1 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-lg text-[11px] font-semibold text-slate-600 transition-all active:scale-95 whitespace-nowrap">Clear</button>` : '<span></span>'}
-        <span class="text-[11px] font-semibold text-slate-400 whitespace-nowrap">Showing ${shownCount} of ${totalCount} branches</span>
       </div>`;
     }
 
