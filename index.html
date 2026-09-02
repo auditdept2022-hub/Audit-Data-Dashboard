@@ -6774,9 +6774,25 @@ html.page-fade-ready body {
         if (json.alreadyUpToDate) {
           showToast(json.message || 'Overall Data is already up to date.');
         } else {
-          let msg = 'Overall Data updated with ' + json.month + ' for ' + json.branchesUpdated + ' branch(es).';
+          // The backend sends `monthsInserted` (an array — possibly empty,
+          // e.g. when this run only repaired a missing branch row/cells
+          // and no new month was involved) plus `branchesAdded` and
+          // `cellsBackfilled`. Build the toast from those actual fields
+          // instead of a `json.month` field the backend never sends, which
+          // used to render as "...updated with undefined for 0 branch(es)."
+          // and looked like nothing happened even when a row repair did.
+          let msg;
+          if (json.monthsInserted && json.monthsInserted.length) {
+            msg = 'Overall Data updated with ' + json.monthsInserted.join(', ') +
+              ' for ' + (json.branchesUpdated || 0) + ' branch(es).';
+          } else {
+            msg = json.message || 'Overall Data was repaired.';
+          }
           if (json.branchesAdded && json.branchesAdded.length) {
             msg += ' Added new row(s): ' + json.branchesAdded.join(', ') + '.';
+          }
+          if (json.cellsBackfilled) {
+            msg += ' Backfilled ' + json.cellsBackfilled + ' cell(s).';
           }
           showToast(msg);
         }
