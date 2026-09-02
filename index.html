@@ -6571,14 +6571,14 @@ html.page-fade-ready body {
           const clickAttr = clickable ? `type="button" onclick="setAuditScheduleRoundFilter('${filterValue}')" title="Show only these branches"` : '';
           return `
           <${tag} ${clickAttr}
-              class="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full transition-all ${clickable ? 'active:scale-95 cursor-pointer' : ''} ${base} ${activeRing}">
-              <span class="text-sm font-extrabold leading-none whitespace-nowrap ${textColor}">${value}</span>
-              <span class="text-[8px] font-bold ${tint ? `text-${tint}/80` : 'text-slate-500'} uppercase tracking-wider leading-none whitespace-nowrap">${label}</span>
+              class="shrink-0 inline-flex items-center gap-2.5 px-4 py-2 rounded-full transition-all ${clickable ? 'active:scale-95 cursor-pointer' : ''} ${base} ${activeRing}">
+              <span class="text-lg font-extrabold leading-none whitespace-nowrap ${textColor}">${value}</span>
+              <span class="text-xs font-bold ${tint ? `text-${tint}/80` : 'text-slate-500'} uppercase tracking-wider leading-none whitespace-nowrap">${label}</span>
           </${tag}>`;
       };
 
       const statsHtml = `
-          <div class="flex flex-wrap items-stretch gap-2 -mx-1 px-1 py-0.5 mb-2">
+          <div class="flex flex-wrap items-stretch gap-2.5 -mx-1 px-1 py-0.5 mb-2.5">
               ${statBox(allBranchNames.length, 'Total Branches', { highlighted: true })}
               ${statBox(totalAuditsAll, 'Overall Cycle', { tint: 'accentBlue', filterValue: 'all' })}
               ${statBox(`${roundDoneCounts[1]}<span class="text-[11px] font-semibold opacity-60">/${allBranchNames.length}</span>`, 'Cycle 1 Done', { tint: 'accentIndigo', filterValue: 'round1' })}
@@ -7599,10 +7599,10 @@ html.page-fade-ready body {
     // row of these takes noticeably less vertical space inside the popup.
     function monthlyStackCardRow(color, label, valueHtml, subtitleHtml) {
       return `
-        <div class="inline-flex items-center gap-1 rounded-full border border-coolBorder bg-white shadow-sm pl-2 pr-2.5 py-1 shrink-0 whitespace-nowrap">
-          <span class="text-[8px] font-bold text-slate-400 uppercase tracking-wide">${label}</span>
-          <span class="text-xs font-extrabold text-${color} tabular-nums">${valueHtml}</span>
-          ${subtitleHtml ? `<span class="text-[8px] text-slate-500 border-l border-coolBorder pl-1 ml-0.5">${subtitleHtml}</span>` : ''}
+        <div class="inline-flex items-center gap-2 rounded-full border border-coolBorder bg-white shadow-sm pl-3.5 pr-4 py-2 shrink-0 whitespace-nowrap">
+          <span class="text-xs font-bold text-slate-400 uppercase tracking-wide">${label}</span>
+          <span class="text-base font-extrabold text-${color} tabular-nums">${valueHtml}</span>
+          ${subtitleHtml ? `<span class="text-xs text-slate-500 border-l border-coolBorder pl-2 ml-0.5">${subtitleHtml}</span>` : ''}
         </div>`;
     }
 
@@ -7682,7 +7682,7 @@ html.page-fade-ready body {
           return '';
       }
 
-      return `<div class="flex items-center gap-1.5 flex-nowrap overflow-x-auto ml-auto max-w-full">${rowsHtml}</div>`;
+      return `<div class="flex items-center gap-2 flex-nowrap overflow-x-auto ml-auto max-w-full">${rowsHtml}</div>`;
     }
 
     function buildAuditStatusFilterBar(activeAudit) {
@@ -9130,9 +9130,9 @@ html.page-fade-ready body {
       const clickAttr = clickable ? `type="button" ${onClick}` : '';
       return `
         <${tag} ${clickAttr}
-            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full transition-all ${clickable ? `active:scale-95 cursor-pointer hover:brightness-95` : ''} ${base} ${activeRing}">
-            <span class="text-sm font-extrabold leading-none whitespace-nowrap ${textColor}">${value}</span>
-            <span class="text-[8px] font-bold uppercase tracking-wider leading-none whitespace-nowrap ${labelColor}">${label}</span>
+            class="inline-flex items-center gap-2.5 px-4 py-2 rounded-full transition-all ${clickable ? `active:scale-95 cursor-pointer hover:brightness-95` : ''} ${base} ${activeRing}">
+            <span class="text-lg font-extrabold leading-none whitespace-nowrap ${textColor}">${value}</span>
+            <span class="text-xs font-bold uppercase tracking-wider leading-none whitespace-nowrap ${labelColor}">${label}</span>
         </${tag}>`;
     }
 
@@ -9147,7 +9147,7 @@ html.page-fade-ready body {
       const ring = (v) => activeStatus === v ? 'ring-2 ring-offset-1' : '';
 
       return `
-      <div class="flex flex-wrap items-center gap-1.5 mb-2">
+      <div class="flex flex-wrap items-center gap-2 mb-2.5">
         ${summaryPill(totalBranches, 'Total Branches', { neutral: true, active: activeStatus === 'ALL', onClick: `onclick="setModalStatusFilter('ALL')"` })}
         ${summaryPill(improving, 'Improving', { tint: 'accentEmerald', active: activeStatus === 'Improving', onClick: `onclick="setModalStatusFilter('Improving')"` })}
         ${summaryPill(declining, 'Declining', { tint: 'accentRose', active: activeStatus === 'Declining', onClick: `onclick="setModalStatusFilter('Declining')"` })}
@@ -9169,7 +9169,7 @@ html.page-fade-ready body {
       const ring = (v) => activeStatus === v ? 'ring-2 ring-offset-1' : '';
 
       return `
-      <div class="flex flex-wrap items-center gap-1.5 mb-2">
+      <div class="flex flex-wrap items-center gap-2 mb-2.5">
         ${summaryPill(totalBranches, 'Total Branches', { neutral: true, active: activeStatus === 'ALL', onClick: `onclick="setModalStatusFilter('ALL')"` })}
         ${summaryPill(improving, 'Improving', { tint: 'accentEmerald', active: activeStatus === 'Improving', onClick: `onclick="setModalStatusFilter('Improving')"` })}
         ${summaryPill(declining, 'Declining', { tint: 'accentRose', active: activeStatus === 'Declining', onClick: `onclick="setModalStatusFilter('Declining')"` })}
@@ -9190,7 +9190,7 @@ html.page-fade-ready body {
       const ring = (v) => activeStatus === v ? 'ring-2 ring-offset-1' : '';
 
       return `
-      <div class="flex flex-wrap items-center gap-1.5 mb-2">
+      <div class="flex flex-wrap items-center gap-2 mb-2.5">
         ${summaryPill(totalBranches, 'Total Branches', { neutral: true, active: activeStatus === 'ALL', onClick: `onclick="setModalStatusFilter('ALL')"` })}
         ${summaryPill(onTarget, 'On Target', { tint: 'accentEmerald', active: activeStatus === 'Target', onClick: `onclick="setModalStatusFilter('Target')"` })}
         ${summaryPill(declining, 'Declining', { tint: 'accentRose', active: activeStatus === 'Declining', onClick: `onclick="setModalStatusFilter('Declining')"` })}
@@ -9221,7 +9221,7 @@ html.page-fade-ready body {
       const pillAttrs = (value) => clickable ? `onclick="${filterSetter}('${value}')" role="button" tabindex="0"` : '';
 
       return `
-      <div class="flex flex-wrap items-center gap-1.5 mb-2">
+      <div class="flex flex-wrap items-center gap-2 mb-2.5">
         ${summaryPill(list.length, 'Total Branches', { neutral: true, active: active === 'ALL', onClick: clickable ? `onclick="${filterSetter}('ALL')"` : '' })}
         ${summaryPill(done, 'Done', { tint: 'accentBlue', active: active === 'DONE', onClick: clickable ? `onclick="${filterSetter}('DONE')"` : '' })}
         ${summaryPill(forAudit, 'For Audit', { tint: 'accentAmber', active: active === 'FOR AUDIT', onClick: clickable ? `onclick="${filterSetter}('FOR AUDIT')"` : '' })}
