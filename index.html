@@ -7223,9 +7223,9 @@ html.page-fade-ready body {
       add('Efficiency \u2014 ' + _m[0] + ' (%)', b.effMar);
       add('Efficiency \u2014 ' + _m[1] + ' (%)', b.effApr);
       add('Efficiency \u2014 Latest (%)', b.effLatest);
-      add('Repo Rate \u2014 ' + _m[0] + ' (%)', b.repoRateMar);
-      add('Repo Rate \u2014 ' + _m[1] + ' (%)', b.repoRateApr);
-      add('Repo Rate \u2014 Latest (%)', b.repoRateLatest);
+      add('Repo Rate \u2014 ' + _m[0] + ' (%)', (Number(b.repoRateMar) || 0).toFixed(2));
+      add('Repo Rate \u2014 ' + _m[1] + ' (%)', (Number(b.repoRateApr) || 0).toFixed(2));
+      add('Repo Rate \u2014 Latest (%)', (Number(b.repoRateLatest) || 0).toFixed(2));
       add('No. of Repo \u2014 ' + _m[0], b.noOfRepoMar);
       add('No. of Repo \u2014 ' + _m[1], b.noOfRepoApr);
       add('No. of Repo \u2014 Latest', b.noOfRepoLatest);
@@ -7358,13 +7358,19 @@ html.page-fade-ready body {
       const branchRows = (activeData.branches || []).map(function(b, i) {
           const info = getBranchAuditRoundInfo(b);
           const sales = m => (b[m] ? (b[m].ins || 0) + '/' + (b[m].cod || 0) + '/' + (b[m].ca || 0) : '');
+          // Repo rate is stored as a raw float (from a Sheet fraction like
+          // 0.021 converted to 2.1 via *100), which floating-point math can
+          // turn into noise such as 2.0999999999999996. toFixed(2) rounds
+          // that back to a clean "2.10" instead of exporting the long
+          // decimal tail.
+          const repoPct = v => (Number(v) || 0).toFixed(2);
           return [
               i + 1, b.name, b.auditStatus, b.auditor, b.lastAuditDate || '',
               info.upNextAuditor === null ? '' : info.upNextAuditor,
               info.expectedAuditDate || '',
               b.collection, b.sales, b.service,
               b.effMar, b.effApr, b.effLatest,
-              b.repoRateMar, b.repoRateApr, b.repoRateLatest,
+              repoPct(b.repoRateMar), repoPct(b.repoRateApr), repoPct(b.repoRateLatest),
               b.noOfRepoMar, b.noOfRepoApr, b.noOfRepoLatest,
               b.accountsMar, b.accountsApr, b.accountsMay,
               sales('salesMar'), sales('salesApr'), sales('salesMay'),
@@ -7437,7 +7443,7 @@ html.page-fade-ready body {
           { name: 'Branches', headers: ['#', 'Branch', 'Audit Status', 'Auditor', 'Last Audit Date', 'Up Next Auditor', 'Expected Audit Date', 'Collection', 'Sales', 'Service', 'Eff ' + _exportM[0] + ' %', 'Eff ' + _exportM[1] + ' %', 'Eff Latest %', 'Repo Rate ' + _exportM[0] + ' %', 'Repo Rate ' + _exportM[1] + ' %', 'Repo Rate Latest %', 'No. of Repo ' + _exportM[0], 'No. of Repo ' + _exportM[1], 'No. of Repo Latest', 'Accounts ' + _exportM[0], 'Accounts ' + _exportM[1], 'Accounts ' + _exportM[2], 'Sales ' + _exportSalesM[0] + ' (INS/COD/CA)', 'Sales ' + _exportSalesM[1] + ' (INS/COD/CA)', 'Sales ' + _exportSalesM[2] + ' (INS/COD/CA)', 'Expected INS', 'Expected COD', 'Service Target', 'Service ' + _exportM[0], 'Service ' + _exportM[1], 'Service ' + _exportM[2], 'Findings 2024', 'Findings 2025', 'Findings 2026'], rows: branchRows },
           { name: 'Assignment Queue', headers: ['Branch', 'Up Next Auditor', 'Expected Audit Date', 'Last Audit Date', 'Last Auditor', 'Recent Audit Date', 'Recent Auditor', 'Audit Interval (to date)'], rows: assignmentQueueRows },
           { name: 'Lowest Efficiency', headers: ['Branch', 'Efficiency %'], rows: (activeData.lowestEfficiency || []).map(function(x) { return [x.branch, x.rate]; }) },
-          { name: 'Highest Repo Rate', headers: ['Branch', 'Repo Rate %'], rows: (activeData.highestRepo || []).map(function(x) { return [x.branch, x.rate]; }) },
+          { name: 'Highest Repo Rate', headers: ['Branch', 'Repo Rate %'], rows: (activeData.highestRepo || []).map(function(x) { return [x.branch, (Number(x.rate) || 0).toFixed(2)]; }) },
           { name: 'Highest No. of Repo', headers: ['Branch', 'No. of Repo'], rows: (activeData.highestNoRepo || []).map(function(x) { return [x.branch, x.count]; }) },
           { name: 'Top Findings FY26', headers: ['Branch', 'Findings 2026'], rows: (activeData.topFindings26 || []).map(function(x) { return [x.name, x.count]; }) },
           { name: 'Recovering Branches', headers: ['#', 'Branch', 'Collection Status'], rows: (activeData.branches || []).filter(function(b) { return b.collection === 'Recovering'; }).map(function(b, i) { return [i + 1, b.name, b.collection]; }) },
