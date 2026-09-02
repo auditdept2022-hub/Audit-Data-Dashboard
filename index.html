@@ -6591,6 +6591,13 @@ html.page-fade-ready body {
                                  class="w-full pl-7 pr-2 py-1.5 bg-gray-50 border border-coolBorder rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-accentIndigo/40 focus:border-accentIndigo">
                       </div>
                   </div>
+                  <div class="relative">
+                      <select id="auditScheduleSortSelect" onchange="setAuditScheduleSortOption(this.value)" title="Sort by"
+                              class="appearance-none pl-2.5 pr-6 py-1.5 bg-gray-50 border border-coolBorder rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-accentIndigo/40 focus:border-accentIndigo cursor-pointer">
+                          ${AUDIT_SCHEDULE_SORT_OPTIONS.map(opt => `<option value="${opt.value}" ${opt.value === sortOption ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                      </select>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"><path d="m6 9 6 6 6-6"></path></svg>
+                  </div>
                   <div class="relative flex-shrink-0 min-w-[92px] max-w-[150px]">
                       <select id="auditScheduleAuditorSelect" onchange="setAuditScheduleAuditorFilter(this.value)" title="Filter by auditor"
                               class="w-full appearance-none pl-2.5 pr-6 py-1.5 bg-gray-50 border border-coolBorder rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-accentIndigo/40 focus:border-accentIndigo cursor-pointer truncate">
@@ -6605,13 +6612,6 @@ html.page-fade-ready body {
                       <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0 text-slate-300"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
                       <input type="date" value="${range.end || ''}" onchange="setAuditScheduleFilterRange('end', this.value)" title="To date" aria-label="To date"
                              class="w-[116px] px-2 py-1.5 bg-transparent border-none text-xs font-semibold focus:outline-none focus:ring-0">
-                  </div>
-                  <div class="relative">
-                      <select id="auditScheduleSortSelect" onchange="setAuditScheduleSortOption(this.value)" title="Sort by"
-                              class="appearance-none pl-2.5 pr-6 py-1.5 bg-gray-50 border border-coolBorder rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-accentIndigo/40 focus:border-accentIndigo cursor-pointer">
-                          ${AUDIT_SCHEDULE_SORT_OPTIONS.map(opt => `<option value="${opt.value}" ${opt.value === sortOption ? 'selected' : ''}>${opt.label}</option>`).join('')}
-                      </select>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"><path d="m6 9 6 6 6-6"></path></svg>
                   </div>
                   ${isFiltered ? `<button onclick="clearAuditScheduleFilterRange()" class="flex items-center gap-1 px-2.5 py-1.5 bg-accentRose/10 hover:bg-accentRose/20 border border-accentRose/20 rounded-lg text-xs font-bold text-accentRose transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>Clear</button>` : ''}
               </div>
