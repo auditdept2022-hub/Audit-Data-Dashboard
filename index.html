@@ -5924,6 +5924,12 @@ html.page-fade-ready body {
               historyHtml = `<div class="text-sm text-slate-500 italic p-4 text-center">No recent emergency history found.</div>`;
           }
 
+          const pendingAuditor = getNextEmergencyRotationAuditor();
+          const rotationChipsHtml = EMERGENCY_ROTATION_CYCLE.map(name => {
+              const isPending = name === pendingAuditor;
+              return `<span class="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide ${isPending ? 'bg-accentAmber text-white shadow-sm' : 'bg-white/70 text-accentRose/70 border border-accentRose/15'}">${isPending ? '\u2192 ' : ''}${name}</span>`;
+          }).join('<span class="text-accentRose/30 text-[10px]">\u2022</span>');
+
           modalBody.innerHTML = `
           <div class="p-5 bg-accentRose/10 border border-accentRose/20 text-accentRose rounded-xl mb-4">
             <div class="flex items-start justify-between gap-3">
@@ -5935,6 +5941,14 @@ html.page-fade-ready body {
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
                 Set
               </button>
+            </div>
+            <div class="mt-4 pt-3.5 border-t border-accentRose/15 flex items-center justify-between gap-3 flex-wrap">
+              <div class="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-accentAmber shrink-0"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>
+                <span class="text-[11px] font-bold uppercase tracking-wider text-accentRose/70">Pending rotation:</span>
+                <span class="text-xs font-extrabold text-accentAmber">${pendingAuditor}</span>
+              </div>
+              <div class="flex items-center gap-1.5 flex-wrap">${rotationChipsHtml}</div>
             </div>
           </div>
           <div class="p-5 bg-white border border-coolBorder rounded-xl shadow-sm">
@@ -6451,6 +6465,25 @@ html.page-fade-ready body {
     // two things processExcelData() reads back out of that sheet, so a
     // save here shows up correctly on the very next refresh even without
     // this optimistic local update.
+    // Fixed standby rotation order for the Emergency Auditor. "Pending" is
+    // whoever comes next after the most recent name in emergencyHistory
+    // (or after the current standing auditor if there's no history yet).
+    // This is computed purely client-side from data already loaded — it
+    // does not read or write anything extra on the Sheet.
+    const EMERGENCY_ROTATION_CYCLE = ["EDISON", "KARL", "LAURENCE"];
+
+    function getNextEmergencyRotationAuditor() {
+      const lastAuditorRaw = (activeData.emergencyHistory && activeData.emergencyHistory.length > 0)
+          ? activeData.emergencyHistory[0].auditor
+          : (activeData.summary.emergencyAuditor || '');
+      const lastAuditor = String(lastAuditorRaw || '').trim().toUpperCase();
+      const idx = EMERGENCY_ROTATION_CYCLE.indexOf(lastAuditor);
+      // Unknown / blank / not in the cycle (e.g. someone outside the
+      // rotation was set by hand) -> restart the cycle from the top.
+      if (idx === -1) return EMERGENCY_ROTATION_CYCLE[0];
+      return EMERGENCY_ROTATION_CYCLE[(idx + 1) % EMERGENCY_ROTATION_CYCLE.length];
+    }
+
     function openEditEmergencyModal() {
       openModal('Set Emergency Auditor', 'editEmergency', null);
     }
@@ -6465,12 +6498,16 @@ html.page-fade-ready body {
       const currentAuditor = (activeData.summary.emergencyAuditor && activeData.summary.emergencyAuditor !== 'PENDING') ? activeData.summary.emergencyAuditor : '';
       const currentAuditorUpper = currentAuditor.toUpperCase();
       const knownUpper = AUDITOR_NAMES.map(n => n.toUpperCase());
+      // Default the form to whoever's next in the standby rotation, so
+      // opening this form and hitting Save is a one-click "advance the
+      // rotation" action. Still fully overridable via the dropdown.
+      const pendingAuditor = getNextEmergencyRotationAuditor();
       const auditorOptions =
-          `<option value="" ${!currentAuditor ? 'selected' : ''}>—</option>` +
+          `<option value="" ${!pendingAuditor ? 'selected' : ''}>—</option>` +
           (currentAuditor && !knownUpper.includes(currentAuditorUpper)
-              ? `<option value="${escapeHTML(currentAuditor)}" selected>${escapeHTML(currentAuditor)}</option>`
+              ? `<option value="${escapeHTML(currentAuditor)}" ${currentAuditorUpper === pendingAuditor ? 'selected' : ''}>${escapeHTML(currentAuditor)}</option>`
               : '') +
-          AUDITOR_NAMES.map(name => `<option value="${name}" ${name.toUpperCase() === currentAuditorUpper ? 'selected' : ''}>${name}</option>`).join('');
+          AUDITOR_NAMES.map(name => `<option value="${name}" ${name.toUpperCase() === pendingAuditor ? 'selected' : ''}>${name}</option>`).join('');
 
       const branchOptions =
           `<option value="">—</option>` +
@@ -6509,10 +6546,18 @@ html.page-fade-ready body {
             <div class="space-y-4">
 
               <div>
-                <label class="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-accentRose"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                  Emergency Auditor
-                </label>
+                <div class="flex items-center justify-between gap-2 mb-1.5">
+                  <label class="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-accentRose"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    Emergency Auditor
+                  </label>
+                  <button type="button" onclick="document.getElementById('editEmer-auditor').value='${pendingAuditor}'; document.getElementById('editEmer-auditorOther').value='';"
+                          title="Fill in whoever's next in the standby rotation"
+                          class="flex items-center gap-1 text-[10px] font-bold text-accentAmber hover:text-accentAmber/80 cursor-pointer">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>
+                    Pending: ${pendingAuditor}
+                  </button>
+                </div>
                 <div class="relative">
                   <select id="editEmer-auditor" class="w-full pl-3 pr-8 py-2.5 bg-gray-50 border border-coolBorder rounded-lg text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-accentRose/40 focus:border-accentRose/50 transition-shadow">
                     ${auditorOptions}
