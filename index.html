@@ -4266,7 +4266,7 @@ html.page-fade-ready body {
     <div class="absolute inset-0 bg-slate-900/65"></div>
     <div class="absolute inset-0 flex items-start sm:items-center justify-center overflow-y-auto p-3 sm:p-4 py-6">
       <div class="bg-coolCard w-[85vw] min-h-[60vh] max-h-[85vh] max-h-[85dvh] my-auto rounded-2xl shadow-2xl flex flex-col transform transition-transform duration-300 border border-coolBorder scale-95" id="modalDialog" onclick="event.stopPropagation()">
-        <div class="px-4 sm:px-5 py-2.5 sm:py-3 border-b border-coolBorder flex flex-wrap justify-between items-center gap-x-3 gap-y-1.5 bg-gray-50 rounded-t-2xl">
+        <div class="px-3 sm:px-4 py-2 sm:py-2.5 border-b border-coolBorder flex flex-wrap justify-between items-center gap-x-3 gap-y-1.5 bg-gray-50 rounded-t-2xl">
           <div class="flex items-center gap-2 min-w-0 w-full sm:w-auto sm:flex-1">
             <button id="modalBackBtn" onclick="modalGoBack()" title="Back" aria-label="Back to previous view" class="hidden p-2 -ml-1 text-slate-400 hover:text-accentBlue hover:bg-accentBlue/10 active:scale-95 rounded-xl transition-all cursor-pointer flex-shrink-0">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>
@@ -4292,7 +4292,7 @@ html.page-fade-ready body {
             </button>
           </div>
         </div>
-        <div class="p-3 sm:p-4 overflow-y-auto custom-scrollbar flex-1 min-h-0" id="modalBody"></div>
+        <div class="p-2.5 sm:p-3 overflow-y-auto custom-scrollbar flex-1 min-h-0" id="modalBody"></div>
       </div>
     </div>
   </div>
@@ -6551,6 +6551,11 @@ html.page-fade-ready body {
       // and it's forced to stay on exactly one line: shrink-0 boxes in a
       // non-wrapping flex container that scrolls horizontally as the
       // fallback on narrow screens instead of ever wrapping.
+      // Capsule (pill) design — value + label sit side-by-side on one line
+      // inside a rounded-full shell instead of the old two-line stacked
+      // block (big number on top, label below). Same click/filter/active
+      // behavior, just a shorter, narrower shape so a full row of these
+      // takes less vertical space inside the popup.
       const statBox = (value, label, opts = {}) => {
           const { tint, ring, filterValue, highlighted } = opts;
           const clickable = !!filterValue;
@@ -6566,9 +6571,9 @@ html.page-fade-ready body {
           const clickAttr = clickable ? `type="button" onclick="setAuditScheduleRoundFilter('${filterValue}')" title="Show only these branches"` : '';
           return `
           <${tag} ${clickAttr}
-              class="shrink-0 min-w-[72px] px-2 py-1.5 rounded-2xl text-center transition-all ${clickable ? 'active:scale-95 cursor-pointer' : ''} ${base} ${activeRing}">
-              <div class="text-lg font-extrabold leading-none whitespace-nowrap ${textColor}">${value}</div>
-              <div class="text-[9px] font-bold ${tint ? `text-${tint}/80` : 'text-slate-500'} uppercase tracking-wider leading-none whitespace-nowrap mt-1.5">${label}</div>
+              class="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full transition-all ${clickable ? 'active:scale-95 cursor-pointer' : ''} ${base} ${activeRing}">
+              <span class="text-sm font-extrabold leading-none whitespace-nowrap ${textColor}">${value}</span>
+              <span class="text-[8px] font-bold ${tint ? `text-${tint}/80` : 'text-slate-500'} uppercase tracking-wider leading-none whitespace-nowrap">${label}</span>
           </${tag}>`;
       };
 
@@ -7588,12 +7593,16 @@ html.page-fade-ready body {
     // target/diff subtitle) — sized to sit three-in-a-row, kept narrow
     // (fixed width rather than flex-growing) so a row of these never
     // pushes past the "Filter by status:" bar on Collection/Sales/Service.
+    // Capsule (pill) design — everything on ONE line (label · value · optional
+    // subtitle) inside a fully-rounded rounded-full shell, instead of the old
+    // 3-line stacked block. Cuts each card's height roughly in half so a full
+    // row of these takes noticeably less vertical space inside the popup.
     function monthlyStackCardRow(color, label, valueHtml, subtitleHtml) {
       return `
-        <div class="rounded-lg border border-coolBorder bg-white shadow-sm px-2.5 py-1.5 shrink-0 whitespace-nowrap">
-          <div class="text-[9px] font-bold text-slate-400 uppercase tracking-wide leading-none">${label}</div>
-          <div class="text-sm font-extrabold text-${color} tabular-nums leading-tight mt-0.5">${valueHtml}</div>
-          ${subtitleHtml ? `<div class="text-[9px] text-slate-500 leading-tight mt-0.5">${subtitleHtml}</div>` : ''}
+        <div class="inline-flex items-center gap-1 rounded-full border border-coolBorder bg-white shadow-sm pl-2 pr-2.5 py-1 shrink-0 whitespace-nowrap">
+          <span class="text-[8px] font-bold text-slate-400 uppercase tracking-wide">${label}</span>
+          <span class="text-xs font-extrabold text-${color} tabular-nums">${valueHtml}</span>
+          ${subtitleHtml ? `<span class="text-[8px] text-slate-500 border-l border-coolBorder pl-1 ml-0.5">${subtitleHtml}</span>` : ''}
         </div>`;
     }
 
@@ -7685,7 +7694,7 @@ html.page-fade-ready body {
               : 'bg-white text-slate-600 border-coolBorder hover:border-slate-400 hover:bg-slate-50';
           return `<button onclick="setModalAuditFilter('${opt}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all active:scale-95 ${activeClass}">${opt}</button>`;
       }).join('');
-      return `<div class="flex flex-wrap items-center gap-2 mb-4"><span class="text-xs font-semibold text-slate-500 mr-1">Filter by audit status:</span>${buttonsHtml}</div>`;
+      return `<div class="flex flex-wrap items-center gap-2 mb-2"><span class="text-xs font-semibold text-slate-500 mr-1">Filter by audit status:</span>${buttonsHtml}</div>`;
     }
 
     // Returns the last-completed round and the most-recently-completed round
@@ -9099,6 +9108,34 @@ html.page-fade-ready body {
       }).join('');
     }
 
+    // Shared capsule (pill) stat used by every popup's top summary row
+    // (Sales/Collection/Service/All Branches overviews). One line —
+    // value + label side-by-side inside a rounded-full shell — instead of
+    // the old 2-line stacked grid box (big centered number, label under
+    // it). Cards sit in a wrapping flex row rather than a fixed grid, so
+    // they only take up exactly as much width/height as their content
+    // needs, leaving more room in the popup for the actual data.
+    function summaryPill(value, label, opts = {}) {
+      const { tint, active, onClick, neutral } = opts;
+      const base = neutral
+          ? 'bg-slate-100 border border-coolBorder'
+          : tint
+              ? `bg-${tint}/10 border border-${tint}/20`
+              : 'bg-slate-50 border border-coolBorder';
+      const textColor = neutral ? 'text-slate-700' : (tint ? `text-${tint}` : 'text-slate-700');
+      const labelColor = neutral ? 'text-slate-500' : (tint ? `text-${tint}/80` : 'text-slate-500');
+      const clickable = !!onClick;
+      const activeRing = active ? `ring-2 ring-offset-1 ring-${tint || 'slate-400'}` : '';
+      const tag = clickable ? 'button' : 'div';
+      const clickAttr = clickable ? `type="button" ${onClick}` : '';
+      return `
+        <${tag} ${clickAttr}
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full transition-all ${clickable ? `active:scale-95 cursor-pointer hover:brightness-95` : ''} ${base} ${activeRing}">
+            <span class="text-sm font-extrabold leading-none whitespace-nowrap ${textColor}">${value}</span>
+            <span class="text-[8px] font-bold uppercase tracking-wider leading-none whitespace-nowrap ${labelColor}">${label}</span>
+        </${tag}>`;
+    }
+
     function buildSalesSummaryBar(list) {
       const totalBranches = list.length;
       const improving = list.filter(b => b.sales === 'Improving').length;
@@ -9110,27 +9147,12 @@ html.page-fade-ready body {
       const ring = (v) => activeStatus === v ? 'ring-2 ring-offset-1' : '';
 
       return `
-      <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-2">
-        <div onclick="setModalStatusFilter('ALL')" role="button" tabindex="0" class="p-2 bg-slate-100 border border-coolBorder rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-slate-200 ring-slate-400 ${ring('ALL')}">
-          <div class="text-xl font-extrabold text-slate-700">${totalBranches}</div>
-          <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Branches</div>
-        </div>
-        <div onclick="setModalStatusFilter('Improving')" role="button" tabindex="0" class="p-2 bg-accentEmerald/10 border border-accentEmerald/20 rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-accentEmerald/20 ring-accentEmerald ${ring('Improving')}">
-          <div class="text-xl font-extrabold text-accentEmerald">${improving}</div>
-          <div class="text-[10px] font-bold text-accentEmerald/80 uppercase tracking-wider">Improving</div>
-        </div>
-        <div onclick="setModalStatusFilter('Declining')" role="button" tabindex="0" class="p-2 bg-accentRose/10 border border-accentRose/20 rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-accentRose/20 ring-accentRose ${ring('Declining')}">
-          <div class="text-xl font-extrabold text-accentRose">${declining}</div>
-          <div class="text-[10px] font-bold text-accentRose/80 uppercase tracking-wider">Declining</div>
-        </div>
-        <div onclick="setModalStatusFilter('Stable')" role="button" tabindex="0" class="p-2 bg-slate-100 border border-coolBorder rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-slate-200 ring-slate-400 ${ring('Stable')}">
-          <div class="text-xl font-extrabold text-slate-600">${stable}</div>
-          <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Stable</div>
-        </div>
-        <div class="p-2 bg-accentIndigo/10 border border-accentIndigo/20 rounded-xl text-center col-span-2 sm:col-span-1">
-          <div class="text-xl font-extrabold text-accentIndigo">${meanAvg}</div>
-          <div class="text-[8px] leading-tight font-bold text-accentIndigo/80 uppercase tracking-tight px-0.5">3-Mo Avg Sales (INS−CA)</div>
-        </div>
+      <div class="flex flex-wrap items-center gap-1.5 mb-2">
+        ${summaryPill(totalBranches, 'Total Branches', { neutral: true, active: activeStatus === 'ALL', onClick: `onclick="setModalStatusFilter('ALL')"` })}
+        ${summaryPill(improving, 'Improving', { tint: 'accentEmerald', active: activeStatus === 'Improving', onClick: `onclick="setModalStatusFilter('Improving')"` })}
+        ${summaryPill(declining, 'Declining', { tint: 'accentRose', active: activeStatus === 'Declining', onClick: `onclick="setModalStatusFilter('Declining')"` })}
+        ${summaryPill(stable, 'Stable', { neutral: true, active: activeStatus === 'Stable', onClick: `onclick="setModalStatusFilter('Stable')"` })}
+        ${summaryPill(meanAvg, '3-Mo Avg Sales (INS−CA)', { tint: 'accentIndigo' })}
       </div>
       ${activeStatus === 'ALL' ? buildTopPerformersList([...list].filter(b => b.sales !== 'Declining').sort((a, b) => computeAvgSales(b) - computeAvgSales(a)).slice(0, 5), (b) => computeAvgSales(b), 'accentIndigo') : ''}`;
     }
@@ -9147,31 +9169,13 @@ html.page-fade-ready body {
       const ring = (v) => activeStatus === v ? 'ring-2 ring-offset-1' : '';
 
       return `
-      <div class="grid grid-cols-2 sm:grid-cols-6 gap-2 mb-2">
-        <div onclick="setModalStatusFilter('ALL')" role="button" tabindex="0" class="p-2 bg-slate-100 border border-coolBorder rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-slate-200 ring-slate-400 ${ring('ALL')}">
-          <div class="text-xl font-extrabold text-slate-700">${totalBranches}</div>
-          <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Branches</div>
-        </div>
-        <div onclick="setModalStatusFilter('Improving')" role="button" tabindex="0" class="p-2 bg-accentEmerald/10 border border-accentEmerald/20 rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-accentEmerald/20 ring-accentEmerald ${ring('Improving')}">
-          <div class="text-xl font-extrabold text-accentEmerald">${improving}</div>
-          <div class="text-[10px] font-bold text-accentEmerald/80 uppercase tracking-wider">Improving</div>
-        </div>
-        <div onclick="setModalStatusFilter('Declining')" role="button" tabindex="0" class="p-2 bg-accentRose/10 border border-accentRose/20 rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-accentRose/20 ring-accentRose ${ring('Declining')}">
-          <div class="text-xl font-extrabold text-accentRose">${declining}</div>
-          <div class="text-[10px] font-bold text-accentRose/80 uppercase tracking-wider">Declining</div>
-        </div>
-        <div onclick="setModalStatusFilter('Stable')" role="button" tabindex="0" class="p-2 bg-slate-100 border border-coolBorder rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-slate-200 ring-slate-400 ${ring('Stable')}">
-          <div class="text-xl font-extrabold text-slate-600">${stable}</div>
-          <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Stable</div>
-        </div>
-        <div onclick="setModalStatusFilter('Recovering')" role="button" tabindex="0" class="p-2 bg-accentAmber/10 border border-accentAmber/20 rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-accentAmber/20 ring-accentAmber ${ring('Recovering')}">
-          <div class="text-xl font-extrabold text-accentAmber">${recovering}</div>
-          <div class="text-[10px] font-bold text-accentAmber/80 uppercase tracking-wider">Recovering</div>
-        </div>
-        <div class="p-2 bg-accentIndigo/10 border border-accentIndigo/20 rounded-xl text-center">
-          <div class="text-xl font-extrabold text-accentIndigo">${meanEff}%</div>
-          <div class="text-[10px] font-bold text-accentIndigo/80 uppercase tracking-wider">Avg Eff Latest</div>
-        </div>
+      <div class="flex flex-wrap items-center gap-1.5 mb-2">
+        ${summaryPill(totalBranches, 'Total Branches', { neutral: true, active: activeStatus === 'ALL', onClick: `onclick="setModalStatusFilter('ALL')"` })}
+        ${summaryPill(improving, 'Improving', { tint: 'accentEmerald', active: activeStatus === 'Improving', onClick: `onclick="setModalStatusFilter('Improving')"` })}
+        ${summaryPill(declining, 'Declining', { tint: 'accentRose', active: activeStatus === 'Declining', onClick: `onclick="setModalStatusFilter('Declining')"` })}
+        ${summaryPill(stable, 'Stable', { neutral: true, active: activeStatus === 'Stable', onClick: `onclick="setModalStatusFilter('Stable')"` })}
+        ${summaryPill(recovering, 'Recovering', { tint: 'accentAmber', active: activeStatus === 'Recovering', onClick: `onclick="setModalStatusFilter('Recovering')"` })}
+        ${summaryPill(meanEff + '%', 'Avg Eff Latest', { tint: 'accentIndigo' })}
       </div>
       ${activeStatus === 'ALL' ? buildTopPerformersList([...list].filter(b => b.collection !== 'Declining').sort((a, b) => b.effLatest - a.effLatest).slice(0, 5), (b) => `${b.effLatest}%`, 'accentIndigo') : ''}`;
     }
@@ -9186,23 +9190,11 @@ html.page-fade-ready body {
       const ring = (v) => activeStatus === v ? 'ring-2 ring-offset-1' : '';
 
       return `
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
-        <div onclick="setModalStatusFilter('ALL')" role="button" tabindex="0" class="p-2 bg-slate-100 border border-coolBorder rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-slate-200 ring-slate-400 ${ring('ALL')}">
-          <div class="text-xl font-extrabold text-slate-700">${totalBranches}</div>
-          <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Branches</div>
-        </div>
-        <div onclick="setModalStatusFilter('Target')" role="button" tabindex="0" class="p-2 bg-accentEmerald/10 border border-accentEmerald/20 rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-accentEmerald/20 ring-accentEmerald ${ring('Target')}">
-          <div class="text-xl font-extrabold text-accentEmerald">${onTarget}</div>
-          <div class="text-[10px] font-bold text-accentEmerald/80 uppercase tracking-wider">On Target</div>
-        </div>
-        <div onclick="setModalStatusFilter('Declining')" role="button" tabindex="0" class="p-2 bg-accentRose/10 border border-accentRose/20 rounded-xl text-center cursor-pointer active:scale-95 transition-all hover:bg-accentRose/20 ring-accentRose ${ring('Declining')}">
-          <div class="text-xl font-extrabold text-accentRose">${declining}</div>
-          <div class="text-[10px] font-bold text-accentRose/80 uppercase tracking-wider">Declining</div>
-        </div>
-        <div class="p-2 bg-accentCyan/10 border border-accentCyan/20 rounded-xl text-center">
-          <div class="text-xl font-extrabold text-accentCyan">₱${totalMay.toLocaleString()}</div>
-          <div class="text-[10px] font-bold text-accentCyan/80 uppercase tracking-wider">Total (Latest Mo.)</div>
-        </div>
+      <div class="flex flex-wrap items-center gap-1.5 mb-2">
+        ${summaryPill(totalBranches, 'Total Branches', { neutral: true, active: activeStatus === 'ALL', onClick: `onclick="setModalStatusFilter('ALL')"` })}
+        ${summaryPill(onTarget, 'On Target', { tint: 'accentEmerald', active: activeStatus === 'Target', onClick: `onclick="setModalStatusFilter('Target')"` })}
+        ${summaryPill(declining, 'Declining', { tint: 'accentRose', active: activeStatus === 'Declining', onClick: `onclick="setModalStatusFilter('Declining')"` })}
+        ${summaryPill('₱' + totalMay.toLocaleString(), 'Total (Latest Mo.)', { tint: 'accentCyan' })}
       </div>
       ${activeStatus === 'ALL' ? buildTopPerformersList([...list].filter(b => b.service !== 'Declining').sort((a, b) => Number(b.serviceMay) - Number(a.serviceMay)).slice(0, 5), (b) => `₱${Number(b.serviceMay).toLocaleString()}`, 'accentCyan') : ''}`;
     }
@@ -9229,23 +9221,11 @@ html.page-fade-ready body {
       const pillAttrs = (value) => clickable ? `onclick="${filterSetter}('${value}')" role="button" tabindex="0"` : '';
 
       return `
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-        <div ${pillAttrs('ALL')} class="p-3 bg-slate-100 border border-coolBorder rounded-xl text-center ${pillClass(active === 'ALL')} ${clickable ? 'ring-slate-400 hover:bg-slate-200' : ''}">
-          <div class="text-2xl font-extrabold text-slate-700">${list.length}</div>
-          <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Branches</div>
-        </div>
-        <div ${pillAttrs('DONE')} class="p-3 bg-accentBlue/10 border border-accentBlue/20 rounded-xl text-center ${pillClass(active === 'DONE')} ${clickable ? 'ring-accentBlue hover:bg-accentBlue/20' : ''}">
-          <div class="text-2xl font-extrabold text-accentBlue">${done}</div>
-          <div class="text-[10px] font-bold text-accentBlue/80 uppercase tracking-wider">Done</div>
-        </div>
-        <div ${pillAttrs('FOR AUDIT')} class="p-3 bg-accentAmber/10 border border-accentAmber/20 rounded-xl text-center ${pillClass(active === 'FOR AUDIT')} ${clickable ? 'ring-accentAmber hover:bg-accentAmber/20' : ''}">
-          <div class="text-2xl font-extrabold text-accentAmber">${forAudit}</div>
-          <div class="text-[10px] font-bold text-accentAmber/80 uppercase tracking-wider">For Audit</div>
-        </div>
-        <div ${pillAttrs('PENDING')} class="p-3 bg-slate-50 border border-coolBorder rounded-xl text-center ${pillClass(active === 'PENDING')} ${clickable ? 'ring-slate-400 hover:bg-slate-100' : ''}">
-          <div class="text-2xl font-extrabold text-slate-500">${pending}</div>
-          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pending</div>
-        </div>
+      <div class="flex flex-wrap items-center gap-1.5 mb-2">
+        ${summaryPill(list.length, 'Total Branches', { neutral: true, active: active === 'ALL', onClick: clickable ? `onclick="${filterSetter}('ALL')"` : '' })}
+        ${summaryPill(done, 'Done', { tint: 'accentBlue', active: active === 'DONE', onClick: clickable ? `onclick="${filterSetter}('DONE')"` : '' })}
+        ${summaryPill(forAudit, 'For Audit', { tint: 'accentAmber', active: active === 'FOR AUDIT', onClick: clickable ? `onclick="${filterSetter}('FOR AUDIT')"` : '' })}
+        ${summaryPill(pending, 'Pending', { neutral: true, active: active === 'PENDING', onClick: clickable ? `onclick="${filterSetter}('PENDING')"` : '' })}
       </div>
       ${(!opts?.hidePerformers && active === 'ALL') ? buildTopPerformersList([...list].sort((a, b) => (b.effLatest || 0) - (a.effLatest || 0)).slice(0, 5), (b) => `${b.effLatest}%`, 'accentIndigo') : ''}`;
     }
@@ -9625,7 +9605,7 @@ html.page-fade-ready body {
           const total = Number(sum[y.key]) || 0;
           return `<button onclick="switchFindingsYear('${y.key}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all active:scale-95 ${activeClass}">${y.label} <span class="ml-1 font-extrabold">${total.toLocaleString()}</span></button>`;
       }).join('');
-      return `<div id="findingsYearTabs" class="flex flex-wrap items-center gap-2 mb-3"><span class="text-xs font-semibold text-slate-500 mr-1">Findings Year:</span>${rows}</div>`;
+      return `<div id="findingsYearTabs" class="flex flex-wrap items-center gap-2 mb-2"><span class="text-xs font-semibold text-slate-500 mr-1">Findings Year:</span>${rows}</div>`;
     }
 
     function switchFindingsYear(filterValue) {
