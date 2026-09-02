@@ -5790,22 +5790,27 @@ html.page-fade-ready body {
           </div>`;
       } else {
           if (type === 'findings') {
-              branchesToDisplay = [...activeData.branches].sort((a, b) => b[filterValue] - a[filterValue]);
-              window.findingsModalState = { type, filterValue, allBranches: branchesToDisplay };
-              modalBody.innerHTML = renderFindingsYearTabs(filterValue) + '<div id="modalTableContainer"></div>';
-              const tableContainer = document.getElementById('modalTableContainer');
-              if (branchesToDisplay.length > 0) renderBranchTable(branchesToDisplay, tableContainer, type, filterValue);
-              else tableContainer.innerHTML = '<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No targeted branch parameters found.</div>';
+              // Reset sort/search/status-filter state every time the modal is
+              // freshly opened (not on year-switch/back-nav — those reuse it)
+              // so a stale filter from a previous visit doesn't silently hide data.
+              window.findingsModalSort = null;
+              window.findingsModalSearch = '';
+              window.findingsModalStatusFilter = 'ALL';
+              window.findingsModalState = { type, filterValue, allBranches: [...activeData.branches] };
+              modalBody.innerHTML = renderFindingsYearTabs(filterValue) + renderFindingsToolbar() + '<div id="modalTableContainer"></div>';
+              renderFindingsModalTable(filterValue);
           } else if (type === 'accounts') {
               window.accountsModalSort = null;
-              modalBody.innerHTML = '<div id="modalTableContainer"></div>';
+              window.accountsModalSearch = '';
+              modalBody.innerHTML = '<div id="accountsSearchBar"></div><div id="modalTableContainer"></div>';
               renderAccountsModalTable();
           } else {
               // all, collection, sales, service — use combinable filter state (status + audit status)
               window.modalFilterState = {
                   type: type,
                   statusValue: (type === 'all') ? null : filterValue,
-                  auditStatus: 'ALL'
+                  auditStatus: 'ALL',
+                  search: ''
               };
               window.modalMonthlyOpen = false;
               renderModalFilteredView();
@@ -8153,6 +8158,15 @@ html.page-fade-ready body {
       if ((state.type === 'collection' || state.type === 'sales' || state.type === 'service') && state.statusValue !== 'ALL') {
           list = list.filter(b => b[state.type] === state.statusValue);
       }
+      // Free-text branch-name search — same box/behavior as the main
+      // "All Branches — Branch Scorecard" table's #tableSearch and the
+      // Audit Findings breakdown's #findingsSearchInput, so every
+      // drill-down popup lets you jump straight to a branch instead of
+      // scrolling through the whole list.
+      const searchQuery = (state.search || '').trim().toLowerCase();
+      if (searchQuery) {
+          list = list.filter(b => String(b.name || '').toLowerCase().includes(searchQuery));
+      }
       if (state.type === 'sales') {
           list = [...list];
           if (state.avgSort === 'desc') list.sort((a, b) => computeAvgSales(b) - computeAvgSales(a));
@@ -8201,13 +8215,48 @@ html.page-fade-ready body {
       if (state.type === 'all') {
           barsHtml += buildAuditStatusFilterBar(state.auditStatus);
       }
+      barsHtml += renderModalSearchBar(state, baseList.length, list.length);
 
       const modalBody = document.getElementById('modalBody');
       modalBody.innerHTML = `${barsHtml}<div id="modalTableContainer"></div>`;
       const tableContainer = document.getElementById('modalTableContainer');
 
       if (list.length > 0) renderBranchTable(list, tableContainer, state.type, state.statusValue);
-      else tableContainer.innerHTML = '<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No targeted branch parameters found.</div>';
+      else tableContainer.innerHTML = '<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No branches match your search/filter.</div>';
+    }
+
+    // Free-text branch search box shared by the Collection / Sales / Service /
+    // All Branches breakdown popups (renderModalFilteredView). Same visual
+    // treatment as the Audit Findings breakdown's search box, so every
+    // drill-down modal looks and behaves the same way.
+    function renderModalSearchBar(state, totalCount, shownCount) {
+      const searchVal = escapeFindingHTML(state.search || '');
+      return `
+      <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
+        <div class="relative flex-1 min-w-[180px]">
+          <span class="absolute inset-y-0 left-0 flex items-center pl-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-slate-400"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
+          </span>
+          <input type="text" id="modalSearchInput" placeholder="Search branch..." value="${searchVal}" oninput="setModalSearch(this.value)" class="w-full pl-8 pr-3 py-1.5 bg-white border border-coolBorder rounded-lg text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all">
+        </div>
+        ${searchVal ? `<button type="button" onclick="setModalSearch('')" class="px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-lg text-xs font-semibold text-slate-600 transition-all active:scale-95 whitespace-nowrap">Clear</button>` : ''}
+        <span class="text-[11px] font-semibold text-slate-400 whitespace-nowrap sm:ml-auto">Showing ${shownCount} of ${totalCount} branches</span>
+      </div>`;
+    }
+
+    function setModalSearch(value) {
+      if (!window.modalFilterState) return;
+      window.modalFilterState.search = value || '';
+      renderModalFilteredView();
+      // Keep focus + caret in the box after re-render (innerHTML replace
+      // above drops focus) — otherwise every keystroke would kick you out
+      // of the field, which would make typing a search unusable.
+      const input = document.getElementById('modalSearchInput');
+      if (input) {
+          input.focus();
+          const pos = input.value.length;
+          input.setSelectionRange(pos, pos);
+      }
     }
 
     function setModalStatusFilter(value) {
@@ -8919,6 +8968,14 @@ html.page-fade-ready body {
     // click resets to the default view (latest month, highest first).
     function renderAccountsModalTable() {
       let list = [...activeData.branches];
+      const totalCount = list.length;
+
+      // Same free-text branch search as every other breakdown popup.
+      const query = (window.accountsModalSearch || '').trim().toLowerCase();
+      if (query) {
+          list = list.filter(b => String(b.name || '').toLowerCase().includes(query));
+      }
+
       const s = window.accountsModalSort;
       const acctDelta = (x) => (x.accountsMay || 0) - (x.accountsMar || 0);
 
@@ -8943,12 +9000,47 @@ html.page-fade-ready body {
         list.sort((a, b) => b.accountsMay - a.accountsMay);
       }
 
+      const searchBar = document.getElementById('accountsSearchBar');
+      if (searchBar) searchBar.innerHTML = renderAccountsSearchBar(totalCount, list.length);
+
       const tableContainer = document.getElementById('modalTableContainer');
       if (!tableContainer) return;
       tableContainer.innerHTML = list.length > 0
           ? ''
-          : '<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No targeted branch parameters found.</div>';
+          : '<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No branches match your search.</div>';
       if (list.length > 0) renderBranchTable(list, tableContainer, 'accounts', 'accountsMay');
+    }
+
+    // Free-text branch search box for the Total Active Accounts Breakdown
+    // modal — same visual treatment and behavior as the search box on the
+    // Audit Findings breakdown and the Collection/Sales/Service/All
+    // Branches popups, kept in its own #accountsSearchBar container so
+    // typing doesn't re-render (and lose focus on) anything but the count
+    // label and the table itself.
+    function renderAccountsSearchBar(totalCount, shownCount) {
+      const searchVal = escapeFindingHTML(window.accountsModalSearch || '');
+      return `
+      <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
+        <div class="relative flex-1 min-w-[180px]">
+          <span class="absolute inset-y-0 left-0 flex items-center pl-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-slate-400"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
+          </span>
+          <input type="text" id="accountsSearchInput" placeholder="Search branch..." value="${searchVal}" oninput="setAccountsSearch(this.value)" class="w-full pl-8 pr-3 py-1.5 bg-white border border-coolBorder rounded-lg text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all">
+        </div>
+        ${searchVal ? `<button type="button" onclick="setAccountsSearch('')" class="px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-lg text-xs font-semibold text-slate-600 transition-all active:scale-95 whitespace-nowrap">Clear</button>` : ''}
+        <span class="text-[11px] font-semibold text-slate-400 whitespace-nowrap sm:ml-auto">Showing ${shownCount} of ${totalCount} branches</span>
+      </div>`;
+    }
+
+    function setAccountsSearch(value) {
+      window.accountsModalSearch = value || '';
+      renderAccountsModalTable();
+      const input = document.getElementById('accountsSearchInput');
+      if (input) {
+          input.focus();
+          const pos = input.value.length;
+          input.setSelectionRange(pos, pos);
+      }
     }
 
     function toggleAccountsSort(key) {
@@ -9172,7 +9264,7 @@ html.page-fade-ready body {
       let extraColHeader = '';
       if (type === 'findings') {
         let year = filterValue.replace('findings', '');
-        extraColHeader = `<th class="p-2 bg-gray-50 text-center font-bold text-accentCyan whitespace-nowrap">Findings ${year}</th>`;
+        extraColHeader = `<th class="p-2 bg-gray-50 text-center font-bold text-accentCyan whitespace-nowrap cursor-pointer select-none hover:text-accentCyan/70 transition-colors" onclick="toggleFindingsSort('count')" title="Sort by findings count">Findings ${year} <span class="inline-block ml-0.5">${findingsSortIcon('count')}</span></th>`;
       } else if (type === 'accounts') {
         extraColHeader = `<th class="p-1.5 bg-gray-50 text-center font-bold text-accentIndigo border-l border-coolBorder whitespace-nowrap cursor-pointer select-none hover:text-accentIndigo transition-colors" onclick="toggleAccountsSort('delta')" title="Sort by Increase/Decrease in Accounts">Inc/Dec Accounts <span class="inline-block ml-0.5">${accountsSortIcon('delta')}</span></th>`;
       }
@@ -9301,7 +9393,7 @@ html.page-fade-ready body {
             <thead class="bg-gray-50 border-b border-coolBorder text-xs text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-10 shadow-sm">
               <tr>
                 <th class="p-2 bg-gray-50 text-center w-8 whitespace-nowrap">#</th>
-                <th class="p-2 bg-gray-50 min-w-[140px] whitespace-nowrap ${type === 'accounts' ? 'cursor-pointer select-none hover:text-accentIndigo transition-colors' : ''}" ${type === 'accounts' ? `onclick="toggleAccountsSort('name')" title="Sort A-Z / Z-A"` : ''}>Branch${type === 'accounts' ? ` <span class="inline-block ml-0.5">${accountsSortIcon('name')}</span>` : ''}</th>
+                <th class="p-2 bg-gray-50 min-w-[140px] whitespace-nowrap ${(type === 'accounts' || type === 'findings') ? 'cursor-pointer select-none hover:text-accentIndigo transition-colors' : ''}" ${type === 'accounts' ? `onclick="toggleAccountsSort('name')" title="Sort A-Z / Z-A"` : ''}${type === 'findings' ? `onclick="toggleFindingsSort('name')" title="Sort A-Z / Z-A"` : ''}>Branch${type === 'accounts' ? ` <span class="inline-block ml-0.5">${accountsSortIcon('name')}</span>` : ''}${type === 'findings' ? ` <span class="inline-block ml-0.5">${findingsSortIcon('name')}</span>` : ''}</th>
                 ${showEditCol ? `<th class="p-2 bg-gray-50 text-center whitespace-nowrap">Edit</th>` : ''}
                 ${showAuditorCol ? `<th class="p-2 bg-gray-50 text-center whitespace-nowrap">Auditor</th>` : ''}
                 ${statusHeaders}
@@ -9543,17 +9635,15 @@ html.page-fade-ready body {
       if (modalTitle) { modalTitle.innerHTML = title; modalTitle.title = title; }
       modalCurrentState = { title, type: 'findings', filterValue };
 
-      const branchesToDisplay = [...activeData.branches].sort((a, b) => b[filterValue] - a[filterValue]);
-      window.findingsModalState = { type: 'findings', filterValue, allBranches: branchesToDisplay };
+      // Switching years keeps whatever sort/search/status filter is
+      // currently active — a switch of year shouldn't silently discard
+      // the branch you were searching for or the sort you set.
+      window.findingsModalState = { type: 'findings', filterValue, allBranches: [...activeData.branches] };
 
       const backBar = document.getElementById('findingsBackBar');
       if (backBar) backBar.remove();
 
-      const tableContainer = document.getElementById('modalTableContainer');
-      if (tableContainer) {
-          if (branchesToDisplay.length > 0) renderBranchTable(branchesToDisplay, tableContainer, 'findings', filterValue);
-          else tableContainer.innerHTML = '<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No targeted branch parameters found.</div>';
-      }
+      renderFindingsModalTable(filterValue);
 
       const tabsEl = document.getElementById('findingsYearTabs');
       if (tabsEl) tabsEl.outerHTML = renderFindingsYearTabs(filterValue);
@@ -9600,12 +9690,132 @@ html.page-fade-ready body {
     }
 
     function showAllFindingsBranches() {
-        const container = document.getElementById('modalTableContainer');
         const backBar = document.getElementById('findingsBackBar');
         const state = window.findingsModalState;
         if (backBar) backBar.remove();
-        if (!container || !state) return;
-        renderBranchTable(state.allBranches, container, state.type, state.filterValue);
+        if (!state) return;
+        // Re-runs the full sort/search/status pipeline instead of dumping
+        // the unfiltered list back in, so "Back to all branches" respects
+        // whatever the user had searched/sorted/filtered by before drilling in.
+        renderFindingsModalTable(state.filterValue);
+    }
+
+    // =========================================================================
+    // Audit Findings modal — sort / search / status-filter toolbar.
+    // Mirrors the sort-cycle pattern already used by toggleAccountsSort()
+    // (desc → asc → default for numeric columns, asc → desc → default for
+    // the Branch name column) and the search-box pattern used by the main
+    // "All Branches — Branch Scorecard" table (#tableSearch) and the
+    // Assignment modal (#assignmentSearchInput), so the interaction feels
+    // consistent with the rest of the dashboard instead of introducing a
+    // new pattern just for this popup.
+    // =========================================================================
+
+    function findingsSortIcon(key) {
+      const s = window.findingsModalSort;
+      if (!s || s.key !== key || !s.dir) return '↕';
+      return s.dir === 'desc' ? '↓' : '↑';
+    }
+
+    function toggleFindingsSort(key) {
+      const s = window.findingsModalSort || {};
+      // Branch name cycles A-Z → Z-A → default; the Findings count column
+      // cycles highest-first → lowest-first → default — same order used
+      // throughout the rest of the dashboard's sortable columns.
+      const order = key === 'name' ? ['asc', 'desc', null] : ['desc', 'asc', null];
+      const currentIdx = (s.key === key) ? order.indexOf(s.dir) : -1;
+      const nextDir = order[(currentIdx + 1) % order.length];
+      window.findingsModalSort = { key: nextDir ? key : null, dir: nextDir };
+      const state = window.findingsModalState;
+      if (state) renderFindingsModalTable(state.filterValue);
+    }
+
+    function setFindingsSearch(value) {
+      window.findingsModalSearch = value || '';
+      const state = window.findingsModalState;
+      if (state) renderFindingsModalTable(state.filterValue, { skipSearchRefocus: false });
+    }
+
+    function setFindingsStatusFilter(value) {
+      window.findingsModalStatusFilter = value || 'ALL';
+      const state = window.findingsModalState;
+      if (state) renderFindingsModalTable(state.filterValue);
+    }
+
+    function resetFindingsFilters() {
+      window.findingsModalSort = null;
+      window.findingsModalSearch = '';
+      window.findingsModalStatusFilter = 'ALL';
+      const searchInput = document.getElementById('findingsSearchInput');
+      if (searchInput) searchInput.value = '';
+      const statusSelect = document.getElementById('findingsAuditStatusFilter');
+      if (statusSelect) statusSelect.value = 'ALL';
+      const state = window.findingsModalState;
+      if (state) renderFindingsModalTable(state.filterValue);
+    }
+
+    function renderFindingsToolbar() {
+      const searchVal = escapeFindingHTML(window.findingsModalSearch || '');
+      const statusVal = window.findingsModalStatusFilter || 'ALL';
+      const statusOpt = (value, label) => `<option value="${value}" ${value === statusVal ? 'selected' : ''}>${label}</option>`;
+      return `
+      <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
+        <div class="relative flex-1 min-w-[180px]">
+          <span class="absolute inset-y-0 left-0 flex items-center pl-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-slate-400"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
+          </span>
+          <input type="text" id="findingsSearchInput" placeholder="Search branch..." value="${searchVal}" oninput="setFindingsSearch(this.value)" class="w-full pl-8 pr-3 py-1.5 bg-white border border-coolBorder rounded-lg text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all">
+        </div>
+        <select id="findingsAuditStatusFilter" onchange="setFindingsStatusFilter(this.value)" class="px-2.5 py-1.5 bg-white border border-coolBorder rounded-lg text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
+          ${statusOpt('ALL', 'All Audit Status')}
+          ${statusOpt('PENDING', 'Pending')}
+          ${statusOpt('FOR AUDIT', 'For Audit')}
+          ${statusOpt('DONE', 'Done')}
+        </select>
+        <button type="button" onclick="resetFindingsFilters()" class="px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-lg text-xs font-semibold text-slate-600 transition-all active:scale-95 whitespace-nowrap">
+          Reset
+        </button>
+        <span id="findingsCountLabel" class="text-[11px] font-semibold text-slate-400 whitespace-nowrap sm:ml-auto"></span>
+      </div>`;
+    }
+
+    // Applies the current search text + audit-status filter + sort to the
+    // full branch list, renders the result into #modalTableContainer, and
+    // updates the "Showing X of Y" count. Used by every entry point that
+    // (re)draws the findings table — initial open, year switch, sort click,
+    // search typing, status change, reset, and "Back to all branches" — so
+    // they all stay in sync instead of each maintaining its own copy.
+    function renderFindingsModalTable(filterValue) {
+      const container = document.getElementById('modalTableContainer');
+      const state = window.findingsModalState;
+      if (!container || !state) return;
+
+      const query = (window.findingsModalSearch || '').trim().toLowerCase();
+      const statusFilter = window.findingsModalStatusFilter || 'ALL';
+
+      let list = state.allBranches.filter(b => {
+        const matchesQuery = !query || String(b.name || '').toLowerCase().includes(query);
+        const matchesStatus = statusFilter === 'ALL' || (b.auditStatus || '').toUpperCase() === statusFilter;
+        return matchesQuery && matchesStatus;
+      });
+
+      const sort = window.findingsModalSort;
+      if (sort && sort.key === 'name' && sort.dir) {
+        const dir = sort.dir === 'asc' ? 1 : -1;
+        list.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')) * dir);
+      } else if (sort && sort.key === 'count' && sort.dir) {
+        const dir = sort.dir === 'asc' ? 1 : -1;
+        list.sort((a, b) => ((a[filterValue] || 0) - (b[filterValue] || 0)) * dir);
+      } else {
+        // Default: highest findings count first, same as the original behavior.
+        list.sort((a, b) => (b[filterValue] || 0) - (a[filterValue] || 0));
+      }
+
+      const countLabel = document.getElementById('findingsCountLabel');
+      if (countLabel) countLabel.textContent = `Showing ${list.length} of ${state.allBranches.length} branches`;
+
+      if (list.length > 0) renderBranchTable(list, container, 'findings', filterValue);
+      else container.innerHTML = '<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No branches match your search/filter.</div>';
     }
 
     function renderInlineFindingsPanel(index, branchName, year) {
