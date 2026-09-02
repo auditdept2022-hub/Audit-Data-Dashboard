@@ -7620,7 +7620,7 @@ html.page-fade-ready body {
     // only renders the monthly stack cards.
     function buildStatusFilterBar(type, list) {
       const monthlyCard = buildMonthlyStackCard(type, list);
-      return `<div class="capsule-row-fit-wrap mb-2" id="monthlyStackWrap-${type}">
+      return `<div class="capsule-row-fit-wrap flex-1 min-w-0" id="monthlyStackWrap-${type}">
         <div class="capsule-row-fit gap-1.5 sm:gap-2" id="monthlyStackRow-${type}">${monthlyCard}</div>
       </div>`;
     }
@@ -8325,9 +8325,14 @@ html.page-fade-ready body {
           barsHtml += buildAllBranchesSummaryBar(baseList, 'setModalAuditFilter', state.auditStatus);
       }
       if (state.type === 'collection' || state.type === 'sales' || state.type === 'service') {
-          barsHtml += buildStatusFilterBar(state.type, baseList);
+          // Search box + monthly capsule strip share a single line here
+          // (instead of the capsule row sitting on its own line above the
+          // search bar) — the capsule row auto-fits into whatever width is
+          // left after the fixed-width search box.
+          barsHtml += renderCapsuleAndSearchBar(state.type, baseList, state, baseList.length, list.length);
+      } else {
+          barsHtml += renderModalSearchBar(state, baseList.length, list.length);
       }
-      barsHtml += renderModalSearchBar(state, baseList.length, list.length);
 
       const modalBody = document.getElementById('modalBody');
       modalBody.innerHTML = `${barsHtml}<div id="modalTableContainer"></div>`;
@@ -8358,6 +8363,32 @@ html.page-fade-ready body {
           <input type="text" id="modalSearchInput" placeholder="Search branch..." value="${searchVal}" oninput="setModalSearch(this.value)" class="w-full pl-8 pr-3 py-1.5 bg-white border border-coolBorder rounded-lg text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all">
         </div>
         ${searchVal ? `<button type="button" onclick="setModalSearch('')" class="px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-lg text-xs font-semibold text-slate-600 transition-all active:scale-95 whitespace-nowrap">Clear</button>` : ''}
+        <span class="text-[11px] font-semibold text-slate-400 whitespace-nowrap">Showing ${shownCount} of ${totalCount} branches</span>
+      </div>`;
+    }
+
+    // Search box + monthly capsule strip on a single line (Collection /
+    // Sales / Service breakdown popups only). The search box keeps a
+    // fixed, readable width; the capsule row gets whatever space is left
+    // and auto-fits into it (see autoFitCapsuleRow) — so both sit on one
+    // line instead of the capsule row stacking above the search bar. The
+    // "Showing X of Y" count + Clear button move to their own compact
+    // line right underneath so the top line stays uncluttered.
+    function renderCapsuleAndSearchBar(type, list, state, totalCount, shownCount) {
+      const searchVal = escapeFindingHTML(state.search || '');
+      const capsuleWrap = buildStatusFilterBar(type, list);
+      return `
+      <div class="flex flex-nowrap items-center gap-2 mb-1.5">
+        <div class="relative shrink-0 w-[140px] sm:w-[190px]">
+          <span class="absolute inset-y-0 left-0 flex items-center pl-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-slate-400"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
+          </span>
+          <input type="text" id="modalSearchInput" placeholder="Search branch..." value="${searchVal}" oninput="setModalSearch(this.value)" class="w-full pl-8 pr-2 py-1.5 bg-white border border-coolBorder rounded-lg text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all">
+        </div>
+        ${capsuleWrap}
+      </div>
+      <div class="flex items-center justify-between gap-2 mb-3">
+        ${searchVal ? `<button type="button" onclick="setModalSearch('')" class="px-2.5 py-1 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-lg text-[11px] font-semibold text-slate-600 transition-all active:scale-95 whitespace-nowrap">Clear</button>` : '<span></span>'}
         <span class="text-[11px] font-semibold text-slate-400 whitespace-nowrap">Showing ${shownCount} of ${totalCount} branches</span>
       </div>`;
     }
