@@ -217,20 +217,16 @@
     #auditScheduleWrap { display: flex; flex-direction: column; height: 100%; min-height: 0; }
     #auditScheduleCards { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 
-    /* On phones, EVERY data popup (#modalDialog) is ALWAYS edge-to-edge
-       full-screen — enforced purely in CSS (not via a JS class toggle
-       timed against the open animation) so none of them can ever render
-       as a small floating card there. This used to only cover the
-       Branch Audit Interval modal (via :has(#modalBody.audit-schedule-mode)),
-       which is why every other popup — e.g. the branch "Detailed Profile"
-       card — still opened as a small windowed dialog with the dashboard
-       header peeking out above/around it. Targeting #modalDialog directly
-       (no :has() scoping) makes this apply to all of them, including
-       ones opened straight into this state before any paint, so there's
-       no animation race to lose. 639px matches the same mobile/desktop
-       split (Tailwind's "sm:") used everywhere else in this file. Desktop
-       is completely unaffected. */
-    @media (max-width: 639px) {
+    /* On phones AND narrow/tablet-width screens, EVERY data popup
+       (#modalDialog) is ALWAYS edge-to-edge full-screen — enforced purely
+       in CSS (not via a JS class toggle timed against the open animation)
+       so none of them can ever render as a small floating card with big
+       side/top padding there. Raised from 639px to 767px (Tailwind's
+       "md" split) so a phone in landscape or a small tablet in portrait —
+       both of which used to fall through to the small windowed dialog
+       with p-3/p-4 padding around it — also gets the true full-screen
+       treatment. Desktop (768px+) is unaffected. */
+    @media (max-width: 767px) {
       #modalDialog {
         position: fixed !important;
         inset: 0 !important;
@@ -258,6 +254,14 @@
       #modalDialog #modalFullscreenBtn {
         display: none !important;
       }
+      /* Belt-and-suspenders: the modal's flex-centering wrapper carries
+         p-3/p-4/py-6 for the small windowed (desktop) dialog. #modalDialog
+         is position:fixed so it isn't laid out inside that padding, but
+         zero it out too at this width so there's no stray gap of any
+         kind around the full-screen popup. */
+      #dataModal > .absolute.inset-0 {
+        padding: 0 !important;
+      }
     }
 
     #scorecardScrollWrap { -webkit-overflow-scrolling: touch; }
@@ -279,6 +283,20 @@
     #modalDialog, #sideMenu, #menuOverlay, #miniCalendarPopup, #exitConfirmCard {
       will-change: transform, opacity;
       backface-visibility: hidden;
+    }
+
+    /* Explicit fallback for every "stack card" capsule/pill (monthly
+       month cards, summary pills, audit-schedule stats) so their core
+       shape — single line, centered content, fully rounded — can never
+       be lost to a Tailwind class-generation timing hiccup on dynamically
+       injected popup content. The individual Tailwind utility classes on
+       each pill still control padding/color/font-size on top of this. */
+    .capsule-pill {
+      display: inline-flex !important;
+      align-items: center !important;
+      white-space: nowrap !important;
+      border-radius: 9999px !important;
+      flex-shrink: 0 !important;
     }
 
     /* Smooth, native-feeling momentum scrolling on every internal
@@ -6571,9 +6589,9 @@ html.page-fade-ready body {
           const clickAttr = clickable ? `type="button" onclick="setAuditScheduleRoundFilter('${filterValue}')" title="Show only these branches"` : '';
           return `
           <${tag} ${clickAttr}
-              class="shrink-0 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full transition-all ${clickable ? 'active:scale-95 cursor-pointer' : ''} ${base} ${activeRing}">
-              <span class="text-base font-extrabold leading-none whitespace-nowrap ${textColor}">${value}</span>
-              <span class="text-[10px] font-bold ${tint ? `text-${tint}/80` : 'text-slate-500'} uppercase tracking-wider leading-none whitespace-nowrap">${label}</span>
+              class="capsule-pill shrink-0 gap-1.5 sm:gap-2 px-2.5 py-1 sm:px-3.5 sm:py-1.5 transition-all ${clickable ? 'active:scale-95 cursor-pointer' : ''} ${base} ${activeRing}">
+              <span class="text-sm sm:text-base font-extrabold leading-none whitespace-nowrap ${textColor}">${value}</span>
+              <span class="text-[9px] sm:text-[10px] font-bold ${tint ? `text-${tint}/80` : 'text-slate-500'} uppercase tracking-wider leading-none whitespace-nowrap">${label}</span>
           </${tag}>`;
       };
 
@@ -7599,10 +7617,10 @@ html.page-fade-ready body {
     // row of these takes noticeably less vertical space inside the popup.
     function monthlyStackCardRow(color, label, valueHtml, subtitleHtml) {
       return `
-        <div class="inline-flex items-center gap-1.5 rounded-full border border-coolBorder bg-white shadow-sm pl-2.5 pr-3 py-1 shrink-0 whitespace-nowrap">
-          <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">${label}</span>
-          <span class="text-sm font-extrabold text-${color} tabular-nums">${valueHtml}</span>
-          ${subtitleHtml ? `<span class="text-[10px] text-slate-500 border-l border-coolBorder pl-1.5 ml-0.5">${subtitleHtml}</span>` : ''}
+        <div class="capsule-pill gap-1 sm:gap-1.5 border border-coolBorder bg-white shadow-sm pl-2 pr-2.5 py-0.5 sm:pl-2.5 sm:pr-3 sm:py-1 shrink-0 whitespace-nowrap">
+          <span class="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wide">${label}</span>
+          <span class="text-xs sm:text-sm font-extrabold text-${color} tabular-nums">${valueHtml}</span>
+          ${subtitleHtml ? `<span class="text-[9px] sm:text-[10px] text-slate-500 border-l border-coolBorder pl-1.5 ml-0.5">${subtitleHtml}</span>` : ''}
         </div>`;
     }
 
@@ -7682,7 +7700,7 @@ html.page-fade-ready body {
           return '';
       }
 
-      return `<div class="flex items-center gap-1.5 flex-nowrap overflow-x-auto ml-auto max-w-full">${rowsHtml}</div>`;
+      return `<div class="flex flex-wrap items-center gap-1.5 max-w-full sm:ml-auto">${rowsHtml}</div>`;
     }
 
     function buildAuditStatusFilterBar(activeAudit) {
@@ -9130,9 +9148,9 @@ html.page-fade-ready body {
       const clickAttr = clickable ? `type="button" ${onClick}` : '';
       return `
         <${tag} ${clickAttr}
-            class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full transition-all ${clickable ? `active:scale-95 cursor-pointer hover:brightness-95` : ''} ${base} ${activeRing}">
-            <span class="text-base font-extrabold leading-none whitespace-nowrap ${textColor}">${value}</span>
-            <span class="text-[10px] font-bold uppercase tracking-wider leading-none whitespace-nowrap ${labelColor}">${label}</span>
+            class="capsule-pill gap-1.5 sm:gap-2 px-2.5 py-1 sm:px-3.5 sm:py-1.5 transition-all ${clickable ? `active:scale-95 cursor-pointer hover:brightness-95` : ''} ${base} ${activeRing}">
+            <span class="text-sm sm:text-base font-extrabold leading-none whitespace-nowrap ${textColor}">${value}</span>
+            <span class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider leading-none whitespace-nowrap ${labelColor}">${label}</span>
         </${tag}>`;
     }
 
