@@ -9908,10 +9908,39 @@ html.page-fade-ready body {
         </${tag}>`;
     }
 
+    // Color per status value, used by the per-status filter pills below
+    // (buildStatusPills). Kept as its own map — rather than baked into
+    // STATUS_FILTER_OPTIONS — since 'Target' (Service) and 'Improving'
+    // (Collection/Sales) intentionally share the same "good" tint even
+    // though they're different literal strings.
+    const STATUS_PILL_TINT = {
+      Improving: 'accentEmerald',
+      Recovering: 'accentCyan',
+      Stable: 'accentAmber',
+      Declining: 'accentRose',
+      Target: 'accentEmerald'
+    };
+
+    // Renders one clickable, count-bearing pill per status value the given
+    // type supports (STATUS_FILTER_OPTIONS) — Improving / Declining /
+    // Stable / Recovering for Collection, Improving / Declining / Stable
+    // for Sales, Target / Declining for Service. Replaces the old single
+    // "On Target" pill (which only ever filtered to "not Declining") so
+    // every status is filterable directly, not just a decline/non-decline
+    // split. Counts are always computed off the un-filtered `list` passed
+    // in (baseList from renderModalFilteredView), so clicking one pill
+    // doesn't change what the others report — same rule the rest of the
+    // summary bar already follows.
+    function buildStatusPills(type, list, activeStatus) {
+      return (STATUS_FILTER_OPTIONS[type] || []).map(status => {
+        const count = list.filter(b => b[type] === status).length;
+        const tint = STATUS_PILL_TINT[status] || 'slate-500';
+        return summaryPill(count, status, { tint, active: activeStatus === status, onClick: `onclick="setModalStatusFilter('${status}')"` });
+      }).join('');
+    }
+
     function buildSalesSummaryBar(list) {
       const totalBranches = list.length;
-      const totalAccounts = list.reduce((s, b) => s + (Number(b.accountsMay) || 0), 0);
-      const onTarget = list.filter(b => b.sales !== 'Declining').length;
       const avgVals = list.map(computeAvgSales);
       const meanAvg = avgVals.length ? Math.round(avgVals.reduce((s, v) => s + v, 0) / avgVals.length) : 0;
       const activeStatus = (window.modalFilterState && window.modalFilterState.statusValue) || 'ALL';
@@ -9919,8 +9948,7 @@ html.page-fade-ready body {
       return `
       <div class="flex flex-wrap items-center gap-1.5 mb-2">
         ${summaryPill(totalBranches, 'Total Branches', { neutral: true, active: activeStatus === 'ALL', onClick: `onclick="setModalStatusFilter('ALL')"` })}
-        ${summaryPill(totalAccounts.toLocaleString(), 'Total Accounts', { neutral: true })}
-        ${summaryPill(onTarget, 'On Target', { tint: 'accentEmerald', active: activeStatus === 'OnTarget', onClick: `onclick="setModalStatusFilter('OnTarget')"` })}
+        ${buildStatusPills('sales', list, activeStatus)}
         ${summaryPill(meanAvg, '3-Mo Avg Sales (INS−CA)', { tint: 'accentIndigo' })}
       </div>
       ${activeStatus === 'ALL' ? buildTopPerformersList([...list].filter(b => b.sales !== 'Declining').sort((a, b) => computeAvgSales(b) - computeAvgSales(a)).slice(0, 5), (b) => computeAvgSales(b), 'accentIndigo') : ''}`;
@@ -9928,8 +9956,6 @@ html.page-fade-ready body {
 
     function buildCollectionSummaryBar(list) {
       const totalBranches = list.length;
-      const totalAccounts = list.reduce((s, b) => s + (Number(b.accountsMay) || 0), 0);
-      const onTarget = list.filter(b => b.collection !== 'Declining').length;
       const effVals = list.map(b => b.effLatest);
       const meanEff = effVals.length ? Math.round(effVals.reduce((s, v) => s + v, 0) / effVals.length) : 0;
       const activeStatus = (window.modalFilterState && window.modalFilterState.statusValue) || 'ALL';
@@ -9937,8 +9963,7 @@ html.page-fade-ready body {
       return `
       <div class="flex flex-wrap items-center gap-1.5 mb-2">
         ${summaryPill(totalBranches, 'Total Branches', { neutral: true, active: activeStatus === 'ALL', onClick: `onclick="setModalStatusFilter('ALL')"` })}
-        ${summaryPill(totalAccounts.toLocaleString(), 'Total Accounts', { neutral: true })}
-        ${summaryPill(onTarget, 'On Target', { tint: 'accentEmerald', active: activeStatus === 'OnTarget', onClick: `onclick="setModalStatusFilter('OnTarget')"` })}
+        ${buildStatusPills('collection', list, activeStatus)}
         ${summaryPill(meanEff + '%', 'Avg Eff Latest', { tint: 'accentIndigo' })}
       </div>
       ${activeStatus === 'ALL' ? buildTopPerformersList([...list].filter(b => b.collection !== 'Declining').sort((a, b) => b.effLatest - a.effLatest).slice(0, 5), (b) => `${b.effLatest}%`, 'accentIndigo') : ''}`;
@@ -9946,8 +9971,6 @@ html.page-fade-ready body {
 
     function buildServiceSummaryBar(list) {
       const totalBranches = list.length;
-      const totalAccounts = list.reduce((s, b) => s + (Number(b.accountsMay) || 0), 0);
-      const onTarget = list.filter(b => b.service === 'Target').length;
       const mayVals = list.map(b => Number(b.serviceMay) || 0);
       const totalMay = mayVals.reduce((s, v) => s + v, 0);
       const activeStatus = (window.modalFilterState && window.modalFilterState.statusValue) || 'ALL';
@@ -9955,8 +9978,7 @@ html.page-fade-ready body {
       return `
       <div class="flex flex-wrap items-center gap-1.5 mb-2">
         ${summaryPill(totalBranches, 'Total Branches', { neutral: true, active: activeStatus === 'ALL', onClick: `onclick="setModalStatusFilter('ALL')"` })}
-        ${summaryPill(totalAccounts.toLocaleString(), 'Total Accounts', { neutral: true })}
-        ${summaryPill(onTarget, 'On Target', { tint: 'accentEmerald', active: activeStatus === 'Target', onClick: `onclick="setModalStatusFilter('Target')"` })}
+        ${buildStatusPills('service', list, activeStatus)}
         ${summaryPill('₱' + totalMay.toLocaleString(), 'Total ₱ (Latest Mo.)', { tint: 'accentCyan' })}
       </div>
       ${activeStatus === 'ALL' ? buildTopPerformersList([...list].filter(b => b.service !== 'Declining').sort((a, b) => Number(b.serviceMay) - Number(a.serviceMay)).slice(0, 5), (b) => `₱${Number(b.serviceMay).toLocaleString()}`, 'accentCyan') : ''}`;
