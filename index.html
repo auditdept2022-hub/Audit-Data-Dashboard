@@ -9889,7 +9889,12 @@ html.page-fade-ready body {
     // needs, leaving more room in the popup for the actual data.
     // value can be null/undefined to render a plain label-only pill (no
     // bold number up front) — used by static/informational badges that
-    // don't have a per-branch count or figure attached to them.
+    // don't have a per-branch count or figure attached to them. When
+    // there's no value, the label is bumped up to the same size/weight
+    // the value span would normally carry (instead of staying at the
+    // small uppercase caption size), so the pill keeps the same height
+    // as its value+label neighbors rather than visually shrinking down
+    // to roughly half their size.
     function summaryPill(value, label, opts = {}) {
       const { tint, active, onClick, neutral } = opts;
       const base = neutral
@@ -9904,11 +9909,15 @@ html.page-fade-ready body {
       const tag = clickable ? 'button' : 'div';
       const clickAttr = clickable ? `type="button" ${onClick}` : '';
       const hasValue = value !== null && value !== undefined && value !== '';
+      const soloLabelCls = `text-sm sm:text-base font-extrabold leading-none whitespace-nowrap ${tint ? `text-${tint}` : 'text-slate-700'}`;
+      const labelCls = hasValue
+          ? `text-[9px] sm:text-[10px] font-bold uppercase tracking-wider leading-none whitespace-nowrap ${labelColor}`
+          : soloLabelCls;
       return `
         <${tag} ${clickAttr}
             class="capsule-pill gap-1.5 sm:gap-2 px-2.5 py-1 sm:px-3.5 sm:py-1.5 transition-all ${clickable ? `active:scale-95 cursor-pointer hover:brightness-95` : ''} ${base} ${activeRing}">
             ${hasValue ? `<span class="text-sm sm:text-base font-extrabold leading-none whitespace-nowrap ${textColor}">${value}</span>` : ''}
-            <span class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider leading-none whitespace-nowrap ${labelColor}">${label}</span>
+            <span class="${labelCls}">${label}</span>
         </${tag}>`;
     }
 
@@ -12735,7 +12744,11 @@ html.page-fade-ready body {
           if (state.tab === 'collection') {
             const rec = (b.collection && b.collection[m]) || {};
             return subCols.map(function (label, ci) {
-              const kind = /repo/i.test(label) ? 'repo' : null;
+              // Only the "Repo Rate" sub-column is a percentage — "No. of
+              // Repo" is a plain count and must stay a plain number, so
+              // this specifically requires "repo" AND "rate" in the
+              // label instead of matching on "repo" alone.
+              const kind = (/repo/i.test(label) && /rate/i.test(label)) ? 'repo' : null;
               return `<td class="p-2 text-center whitespace-nowrap${ci === 0 ? borderCls : ''}">${fmt(rec[label], kind)}</td>`;
             }).join('');
           } else if (state.tab === 'sales') {
