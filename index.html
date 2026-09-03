@@ -12346,6 +12346,7 @@ html.page-fade-ready body {
 
       fetchOverallDataPayload(false).then(function (data) {
         renderOverallDataBody(modalBody);
+        nudgeScrollRepaint(modalBody);
       }).catch(function (err) {
         modalBody.innerHTML = `
           <div class="flex flex-col items-center justify-center gap-3 p-12 text-center">
@@ -12366,10 +12367,27 @@ html.page-fade-ready body {
       if (!modalBody) return;
       fetchOverallDataPayload(true).then(function () {
         renderOverallDataBody(modalBody);
+        nudgeScrollRepaint(modalBody);
         if (typeof showToast === 'function') showToast('Overall Data refreshed.');
       }).catch(function (err) {
         if (typeof showToast === 'function') showToast(err.message || 'Refresh failed.');
       });
+    }
+
+    // iOS Safari/WKWebView bug: an element with `-webkit-overflow-scrolling:
+    // touch` (#modalBody here) doesn't always repaint immediately after its
+    // content is swapped via innerHTML — the OLD scrolled-away content stays
+    // on screen (or the area looks blank) until a scroll/touch gesture forces
+    // a repaint. That's what read as "the data below is hidden until you
+    // scroll all the way to the end" — the new, usually-shorter table was
+    // already there, WebKit just hadn't repainted it yet. Nudging scrollTop
+    // by a pixel and back forces that repaint immediately instead of waiting
+    // for the user to scroll into it by hand.
+    function nudgeScrollRepaint(el) {
+      if (!el) return;
+      const y = el.scrollTop;
+      el.scrollTop = y + 1;
+      el.scrollTop = y;
     }
 
     function setOverallDataTab(tab) {
@@ -12378,14 +12396,26 @@ html.page-fade-ready body {
       window.overallDataState.sortCol = null; // columns differ per tab too
       window.overallDataState.sortDir = 'asc';
       const modalBody = document.getElementById('modalBody');
-      if (modalBody) renderOverallDataBody(modalBody);
+      if (modalBody) {
+        renderOverallDataBody(modalBody);
+        nudgeScrollRepaint(modalBody);
+      }
     }
 
+    // Only the table needs to change when the status filter changes — the
+    // tabs, refresh button, and search box above it are untouched. This used
+    // to tear down and rebuild the ENTIRE modal body (tabs, dropdown, search
+    // input, table — everything) on every filter pick, which was the main
+    // source of the "so slow" feeling with a full branch list loaded, and
+    // also reset/confused #modalBody's own scroll position on iOS. Updating
+    // just the table container is both far cheaper and leaves scrolling
+    // untouched, same as search and sort already did.
     function setOverallDataStatusFilter(label) {
       const state = window.overallDataState;
       state.statusFilter = label || null; // '' / falsy (the "All" option) clears it
-      const modalBody = document.getElementById('modalBody');
-      if (modalBody) renderOverallDataBody(modalBody);
+      const container = document.getElementById('overallDataTableContainer');
+      if (container) container.innerHTML = buildOverallDataTable();
+      nudgeScrollRepaint(document.getElementById('modalBody'));
     }
 
     // Sortable column headers. colKey is 'name' for the Branch column, or
@@ -12402,6 +12432,7 @@ html.page-fade-ready body {
       }
       const container = document.getElementById('overallDataTableContainer');
       if (container) container.innerHTML = buildOverallDataTable();
+      nudgeScrollRepaint(document.getElementById('modalBody'));
     }
 
     function setOverallDataSearch(value) {
@@ -12413,6 +12444,7 @@ html.page-fade-ready body {
       window.overallDataSearchDebounce = setTimeout(function () {
         const container = document.getElementById('overallDataTableContainer');
         if (container) container.innerHTML = buildOverallDataTable();
+        nudgeScrollRepaint(document.getElementById('modalBody'));
       }, 180);
     }
 
