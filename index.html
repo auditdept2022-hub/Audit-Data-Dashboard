@@ -5074,6 +5074,7 @@ html.page-fade-ready body {
         </div>
       </div>
 
+      <div class="flex flex-col gap-4">
       <div class="bg-coolCard border border-coolBorder rounded-2xl p-4 shadow-md flex flex-col">
         <div>
           <h3 class="text-base font-bold tracking-tight text-slate-900 mb-2 flex items-center gap-2">
@@ -5141,6 +5142,26 @@ html.page-fade-ready body {
             </div>
           </div>
         </div>
+      </div>
+
+      <div onclick="openModal('Overall Data Snapshot', 'overallData', null)" class="bg-coolCard border border-coolBorder rounded-2xl p-4 shadow-md hover:border-accentIndigo/50 hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.98] transition-all cursor-pointer group">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-base font-bold tracking-tight text-slate-900 flex items-center gap-2">
+            <span class="flex w-8 h-8 rounded-xl bg-gradient-to-br from-accentIndigo/15 to-accentCyan/15 items-center justify-center shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-accentIndigo"><path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>
+            </span>
+            Overall Data Snapshot
+          </h3>
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-accentIndigo shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"><path d="m9 18 6-6-6-6"></path></svg>
+        </div>
+        <p class="text-xs text-slate-500 leading-relaxed">Browse Collection, Sales &amp; Service by month across every branch — every month on record, updated as new ones are added.</p>
+        <div class="mt-3 pt-3 border-t border-coolBorder flex items-center gap-2 flex-wrap" id="overallDataSnapshotMeta">
+          <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-400">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3"><path d="m9 18 6-6-6-6"></path></svg>
+            Tap to view Collection / Sales / Service tabs
+          </span>
+        </div>
+      </div>
       </div>
     </div>
 
@@ -5956,6 +5977,8 @@ html.page-fade-ready body {
           </div>`;
       } else if (type === 'editEmergency') {
           renderEditEmergencyModal(modalBody);
+      } else if (type === 'overallData') {
+          renderOverallDataModal(modalBody);
       } else {
           if (type === 'findings') {
               // Reset sort/search/status-filter state every time the modal is
@@ -12258,6 +12281,234 @@ html.page-fade-ready body {
         return data;
       }
     }
+
+    /* ================= OVERALL DATA SNAPSHOT (Collection/Sales/Service
+       by month, all branches) =================
+       Fed by the Apps Script backend's action=overallData endpoint, which
+       reads the OVERALL DATA sheet directly. Unlike everything else on
+       this dashboard, this data is intentionally NOT baked into
+       activeData/processExcelData — it's only fetched (and cached in
+       memory for a short while) when the "Overall Data Snapshot" card is
+       opened, since it can span many months x every branch and most
+       visits never need it. Whatever months actually exist as columns on
+       OVERALL DATA show up here automatically — nothing about months is
+       hardcoded, so a new "Update Sheet" run that adds e.g. AUG/SEP just
+       appears next time this modal is opened (or Refresh is tapped). */
+    window.overallDataPayload = null;
+    window.overallDataPayloadFetchedAt = 0;
+    window.overallDataState = { tab: 'collection', month: null, search: '' };
+    const OVERALL_DATA_CLIENT_CACHE_MS = 20000;
+
+    async function fetchOverallDataPayload(forceRefresh) {
+      const now = Date.now();
+      if (!forceRefresh && window.overallDataPayload && (now - window.overallDataPayloadFetchedAt) < OVERALL_DATA_CLIENT_CACHE_MS) {
+        return window.overallDataPayload;
+      }
+      const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+      if (!idToken) throw new Error('Not signed in \u2014 please sign in again.');
+
+      const params = new URLSearchParams({
+        action: 'overallData',
+        secret: appsScriptSecret,
+        idToken: idToken
+      });
+      const url = defaultAppsScriptUrl + '?' + params.toString();
+      const json = await fetchSheetOnce(url);
+
+      if (json && json.error) throw new Error(json.error);
+      if (!json || !json.success) throw new Error("Couldn't load Overall Data \u2014 please try again.");
+
+      window.overallDataPayload = json;
+      window.overallDataPayloadFetchedAt = now;
+      updateOverallDataSnapshotMeta(json);
+      return json;
+    }
+
+    // Fills in the small "N branches / N months" line on the dashboard
+    // card itself once real data has been fetched at least once (stays as
+    // the generic "Tap to view..." hint until then).
+    function updateOverallDataSnapshotMeta(data) {
+      const el = document.getElementById('overallDataSnapshotMeta');
+      if (!el || !data) return;
+      const months = data.months || [];
+      el.innerHTML = `
+        <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-accentIndigo bg-accentIndigo/10 px-2 py-0.5 rounded-full">${data.totalBranches || 0} branches</span>
+        <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-accentCyan bg-accentCyan/10 px-2 py-0.5 rounded-full">${months.length} month${months.length === 1 ? '' : 's'} tracked</span>
+        ${months.length ? `<span class="text-[11px] text-slate-400 font-semibold">${months[0]}\u2013${months[months.length - 1]}</span>` : ''}`;
+    }
+
+    function renderOverallDataModal(modalBody) {
+      modalBody.innerHTML = `
+        <div class="flex flex-col items-center justify-center gap-3 p-12 text-slate-400">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="animate-spin text-accentIndigo"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
+          <span class="text-sm font-semibold">Loading Overall Data\u2026</span>
+        </div>`;
+
+      fetchOverallDataPayload(false).then(function (data) {
+        const months = data.months || [];
+        if (!window.overallDataState.month || months.indexOf(window.overallDataState.month) === -1) {
+          window.overallDataState.month = months.length ? months[months.length - 1] : null;
+        }
+        renderOverallDataBody(modalBody);
+      }).catch(function (err) {
+        modalBody.innerHTML = `
+          <div class="flex flex-col items-center justify-center gap-3 p-12 text-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentRose"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            <span class="text-sm font-semibold text-accentRose">${escapeFindingHTML(err.message || 'Could not load Overall Data.')}</span>
+            <button type="button" onclick="retryOverallDataModal()" class="mt-1 px-4 py-2 bg-accentIndigo text-white text-xs font-bold rounded-lg hover:bg-accentIndigo/90 active:scale-95 transition-all">Try again</button>
+          </div>`;
+      });
+    }
+
+    function retryOverallDataModal() {
+      const modalBody = document.getElementById('modalBody');
+      if (modalBody) renderOverallDataModal(modalBody);
+    }
+
+    function refreshOverallData() {
+      const modalBody = document.getElementById('modalBody');
+      if (!modalBody) return;
+      fetchOverallDataPayload(true).then(function () {
+        renderOverallDataBody(modalBody);
+        if (typeof showToast === 'function') showToast('Overall Data refreshed.');
+      }).catch(function (err) {
+        if (typeof showToast === 'function') showToast(err.message || 'Refresh failed.');
+      });
+    }
+
+    function setOverallDataTab(tab) {
+      window.overallDataState.tab = tab;
+      const modalBody = document.getElementById('modalBody');
+      if (modalBody) renderOverallDataBody(modalBody);
+    }
+
+    function setOverallDataMonth(month) {
+      window.overallDataState.month = month;
+      const modalBody = document.getElementById('modalBody');
+      if (modalBody) renderOverallDataBody(modalBody);
+    }
+
+    function setOverallDataSearch(value) {
+      window.overallDataState.search = value || '';
+      const container = document.getElementById('overallDataTableContainer');
+      if (container) container.innerHTML = buildOverallDataTable();
+    }
+
+    const OVERALL_DATA_TAB_DEFS = [
+      { key: 'collection', label: 'Collection', activeClass: 'bg-accentEmerald text-white shadow-sm' },
+      { key: 'sales',      label: 'Sales',      activeClass: 'bg-accentIndigo text-white shadow-sm' },
+      { key: 'service',    label: 'Service',    activeClass: 'bg-accentCyan text-white shadow-sm' }
+    ];
+
+    function renderOverallDataBody(modalBody) {
+      const data = window.overallDataPayload;
+      const state = window.overallDataState;
+      const months = (data && data.months) || [];
+      if (!state.month || months.indexOf(state.month) === -1) {
+        state.month = months.length ? months[months.length - 1] : null;
+      }
+
+      const tabsHtml = OVERALL_DATA_TAB_DEFS.map(function (t) {
+        const active = state.tab === t.key;
+        const cls = active ? t.activeClass : 'bg-gray-50 text-slate-500 border border-coolBorder hover:bg-gray-100';
+        return `<button type="button" onclick="setOverallDataTab('${t.key}')" class="px-3.5 py-1.5 rounded-lg text-xs font-bold tracking-wide transition-all ${cls}">${t.label}</button>`;
+      }).join('');
+
+      const monthPillsHtml = months.length
+        ? months.map(function (m) {
+            const active = state.month === m;
+            const cls = active ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 border border-coolBorder hover:border-slate-300';
+            return `<button type="button" onclick="setOverallDataMonth('${m}')" class="px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide transition-all ${cls}">${m}</button>`;
+          }).join('')
+        : `<span class="text-xs text-slate-400 italic">No months found on OVERALL DATA yet.</span>`;
+
+      modalBody.innerHTML = `
+        <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+          <div class="flex items-center gap-2">${tabsHtml}</div>
+          <button type="button" onclick="refreshOverallData()" title="Refresh Overall Data" class="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-lg text-[11px] font-bold text-slate-600 active:scale-95 transition-all">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>
+            Refresh
+          </button>
+        </div>
+        <div class="flex items-center gap-1.5 flex-wrap mb-3 pb-3 border-b border-coolBorder">${monthPillsHtml}</div>
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
+          <div class="relative flex-1 min-w-[180px]">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-2.5">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-slate-400"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
+            </span>
+            <input type="text" placeholder="Search branch..." value="${escapeFindingHTML(state.search || '')}" oninput="setOverallDataSearch(this.value)" class="w-full pl-8 pr-3 py-1.5 bg-white border border-coolBorder rounded-lg text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all">
+          </div>
+          <span class="text-[11px] font-semibold text-slate-400 whitespace-nowrap sm:ml-auto">${(data && data.totalBranches) || 0} branches tracked \u00b7 ${months.length} month(s) available</span>
+        </div>
+        <div id="overallDataTableContainer">${buildOverallDataTable()}</div>
+      `;
+    }
+
+    function buildOverallDataTable() {
+      const data = window.overallDataPayload;
+      const state = window.overallDataState;
+      if (!data || !data.branches || !data.branches.length) {
+        return `<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No branch data found on OVERALL DATA yet.</div>`;
+      }
+      if (!state.month) {
+        return `<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No months found on OVERALL DATA yet.</div>`;
+      }
+
+      const query = (state.search || '').trim().toLowerCase();
+      let branches = data.branches;
+      if (query) branches = branches.filter(function (b) { return String(b.name || '').toLowerCase().includes(query); });
+      branches = branches.slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+
+      let subCols = [];
+      if (state.tab === 'collection') subCols = data.collectionMetrics || [];
+      else if (state.tab === 'sales') subCols = data.salesSubLabels || [];
+
+      const fmt = function (v) {
+        if (v === null || v === undefined || v === '') return '<span class="text-slate-300">\u2014</span>';
+        const n = Number(v);
+        return isNaN(n) ? String(v) : n.toLocaleString();
+      };
+
+      const headHtml = state.tab === 'service'
+        ? `<th class="p-2 bg-gray-50 text-center whitespace-nowrap">${state.month}</th>`
+        : subCols.map(function (label) { return `<th class="p-2 bg-gray-50 text-center whitespace-nowrap">${label}</th>`; }).join('');
+
+      const rowsHtml = branches.map(function (b, idx) {
+        let cells;
+        if (state.tab === 'collection') {
+          const rec = (b.collection && b.collection[state.month]) || {};
+          cells = subCols.map(function (label) { return `<td class="p-2 text-center whitespace-nowrap">${fmt(rec[label])}</td>`; }).join('');
+        } else if (state.tab === 'sales') {
+          const rec = (b.sales && b.sales[state.month]) || {};
+          cells = subCols.map(function (label) { return `<td class="p-2 text-center whitespace-nowrap">${fmt(rec[label])}</td>`; }).join('');
+        } else {
+          const val = b.service ? b.service[state.month] : null;
+          cells = `<td class="p-2 text-center whitespace-nowrap">${fmt(val)}</td>`;
+        }
+        return `<tr class="border-b border-coolBorder hover:bg-gray-50/70">
+          <td class="p-2 text-center w-8 text-slate-400 text-xs">${idx + 1}</td>
+          <td class="p-2 font-semibold text-slate-700 whitespace-nowrap">${b.name}</td>
+          ${cells}
+        </tr>`;
+      }).join('');
+
+      return `
+        <div class="rounded-xl border border-coolBorder h-[500px] max-h-[60vh] overflow-auto custom-scrollbar">
+          <table class="w-full min-w-[520px] text-left border-collapse bg-white relative">
+            <thead class="bg-gray-50 border-b border-coolBorder text-xs text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-10 shadow-sm">
+              <tr>
+                <th class="p-2 bg-gray-50 text-center w-8 whitespace-nowrap">#</th>
+                <th class="p-2 bg-gray-50 text-left whitespace-nowrap">Branch</th>
+                ${headHtml}
+              </tr>
+            </thead>
+            <tbody class="text-sm text-slate-700 divide-y divide-coolBorder">
+              ${rowsHtml || '<tr><td colspan="10" class="p-5 text-center text-slate-400 text-sm">No branches match your search.</td></tr>'}
+            </tbody>
+          </table>
+        </div>`;
+    }
+    /* ================= END OVERALL DATA SNAPSHOT ================= */
 
     // Guards against a second "Update data" click firing while one is
     // already in flight (e.g. a fast double-click, or the auto-load-on-
