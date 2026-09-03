@@ -12379,8 +12379,14 @@ html.page-fade-ready body {
 
     function setOverallDataSearch(value) {
       window.overallDataState.search = value || '';
-      const container = document.getElementById('overallDataTableContainer');
-      if (container) container.innerHTML = buildOverallDataTable();
+      // Debounced: typing fires this on every keystroke, and rebuilding a
+      // 50+ row table each time was the main source of the input feeling
+      // laggy. Wait for a short pause in typing before touching the DOM.
+      clearTimeout(window.overallDataSearchDebounce);
+      window.overallDataSearchDebounce = setTimeout(function () {
+        const container = document.getElementById('overallDataTableContainer');
+        if (container) container.innerHTML = buildOverallDataTable();
+      }, 180);
     }
 
     const OVERALL_DATA_TAB_DEFS = [
@@ -12388,6 +12394,55 @@ html.page-fade-ready body {
       { key: 'sales',      label: 'Sales',      activeClass: 'bg-accentIndigo text-white shadow-sm' },
       { key: 'service',    label: 'Service',    activeClass: 'bg-accentCyan text-white shadow-sm' }
     ];
+
+    // Small capsule-pill strip under the active tab, mirroring the same
+    // Improving/Declining/Stable/Recovering breakdown shown on the main
+    // dashboard's Collection/Sales/Service Status cards — reuses
+    // activeData.summary (already computed for those cards) rather than
+    // recalculating anything from the OVERALL DATA payload.
+    function buildOverallDataStatusCapsule(tab) {
+      const sum = (typeof activeData !== 'undefined' && activeData.summary) ? activeData.summary : {};
+      const total = (typeof activeData !== 'undefined' && activeData.branches) ? activeData.branches.length : 0;
+
+      let segments = [];
+      if (tab === 'collection') {
+        segments = [
+          { label: 'Improving', value: sum.improvingCollection || 0, tint: 'accentEmerald' },
+          { label: 'Declining', value: sum.decliningCollection || 0, tint: 'accentRose' },
+          { label: 'Stable', value: sum.stableCollection || 0, tint: 'slate' },
+          { label: 'Recovering', value: sum.recoveringCollection || 0, tint: 'accentAmber' }
+        ];
+      } else if (tab === 'sales') {
+        segments = [
+          { label: 'Improving', value: sum.salesImproving || 0, tint: 'accentIndigo' },
+          { label: 'Declining', value: sum.salesDeclining || 0, tint: 'accentRose' },
+          { label: 'Stable', value: sum.salesStable || 0, tint: 'slate' }
+        ];
+      } else {
+        segments = [
+          { label: 'Target', value: sum.serviceTarget || 0, tint: 'accentCyan' },
+          { label: 'Declining', value: sum.serviceDeclining || 0, tint: 'accentRose' }
+        ];
+      }
+
+      const pill = function (value, label, tint) {
+        const isSlate = tint === 'slate';
+        const shell = isSlate ? 'bg-slate-50 border border-coolBorder' : `bg-${tint}/10 border border-${tint}/20`;
+        const valueColor = isSlate ? 'text-slate-600' : `text-${tint}`;
+        const labelColor = isSlate ? 'text-slate-400' : `text-${tint}/80`;
+        return `
+          <span class="capsule-pill gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 ${shell}">
+            <span class="text-xs sm:text-sm font-extrabold leading-none ${valueColor}">${value}</span>
+            <span class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider leading-none ${labelColor}">${label}</span>
+          </span>`;
+      };
+
+      return `
+        <div class="flex flex-wrap items-center gap-1.5 mb-3">
+          ${pill(total, 'Total Branches', 'accentBlue')}
+          ${segments.map(function (s) { return pill(s.value, s.label, s.tint); }).join('')}
+        </div>`;
+    }
 
     function renderOverallDataBody(modalBody) {
       const data = window.overallDataPayload;
@@ -12408,6 +12463,7 @@ html.page-fade-ready body {
             Refresh
           </button>
         </div>
+        ${buildOverallDataStatusCapsule(state.tab)}
         <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
           <div class="relative flex-1 min-w-[180px]">
             <span class="absolute inset-y-0 left-0 flex items-center pl-2.5">
@@ -12420,6 +12476,12 @@ html.page-fade-ready body {
         <div id="overallDataTableContainer">${buildOverallDataTable()}</div>
       `;
     }
+
+    // Shared formatter so we're not constructing a new Intl.NumberFormat
+    // per cell — with 50+ branches x 3 months x several metrics that adds
+    // up to hundreds of calls, and reusing one instance is meaningfully
+    // cheaper than creating one from scratch every time.
+    const OVERALL_DATA_NUM_FMT = new Intl.NumberFormat('en-US');
 
     function buildOverallDataTable() {
       const data = window.overallDataPayload;
@@ -12445,39 +12507,45 @@ html.page-fade-ready body {
       if (state.tab === 'collection') subCols = data.collectionMetrics || [];
       else if (state.tab === 'sales') subCols = data.salesSubLabels || [];
       const isService = state.tab === 'service';
-      const colsPerMonth = isService ? 1 : (subCols.length || 1);
 
       const fmt = function (v) {
         if (v === null || v === undefined || v === '') return '<span class="text-slate-300">\u2014</span>';
         const n = Number(v);
-        return isNaN(n) ? String(v) : n.toLocaleString();
+        return isNaN(n) ? String(v) : OVERALL_DATA_NUM_FMT.format(n);
       };
 
-      const monthGroupHeadHtml = months.map(function (m) {
-        return `<th colspan="${colsPerMonth}" class="p-2 bg-gray-50 text-center whitespace-nowrap border-l border-coolBorder">${m}</th>`;
-      }).join('');
-
-      const monthSubHeadHtml = isService ? '' : months.map(function (m) {
-        return subCols.map(function (label) {
-          return `<th class="p-2 bg-gray-50 text-center whitespace-nowrap border-l border-coolBorder">${label}</th>`;
+      // Single-row header (month + metric folded into one label, e.g.
+      // "MAY \u00b7 Target") instead of a two-row rowspan/colspan header.
+      // A sticky <thead> combined with rowspan cells spanning two rows is
+      // what was making the scroll feel laggy (some browsers recompute
+      // the sticky offsets on every scroll tick when rowspans are
+      // involved) — a flat single sticky row avoids that entirely.
+      const headHtml = months.map(function (m, mi) {
+        const borderCls = mi === 0 ? '' : ' border-l border-coolBorder';
+        if (isService) {
+          return `<th class="p-2 bg-gray-50 text-center whitespace-nowrap${borderCls}">${m}</th>`;
+        }
+        return subCols.map(function (label, ci) {
+          return `<th class="p-2 bg-gray-50 text-center whitespace-nowrap${ci === 0 ? borderCls : ''}">${m}<br><span class="normal-case font-semibold text-slate-400">${label}</span></th>`;
         }).join('');
       }).join('');
 
       const rowsHtml = branches.map(function (b, idx) {
-        const cells = months.map(function (m) {
+        const cells = months.map(function (m, mi) {
+          const borderCls = mi === 0 ? '' : ' border-l border-coolBorder';
           if (state.tab === 'collection') {
             const rec = (b.collection && b.collection[m]) || {};
             return subCols.map(function (label, ci) {
-              return `<td class="p-2 text-center whitespace-nowrap${ci === 0 ? ' border-l border-coolBorder' : ''}">${fmt(rec[label])}</td>`;
+              return `<td class="p-2 text-center whitespace-nowrap${ci === 0 ? borderCls : ''}">${fmt(rec[label])}</td>`;
             }).join('');
           } else if (state.tab === 'sales') {
             const rec = (b.sales && b.sales[m]) || {};
             return subCols.map(function (label, ci) {
-              return `<td class="p-2 text-center whitespace-nowrap${ci === 0 ? ' border-l border-coolBorder' : ''}">${fmt(rec[label])}</td>`;
+              return `<td class="p-2 text-center whitespace-nowrap${ci === 0 ? borderCls : ''}">${fmt(rec[label])}</td>`;
             }).join('');
           } else {
             const val = b.service ? b.service[m] : null;
-            return `<td class="p-2 text-center whitespace-nowrap border-l border-coolBorder">${fmt(val)}</td>`;
+            return `<td class="p-2 text-center whitespace-nowrap${borderCls}">${fmt(val)}</td>`;
           }
         }).join('');
         return `<tr class="border-b border-coolBorder hover:bg-gray-50/70">
@@ -12487,18 +12555,17 @@ html.page-fade-ready body {
         </tr>`;
       }).join('');
 
-      const totalCols = 2 + months.length * colsPerMonth;
+      const totalCols = 2 + months.length * (isService ? 1 : (subCols.length || 1));
 
       return `
         <div class="rounded-xl border border-coolBorder h-[500px] max-h-[60vh] overflow-auto custom-scrollbar">
           <table class="w-full min-w-[520px] text-left border-collapse bg-white relative">
             <thead class="bg-gray-50 border-b border-coolBorder text-xs text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-10 shadow-sm">
               <tr>
-                <th ${isService ? '' : 'rowspan="2"'} class="p-2 bg-gray-50 text-center w-8 whitespace-nowrap">#</th>
-                <th ${isService ? '' : 'rowspan="2"'} class="p-2 bg-gray-50 text-left whitespace-nowrap">Branch</th>
-                ${monthGroupHeadHtml}
+                <th class="p-2 bg-gray-50 text-center w-8 whitespace-nowrap">#</th>
+                <th class="p-2 bg-gray-50 text-left whitespace-nowrap">Branch</th>
+                ${headHtml}
               </tr>
-              ${isService ? '' : `<tr>${monthSubHeadHtml}</tr>`}
             </thead>
             <tbody class="text-sm text-slate-700 divide-y divide-coolBorder">
               ${rowsHtml || `<tr><td colspan="${totalCols}" class="p-5 text-center text-slate-400 text-sm">No branches match your search.</td></tr>`}
