@@ -5970,7 +5970,7 @@ html.page-fade-ready body {
           } else if (type === 'accounts') {
               window.accountsModalSort = null;
               window.accountsModalSearch = '';
-              modalBody.innerHTML = '<div id="accountsSearchBar"></div><div id="modalTableContainer"></div>';
+              modalBody.innerHTML = renderAccountsTotalsCapsules() + '<div id="accountsSearchBar"></div><div id="modalTableContainer"></div>';
               renderAccountsModalTable();
           } else {
               // all, collection, sales, service — use combinable filter state (status + audit status)
@@ -9635,6 +9635,33 @@ html.page-fade-ready body {
     // whichever column was clicked last; clicking a new column switches to
     // it, clicking the active column again flips direction, and a third
     // click resets to the default view (latest month, highest first).
+    // Capsule row shown at the top of the Total Active Accounts Breakdown
+    // modal: one pill per month (summed across every branch, unaffected by
+    // the search box below) plus a final "Overall" pill for the latest-month
+    // grand total, so the headline number is visible without scrolling the
+    // table or doing the addition yourself.
+    function renderAccountsTotalsCapsules() {
+      const branches = activeData.branches || [];
+      const trendLbls = (activeData.summary && activeData.summary.trendLabels) || ['MAR', 'APR', 'MAY'];
+      const sumMar = branches.reduce((s, b) => s + (b.accountsMar || 0), 0);
+      const sumApr = branches.reduce((s, b) => s + (b.accountsApr || 0), 0);
+      const sumMay = branches.reduce((s, b) => s + (b.accountsMay || 0), 0);
+
+      const pill = (label, value, emphasis) => `
+        <div class="flex items-center gap-2 px-3.5 py-2 rounded-full border ${emphasis ? 'bg-accentBlue text-white border-accentBlue shadow-sm shadow-accentBlue/25' : 'bg-white text-slate-700 border-coolBorder'}">
+          <span class="text-[10px] font-bold uppercase tracking-wider ${emphasis ? 'text-white/80' : 'text-slate-400'}">${label}</span>
+          <span class="text-sm font-extrabold">${value.toLocaleString()}</span>
+        </div>`;
+
+      return `
+      <div class="flex items-center gap-2 flex-wrap mb-3">
+        ${pill(trendLbls[0], sumMar, false)}
+        ${pill(trendLbls[1], sumApr, false)}
+        ${pill(trendLbls[2], sumMay, false)}
+        ${pill('Overall', sumMay, true)}
+      </div>`;
+    }
+
     function renderAccountsModalTable() {
       let list = [...activeData.branches];
       const totalCount = list.length;
