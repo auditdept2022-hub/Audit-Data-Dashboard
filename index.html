@@ -9887,6 +9887,9 @@ html.page-fade-ready body {
     // it). Cards sit in a wrapping flex row rather than a fixed grid, so
     // they only take up exactly as much width/height as their content
     // needs, leaving more room in the popup for the actual data.
+    // value can be null/undefined to render a plain label-only pill (no
+    // bold number up front) — used by static/informational badges that
+    // don't have a per-branch count or figure attached to them.
     function summaryPill(value, label, opts = {}) {
       const { tint, active, onClick, neutral } = opts;
       const base = neutral
@@ -9900,10 +9903,11 @@ html.page-fade-ready body {
       const activeRing = active ? `ring-2 ring-offset-1 ring-${tint || 'slate-400'}` : '';
       const tag = clickable ? 'button' : 'div';
       const clickAttr = clickable ? `type="button" ${onClick}` : '';
+      const hasValue = value !== null && value !== undefined && value !== '';
       return `
         <${tag} ${clickAttr}
             class="capsule-pill gap-1.5 sm:gap-2 px-2.5 py-1 sm:px-3.5 sm:py-1.5 transition-all ${clickable ? `active:scale-95 cursor-pointer hover:brightness-95` : ''} ${base} ${activeRing}">
-            <span class="text-sm sm:text-base font-extrabold leading-none whitespace-nowrap ${textColor}">${value}</span>
+            ${hasValue ? `<span class="text-sm sm:text-base font-extrabold leading-none whitespace-nowrap ${textColor}">${value}</span>` : ''}
             <span class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider leading-none whitespace-nowrap ${labelColor}">${label}</span>
         </${tag}>`;
     }
@@ -9941,15 +9945,13 @@ html.page-fade-ready body {
 
     function buildSalesSummaryBar(list) {
       const totalBranches = list.length;
-      const avgVals = list.map(computeAvgSales);
-      const meanAvg = avgVals.length ? Math.round(avgVals.reduce((s, v) => s + v, 0) / avgVals.length) : 0;
       const activeStatus = (window.modalFilterState && window.modalFilterState.statusValue) || 'ALL';
 
       return `
       <div class="flex flex-wrap items-center gap-1.5 mb-2">
         ${summaryPill(totalBranches, 'Total Branches', { neutral: true, active: activeStatus === 'ALL', onClick: `onclick="setModalStatusFilter('ALL')"` })}
         ${buildStatusPills('sales', list, activeStatus)}
-        ${summaryPill(meanAvg, '3-Mo Avg Sales (INS−CA)', { tint: 'accentIndigo' })}
+        ${summaryPill(null, '3-Mo Avg Sales (INS−CA)', { tint: 'accentIndigo' })}
       </div>
       ${activeStatus === 'ALL' ? buildTopPerformersList([...list].filter(b => b.sales !== 'Declining').sort((a, b) => computeAvgSales(b) - computeAvgSales(a)).slice(0, 5), (b) => computeAvgSales(b), 'accentIndigo') : ''}`;
     }
@@ -12687,10 +12689,20 @@ html.page-fade-ready body {
         return (av - bv) * sortDir;
       });
 
-      const fmt = function (v) {
+      // `fmt` is label/column-aware now: any Collection sub-column whose
+      // label mentions "Repo" (e.g. "Repo Rate") always renders as a
+      // percentage with exactly 2 decimals — "0.00%" style, matching the
+      // repoPct()/toFixed(2)+'%' convention used everywhere else on this
+      // dashboard (Branch Scorecard, exports, etc.) instead of the plain
+      // unlabeled number it fell back to before. Service's single value
+      // per month is a peso amount, so it always gets a "\u20b1" prefix.
+      const fmt = function (v, kind) {
         if (v === null || v === undefined || v === '') return '<span class="text-slate-300">\u2014</span>';
         const n = Number(v);
-        return isNaN(n) ? String(v) : OVERALL_DATA_NUM_FMT.format(n);
+        if (isNaN(n)) return String(v);
+        if (kind === 'repo') return n.toFixed(2) + '%';
+        if (kind === 'peso') return '\u20b1' + OVERALL_DATA_NUM_FMT.format(n);
+        return OVERALL_DATA_NUM_FMT.format(n);
       };
 
       const sortArrow = function (colKey) {
@@ -12723,7 +12735,8 @@ html.page-fade-ready body {
           if (state.tab === 'collection') {
             const rec = (b.collection && b.collection[m]) || {};
             return subCols.map(function (label, ci) {
-              return `<td class="p-2 text-center whitespace-nowrap${ci === 0 ? borderCls : ''}">${fmt(rec[label])}</td>`;
+              const kind = /repo/i.test(label) ? 'repo' : null;
+              return `<td class="p-2 text-center whitespace-nowrap${ci === 0 ? borderCls : ''}">${fmt(rec[label], kind)}</td>`;
             }).join('');
           } else if (state.tab === 'sales') {
             const rec = (b.sales && b.sales[m]) || {};
@@ -12732,7 +12745,7 @@ html.page-fade-ready body {
             }).join('');
           } else {
             const val = b.service ? b.service[m] : null;
-            return `<td class="p-2 text-center whitespace-nowrap${borderCls}">${fmt(val)}</td>`;
+            return `<td class="p-2 text-center whitespace-nowrap${borderCls}">${fmt(val, 'peso')}</td>`;
           }
         }).join('');
         return `<tr class="border-b border-coolBorder hover:bg-gray-50/70">
