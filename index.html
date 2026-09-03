@@ -4379,8 +4379,8 @@ html.page-fade-ready body {
 
   <div id="dataModal" class="fixed inset-0 z-50 transition-opacity duration-300 opacity-0 hidden">
     <div class="absolute inset-0 bg-slate-900/65"></div>
-    <div class="absolute inset-0 flex items-start sm:items-center justify-center overflow-y-auto p-3 sm:p-4 py-6">
-      <div class="bg-coolCard w-[85vw] min-h-[60vh] max-h-[85vh] max-h-[85dvh] my-auto rounded-2xl shadow-2xl flex flex-col transform transition-transform duration-300 border border-coolBorder scale-95" id="modalDialog" onclick="event.stopPropagation()">
+    <div class="absolute inset-0 flex items-start sm:items-center justify-center overflow-y-auto p-3 sm:p-4">
+      <div class="bg-coolCard w-[85vw] min-h-[60vh] max-h-[80vh] max-h-[80dvh] my-auto rounded-2xl shadow-2xl flex flex-col transform transition-transform duration-300 border border-coolBorder scale-95" id="modalDialog" onclick="event.stopPropagation()">
         <div class="modal-header-bar px-3 sm:px-4 py-2 sm:py-2.5 flex flex-wrap justify-between items-center gap-x-3 gap-y-1.5 rounded-t-2xl">
           <div class="flex items-center gap-2 min-w-0 w-full sm:w-auto sm:flex-1">
             <button id="modalBackBtn" onclick="modalGoBack()" title="Back" aria-label="Back to previous view" class="hidden p-2 -ml-1 modal-header-icon-btn active:scale-95 rounded-xl transition-all cursor-pointer flex-shrink-0">
@@ -5920,10 +5920,15 @@ html.page-fade-ready body {
           }
 
           const pendingAuditor = getNextEmergencyRotationAuditor();
-          const rotationChipsHtml = EMERGENCY_ROTATION_CYCLE.map(name => {
+          const rotationStepsHtml = EMERGENCY_ROTATION_CYCLE.map(name => {
               const isPending = name === pendingAuditor;
-              return `<span class="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide ${isPending ? 'bg-accentAmber text-white shadow-sm' : 'bg-white/70 text-accentRose/70 border border-accentRose/15'}">${isPending ? '\u2192 ' : ''}${name}</span>`;
-          }).join('<span class="text-accentRose/30 text-[10px]">\u2022</span>');
+              return isPending
+                  ? `<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold tracking-wide bg-accentAmber text-white shadow-sm shadow-accentAmber/25">
+                       <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+                       ${name}
+                     </span>`
+                  : `<span class="px-3 py-1.5 rounded-full text-[11px] font-semibold tracking-wide bg-slate-50 text-slate-500 border border-slate-200">${name}</span>`;
+          }).join(`<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-300 shrink-0"><path d="m9 18 6-6-6-6"></path></svg>`);
 
           modalBody.innerHTML = `
           <div class="p-5 bg-accentRose/10 border border-accentRose/20 text-accentRose rounded-xl mb-4">
@@ -5937,14 +5942,14 @@ html.page-fade-ready body {
                 Set
               </button>
             </div>
-            <div class="mt-4 pt-3.5 border-t border-accentRose/15 flex items-center justify-between gap-3 flex-wrap">
-              <div class="flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-accentAmber shrink-0"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>
-                <span class="text-[11px] font-bold uppercase tracking-wider text-accentRose/70">Pending rotation:</span>
-                <span class="text-xs font-extrabold text-accentAmber">${pendingAuditor}</span>
-              </div>
-              <div class="flex items-center gap-1.5 flex-wrap">${rotationChipsHtml}</div>
+          </div>
+          <div class="p-4 bg-white border border-coolBorder rounded-xl mb-4 shadow-sm">
+            <div class="flex items-center gap-2 mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-accentAmber shrink-0"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>
+              <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Standby Rotation</span>
+              <span class="ml-auto text-[11px] font-extrabold text-accentAmber">Next: ${pendingAuditor}</span>
             </div>
+            <div class="flex items-center gap-1.5 flex-wrap">${rotationStepsHtml}</div>
           </div>
           <div class="p-5 bg-white border border-coolBorder rounded-xl shadow-sm">
             <h3 class="font-bold text-sm text-slate-700 mb-3 uppercase tracking-wider">Emergency Auditor History</h3>
@@ -5990,6 +5995,7 @@ html.page-fade-ready body {
       // while the modal is open also scrolled the underlying dashboard,
       // which felt broken since the two would drift out of sync.
       document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
       // Always start at the top of the new view — without this, opening a
       // fresh item (or navigating Back) could silently keep the previous
       // item's scroll offset, making the popup feel like it "doesn't
@@ -7410,6 +7416,7 @@ html.page-fade-ready body {
       }, 300);
       // Give the dashboard its scroll back now that the popup is gone.
       document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
       // Fully closing the popup means the next open should be treated as
       // fresh, not a continuation of whatever screen history built up.
       modalHistory = [];
@@ -11726,6 +11733,17 @@ html.page-fade-ready body {
                         });
                     }
                 }
+
+                // Rows were just pushed in sheet order (top-to-bottom =
+                // oldest-to-newest, since new entries get appended at the
+                // bottom). Reverse so index 0 is the MOST RECENT entry —
+                // that's what getNextEmergencyRotationAuditor() reads to
+                // figure out who's pending next, what the History list
+                // displays first, and what the optimistic unshift() after
+                // a Save assumes is already true. Without this, a fresh
+                // page load silently computed "next in rotation" from the
+                // oldest logged name instead of the newest one.
+                activeData.emergencyHistory.reverse();
             }
 
             updateCalculations();
