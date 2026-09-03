@@ -12295,7 +12295,7 @@ html.page-fade-ready body {
        appears next time this modal is opened (or Refresh is tapped). */
     window.overallDataPayload = null;
     window.overallDataPayloadFetchedAt = 0;
-    window.overallDataState = { tab: 'collection', month: null, search: '' };
+    window.overallDataState = { tab: 'collection', search: '' };
     const OVERALL_DATA_CLIENT_CACHE_MS = 20000;
 
     async function fetchOverallDataPayload(forceRefresh) {
@@ -12344,10 +12344,6 @@ html.page-fade-ready body {
         </div>`;
 
       fetchOverallDataPayload(false).then(function (data) {
-        const months = data.months || [];
-        if (!window.overallDataState.month || months.indexOf(window.overallDataState.month) === -1) {
-          window.overallDataState.month = months.length ? months[months.length - 1] : null;
-        }
         renderOverallDataBody(modalBody);
       }).catch(function (err) {
         modalBody.innerHTML = `
@@ -12381,12 +12377,6 @@ html.page-fade-ready body {
       if (modalBody) renderOverallDataBody(modalBody);
     }
 
-    function setOverallDataMonth(month) {
-      window.overallDataState.month = month;
-      const modalBody = document.getElementById('modalBody');
-      if (modalBody) renderOverallDataBody(modalBody);
-    }
-
     function setOverallDataSearch(value) {
       window.overallDataState.search = value || '';
       const container = document.getElementById('overallDataTableContainer');
@@ -12403,23 +12393,12 @@ html.page-fade-ready body {
       const data = window.overallDataPayload;
       const state = window.overallDataState;
       const months = (data && data.months) || [];
-      if (!state.month || months.indexOf(state.month) === -1) {
-        state.month = months.length ? months[months.length - 1] : null;
-      }
 
       const tabsHtml = OVERALL_DATA_TAB_DEFS.map(function (t) {
         const active = state.tab === t.key;
         const cls = active ? t.activeClass : 'bg-gray-50 text-slate-500 border border-coolBorder hover:bg-gray-100';
         return `<button type="button" onclick="setOverallDataTab('${t.key}')" class="px-3.5 py-1.5 rounded-lg text-xs font-bold tracking-wide transition-all ${cls}">${t.label}</button>`;
       }).join('');
-
-      const monthPillsHtml = months.length
-        ? months.map(function (m) {
-            const active = state.month === m;
-            const cls = active ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 border border-coolBorder hover:border-slate-300';
-            return `<button type="button" onclick="setOverallDataMonth('${m}')" class="px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide transition-all ${cls}">${m}</button>`;
-          }).join('')
-        : `<span class="text-xs text-slate-400 italic">No months found on OVERALL DATA yet.</span>`;
 
       modalBody.innerHTML = `
         <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
@@ -12429,7 +12408,6 @@ html.page-fade-ready body {
             Refresh
           </button>
         </div>
-        <div class="flex items-center gap-1.5 flex-wrap mb-3 pb-3 border-b border-coolBorder">${monthPillsHtml}</div>
         <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
           <div class="relative flex-1 min-w-[180px]">
             <span class="absolute inset-y-0 left-0 flex items-center pl-2.5">
@@ -12437,7 +12415,7 @@ html.page-fade-ready body {
             </span>
             <input type="text" placeholder="Search branch..." value="${escapeFindingHTML(state.search || '')}" oninput="setOverallDataSearch(this.value)" class="w-full pl-8 pr-3 py-1.5 bg-white border border-coolBorder rounded-lg text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all">
           </div>
-          <span class="text-[11px] font-semibold text-slate-400 whitespace-nowrap sm:ml-auto">${(data && data.totalBranches) || 0} branches tracked \u00b7 ${months.length} month(s) available</span>
+          <span class="text-[11px] font-semibold text-slate-400 whitespace-nowrap sm:ml-auto">${(data && data.totalBranches) || 0} branches tracked \u00b7 ${months.length} month(s) shown</span>
         </div>
         <div id="overallDataTableContainer">${buildOverallDataTable()}</div>
       `;
@@ -12449,7 +12427,8 @@ html.page-fade-ready body {
       if (!data || !data.branches || !data.branches.length) {
         return `<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No branch data found on OVERALL DATA yet.</div>`;
       }
-      if (!state.month) {
+      const months = data.months || [];
+      if (!months.length) {
         return `<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No months found on OVERALL DATA yet.</div>`;
       }
 
@@ -12458,9 +12437,15 @@ html.page-fade-ready body {
       if (query) branches = branches.filter(function (b) { return String(b.name || '').toLowerCase().includes(query); });
       branches = branches.slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
 
+      // Collection/Sales each break a month down into several metric
+      // sub-columns; Service is a single value per month. Every month gets
+      // shown side by side now (no month picker) so the whole MAY/JUN/JUL
+      // (etc.) run is visible at once per tab.
       let subCols = [];
       if (state.tab === 'collection') subCols = data.collectionMetrics || [];
       else if (state.tab === 'sales') subCols = data.salesSubLabels || [];
+      const isService = state.tab === 'service';
+      const colsPerMonth = isService ? 1 : (subCols.length || 1);
 
       const fmt = function (v) {
         if (v === null || v === undefined || v === '') return '<span class="text-slate-300">\u2014</span>';
@@ -12468,22 +12453,33 @@ html.page-fade-ready body {
         return isNaN(n) ? String(v) : n.toLocaleString();
       };
 
-      const headHtml = state.tab === 'service'
-        ? `<th class="p-2 bg-gray-50 text-center whitespace-nowrap">${state.month}</th>`
-        : subCols.map(function (label) { return `<th class="p-2 bg-gray-50 text-center whitespace-nowrap">${label}</th>`; }).join('');
+      const monthGroupHeadHtml = months.map(function (m) {
+        return `<th colspan="${colsPerMonth}" class="p-2 bg-gray-50 text-center whitespace-nowrap border-l border-coolBorder">${m}</th>`;
+      }).join('');
+
+      const monthSubHeadHtml = isService ? '' : months.map(function (m) {
+        return subCols.map(function (label) {
+          return `<th class="p-2 bg-gray-50 text-center whitespace-nowrap border-l border-coolBorder">${label}</th>`;
+        }).join('');
+      }).join('');
 
       const rowsHtml = branches.map(function (b, idx) {
-        let cells;
-        if (state.tab === 'collection') {
-          const rec = (b.collection && b.collection[state.month]) || {};
-          cells = subCols.map(function (label) { return `<td class="p-2 text-center whitespace-nowrap">${fmt(rec[label])}</td>`; }).join('');
-        } else if (state.tab === 'sales') {
-          const rec = (b.sales && b.sales[state.month]) || {};
-          cells = subCols.map(function (label) { return `<td class="p-2 text-center whitespace-nowrap">${fmt(rec[label])}</td>`; }).join('');
-        } else {
-          const val = b.service ? b.service[state.month] : null;
-          cells = `<td class="p-2 text-center whitespace-nowrap">${fmt(val)}</td>`;
-        }
+        const cells = months.map(function (m) {
+          if (state.tab === 'collection') {
+            const rec = (b.collection && b.collection[m]) || {};
+            return subCols.map(function (label, ci) {
+              return `<td class="p-2 text-center whitespace-nowrap${ci === 0 ? ' border-l border-coolBorder' : ''}">${fmt(rec[label])}</td>`;
+            }).join('');
+          } else if (state.tab === 'sales') {
+            const rec = (b.sales && b.sales[m]) || {};
+            return subCols.map(function (label, ci) {
+              return `<td class="p-2 text-center whitespace-nowrap${ci === 0 ? ' border-l border-coolBorder' : ''}">${fmt(rec[label])}</td>`;
+            }).join('');
+          } else {
+            const val = b.service ? b.service[m] : null;
+            return `<td class="p-2 text-center whitespace-nowrap border-l border-coolBorder">${fmt(val)}</td>`;
+          }
+        }).join('');
         return `<tr class="border-b border-coolBorder hover:bg-gray-50/70">
           <td class="p-2 text-center w-8 text-slate-400 text-xs">${idx + 1}</td>
           <td class="p-2 font-semibold text-slate-700 whitespace-nowrap">${b.name}</td>
@@ -12491,18 +12487,21 @@ html.page-fade-ready body {
         </tr>`;
       }).join('');
 
+      const totalCols = 2 + months.length * colsPerMonth;
+
       return `
         <div class="rounded-xl border border-coolBorder h-[500px] max-h-[60vh] overflow-auto custom-scrollbar">
           <table class="w-full min-w-[520px] text-left border-collapse bg-white relative">
             <thead class="bg-gray-50 border-b border-coolBorder text-xs text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-10 shadow-sm">
               <tr>
-                <th class="p-2 bg-gray-50 text-center w-8 whitespace-nowrap">#</th>
-                <th class="p-2 bg-gray-50 text-left whitespace-nowrap">Branch</th>
-                ${headHtml}
+                <th ${isService ? '' : 'rowspan="2"'} class="p-2 bg-gray-50 text-center w-8 whitespace-nowrap">#</th>
+                <th ${isService ? '' : 'rowspan="2"'} class="p-2 bg-gray-50 text-left whitespace-nowrap">Branch</th>
+                ${monthGroupHeadHtml}
               </tr>
+              ${isService ? '' : `<tr>${monthSubHeadHtml}</tr>`}
             </thead>
             <tbody class="text-sm text-slate-700 divide-y divide-coolBorder">
-              ${rowsHtml || '<tr><td colspan="10" class="p-5 text-center text-slate-400 text-sm">No branches match your search.</td></tr>'}
+              ${rowsHtml || `<tr><td colspan="${totalCols}" class="p-5 text-center text-slate-400 text-sm">No branches match your search.</td></tr>`}
             </tbody>
           </table>
         </div>`;
