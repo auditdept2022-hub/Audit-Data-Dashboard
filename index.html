@@ -9657,8 +9657,7 @@ html.page-fade-ready body {
       <div class="flex items-center gap-2 flex-wrap mb-3">
         ${pill(trendLbls[0], sumMar, false)}
         ${pill(trendLbls[1], sumApr, false)}
-        ${pill(trendLbls[2], sumMay, false)}
-        ${pill('Overall', sumMay, true)}
+        ${pill(trendLbls[2], sumMay, true)}
       </div>`;
     }
 
@@ -10286,10 +10285,10 @@ html.page-fade-ready body {
       const rows = FINDINGS_YEAR_TABS.map(y => {
           const isActive = y.key === activeFilterValue;
           const activeClass = isActive
-              ? 'bg-accentCyan text-white border-accentCyan shadow-sm'
+              ? 'bg-accentCyan text-white border-accentCyan shadow-sm shadow-accentCyan/25'
               : 'bg-white text-slate-600 border-coolBorder hover:border-accentCyan/50 hover:bg-accentCyan/5';
           const total = Number(sum[y.key]) || 0;
-          return `<button onclick="switchFindingsYear('${y.key}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all active:scale-95 ${activeClass}">${y.label} <span class="ml-1 font-extrabold">${total.toLocaleString()}</span></button>`;
+          return `<button onclick="switchFindingsYear('${y.key}')" class="px-3.5 py-1.5 text-xs font-bold rounded-full border transition-all active:scale-95 ${activeClass}">${y.label} <span class="ml-1 font-extrabold">${total.toLocaleString()}</span></button>`;
       }).join('');
       return `<div id="findingsYearTabs" class="flex flex-wrap items-center gap-2 mb-2"><span class="text-xs font-semibold text-slate-500 mr-1">Findings Year:</span>${rows}</div>`;
     }
