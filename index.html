@@ -6474,11 +6474,16 @@ html.page-fade-ready body {
     const EMERGENCY_ROTATION_CYCLE = ["GENESIS", "EDISON", "KARL", "LAURENCE"];
 
     function getNextEmergencyRotationAuditor() {
-      const lastAuditorRaw = (activeData.emergencyHistory && activeData.emergencyHistory.length > 0)
-          ? activeData.emergencyHistory[0].auditor
-          : (activeData.summary.emergencyAuditor || '');
-      const lastAuditor = String(lastAuditorRaw || '').trim().toUpperCase();
-      const idx = EMERGENCY_ROTATION_CYCLE.indexOf(lastAuditor);
+      // Always derive "next" from A8 — the actual current standing
+      // auditor cell — not from the history log. The history log is a
+      // separate append-only audit trail (AUDITORS EMERGENCY!D8:F...) and
+      // can legitimately fall behind A8 (e.g. someone edits A8 by hand
+      // without logging a history row), so treating it as the source of
+      // truth here could compute "next" from a stale name. A8 is what
+      // Save actually moves forward every time, so it's the only thing
+      // this should ever advance from.
+      const currentAuditor = String(activeData.summary.emergencyAuditor || '').trim().toUpperCase();
+      const idx = EMERGENCY_ROTATION_CYCLE.indexOf(currentAuditor);
       // Unknown / blank / not in the cycle (e.g. someone outside the
       // rotation was set by hand) -> restart the cycle from the top.
       if (idx === -1) return EMERGENCY_ROTATION_CYCLE[0];
@@ -6683,7 +6688,7 @@ html.page-fade-ready body {
       }
       if (errEl) errEl.classList.add('hidden');
 
-      pendingEditEmergency = { fields: { auditor: auditor, branch: branch, date: date } };
+      pendingEditEmergency = { fields: { auditor: auditor, branch: branch, date: date, override: isOverriding } };
       openEditEmergencyPasswordGate();
     }
 
@@ -6823,7 +6828,8 @@ html.page-fade-ready body {
           idToken: idToken,
           auditor: fields.auditor || '',
           branch: fields.branch || '',
-          date: fields.date || ''
+          date: fields.date || '',
+          override: fields.override ? 'true' : 'false'
       });
       const url = defaultAppsScriptUrl + '?' + params.toString();
 
