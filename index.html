@@ -5931,25 +5931,27 @@ html.page-fade-ready body {
           }).join(`<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-300 shrink-0"><path d="m9 18 6-6-6-6"></path></svg>`);
 
           modalBody.innerHTML = `
-          <div class="p-5 bg-accentRose/10 border border-accentRose/20 text-accentRose rounded-xl mb-4">
-            <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0">
-                <h3 class="font-bold text-lg mb-2">Emergency Auditor Standby</h3>
-                <p class="text-sm">The current emergency auditor is <strong class="text-accentEmerald">${activeData.summary.emergencyAuditor || 'PENDING'}</strong>.</p>
+          <div class="bg-white border border-coolBorder rounded-xl mb-4 shadow-sm overflow-hidden">
+            <div class="p-5 bg-accentRose/10 text-accentRose">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <h3 class="font-bold text-lg mb-2">Emergency Auditor Standby</h3>
+                  <p class="text-sm">The current emergency auditor is <strong class="text-accentEmerald">${activeData.summary.emergencyAuditor || 'PENDING'}</strong>.</p>
+                </div>
+                <button onclick="openEditEmergencyModal()" title="Set emergency auditor" aria-label="Set emergency auditor" class="shrink-0 flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-white bg-accentRose rounded-lg hover:bg-accentRose/90 active:scale-95 transition-all cursor-pointer">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+                  Set
+                </button>
               </div>
-              <button onclick="openEditEmergencyModal()" title="Set emergency auditor" aria-label="Set emergency auditor" class="shrink-0 flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-white bg-accentRose rounded-lg hover:bg-accentRose/90 active:scale-95 transition-all cursor-pointer">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
-                Set
-              </button>
             </div>
-          </div>
-          <div class="p-4 bg-white border border-coolBorder rounded-xl mb-4 shadow-sm">
-            <div class="flex items-center gap-2 mb-3">
-              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-accentAmber shrink-0"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>
-              <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Standby Rotation</span>
-              <span class="ml-auto text-[11px] font-extrabold text-accentAmber">Next: ${pendingAuditor}</span>
+            <div class="p-4 border-t border-coolBorder">
+              <div class="flex items-center gap-2 mb-3">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-accentAmber shrink-0"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Standby Rotation</span>
+                <span class="ml-auto text-[11px] font-extrabold text-accentAmber">Next: ${pendingAuditor}</span>
+              </div>
+              <div class="flex items-center gap-1.5 flex-wrap">${rotationStepsHtml}</div>
             </div>
-            <div class="flex items-center gap-1.5 flex-wrap">${rotationStepsHtml}</div>
           </div>
           <div class="p-5 bg-white border border-coolBorder rounded-xl shadow-sm">
             <h3 class="font-bold text-sm text-slate-700 mb-3 uppercase tracking-wider">Emergency Auditor History</h3>
