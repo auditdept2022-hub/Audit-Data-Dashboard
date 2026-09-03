@@ -120,6 +120,27 @@
     .custom-scrollbar::-webkit-scrollbar {
       width: 10px !important;
     }
+    /* Companion to .custom-scrollbar for elements that also scroll
+       horizontally (e.g. the Overall Data Snapshot table): the rule above
+       only ever set `width`, which only affects the vertical scrollbar —
+       `height` is what controls a horizontal one, so without this the
+       bottom scrollbar stayed at the thin 6px browser default and was
+       easy to miss, especially in the smaller windowed (non-fullscreen)
+       modal. */
+    .custom-scrollbar-x::-webkit-scrollbar {
+      height: 10px !important;
+    }
+    .custom-scrollbar-x::-webkit-scrollbar-track {
+      background: rgba(79,70,229,0.07) !important;
+      border-radius: 99px;
+    }
+    .custom-scrollbar-x::-webkit-scrollbar-thumb {
+      background: linear-gradient(90deg, #4f46e5 0%, #3355e0 55%, #0ea5c7 100%) !important;
+      border-radius: 99px;
+      border: 2px solid transparent;
+      background-clip: padding-box;
+      min-width: 48px;
+    }
     .custom-scrollbar::-webkit-scrollbar-track {
       background: rgba(79,70,229,0.07) !important;
       border-radius: 99px;
@@ -12660,8 +12681,8 @@ html.page-fade-ready body {
           }
         }).join('');
         return `<tr class="border-b border-coolBorder hover:bg-gray-50/70">
-          <td class="p-2 text-center w-8 text-slate-400 text-xs">${idx + 1}</td>
-          <td class="p-2 font-semibold text-slate-700 whitespace-nowrap">${b.name}</td>
+          <td class="p-2 text-center w-10 text-slate-400 text-xs sticky left-0 z-[5] bg-white">${idx + 1}</td>
+          <td class="p-2 font-semibold text-slate-700 whitespace-nowrap sticky left-10 z-[5] bg-white border-r border-coolBorder shadow-[3px_0_6px_-3px_rgba(0,0,0,0.08)]">${b.name}</td>
           ${cells}
         </tr>`;
       }).join('');
@@ -12683,12 +12704,12 @@ html.page-fade-ready body {
       // changes — see nudgeScrollRepaint(), called after every update.
       return `
         <div class="mb-1.5 text-[11px] font-semibold text-slate-400">Showing ${branches.length} of ${totalBranchCount} branches</div>
-        <div id="overallDataScrollBox" class="rounded-xl border border-coolBorder h-[500px] max-h-[60vh] overflow-auto custom-scrollbar">
+        <div id="overallDataScrollBox" class="rounded-xl border border-coolBorder h-[500px] max-h-[60vh] overflow-auto custom-scrollbar custom-scrollbar-x">
           <table class="w-full min-w-[520px] text-left border-collapse bg-white relative">
-            <thead class="bg-gray-50 border-b border-coolBorder text-xs text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-10 shadow-sm">
+            <thead class="bg-gray-50 border-b border-coolBorder text-xs text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-20 shadow-sm">
               <tr>
-                <th class="p-2 bg-gray-50 text-center w-8 whitespace-nowrap">#</th>
-                <th class="p-2 bg-gray-50 text-left whitespace-nowrap cursor-pointer select-none hover:text-accentIndigo transition-colors" onclick="setOverallDataSort('name')" title="Sort by Branch">Branch ${sortArrow('name')}</th>
+                <th class="p-2 bg-gray-50 text-center w-10 whitespace-nowrap sticky left-0 z-30">#</th>
+                <th class="p-2 bg-gray-50 text-left whitespace-nowrap cursor-pointer select-none hover:text-accentIndigo transition-colors sticky left-10 z-30 border-r border-coolBorder shadow-[3px_0_6px_-3px_rgba(0,0,0,0.12)]" onclick="setOverallDataSort('name')" title="Sort by Branch">Branch ${sortArrow('name')}</th>
                 ${headHtml}
               </tr>
             </thead>
@@ -12698,7 +12719,6 @@ html.page-fade-ready body {
           </table>
         </div>`;
     }
-    /* ================= END OVERALL DATA SNAPSHOT ================= */
     /* ================= END OVERALL DATA SNAPSHOT ================= */
 
     // Guards against a second "Update data" click firing while one is
