@@ -4753,7 +4753,7 @@ html.page-fade-ready body {
       <details class="side-menu-group-details" open>
         <summary class="side-menu-group-summary">
           <span class="side-menu-group-title">Quick actions</span>
-          <span class="side-menu-group-count">5</span>
+          <span class="side-menu-group-count">6</span>
           <svg class="side-menu-group-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
         </summary>
 
@@ -4790,6 +4790,14 @@ html.page-fade-ready body {
         <div role="button" tabindex="0" onclick="updateOverallDataFromMenu()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();updateOverallDataFromMenu();}" class="menu-tile cursor-pointer select-none">
           <span class="menu-tile-icon" style="background:rgba(5,150,105,0.10);"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentEmerald shrink-0"><path d="M21 15V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9"></path><path d="M3 15h18"></path><path d="M3 11h18"></path><path d="M9 4v11"></path><path d="M15 4v11"></path><path d="m16 19 2 2 4-4"></path></svg></span>
           <span class="menu-tile-label">Update Sheet</span>
+        </div>
+
+        <!-- "Data Updater" -- placeholder tile, not wired up to a backend
+             action yet. openDataUpdater() below just shows a toast for
+             now; swap its body for the real handler when this is ready. -->
+        <div role="button" tabindex="0" onclick="openDataUpdater()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDataUpdater();}" class="menu-tile cursor-pointer select-none">
+          <span class="menu-tile-icon" style="background:rgba(37,99,235,0.10);"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue shrink-0"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 16h5v5"></path></svg></span>
+          <span class="menu-tile-label">Data Updater</span>
         </div>
 
       </div>
@@ -7428,6 +7436,15 @@ html.page-fade-ready body {
       } finally {
         clearTimeout(stillWorkingTimer);
       }
+    }
+
+    // Fired from the shortcuts menu's "Data Updater" item. Placeholder --
+    // no backend action wired up yet. Replace this body with the real
+    // handler (modal / confirm / Apps Script call, following the same
+    // pattern as updateOverallDataFromMenu above) once that's ready.
+    function openDataUpdater() {
+      if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
+      showToast('Data Updater is coming soon.', 'info');
     }
 
     // Fired from the shortcuts menu's "Emergency Auditor" item.
