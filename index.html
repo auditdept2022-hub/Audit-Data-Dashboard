@@ -12698,18 +12698,27 @@ html.page-fade-ready body {
         return (av - bv) * sortDir;
       });
 
-      // `fmt` is label/column-aware now: any Collection sub-column whose
-      // label mentions "Repo" (e.g. "Repo Rate") always renders as a
-      // percentage with exactly 2 decimals — "0.00%" style, matching the
-      // repoPct()/toFixed(2)+'%' convention used everywhere else on this
-      // dashboard (Branch Scorecard, exports, etc.) instead of the plain
-      // unlabeled number it fell back to before. Service's single value
-      // per month is a peso amount, so it always gets a "\u20b1" prefix.
+      // `fmt` is label/column-aware now: the Collection "Repo Rate"
+      // sub-column always renders as a percentage with exactly 2
+      // decimals — "0.00%" style. The OVERALL DATA sheet stores this
+      // as a raw fraction (e.g. 0.0038 for a cell showing "0.38%" in
+      // Sheets' own percentage formatting), same as AUDIT DATA (FINAL)'s
+      // repo rate columns — so this normalizes it the same way
+      // parseRepoPct() does elsewhere on this dashboard: anything under 1
+      // is treated as a fraction and scaled ×100 into percentage points
+      // before formatting; anything ≥1 is assumed already-scaled and left
+      // alone. Without this, small rates (well under 1 as a fraction)
+      // were rounding straight down to "0.00%" instead of showing their
+      // real value. Service's single value per month is a peso amount,
+      // so it always gets a "\u20b1" prefix.
       const fmt = function (v, kind) {
         if (v === null || v === undefined || v === '') return '<span class="text-slate-300">\u2014</span>';
         const n = Number(v);
         if (isNaN(n)) return String(v);
-        if (kind === 'repo') return n.toFixed(2) + '%';
+        if (kind === 'repo') {
+          const pct = Math.abs(n) < 1 ? n * 100 : n;
+          return pct.toFixed(2) + '%';
+        }
         if (kind === 'peso') return '\u20b1' + OVERALL_DATA_NUM_FMT.format(n);
         return OVERALL_DATA_NUM_FMT.format(n);
       };
