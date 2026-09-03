@@ -4716,7 +4716,7 @@ html.page-fade-ready body {
       <details class="side-menu-group-details" open>
         <summary class="side-menu-group-summary">
           <span class="side-menu-group-title">Quick actions</span>
-          <span class="side-menu-group-count">6</span>
+          <span class="side-menu-group-count">5</span>
           <svg class="side-menu-group-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
         </summary>
 
@@ -4735,11 +4735,6 @@ html.page-fade-ready body {
         <div role="button" tabindex="0" onclick="openExportPicker('consolidated')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openExportPicker('consolidated');}" class="menu-tile cursor-pointer select-none">
           <span class="menu-tile-icon" style="background:rgba(5,150,105,0.10);"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentEmerald shrink-0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg></span>
           <span class="menu-tile-label">Download Report</span>
-        </div>
-
-        <div role="button" tabindex="0" onclick="openEmergencyAuditorFromMenu()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openEmergencyAuditorFromMenu();}" class="menu-tile cursor-pointer select-none">
-          <span class="menu-tile-icon" style="background:rgba(225,29,72,0.10);"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentRose shrink-0"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg></span>
-          <span class="menu-tile-label">Emergency Auditor</span>
         </div>
 
         <div role="button" tabindex="0" onclick="openEditEmergencyModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openEditEmergencyModal();}" class="menu-tile cursor-pointer select-none">
@@ -6470,7 +6465,7 @@ html.page-fade-ready body {
     // (or after the current standing auditor if there's no history yet).
     // This is computed purely client-side from data already loaded — it
     // does not read or write anything extra on the Sheet.
-    const EMERGENCY_ROTATION_CYCLE = ["EDISON", "KARL", "LAURENCE"];
+    const EMERGENCY_ROTATION_CYCLE = ["GENESIS", "EDISON", "KARL", "LAURENCE"];
 
     function getNextEmergencyRotationAuditor() {
       const lastAuditorRaw = (activeData.emergencyHistory && activeData.emergencyHistory.length > 0)
@@ -6551,21 +6546,40 @@ html.page-fade-ready body {
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-accentRose"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                     Emergency Auditor
                   </label>
-                  <button type="button" onclick="document.getElementById('editEmer-auditor').value='${pendingAuditor}'; document.getElementById('editEmer-auditorOther').value='';"
-                          title="Fill in whoever's next in the standby rotation"
-                          class="flex items-center gap-1 text-[10px] font-bold text-accentAmber hover:text-accentAmber/80 cursor-pointer">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>
-                    Pending: ${pendingAuditor}
+                  <button type="button" id="editEmer-overrideToggle" onclick="toggleEditEmerOverride()"
+                          title="Pick someone other than the next auditor in the rotation"
+                          class="text-[10px] font-bold text-slate-400 hover:text-accentRose cursor-pointer underline decoration-dotted underline-offset-2">
+                    Override
                   </button>
                 </div>
-                <div class="relative">
-                  <select id="editEmer-auditor" class="w-full pl-3 pr-8 py-2.5 bg-gray-50 border border-coolBorder rounded-lg text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-accentRose/40 focus:border-accentRose/50 transition-shadow">
-                    ${auditorOptions}
-                  </select>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400"><path d="m6 9 6 6 6-6"></path></svg>
+
+                <!-- Default view: auto-picked, locked to whoever's next in -->
+                <!-- EMERGENCY_ROTATION_CYCLE. Nothing to choose here — the -->
+                <!-- pending name is baked into data-pending and that's what -->
+                <!-- submitEditEmergency() reads unless Override is active. -->
+                <div id="editEmer-autoDisplay" data-pending="${escapeHTML(pendingAuditor || '')}"
+                     class="flex items-center gap-2.5 bg-accentAmber/10 border border-accentAmber/25 rounded-lg px-3 py-2.5">
+                  <div class="w-7 h-7 rounded-full bg-accentAmber text-white flex items-center justify-center font-extrabold text-[11px] shrink-0">${escapeHTML(pendingAuditor ? pendingAuditor.charAt(0) : '?')}</div>
+                  <div class="min-w-0">
+                    <p class="text-sm font-bold text-slate-800 leading-tight">${escapeHTML(pendingAuditor || '\u2014')}</p>
+                    <p class="text-[10px] text-slate-500 mt-0.5">Auto-picked &mdash; next in the standby rotation</p>
+                  </div>
                 </div>
-                <input id="editEmer-auditorOther" type="text" placeholder="Or type a name not on the list"
-                       class="w-full mt-2 px-3 py-2 bg-gray-50 border border-dashed border-coolBorder rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-accentRose/40 focus:border-accentRose/50 focus:border-solid transition-shadow">
+
+                <!-- Override view: hidden until "Override" is clicked. Lets -->
+                <!-- you assign someone outside the fixed rotation for a -->
+                <!-- one-off case; clicking "Use auto-pick" reverts to the -->
+                <!-- locked pending name above and clears anything typed here. -->
+                <div id="editEmer-manualPicker" class="hidden mt-1">
+                  <div class="relative">
+                    <select id="editEmer-auditor" class="w-full pl-3 pr-8 py-2.5 bg-gray-50 border border-coolBorder rounded-lg text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-accentRose/40 focus:border-accentRose/50 transition-shadow">
+                      ${auditorOptions}
+                    </select>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400"><path d="m6 9 6 6 6-6"></path></svg>
+                  </div>
+                  <input id="editEmer-auditorOther" type="text" placeholder="Or type a name not on the list"
+                         class="w-full mt-2 px-3 py-2 bg-gray-50 border border-dashed border-coolBorder rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-accentRose/40 focus:border-accentRose/50 focus:border-solid transition-shadow">
+                </div>
               </div>
 
               <div>
@@ -6609,6 +6623,33 @@ html.page-fade-ready body {
       `;
     }
 
+    // Flips the Emergency Auditor field between the locked "auto-picked,
+    // next in rotation" display and a manual select/free-text picker for
+    // the rare case someone outside the fixed rotation needs to cover.
+    // Switching back to auto-pick clears anything typed/selected in the
+    // manual picker so a stale override can't accidentally get submitted.
+    function toggleEditEmerOverride() {
+      const autoDisplay = document.getElementById('editEmer-autoDisplay');
+      const manualPicker = document.getElementById('editEmer-manualPicker');
+      const toggleBtn = document.getElementById('editEmer-overrideToggle');
+      if (!autoDisplay || !manualPicker || !toggleBtn) return;
+
+      const turningOverrideOn = manualPicker.classList.contains('hidden');
+      autoDisplay.classList.toggle('hidden', turningOverrideOn);
+      manualPicker.classList.toggle('hidden', !turningOverrideOn);
+      toggleBtn.textContent = turningOverrideOn ? 'Use auto-pick' : 'Override';
+
+      if (turningOverrideOn) {
+        const sel = document.getElementById('editEmer-auditor');
+        if (sel) sel.focus();
+      } else {
+        const otherInput = document.getElementById('editEmer-auditorOther');
+        if (otherInput) otherInput.value = '';
+        const sel = document.getElementById('editEmer-auditor');
+        if (sel) sel.value = autoDisplay.dataset.pending || '';
+      }
+    }
+
     // Step 1: collect the form fields (typed-in name/branch wins over the
     // dropdown pick when both are filled) and open the password gate.
     // Nothing is written to the Sheet until the password is confirmed.
@@ -6616,7 +6657,16 @@ html.page-fade-ready body {
 
     function submitEditEmergency() {
       const val = id => (document.getElementById(id) || {}).value || '';
-      const auditor = (val('editEmer-auditorOther').trim() || val('editEmer-auditor').trim());
+      const manualPicker = document.getElementById('editEmer-manualPicker');
+      const isOverriding = !!(manualPicker && !manualPicker.classList.contains('hidden'));
+      // Default (not overriding): always use the locked auto-picked name,
+      // not whatever the hidden select happens to hold — this is what
+      // makes Save a true "just set branch + date" action without having
+      // to touch the auditor field at all.
+      const autoDisplay = document.getElementById('editEmer-autoDisplay');
+      const auditor = isOverriding
+          ? (val('editEmer-auditorOther').trim() || val('editEmer-auditor').trim())
+          : ((autoDisplay && autoDisplay.dataset.pending) || '').trim();
       const branch = (val('editEmer-branchOther').trim() || val('editEmer-branch').trim());
       const date = val('editEmer-date');
 
