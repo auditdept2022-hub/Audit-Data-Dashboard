@@ -8816,7 +8816,16 @@ html.page-fade-ready body {
           list = list.filter(b => (b.auditStatus || '').toUpperCase() === state.auditStatus);
       }
       if ((state.type === 'collection' || state.type === 'sales' || state.type === 'service') && state.statusValue !== 'ALL') {
-          list = list.filter(b => b[state.type] === state.statusValue);
+          // 'OnTarget' is a synthetic filter value used by the Sales/Collection
+          // "On Target" summary pill (buildSalesSummaryBar / buildCollectionSummaryBar) —
+          // those two statuses don't have a literal 'Target' value like Service does,
+          // so "on target" there means "not Declining". Service's own 'Target' status
+          // still matches directly in the else branch, unchanged.
+          if (state.statusValue === 'OnTarget') {
+              list = list.filter(b => b[state.type] !== 'Declining');
+          } else {
+              list = list.filter(b => b[state.type] === state.statusValue);
+          }
       }
       // Free-text branch-name search — same box/behavior as the main
       // "All Branches — Branch Scorecard" table's #tableSearch and the
@@ -8847,7 +8856,8 @@ html.page-fade-ready body {
       if (state.type === 'all') {
           titleText = (state.auditStatus === 'ALL') ? 'All Branches Overview' : `${state.auditStatus} Branches Overview`;
       } else {
-          titleText = (state.statusValue === 'ALL') ? `All ${label} Overview` : `${state.statusValue} ${label} Overview`;
+          const statusLabel = state.statusValue === 'OnTarget' ? 'On Target' : state.statusValue;
+          titleText = (state.statusValue === 'ALL') ? `All ${label} Overview` : `${statusLabel} ${label} Overview`;
           if (state.auditStatus !== 'ALL') titleText += ` — ${state.auditStatus}`;
       }
       modalTitle.innerHTML = titleText;
@@ -9846,20 +9856,17 @@ html.page-fade-ready body {
 
     function buildSalesSummaryBar(list) {
       const totalBranches = list.length;
-      const improving = list.filter(b => b.sales === 'Improving').length;
-      const declining = list.filter(b => b.sales === 'Declining').length;
-      const stable = list.filter(b => b.sales === 'Stable').length;
+      const totalAccounts = list.reduce((s, b) => s + (Number(b.accountsMay) || 0), 0);
+      const onTarget = list.filter(b => b.sales !== 'Declining').length;
       const avgVals = list.map(computeAvgSales);
       const meanAvg = avgVals.length ? Math.round(avgVals.reduce((s, v) => s + v, 0) / avgVals.length) : 0;
       const activeStatus = (window.modalFilterState && window.modalFilterState.statusValue) || 'ALL';
-      const ring = (v) => activeStatus === v ? 'ring-2 ring-offset-1' : '';
 
       return `
       <div class="flex flex-wrap items-center gap-1.5 mb-2">
         ${summaryPill(totalBranches, 'Total Branches', { neutral: true, active: activeStatus === 'ALL', onClick: `onclick="setModalStatusFilter('ALL')"` })}
-        ${summaryPill(improving, 'Improving', { tint: 'accentEmerald', active: activeStatus === 'Improving', onClick: `onclick="setModalStatusFilter('Improving')"` })}
-        ${summaryPill(declining, 'Declining', { tint: 'accentRose', active: activeStatus === 'Declining', onClick: `onclick="setModalStatusFilter('Declining')"` })}
-        ${summaryPill(stable, 'Stable', { neutral: true, active: activeStatus === 'Stable', onClick: `onclick="setModalStatusFilter('Stable')"` })}
+        ${summaryPill(totalAccounts.toLocaleString(), 'Total Accounts', { neutral: true })}
+        ${summaryPill(onTarget, 'On Target', { tint: 'accentEmerald', active: activeStatus === 'OnTarget', onClick: `onclick="setModalStatusFilter('OnTarget')"` })}
         ${summaryPill(meanAvg, '3-Mo Avg Sales (INS−CA)', { tint: 'accentIndigo' })}
       </div>
       ${activeStatus === 'ALL' ? buildTopPerformersList([...list].filter(b => b.sales !== 'Declining').sort((a, b) => computeAvgSales(b) - computeAvgSales(a)).slice(0, 5), (b) => computeAvgSales(b), 'accentIndigo') : ''}`;
@@ -9867,22 +9874,17 @@ html.page-fade-ready body {
 
     function buildCollectionSummaryBar(list) {
       const totalBranches = list.length;
-      const improving = list.filter(b => b.collection === 'Improving').length;
-      const declining = list.filter(b => b.collection === 'Declining').length;
-      const stable = list.filter(b => b.collection === 'Stable').length;
-      const recovering = list.filter(b => b.collection === 'Recovering').length;
+      const totalAccounts = list.reduce((s, b) => s + (Number(b.accountsMay) || 0), 0);
+      const onTarget = list.filter(b => b.collection !== 'Declining').length;
       const effVals = list.map(b => b.effLatest);
       const meanEff = effVals.length ? Math.round(effVals.reduce((s, v) => s + v, 0) / effVals.length) : 0;
       const activeStatus = (window.modalFilterState && window.modalFilterState.statusValue) || 'ALL';
-      const ring = (v) => activeStatus === v ? 'ring-2 ring-offset-1' : '';
 
       return `
       <div class="flex flex-wrap items-center gap-1.5 mb-2">
         ${summaryPill(totalBranches, 'Total Branches', { neutral: true, active: activeStatus === 'ALL', onClick: `onclick="setModalStatusFilter('ALL')"` })}
-        ${summaryPill(improving, 'Improving', { tint: 'accentEmerald', active: activeStatus === 'Improving', onClick: `onclick="setModalStatusFilter('Improving')"` })}
-        ${summaryPill(declining, 'Declining', { tint: 'accentRose', active: activeStatus === 'Declining', onClick: `onclick="setModalStatusFilter('Declining')"` })}
-        ${summaryPill(stable, 'Stable', { neutral: true, active: activeStatus === 'Stable', onClick: `onclick="setModalStatusFilter('Stable')"` })}
-        ${summaryPill(recovering, 'Recovering', { tint: 'accentAmber', active: activeStatus === 'Recovering', onClick: `onclick="setModalStatusFilter('Recovering')"` })}
+        ${summaryPill(totalAccounts.toLocaleString(), 'Total Accounts', { neutral: true })}
+        ${summaryPill(onTarget, 'On Target', { tint: 'accentEmerald', active: activeStatus === 'OnTarget', onClick: `onclick="setModalStatusFilter('OnTarget')"` })}
         ${summaryPill(meanEff + '%', 'Avg Eff Latest', { tint: 'accentIndigo' })}
       </div>
       ${activeStatus === 'ALL' ? buildTopPerformersList([...list].filter(b => b.collection !== 'Declining').sort((a, b) => b.effLatest - a.effLatest).slice(0, 5), (b) => `${b.effLatest}%`, 'accentIndigo') : ''}`;
@@ -9890,19 +9892,18 @@ html.page-fade-ready body {
 
     function buildServiceSummaryBar(list) {
       const totalBranches = list.length;
+      const totalAccounts = list.reduce((s, b) => s + (Number(b.accountsMay) || 0), 0);
       const onTarget = list.filter(b => b.service === 'Target').length;
-      const declining = list.filter(b => b.service === 'Declining').length;
       const mayVals = list.map(b => Number(b.serviceMay) || 0);
       const totalMay = mayVals.reduce((s, v) => s + v, 0);
       const activeStatus = (window.modalFilterState && window.modalFilterState.statusValue) || 'ALL';
-      const ring = (v) => activeStatus === v ? 'ring-2 ring-offset-1' : '';
 
       return `
       <div class="flex flex-wrap items-center gap-1.5 mb-2">
         ${summaryPill(totalBranches, 'Total Branches', { neutral: true, active: activeStatus === 'ALL', onClick: `onclick="setModalStatusFilter('ALL')"` })}
+        ${summaryPill(totalAccounts.toLocaleString(), 'Total Accounts', { neutral: true })}
         ${summaryPill(onTarget, 'On Target', { tint: 'accentEmerald', active: activeStatus === 'Target', onClick: `onclick="setModalStatusFilter('Target')"` })}
-        ${summaryPill(declining, 'Declining', { tint: 'accentRose', active: activeStatus === 'Declining', onClick: `onclick="setModalStatusFilter('Declining')"` })}
-        ${summaryPill('₱' + totalMay.toLocaleString(), 'Total (Latest Mo.)', { tint: 'accentCyan' })}
+        ${summaryPill('₱' + totalMay.toLocaleString(), 'Total ₱ (Latest Mo.)', { tint: 'accentCyan' })}
       </div>
       ${activeStatus === 'ALL' ? buildTopPerformersList([...list].filter(b => b.service !== 'Declining').sort((a, b) => Number(b.serviceMay) - Number(a.serviceMay)).slice(0, 5), (b) => `₱${Number(b.serviceMay).toLocaleString()}`, 'accentCyan') : ''}`;
     }
