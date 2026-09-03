@@ -12346,7 +12346,7 @@ html.page-fade-ready body {
 
       fetchOverallDataPayload(false).then(function (data) {
         renderOverallDataBody(modalBody);
-        nudgeScrollRepaint(modalBody);
+        nudgeScrollRepaint(document.getElementById('overallDataScrollBox') || modalBody);
       }).catch(function (err) {
         modalBody.innerHTML = `
           <div class="flex flex-col items-center justify-center gap-3 p-12 text-center">
@@ -12367,7 +12367,7 @@ html.page-fade-ready body {
       if (!modalBody) return;
       fetchOverallDataPayload(true).then(function () {
         renderOverallDataBody(modalBody);
-        nudgeScrollRepaint(modalBody);
+        nudgeScrollRepaint(document.getElementById('overallDataScrollBox') || modalBody);
         if (typeof showToast === 'function') showToast('Overall Data refreshed.');
       }).catch(function (err) {
         if (typeof showToast === 'function') showToast(err.message || 'Refresh failed.');
@@ -12398,7 +12398,7 @@ html.page-fade-ready body {
       const modalBody = document.getElementById('modalBody');
       if (modalBody) {
         renderOverallDataBody(modalBody);
-        nudgeScrollRepaint(modalBody);
+        nudgeScrollRepaint(document.getElementById('overallDataScrollBox') || modalBody);
       }
     }
 
@@ -12415,7 +12415,7 @@ html.page-fade-ready body {
       state.statusFilter = label || null; // '' / falsy (the "All" option) clears it
       const container = document.getElementById('overallDataTableContainer');
       if (container) container.innerHTML = buildOverallDataTable();
-      nudgeScrollRepaint(document.getElementById('modalBody'));
+      nudgeScrollRepaint(document.getElementById('overallDataScrollBox'));
     }
 
     // Sortable column headers. colKey is 'name' for the Branch column, or
@@ -12432,7 +12432,7 @@ html.page-fade-ready body {
       }
       const container = document.getElementById('overallDataTableContainer');
       if (container) container.innerHTML = buildOverallDataTable();
-      nudgeScrollRepaint(document.getElementById('modalBody'));
+      nudgeScrollRepaint(document.getElementById('overallDataScrollBox'));
     }
 
     function setOverallDataSearch(value) {
@@ -12444,7 +12444,7 @@ html.page-fade-ready body {
       window.overallDataSearchDebounce = setTimeout(function () {
         const container = document.getElementById('overallDataTableContainer');
         if (container) container.innerHTML = buildOverallDataTable();
-        nudgeScrollRepaint(document.getElementById('modalBody'));
+        nudgeScrollRepaint(document.getElementById('overallDataScrollBox'));
       }, 180);
     }
 
@@ -12668,21 +12668,22 @@ html.page-fade-ready body {
 
       const totalCols = 2 + months.length * (isService ? 1 : (subCols.length || 1));
 
-      // NOTE: this used to be wrapped in its own fixed-height
-      // (h-[500px] max-h-[60vh]) scroll box, nested inside #modalBody
-      // which already scrolls. Two independent, similarly-sized scroll
-      // regions stacked on top of each other meant a chunk of branches
-      // sitting past the inner box's own scroll position looked like
-      // they were simply missing (especially on touch devices, where a
-      // swipe on the table would scroll the inner box a little and then
-      // "run out" well before the actual end of the list). Letting the
-      // table flow inside the single #modalBody scroll region guarantees
-      // every row is reachable by one continuous scroll. Only the
-      // horizontal axis (for wide month \u00d7 metric tables) gets its own
-      // scrollbar here.
+      // This deliberately keeps its own bounded, self-contained scroll box
+      // (h-[500px] / max-h-[60vh]) rather than flowing inside #modalBody's
+      // own scroll: #modalDialog's fullscreen toggle specifically resizes
+      // any [class*="h-[500px]"]/[class*="max-h-"] box to fill the real
+      // available height (see the #modalDialog.modal-fullscreen rules
+      // near the top of the stylesheet), and #modalBody's own flex
+      // containment isn't reliable enough on its own to keep the header/
+      // tabs/toolbar pinned once this table's full row count is flowed
+      // into it directly — without the bounded box, the whole backdrop
+      // ends up scrolling instead, and the toolbar scrolls away with it.
+      // What WAS a real bug is that a `-webkit-overflow-scrolling: touch`
+      // box like this one doesn't always repaint the instant its content
+      // changes — see nudgeScrollRepaint(), called after every update.
       return `
         <div class="mb-1.5 text-[11px] font-semibold text-slate-400">Showing ${branches.length} of ${totalBranchCount} branches</div>
-        <div class="rounded-xl border border-coolBorder overflow-x-auto custom-scrollbar">
+        <div id="overallDataScrollBox" class="rounded-xl border border-coolBorder h-[500px] max-h-[60vh] overflow-auto custom-scrollbar">
           <table class="w-full min-w-[520px] text-left border-collapse bg-white relative">
             <thead class="bg-gray-50 border-b border-coolBorder text-xs text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-10 shadow-sm">
               <tr>
