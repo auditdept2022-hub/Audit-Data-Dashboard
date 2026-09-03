@@ -12295,7 +12295,7 @@ html.page-fade-ready body {
        appears next time this modal is opened (or Refresh is tapped). */
     window.overallDataPayload = null;
     window.overallDataPayloadFetchedAt = 0;
-    window.overallDataState = { tab: 'collection', search: '' };
+    window.overallDataState = { tab: 'collection', search: '', statusFilter: null };
     const OVERALL_DATA_CLIENT_CACHE_MS = 20000;
 
     async function fetchOverallDataPayload(forceRefresh) {
@@ -12373,6 +12373,14 @@ html.page-fade-ready body {
 
     function setOverallDataTab(tab) {
       window.overallDataState.tab = tab;
+      window.overallDataState.statusFilter = null; // categories differ per tab, so a filter doesn't carry over
+      const modalBody = document.getElementById('modalBody');
+      if (modalBody) renderOverallDataBody(modalBody);
+    }
+
+    function setOverallDataStatusFilter(label) {
+      const state = window.overallDataState;
+      state.statusFilter = (state.statusFilter === label) ? null : label; // clicking the active one clears it
       const modalBody = document.getElementById('modalBody');
       if (modalBody) renderOverallDataBody(modalBody);
     }
@@ -12395,14 +12403,15 @@ html.page-fade-ready body {
       { key: 'service',    label: 'Service',    activeClass: 'bg-accentCyan text-white shadow-sm' }
     ];
 
-    // Small capsule-pill strip under the active tab, mirroring the same
-    // Improving/Declining/Stable/Recovering breakdown shown on the main
-    // dashboard's Collection/Sales/Service Status cards — reuses
-    // activeData.summary (already computed for those cards) rather than
-    // recalculating anything from the OVERALL DATA payload.
+    // Small capsule-pill strip under the active tab. Each status pill is
+    // now a clickable filter (click to show only branches in that status
+    // below; click again, or the Total pill, to clear it) — just the
+    // count and a color dot, no spelled-out status word, with the name
+    // only as a hover tooltip so the row stays compact.
     function buildOverallDataStatusCapsule(tab) {
       const sum = (typeof activeData !== 'undefined' && activeData.summary) ? activeData.summary : {};
       const total = (typeof activeData !== 'undefined' && activeData.branches) ? activeData.branches.length : 0;
+      const activeFilter = window.overallDataState.statusFilter;
 
       let segments = [];
       if (tab === 'collection') {
@@ -12425,22 +12434,32 @@ html.page-fade-ready body {
         ];
       }
 
-      const pill = function (value, label, tint) {
+      const dotColor = { accentEmerald: '#10b981', accentRose: '#f43f5e', accentAmber: '#d97706', accentIndigo: '#4f46e5', accentCyan: '#0891b2', slate: '#64748b', accentBlue: '#2563eb' };
+
+      const statusPill = function (label, value, tint) {
         const isSlate = tint === 'slate';
+        const active = activeFilter === label;
         const shell = isSlate ? 'bg-slate-50 border border-coolBorder' : `bg-${tint}/10 border border-${tint}/20`;
         const valueColor = isSlate ? 'text-slate-600' : `text-${tint}`;
-        const labelColor = isSlate ? 'text-slate-400' : `text-${tint}/80`;
+        const ring = active ? `ring-2 ring-offset-1 ring-${isSlate ? 'slate-400' : tint}` : '';
         return `
-          <span class="capsule-pill gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 ${shell}">
+          <button type="button" onclick="setOverallDataStatusFilter('${label}')" title="${label}" class="capsule-pill gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 transition-all active:scale-95 cursor-pointer ${shell} ${ring}">
+            <span class="w-2 h-2 rounded-full shrink-0" style="background:${dotColor[tint] || '#64748b'}"></span>
             <span class="text-xs sm:text-sm font-extrabold leading-none ${valueColor}">${value}</span>
-            <span class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider leading-none ${labelColor}">${label}</span>
-          </span>`;
+          </button>`;
       };
+
+      const totalPill = `
+        <button type="button" onclick="setOverallDataStatusFilter(null)" title="Clear filter" class="capsule-pill gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 transition-all active:scale-95 cursor-pointer bg-accentBlue/10 border border-accentBlue/20 ${!activeFilter ? 'ring-2 ring-offset-1 ring-accentBlue' : ''}">
+          <span class="text-xs sm:text-sm font-extrabold leading-none text-accentBlue">${total}</span>
+          <span class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider leading-none text-accentBlue/80">Total</span>
+        </button>`;
 
       return `
         <div class="flex flex-wrap items-center gap-1.5 mb-3">
-          ${pill(total, 'Total Branches', 'accentBlue')}
-          ${segments.map(function (s) { return pill(s.value, s.label, s.tint); }).join('')}
+          ${totalPill}
+          ${segments.map(function (s) { return statusPill(s.label, s.value, s.tint); }).join('')}
+          ${activeFilter ? `<span class="text-[10px] font-bold text-slate-400">Showing: ${activeFilter} \u2014 click again to clear</span>` : ''}
         </div>`;
     }
 
@@ -12497,6 +12516,19 @@ html.page-fade-ready body {
       const query = (state.search || '').trim().toLowerCase();
       let branches = data.branches;
       if (query) branches = branches.filter(function (b) { return String(b.name || '').toLowerCase().includes(query); });
+
+      // Status filter (from the capsule row) — the status itself lives on
+      // activeData.branches (the main dataset), keyed by the same field
+      // name as the tab ('collection'/'sales'/'service'), so match branch
+      // names against that to know which ones qualify.
+      if (state.statusFilter) {
+        const mainBranches = (typeof activeData !== 'undefined' && activeData.branches) ? activeData.branches : [];
+        const matchNames = new Set(
+          mainBranches.filter(function (b) { return b[state.tab] === state.statusFilter; }).map(function (b) { return b.name; })
+        );
+        branches = branches.filter(function (b) { return matchNames.has(b.name); });
+      }
+
       branches = branches.slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
 
       // Collection/Sales each break a month down into several metric
