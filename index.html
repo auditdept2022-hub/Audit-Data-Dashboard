@@ -10423,7 +10423,10 @@ html.page-fade-ready body {
     function renderFindingsToolbar() {
       const searchVal = escapeFindingHTML(window.findingsModalSearch || '');
       const statusVal = window.findingsModalStatusFilter || 'ALL';
-      const statusOpt = (value, label) => `<option value="${value}" ${value === statusVal ? 'selected' : ''}>${label}</option>`;
+      const statusCapsule = (value, label) => {
+        const active = value === statusVal;
+        return `<button type="button" onclick="setFindingsStatusFilter('${value}')" class="px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border transition-all active:scale-95 ${active ? 'bg-accentCyan text-white border-accentCyan shadow-sm shadow-accentCyan/25' : 'bg-white text-slate-600 border-coolBorder hover:border-accentCyan/50'}">${label}</button>`;
+      };
       return `
       <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
         <div class="relative flex-1 min-w-[180px]">
@@ -10432,12 +10435,12 @@ html.page-fade-ready body {
           </span>
           <input type="text" id="findingsSearchInput" placeholder="Search branch..." value="${searchVal}" oninput="setFindingsSearch(this.value)" class="w-full pl-8 pr-3 py-1.5 bg-white border border-coolBorder rounded-lg text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all">
         </div>
-        <select id="findingsAuditStatusFilter" onchange="setFindingsStatusFilter(this.value)" class="px-2.5 py-1.5 bg-white border border-coolBorder rounded-lg text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
-          ${statusOpt('ALL', 'All Audit Status')}
-          ${statusOpt('PENDING', 'Pending')}
-          ${statusOpt('FOR AUDIT', 'For Audit')}
-          ${statusOpt('DONE', 'Done')}
-        </select>
+        <div class="flex items-center gap-1.5 flex-wrap">
+          ${statusCapsule('ALL', 'All')}
+          ${statusCapsule('PENDING', 'Pending')}
+          ${statusCapsule('FOR AUDIT', 'For Audit')}
+          ${statusCapsule('DONE', 'Done')}
+        </div>
         <button type="button" onclick="resetFindingsFilters()" class="px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-lg text-xs font-semibold text-slate-600 transition-all active:scale-95 whitespace-nowrap">
           Reset
         </button>
