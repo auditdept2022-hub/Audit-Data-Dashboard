@@ -12296,7 +12296,7 @@ html.page-fade-ready body {
        appears next time this modal is opened (or Refresh is tapped). */
     window.overallDataPayload = null;
     window.overallDataPayloadFetchedAt = 0;
-    window.overallDataState = { tab: 'collection', search: '', statusFilter: null };
+    window.overallDataState = { tab: 'collection', search: '', statusFilter: null, sortCol: null, sortDir: 'asc' };
     const OVERALL_DATA_CLIENT_CACHE_MS = 20000;
 
     async function fetchOverallDataPayload(forceRefresh) {
@@ -12375,15 +12375,33 @@ html.page-fade-ready body {
     function setOverallDataTab(tab) {
       window.overallDataState.tab = tab;
       window.overallDataState.statusFilter = null; // categories differ per tab, so a filter doesn't carry over
+      window.overallDataState.sortCol = null; // columns differ per tab too
+      window.overallDataState.sortDir = 'asc';
       const modalBody = document.getElementById('modalBody');
       if (modalBody) renderOverallDataBody(modalBody);
     }
 
     function setOverallDataStatusFilter(label) {
       const state = window.overallDataState;
-      state.statusFilter = (state.statusFilter === label) ? null : label; // clicking the active one clears it
+      state.statusFilter = label || null; // '' / falsy (the "All" option) clears it
       const modalBody = document.getElementById('modalBody');
       if (modalBody) renderOverallDataBody(modalBody);
+    }
+
+    // Sortable column headers. colKey is 'name' for the Branch column, or
+    // 'month|metricLabel' (Collection/Sales) / 'month' (Service) for a data
+    // column. Clicking the already-active column flips asc/desc; clicking a
+    // new one starts ascending (branch name starts A→Z by default).
+    function setOverallDataSort(colKey) {
+      const state = window.overallDataState;
+      if (state.sortCol === colKey) {
+        state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        state.sortCol = colKey;
+        state.sortDir = 'asc';
+      }
+      const container = document.getElementById('overallDataTableContainer');
+      if (container) container.innerHTML = buildOverallDataTable();
     }
 
     function setOverallDataSearch(value) {
@@ -12404,12 +12422,12 @@ html.page-fade-ready body {
       { key: 'service',    label: 'Service',    activeClass: 'bg-accentCyan text-white shadow-sm' }
     ];
 
-    // Small capsule-pill strip under the active tab. Each status pill is
-    // now a clickable filter (click to show only branches in that status
-    // below; click again, or the Total pill, to clear it) — just the
-    // count and a color dot, no spelled-out status word, with the name
-    // only as a hover tooltip so the row stays compact.
-    function buildOverallDataStatusCapsule(tab) {
+    // Status filter for the active tab — a plain dropdown (replaces the
+    // old capsule/pill row). Each option shows the status label plus its
+    // branch count so the counts that used to live on the pills aren't
+    // lost, just folded into the option text. Selecting "All" clears the
+    // filter the same way clicking the active pill used to.
+    function buildOverallDataStatusFilter(tab) {
       const sum = (typeof activeData !== 'undefined' && activeData.summary) ? activeData.summary : {};
       const total = (typeof activeData !== 'undefined' && activeData.branches) ? activeData.branches.length : 0;
       const activeFilter = window.overallDataState.statusFilter;
@@ -12417,50 +12435,36 @@ html.page-fade-ready body {
       let segments = [];
       if (tab === 'collection') {
         segments = [
-          { label: 'Improving', value: sum.improvingCollection || 0, tint: 'accentEmerald' },
-          { label: 'Declining', value: sum.decliningCollection || 0, tint: 'accentRose' },
-          { label: 'Stable', value: sum.stableCollection || 0, tint: 'slate' },
-          { label: 'Recovering', value: sum.recoveringCollection || 0, tint: 'accentAmber' }
+          { label: 'Improving', value: sum.improvingCollection || 0 },
+          { label: 'Declining', value: sum.decliningCollection || 0 },
+          { label: 'Stable', value: sum.stableCollection || 0 },
+          { label: 'Recovering', value: sum.recoveringCollection || 0 }
         ];
       } else if (tab === 'sales') {
         segments = [
-          { label: 'Improving', value: sum.salesImproving || 0, tint: 'accentIndigo' },
-          { label: 'Declining', value: sum.salesDeclining || 0, tint: 'accentRose' },
-          { label: 'Stable', value: sum.salesStable || 0, tint: 'slate' }
+          { label: 'Improving', value: sum.salesImproving || 0 },
+          { label: 'Declining', value: sum.salesDeclining || 0 },
+          { label: 'Stable', value: sum.salesStable || 0 }
         ];
       } else {
         segments = [
-          { label: 'Target', value: sum.serviceTarget || 0, tint: 'accentCyan' },
-          { label: 'Declining', value: sum.serviceDeclining || 0, tint: 'accentRose' }
+          { label: 'Target', value: sum.serviceTarget || 0 },
+          { label: 'Declining', value: sum.serviceDeclining || 0 }
         ];
       }
 
-      const dotColor = { accentEmerald: '#10b981', accentRose: '#f43f5e', accentAmber: '#d97706', accentIndigo: '#4f46e5', accentCyan: '#0891b2', slate: '#64748b', accentBlue: '#2563eb' };
-
-      const statusPill = function (label, value, tint) {
-        const isSlate = tint === 'slate';
-        const active = activeFilter === label;
-        const shell = isSlate ? 'bg-slate-50 border border-coolBorder' : `bg-${tint}/10 border border-${tint}/20`;
-        const valueColor = isSlate ? 'text-slate-600' : `text-${tint}`;
-        const ring = active ? `ring-2 ring-offset-1 ring-${isSlate ? 'slate-400' : tint}` : '';
-        return `
-          <button type="button" onclick="setOverallDataStatusFilter('${label}')" title="${label}" class="capsule-pill gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 transition-all active:scale-95 cursor-pointer ${shell} ${ring}">
-            <span class="w-2 h-2 rounded-full shrink-0" style="background:${dotColor[tint] || '#64748b'}"></span>
-            <span class="text-xs sm:text-sm font-extrabold leading-none ${valueColor}">${value}</span>
-          </button>`;
-      };
-
-      const totalPill = `
-        <button type="button" onclick="setOverallDataStatusFilter(null)" title="Clear filter" class="capsule-pill gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 transition-all active:scale-95 cursor-pointer bg-accentBlue/10 border border-accentBlue/20 ${!activeFilter ? 'ring-2 ring-offset-1 ring-accentBlue' : ''}">
-          <span class="text-xs sm:text-sm font-extrabold leading-none text-accentBlue">${total}</span>
-          <span class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider leading-none text-accentBlue/80">Total</span>
-        </button>`;
+      const options = [`<option value="" ${!activeFilter ? 'selected' : ''}>All statuses (${total})</option>`]
+        .concat(segments.map(function (s) {
+          return `<option value="${escapeFindingHTML(s.label)}" ${activeFilter === s.label ? 'selected' : ''}>${s.label} (${s.value})</option>`;
+        }))
+        .join('');
 
       return `
-        <div class="flex flex-wrap items-center gap-1.5 mb-3">
-          ${totalPill}
-          ${segments.map(function (s) { return statusPill(s.label, s.value, s.tint); }).join('')}
-          ${activeFilter ? `<span class="text-[10px] font-bold text-slate-400">Showing: ${activeFilter} \u2014 click again to clear</span>` : ''}
+        <div class="flex items-center gap-2 mb-3">
+          <label for="overallDataStatusSelect" class="text-[11px] font-bold text-slate-500 uppercase tracking-wider shrink-0">Status</label>
+          <select id="overallDataStatusSelect" onchange="setOverallDataStatusFilter(this.value)" class="flex-1 sm:flex-none sm:w-auto px-2.5 py-1.5 bg-white border border-coolBorder rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
+            ${options}
+          </select>
         </div>`;
     }
 
@@ -12483,7 +12487,7 @@ html.page-fade-ready body {
             Refresh
           </button>
         </div>
-        ${buildOverallDataStatusCapsule(state.tab)}
+        ${buildOverallDataStatusFilter(state.tab)}
         <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
           <div class="relative flex-1 min-w-[180px]">
             <span class="absolute inset-y-0 left-0 flex items-center pl-2.5">
@@ -12514,11 +12518,12 @@ html.page-fade-ready body {
         return `<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No months found on OVERALL DATA yet.</div>`;
       }
 
+      const totalBranchCount = data.branches.length;
       const query = (state.search || '').trim().toLowerCase();
       let branches = data.branches;
       if (query) branches = branches.filter(function (b) { return String(b.name || '').toLowerCase().includes(query); });
 
-      // Status filter (from the capsule row) — the status itself lives on
+      // Status filter (from the dropdown) — the status itself lives on
       // activeData.branches (the main dataset), keyed by the same field
       // name as the tab ('collection'/'sales'/'service'), so match branch
       // names against that to know which ones qualify.
@@ -12530,8 +12535,6 @@ html.page-fade-ready body {
         branches = branches.filter(function (b) { return matchNames.has(b.name); });
       }
 
-      branches = branches.slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
-
       // Collection/Sales each break a month down into several metric
       // sub-columns; Service is a single value per month. Every month gets
       // shown side by side now (no month picker) so the whole MAY/JUN/JUL
@@ -12541,10 +12544,50 @@ html.page-fade-ready body {
       else if (state.tab === 'sales') subCols = data.salesSubLabels || [];
       const isService = state.tab === 'service';
 
+      // Sorting — click a header to sort by it, click again to flip
+      // direction. state.sortCol is 'name' (or null, same as 'name') for
+      // the Branch column, '<month>' for a Service column, or
+      // '<month>||<metricLabel>' for a Collection/Sales sub-column.
+      const sortDir = state.sortDir === 'desc' ? -1 : 1;
+      const sortCol = state.sortCol;
+      const valueForSort = function (b) {
+        if (!sortCol || sortCol === 'name') return null; // handled separately below
+        if (isService) {
+          const n = Number(b.service ? b.service[sortCol] : null);
+          return isNaN(n) ? null : n;
+        }
+        const parts = sortCol.split('||');
+        const month = parts[0], label = parts[1];
+        const bucket = state.tab === 'collection' ? b.collection : b.sales;
+        const rec = (bucket && bucket[month]) || {};
+        const n = Number(rec[label]);
+        return isNaN(n) ? null : n;
+      };
+
+      branches = branches.slice().sort(function (a, b) {
+        if (!sortCol || sortCol === 'name') {
+          return String(a.name).localeCompare(String(b.name)) * sortDir;
+        }
+        const av = valueForSort(a), bv = valueForSort(b);
+        // Missing values always sort to the bottom, regardless of direction,
+        // so flipping asc/desc reorders real numbers without values jumping
+        // in from nowhere at the top.
+        if (av === null && bv === null) return String(a.name).localeCompare(String(b.name));
+        if (av === null) return 1;
+        if (bv === null) return -1;
+        if (av === bv) return String(a.name).localeCompare(String(b.name));
+        return (av - bv) * sortDir;
+      });
+
       const fmt = function (v) {
         if (v === null || v === undefined || v === '') return '<span class="text-slate-300">\u2014</span>';
         const n = Number(v);
         return isNaN(n) ? String(v) : OVERALL_DATA_NUM_FMT.format(n);
+      };
+
+      const sortArrow = function (colKey) {
+        if (state.sortCol !== colKey && !(colKey === 'name' && !state.sortCol)) return '<span class="inline-block w-2.5 opacity-20">\u2191</span>';
+        return `<span class="inline-block w-2.5 text-accentIndigo">${state.sortDir === 'desc' ? '\u2193' : '\u2191'}</span>`;
       };
 
       // Single-row header (month + metric folded into one label, e.g.
@@ -12552,14 +12595,17 @@ html.page-fade-ready body {
       // A sticky <thead> combined with rowspan cells spanning two rows is
       // what was making the scroll feel laggy (some browsers recompute
       // the sticky offsets on every scroll tick when rowspans are
-      // involved) — a flat single sticky row avoids that entirely.
+      // involved) — a flat single sticky row avoids that entirely. Every
+      // header cell (Branch + each data column) is now a sort trigger.
       const headHtml = months.map(function (m, mi) {
         const borderCls = mi === 0 ? '' : ' border-l border-coolBorder';
         if (isService) {
-          return `<th class="p-2 bg-gray-50 text-center whitespace-nowrap${borderCls}">${m}</th>`;
+          const key = m;
+          return `<th class="p-2 bg-gray-50 text-center whitespace-nowrap cursor-pointer select-none hover:text-accentIndigo transition-colors${borderCls}" onclick="setOverallDataSort('${key}')" title="Sort by ${m}">${m} ${sortArrow(key)}</th>`;
         }
         return subCols.map(function (label, ci) {
-          return `<th class="p-2 bg-gray-50 text-center whitespace-nowrap${ci === 0 ? borderCls : ''}">${m}<br><span class="normal-case font-semibold text-slate-400">${label}</span></th>`;
+          const key = `${m}||${label}`;
+          return `<th class="p-2 bg-gray-50 text-center whitespace-nowrap cursor-pointer select-none hover:text-accentIndigo transition-colors${ci === 0 ? borderCls : ''}" onclick="setOverallDataSort('${key}')" title="Sort by ${m} \u00b7 ${label}">${m}<br><span class="normal-case font-semibold text-slate-400">${label} ${sortArrow(key)}</span></th>`;
         }).join('');
       }).join('');
 
@@ -12590,13 +12636,26 @@ html.page-fade-ready body {
 
       const totalCols = 2 + months.length * (isService ? 1 : (subCols.length || 1));
 
+      // NOTE: this used to be wrapped in its own fixed-height
+      // (h-[500px] max-h-[60vh]) scroll box, nested inside #modalBody
+      // which already scrolls. Two independent, similarly-sized scroll
+      // regions stacked on top of each other meant a chunk of branches
+      // sitting past the inner box's own scroll position looked like
+      // they were simply missing (especially on touch devices, where a
+      // swipe on the table would scroll the inner box a little and then
+      // "run out" well before the actual end of the list). Letting the
+      // table flow inside the single #modalBody scroll region guarantees
+      // every row is reachable by one continuous scroll. Only the
+      // horizontal axis (for wide month \u00d7 metric tables) gets its own
+      // scrollbar here.
       return `
-        <div class="rounded-xl border border-coolBorder h-[500px] max-h-[60vh] overflow-auto custom-scrollbar">
+        <div class="mb-1.5 text-[11px] font-semibold text-slate-400">Showing ${branches.length} of ${totalBranchCount} branches</div>
+        <div class="rounded-xl border border-coolBorder overflow-x-auto custom-scrollbar">
           <table class="w-full min-w-[520px] text-left border-collapse bg-white relative">
             <thead class="bg-gray-50 border-b border-coolBorder text-xs text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-10 shadow-sm">
               <tr>
                 <th class="p-2 bg-gray-50 text-center w-8 whitespace-nowrap">#</th>
-                <th class="p-2 bg-gray-50 text-left whitespace-nowrap">Branch</th>
+                <th class="p-2 bg-gray-50 text-left whitespace-nowrap cursor-pointer select-none hover:text-accentIndigo transition-colors" onclick="setOverallDataSort('name')" title="Sort by Branch">Branch ${sortArrow('name')}</th>
                 ${headHtml}
               </tr>
             </thead>
@@ -12606,6 +12665,7 @@ html.page-fade-ready body {
           </table>
         </div>`;
     }
+    /* ================= END OVERALL DATA SNAPSHOT ================= */
     /* ================= END OVERALL DATA SNAPSHOT ================= */
 
     // Guards against a second "Update data" click firing while one is
