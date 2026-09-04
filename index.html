@@ -11220,9 +11220,24 @@ html.page-fade-ready body {
       err.classList.add('hidden');
       input.value = '';
       if (emailInput) {
-        let lastEmail = '';
-        try { lastEmail = localStorage.getItem(FINDINGS_LAST_EMAIL_KEY) || ''; } catch (e) {}
-        emailInput.value = lastEmail;
+        // Same account as the dashboard: if someone is already signed in to
+        // the dashboard, lock the email to that account instead of asking
+        // for it again — this only re-proves the password, standalone from
+        // (and not dependent on) the dashboard's own token/session plumbing.
+        // Falls back to a free-typed, remembered email if nobody's signed
+        // in to the dashboard right now.
+        const dashboardEmail = (typeof window.getCurrentUserEmail === 'function' && window.getCurrentUserEmail()) || '';
+        if (dashboardEmail) {
+          emailInput.value = dashboardEmail;
+          emailInput.readOnly = true;
+          emailInput.classList.add('bg-slate-50', 'text-slate-500', 'cursor-not-allowed');
+        } else {
+          let lastEmail = '';
+          try { lastEmail = localStorage.getItem(FINDINGS_LAST_EMAIL_KEY) || ''; } catch (e) {}
+          emailInput.value = lastEmail;
+          emailInput.readOnly = false;
+          emailInput.classList.remove('bg-slate-50', 'text-slate-500', 'cursor-not-allowed');
+        }
       }
       if (whatLabel) {
         if (pending && pending.type === 'all') {
