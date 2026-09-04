@@ -11337,14 +11337,46 @@ html.page-fade-ready body {
       _findingsAuthToken = null; // one-shot — next send proves identity again
     };
 
-    // Straight to the standalone sign-in gate — see submitFindingsSendPassword
-    // above for why the authorization check now happens as part of that gate
-    // instead of as a separate pre-check tied to the main dashboard session.
+    // Tries to use the account already signed in to the dashboard, so
+    // sending a finding needs no extra password at all when that session is
+    // live. Returns true (and sets _findingsAuthToken) if that worked;
+    // false if nobody's signed in to the dashboard right now, or that
+    // account isn't on AUDIT_ALLOWED_EMAILS (in which case it also shows why).
+    async function tryDashboardFindingsAuth_() {
+      const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+      if (!idToken) return false;
+      const secret = loadFindingsEditorSecret();
+      const params = new URLSearchParams({ action: 'list', secret: secret, idToken: idToken });
+      let json;
+      try { json = await fetchSheetOnce(FINDINGS_APPS_SCRIPT_URL + '?' + params.toString()); } catch (e) { json = null; }
+      if (!json || !json.success) {
+        if (json && json.error) {
+          showToast('Not authorized to add findings: ' + json.error);
+          console.error('[findings auth] dashboard account rejected:', json.error);
+        }
+        return false;
+      }
+      _findingsAuthToken = {
+        idToken: idToken,
+        email: (typeof window.getCurrentUserEmail === 'function' && window.getCurrentUserEmail()) || '',
+        at: Date.now()
+      };
+      return true;
+    }
+
+    // Uses the dashboard's own signed-in account first (same login, no extra
+    // password prompt) — only falls back to the standalone email+password
+    // sign-in gate if nobody's signed in to the dashboard right now.
     async function sendStagedFindingEntry(id, btnEl) {
       if (!loadFindingsEditorSecret()) { showToast('Enter the Apps Script secret above first.'); return; }
       const store = loadFindingsEditorStore();
       const row = store.staged.find(r => r.id === id);
       if (!row) return;
+      if (await tryDashboardFindingsAuth_()) {
+        await doSendStagedFindingEntry(id, btnEl);
+        _findingsAuthToken = null;
+        return;
+      }
       openFindingsSendPasswordGate({ type: 'row', id: id, btnEl: btnEl });
     }
 
@@ -11352,6 +11384,11 @@ html.page-fade-ready body {
       if (!loadFindingsEditorSecret()) { showToast('Enter the Apps Script secret above first.'); return; }
       const store = loadFindingsEditorStore();
       if (store.staged.length === 0) { showToast('No staged entries to send.'); return; }
+      if (await tryDashboardFindingsAuth_()) {
+        await doSendAllStagedFindingsToSheet();
+        _findingsAuthToken = null;
+        return;
+      }
       openFindingsSendPasswordGate({ type: 'all' });
     }
 
