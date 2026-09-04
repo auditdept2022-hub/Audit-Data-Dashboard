@@ -10914,13 +10914,7 @@ html.page-fade-ready body {
       const secretVal = escapeFindingHTML(loadFindingsEditorSecret());
 
       body.innerHTML = `
-        <div class="p-3 mb-3 bg-accentEmerald/10 border border-accentEmerald/20 rounded-xl text-[11px] text-slate-600 leading-relaxed">
-          Connected to your Apps Script sheet backend. Rows you add here are staged in this browser first — use <strong>Send All to Sheet</strong> (or the send icon on a single row) to actually write them to RAW DATA. Enter the secret below once; it's saved in this browser only.
-          <div class="mt-2">
-            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Apps Script Secret</label>
-            <input id="findingsEditor-secret" type="password" value="${secretVal}" placeholder="Must match SHARED_SECRET in Code.gs" onchange="onFindingsEditorSecretChange(this.value)" class="w-full px-3 py-2 bg-white border border-coolBorder rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-accentCyan">
-          </div>
-        </div>
+        <input id="findingsEditor-secret" type="hidden" value="${secretVal}">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
           <div>
             <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Date</label>
@@ -10962,8 +10956,6 @@ html.page-fade-ready body {
             <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Staged Entries (<span id="findingsEditor-count">0</span>)</h4>
             <div class="flex items-center gap-2 flex-wrap">
               <button id="findingsEditor-sendAllBtn" onclick="sendAllStagedFindingsToSheet()" class="px-2.5 py-1.5 bg-accentEmerald text-white hover:bg-accentEmerald/90 rounded-lg text-[11px] font-bold transition-all active:scale-95">Send All to Sheet</button>
-              <button onclick="copyStagedFindingsCSV()" class="px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-lg text-[11px] font-semibold text-slate-600 transition-all active:scale-95">Copy CSV</button>
-              <button onclick="exportStagedFindingsJSON()" class="px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-lg text-[11px] font-semibold text-slate-600 transition-all active:scale-95">Export JSON</button>
               <button onclick="clearStagedFindingEntries()" class="px-2.5 py-1.5 bg-accentRose/10 hover:bg-accentRose/20 border border-accentRose/20 rounded-lg text-[11px] font-semibold text-accentRose transition-all active:scale-95">Clear All</button>
             </div>
           </div>
