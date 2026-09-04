@@ -589,6 +589,23 @@
     }
     #modalDialog.scale-95 { transform: translateY(6px) scale(.98); opacity: 0; }
     #modalDialog.scale-100 { transform: translateY(0) scale(1); opacity: 1; }
+    /* MOBILE FREEZE-PANE FIX: iOS Safari stops honoring `position: sticky`
+       on any descendant (e.g. the frozen "#"/Branch columns and sticky
+       header in the Overall Data Snapshot table) if ANY ancestor between
+       that element and its scrolling container carries a live transform —
+       even a harmless identity one like the translateY(0) scale(1) above,
+       or a bare `will-change: transform` with no transform applied. This
+       is a real WebKit bug (not spec behavior), and it's exactly why the
+       frozen Branch column disappears on iPhone but looks fine on desktop
+       Chrome. #modalDialog.scale-100 keeps that transform applied for the
+       ENTIRE time the modal is open (not just during the brief open
+       animation), which breaks sticky for as long as someone is scrolling
+       the table. Once the open transition finishes, openModal() adds
+       .modal-settled (see JS), which strips the transform back to `none`
+       so sticky/freeze-pane works correctly on iPhone/iPad for the rest
+       of the time the popup stays open. closeModal() removes
+       .modal-settled first so the closing animation can still transform. */
+    #modalDialog.modal-settled { transform: none !important; will-change: auto !important; }
 
     /* Table rows: flat color-only hover, no shift/transform. */
     .dash-container table tbody tr {
@@ -6071,10 +6088,35 @@ html.page-fade-ready body {
       // has actually painted the "before" state first, so the transition
       // reliably kicks in on the very next frame instead of occasionally
       // racing a slow paint and skipping straight to the end state.
+      // Make sure the settle class from any previous open isn't still
+      // sitting on the element (it's removed in closeModal(), but this is
+      // a harmless belt-and-suspenders in case closeModal() was skipped).
+      modalDialog.classList.remove('modal-settled');
       requestAnimationFrame(() => requestAnimationFrame(() => {
           modal.classList.remove('opacity-0');
           modalDialog.classList.remove('scale-95');
           modalDialog.classList.add('scale-100');
+          // MOBILE FREEZE-PANE FIX (see #modalDialog.modal-settled CSS
+          // above): once the open animation's transform/opacity
+          // transition has actually finished, strip the transform back to
+          // `none` so any sticky/frozen columns inside the modal (e.g.
+          // the Overall Data Snapshot table) work on iOS Safari for the
+          // rest of the time the modal stays open. transitionend is the
+          // real signal; the setTimeout is just a safety net in case the
+          // event never fires (e.g. the property is already at its end
+          // value and no transition actually runs).
+          let settled = false;
+          const settle = () => {
+              if (settled) return;
+              settled = true;
+              modalDialog.classList.add('modal-settled');
+          };
+          modalDialog.addEventListener('transitionend', function onEnd(ev) {
+              if (ev.target !== modalDialog) return;
+              modalDialog.removeEventListener('transitionend', onEnd);
+              settle();
+          });
+          setTimeout(settle, 350);
       }));
     }
 
@@ -7399,6 +7441,13 @@ html.page-fade-ready body {
         if (json && json.error) throw new Error(json.error);
         if (!json || !json.success) throw new Error("Update didn't complete \u2014 please try again.");
 
+        // The backend already wiped its own Overall Data cache the moment
+        // this write succeeded (clearOverallDataCache() in Code.gs) — do
+        // the same to this tab's in-memory copy so the long-lived
+        // OVERALL_DATA_CLIENT_CACHE_MS above can't keep serving numbers
+        // from before this update the next time the card is opened.
+        window.overallDataPayloadFetchedAt = 0;
+
         if (json.alreadyUpToDate) {
           showToast(json.message || 'Overall Data is already up to date.');
         } else {
@@ -7481,6 +7530,10 @@ html.page-fade-ready body {
       const modal = document.getElementById('dataModal');
       const modalDialog = document.getElementById('modalDialog');
       modal.classList.add('opacity-0');
+      // MOBILE FREEZE-PANE FIX: drop the "settled" (transform:none) state
+      // first so the closing scale-95 transform can actually animate —
+      // see .modal-settled / openModal() above for why this exists.
+      modalDialog.classList.remove('modal-settled');
       modalDialog.classList.remove('scale-100');
       modalDialog.classList.add('scale-95');
       // Always leave fullscreen behind when the popup fully closes, so the
@@ -12384,7 +12437,34 @@ html.page-fade-ready body {
     window.overallDataPayload = null;
     window.overallDataPayloadFetchedAt = 0;
     window.overallDataState = { tab: 'collection', search: '', statusFilter: null, sortCol: null, sortDir: 'asc' };
-    const OVERALL_DATA_CLIENT_CACHE_MS = 20000;
+    // SPEED FIX: this used to be 20000 (20s), so almost every single tap
+    // of the "Overall Data Snapshot" card triggered a fresh Apps
+    // Script call (JSONP round trip + possible cold start = several
+    // seconds), which is what "super slow to load" was actually caused
+    // by. OVERALL DATA only ever changes when someone runs "Update
+    // Sheet" (updateOverallDataFromMenu), and that flow explicitly wipes
+    // BOTH this in-memory copy (see its success handler below) and the
+    // Apps Script-side cache (clearOverallDataCache() in Code.gs) the
+    // moment it finishes — so there is no real staleness risk in keeping
+    // this around far longer. Matches the backend's own cache ceiling
+    // (Apps Script's CacheService max TTL is 21600s / 6h) so client and
+    // server agree on "how long is this safely reusable" instead of the
+    // client re-fetching a value the server would have served from cache
+    // anyway.
+    const OVERALL_DATA_CLIENT_CACHE_MS = 21600000; // 6 hours
+
+    // SPEED FIX: warm the in-memory cache in the background shortly after
+    // the main dashboard finishes its first load, so by the time someone
+    // actually taps "Overall Data Snapshot" the data is usually already
+    // sitting in memory and the modal opens instantly instead of showing
+    // a loading spinner. Silent no-op on failure (e.g. not signed in
+    // yet, or offline) — the modal's own loader will just fetch normally
+    // if this didn't get a chance to run.
+    function prefetchOverallDataInBackground() {
+      fetchOverallDataPayload(false).catch(function (err) {
+        console.warn('[overallData] background prefetch skipped:', err && err.message ? err.message : err);
+      });
+    }
 
     async function fetchOverallDataPayload(forceRefresh) {
       const now = Date.now();
@@ -13084,6 +13164,15 @@ html.page-fade-ready body {
               updateLastSyncedLabel();
               triggerDataBoomReveal();
             });
+            // SPEED FIX: quietly warm the Overall Data Snapshot cache in
+            // the background once the main dashboard has real data. Safe
+            // to call on every fetchSheet() (manual or auto-refresh) —
+            // fetchOverallDataPayload() itself no-ops instantly if a
+            // still-fresh copy is already in memory (see
+            // OVERALL_DATA_CLIENT_CACHE_MS), so this only actually hits
+            // the network the first time, or after the cache has
+            // genuinely gone stale.
+            prefetchOverallDataInBackground();
             return;
           } catch (error) {
             lastError = error;
