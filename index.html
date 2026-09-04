@@ -4541,6 +4541,34 @@ html.page-fade-ready body {
     </div>
   </div>
 
+  <!-- Delete confirmation for the Add Audit Finding editor (single row "x" or
+       "Delete All"). Deliberately a SEPARATE modal from #findingsSaveConfirmModal
+       above (rose/red theme + trash icon vs. the emerald/green check used for
+       sends) so a delete never looks or reads like a send confirmation. -->
+  <div id="findingsDeleteConfirmModal" class="fixed inset-0 z-[70] hidden">
+    <div class="absolute inset-0 bg-slate-900/70"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+      <div class="bg-coolCard w-full max-w-xs rounded-2xl shadow-2xl p-5 pointer-events-auto border border-coolBorder">
+        <div class="flex items-start justify-between gap-3 mb-1">
+          <div class="flex items-center gap-2 min-w-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentRose flex-shrink-0"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
+            <h3 class="text-sm font-bold text-slate-800 truncate">Confirm Delete</h3>
+          </div>
+          <button onclick="cancelFindingsDeleteConfirm()" title="Close" aria-label="Close" class="p-2 -mr-2 text-slate-400 hover:text-accentRose hover:bg-accentRose/10 active:scale-95 rounded-xl transition-all cursor-pointer flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+          </button>
+        </div>
+        <p id="findingsDeleteConfirmMessage" class="text-xs text-slate-500 mb-3">Are you sure you want to delete this staged entry? This can't be undone.</p>
+        <div class="flex gap-2 mt-3">
+          <button onclick="cancelFindingsDeleteConfirm()" class="flex-1 text-xs font-semibold text-slate-500 hover:text-slate-700 py-2 rounded-xl border border-coolBorder cursor-pointer">Cancel</button>
+          <button id="findingsDeleteConfirmSubmitBtn" onclick="confirmFindingsDeleteConfirm()" class="flex-1 text-xs font-semibold text-white bg-accentRose hover:bg-accentRose/90 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-60">
+            <span id="findingsDeleteConfirmSubmitLabel">Yes, Delete</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="exportPickerModal" class="fixed inset-0 z-[60] hidden">
     <div class="absolute inset-0 bg-slate-900/65"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
@@ -10683,6 +10711,7 @@ html.page-fade-ready body {
           ${statusCapsule('PENDING', 'Pending')}
           ${statusCapsule('FOR AUDIT', 'For Audit')}
           ${statusCapsule('DONE', 'Done')}
+          ${statusCapsule('RECENT', 'Recently Added')}
         </div>
         <button type="button" onclick="resetFindingsFilters()" class="px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-lg text-xs font-semibold text-slate-600 transition-all active:scale-95 whitespace-nowrap">
           Reset
@@ -10704,6 +10733,15 @@ html.page-fade-ready body {
 
       const query = (window.findingsModalSearch || '').trim().toLowerCase();
       const statusFilter = window.findingsModalStatusFilter || 'ALL';
+
+      // "Recently Added" isn't a branch audit-status — it swaps the whole
+      // view from "branches with a findings count" to a flat, most-recent-
+      // first list of the individual findings themselves (still respecting
+      // whatever's typed in the search box and the FY tab that's active).
+      if (statusFilter === 'RECENT') {
+        renderRecentFindingsList(container, filterValue);
+        return;
+      }
 
       let list = state.allBranches.filter(b => {
         const matchesQuery = !query || String(b.name || '').toLowerCase().includes(query);
@@ -10728,6 +10766,74 @@ html.page-fade-ready body {
 
       if (list.length > 0) renderBranchTable(list, container, 'findings', filterValue);
       else container.innerHTML = '<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No branches match your search/filter.</div>';
+    }
+
+    // Flattens activeData.auditFindingsDetail (keyed by branch) into a
+    // single list of individual finding records for the given FY, each
+    // tagged with its branch name, and sorts most-recently-dated first.
+    // Powers the "Recently Added" capsule in the Audit Findings popup.
+    // Records only have a real per-finding DATE from FY2026 onward (see
+    // formatFindingDate) — anything undated (older years) sorts to the
+    // bottom rather than being dropped, so nothing silently disappears.
+    function getRecentFindingsRecords(year, query) {
+      const allDetail = (activeData && activeData.auditFindingsDetail) || {};
+      const q = (query || '').trim().toLowerCase();
+      const records = [];
+      Object.keys(allDetail).forEach(branchName => {
+        if (q && !branchName.toLowerCase().includes(q)) return;
+        (allDetail[branchName] || []).forEach(r => {
+          if (getRecordYear(r) === year) records.push(Object.assign({}, r, { branch: branchName }));
+        });
+      });
+      records.sort((a, b) => {
+        const da = a.date || '', db = b.date || '';
+        if (da && db) return db.localeCompare(da);
+        if (da && !db) return -1;
+        if (!da && db) return 1;
+        return 0;
+      });
+      return records;
+    }
+
+    // Renders the flat "Recently Added" findings list (Date / Branch /
+    // Category / Finding, newest first) in place of the usual per-branch
+    // breakdown table. Mirrors renderBranchTable's scroll container/sticky
+    // header styling so switching capsules doesn't visually jar.
+    function renderRecentFindingsList(container, filterValue) {
+      const year = Number(String(filterValue).replace('findings', '')) || new Date().getFullYear();
+      const query = window.findingsModalSearch || '';
+      const records = getRecentFindingsRecords(year, query);
+
+      const countLabel = document.getElementById('findingsCountLabel');
+      if (countLabel) countLabel.textContent = `Showing ${records.length} recently added finding${records.length === 1 ? '' : 's'} for FY${year}`;
+
+      if (records.length === 0) {
+        container.innerHTML = `<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No findings logged for FY${year}${query ? ' matching your search' : ''}.</div>`;
+        return;
+      }
+
+      const rows = records.map(r => `
+        <tr class="border-t border-coolBorder">
+          <td class="p-2 text-[11px] font-semibold text-slate-500 tabular-nums whitespace-nowrap align-top">${formatFindingDate(r.date, r.year)}</td>
+          <td class="p-2 text-[11px] font-semibold text-slate-700 whitespace-nowrap align-top">${escapeFindingHTML(r.branch)}</td>
+          <td class="p-2 align-top whitespace-nowrap">${getFindingCategoryBadge(r.category)}</td>
+          <td class="p-2 text-xs text-slate-800 align-top">${escapeFindingHTML(r.finding)}</td>
+        </tr>`).join('');
+
+      container.innerHTML = `
+      <div class="rounded-xl border border-coolBorder h-[500px] max-h-[60vh] overflow-auto custom-scrollbar">
+          <table class="w-full min-w-[640px] text-left border-collapse bg-white relative">
+            <thead class="bg-gray-50 border-b border-coolBorder text-xs text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-10 shadow-sm">
+              <tr>
+                <th class="p-2 bg-gray-50 whitespace-nowrap w-28">Date</th>
+                <th class="p-2 bg-gray-50 whitespace-nowrap min-w-[140px]">Branch</th>
+                <th class="p-2 bg-gray-50 whitespace-nowrap">Category</th>
+                <th class="p-2 bg-gray-50">Finding</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-coolBorder text-sm">${rows}</tbody>
+          </table>
+      </div>`;
     }
 
     // =========================================================================
@@ -11027,14 +11133,16 @@ html.page-fade-ready body {
           <button onclick="addStagedFindingEntry()" class="px-4 py-2 text-xs font-bold text-white bg-accentIndigo rounded-lg hover:bg-accentIndigo/90 active:scale-95 transition-all">+ Add Entry</button>
         </div>
         <div class="border-t border-coolBorder pt-4">
-          <div class="mb-2">
-            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Staged Entries (<span id="findingsEditor-count">0</span>)</h4>
+          <div class="mb-2 flex items-center justify-between gap-2">
+            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Staged Entries (<span id="findingsEditor-count">0</span>)</h4>
             <div class="flex items-center gap-2">
-              <button id="findingsEditor-sendAllBtn" onclick="sendAllStagedFindingsToSheet()" title="Send all to sheet" aria-label="Send all staged entries to the sheet" class="p-2 bg-accentEmerald text-white hover:bg-accentEmerald/90 rounded-lg transition-all active:scale-95">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"></path><path d="M22 2 11 13"></path></svg>
+              <button onclick="clearStagedFindingEntries()" title="Delete all staged entries" aria-label="Delete all staged entries" class="flex items-center gap-1.5 px-3 py-2 bg-accentRose text-white hover:bg-accentRose/90 rounded-lg transition-all active:scale-95">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
+                <span class="text-[11px] font-bold">Delete</span>
               </button>
-              <button onclick="clearStagedFindingEntries()" title="Clear all" aria-label="Clear all staged entries" class="p-2 bg-accentRose/10 hover:bg-accentRose/20 border border-accentRose/20 rounded-lg text-accentRose transition-all active:scale-95">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
+              <button id="findingsEditor-sendAllBtn" onclick="sendAllStagedFindingsToSheet()" title="Send all staged entries to the sheet" aria-label="Send all staged entries to the sheet" class="flex items-center gap-1.5 px-3 py-2 bg-accentEmerald text-white hover:bg-accentEmerald/90 rounded-lg transition-all active:scale-95">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"></path><path d="M22 2 11 13"></path></svg>
+                <span class="text-[11px] font-bold">Send</span>
               </button>
             </div>
           </div>
@@ -11113,9 +11221,6 @@ html.page-fade-ready body {
           <td class="p-2 align-top whitespace-nowrap">${getFindingCategoryBadge(r.category)}</td>
           <td class="p-2 text-xs text-slate-800 align-top">${escapeFindingHTML(r.finding)}</td>
           <td class="p-2 align-top text-right whitespace-nowrap">
-            <button onclick="sendStagedFindingEntry('${r.id}', this)" title="Send this row to the sheet now" aria-label="Send to sheet" class="p-1 text-slate-400 hover:text-accentEmerald hover:bg-accentEmerald/10 rounded-lg transition-all active:scale-95">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"></path><path d="M22 2 11 13"></path></svg>
-            </button>
             <button onclick="removeStagedFindingEntry('${r.id}')" title="Remove" aria-label="Remove entry" class="p-1 text-slate-400 hover:text-accentRose hover:bg-accentRose/10 rounded-lg transition-all active:scale-95">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
             </button>
@@ -11131,19 +11236,70 @@ html.page-fade-ready body {
         </table>`;
     }
 
+    // Delete confirmations use #findingsDeleteConfirmModal — a separate,
+    // rose/red-themed modal from #findingsSaveConfirmModal (used for sends),
+    // so deleting a row or clearing everything never shows the same popup
+    // as sending. Mirrors the openFindingsSaveConfirm/cancel/confirm pattern
+    // used for sends, just with its own pending state and modal ids.
+    let _findingsDeleteConfirmPending = null;
+
+    function openFindingsDeleteConfirm(pending, message) {
+      _findingsDeleteConfirmPending = pending;
+      const modal = document.getElementById('findingsDeleteConfirmModal');
+      const msgEl = document.getElementById('findingsDeleteConfirmMessage');
+      if (msgEl && message) msgEl.textContent = message;
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function cancelFindingsDeleteConfirm() {
+      _findingsDeleteConfirmPending = null;
+      const modal = document.getElementById('findingsDeleteConfirmModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function confirmFindingsDeleteConfirm() {
+      const pending = _findingsDeleteConfirmPending;
+      _findingsDeleteConfirmPending = null;
+      const modal = document.getElementById('findingsDeleteConfirmModal');
+      if (modal) modal.classList.add('hidden');
+      if (!pending) return;
+      if (pending.type === 'row') doRemoveStagedFindingEntry(pending.id);
+      else if (pending.type === 'all') doClearStagedFindingEntries();
+    }
+
     function removeStagedFindingEntry(id) {
+      const store = loadFindingsEditorStore();
+      const row = store.staged.find(r => r.id === id);
+      if (!row) return;
+      openFindingsDeleteConfirm(
+        { type: 'row', id: id },
+        'Delete this staged entry (' + row.branch + ' — ' + row.category + ')? This only affects this browser — nothing sent to the sheet is touched.'
+      );
+    }
+
+    function doRemoveStagedFindingEntry(id) {
       const store = loadFindingsEditorStore();
       store.staged = store.staged.filter(r => r.id !== id);
       saveFindingsEditorStore(store);
       renderStagedFindingsTable();
+      showToast('Entry removed.');
     }
 
     function clearStagedFindingEntries() {
-      if (!confirm('Clear all staged entries? This only affects this browser — nothing has been sent anywhere yet.')) return;
+      const store = loadFindingsEditorStore();
+      if (store.staged.length === 0) { showToast('No staged entries to delete.'); return; }
+      openFindingsDeleteConfirm(
+        { type: 'all' },
+        'Delete all ' + store.staged.length + ' staged entr' + (store.staged.length === 1 ? 'y' : 'ies') + '? This only affects this browser — nothing has been sent anywhere yet.'
+      );
+    }
+
+    function doClearStagedFindingEntries() {
       const store = loadFindingsEditorStore();
       store.staged = [];
       saveFindingsEditorStore(store);
       renderStagedFindingsTable();
+      showToast('All staged entries deleted.');
     }
 
     // Matches the exact RAW DATA sheet column order (DATE, BRANCH, CATEGORY,
