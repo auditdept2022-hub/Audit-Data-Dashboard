@@ -188,6 +188,21 @@
     height: 500px;
     max-height: max(220px, calc(100dvh - 430px));
   }
+  /* Freeze pane (the sticky "#"/Branch columns + sticky header) is
+     desktop/tablet-only now. On phones the table is switched back to a
+     plain, fully-scrolling table — same 767px breakpoint used everywhere
+     else in this file for "is this a phone" (see the #modalDialog
+     max-width:767px rule above). Uses !important because it has to beat
+     the inline `sticky`/`left-0`/`left-10` Tailwind utility classes
+     already on these cells. */
+  @media (max-width: 767px) {
+    #overallDataScrollBox th.sticky,
+    #overallDataScrollBox td.sticky {
+      position: static !important;
+      left: auto !important;
+      box-shadow: none !important;
+    }
+  }
   /* Fullscreen toggle for the main data popup: breaks the dialog out of
      its centred/padded wrapper to fill the viewport edge-to-edge. Uses
      !important because it has to win over the inline max-w-5xl /
