@@ -2129,7 +2129,7 @@ function renderMyRecords(){
           <div class="rc-amt num">${peso(r.amount)}</div>
         </div>
         <div class="rc-meta">
-          ${escapeHtml(isoToMDY(r.date) || '')}${r.qty != null ? ' · Qty ' + r.qty : ''}${r.type === 'OIL' ? ` · Company ${peso(r.companyShare)} · Employee ${peso(r.employeeShare)}` : ` · Employee ${peso(r.employeeShare)}`}
+          ${escapeHtml(isoToMDY(r.date) || '')}${r.qty != null ? ' · Qty ' + r.qty : ''}${r.type === 'OIL' ? ` · Company ${peso(r.companyShare)} · Employee ${peso(r.employeeShare)}` : ` · Employee ${peso(r.employeeShare)}`}${r.odometer ? ` · Odometer ${escapeHtml(String(r.odometer))} km` : ''}${r.nextChangeOdometer ? ` · Next due ${escapeHtml(String(r.nextChangeOdometer))} km` : ''}
         </div>
         <div class="rc-actions">
           <button type="button" class="btn btn-ghost btn-sm btn-danger-text" data-delete-id="${escapeHtml(r.id)}">Delete item</button>
@@ -2311,8 +2311,8 @@ function renderHistory(){
     const recentLabel = r.submittedDate ? (isoToMDY(r.submittedDate) || r.submittedDate) : '';
     const dateLabel = recentLabel ? `Last: ${lastLabel} \u2192 Recent: ${recentLabel}` : lastLabel;
     const metaBits = [dateLabel];
-    if (r.odometer) metaBits.push(r.odometer + ' km');
-    if (r.nextChangeOdometer) metaBits.push('Next: ' + r.nextChangeOdometer + ' km');
+    if (r.odometer) metaBits.push('Odometer: ' + r.odometer + ' km');
+    if (r.nextChangeOdometer) metaBits.push('Next change due: ' + r.nextChangeOdometer + ' km');
     return `
     <div class="history-row">
       <div class="history-left">
