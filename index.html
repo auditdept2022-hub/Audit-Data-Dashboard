@@ -4461,6 +4461,13 @@ html.page-fade-ready body {
             <button id="modalEditAssignBtn" onclick="openHeaderEditAssignment()" title="Edit assignment" aria-label="Edit assignment" class="hidden p-2 modal-header-icon-btn active:scale-95 rounded-xl transition-all cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path><path d="m15 5 4 4"></path></svg>
             </button>
+            <!-- Pencil button for the Audit Findings Breakdown popup only (type
+                 === 'findings'). Opens the standalone "Add Audit Finding" editor
+                 (findingsEditorModal below) on top of this popup — see
+                 openAddFindingModal(). Shown/hidden per-open inside openModal(). -->
+            <button id="modalAddFindingBtn" onclick="openAddFindingModal()" title="Add a finding (raw data entry)" aria-label="Add a finding (raw data entry)" class="hidden p-2 modal-header-icon-btn active:scale-95 rounded-xl transition-all cursor-pointer">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path><path d="m15 5 4 4"></path></svg>
+            </button>
             <button onclick="openExportPicker('current')" title="Download this data" aria-label="Download this data" class="p-2 modal-header-icon-btn active:scale-95 rounded-xl transition-all cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>
             </button>
@@ -4477,6 +4484,34 @@ html.page-fade-ready body {
           </div>
         </div>
         <div class="p-2.5 sm:p-3 overflow-y-auto custom-scrollbar flex-1 min-h-0" id="modalBody"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= Add Audit Finding (standalone raw-data editor) =================
+       Opened by the pencil button in the Audit Findings Breakdown popup header
+       (#modalAddFindingBtn -> openAddFindingModal()). This is intentionally its
+       OWN popup, stacked on top of #dataModal (z-[65] > z-50), and is NOT wired
+       into the main dashboard's live save pipeline — it stages rows (DATE /
+       BRANCH / CATEGORY / FINDINGS / YEAR) in this browser's localStorage so
+       nothing is lost between opens, and lets you Copy CSV / Export JSON once
+       you're ready to send them into a real sheet. Branch + Category pickers
+       start from this dashboard's own data and grow with anything you add here
+       — see getFindingsEditorBranchOptions()/getFindingsEditorCategoryOptions()
+       and the FINDINGS_EDITOR_STORAGE_KEY localStorage bucket below.
+       Companion server-side piece: Code.gs (action=addFinding) — point
+       performFindingsExport()/future wiring at that endpoint when ready. -->
+  <div id="findingsEditorModal" class="fixed inset-0 z-[65] hidden">
+    <div class="absolute inset-0 bg-slate-900/70"></div>
+    <div class="absolute inset-0 flex items-start sm:items-center justify-center overflow-y-auto p-3 sm:p-4">
+      <div class="bg-coolCard w-[90vw] sm:w-[32rem] max-h-[85vh] my-auto rounded-2xl shadow-2xl flex flex-col border border-coolBorder" onclick="event.stopPropagation()">
+        <div class="modal-header-bar px-4 py-2.5 flex justify-between items-center rounded-t-2xl">
+          <h2 class="text-sm sm:text-base font-bold text-white truncate">Add Audit Finding</h2>
+          <button onclick="closeAddFindingModal()" title="Close" aria-label="Close" class="p-2 modal-header-icon-btn modal-header-icon-btn-close active:scale-95 rounded-xl transition-all cursor-pointer">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+          </button>
+        </div>
+        <div id="findingsEditorBody" class="p-4 overflow-y-auto custom-scrollbar flex-1 min-h-0"></div>
       </div>
     </div>
   </div>
@@ -5943,6 +5978,11 @@ html.page-fade-ready body {
       // path (renderModalFilteredView, below) turns it back on for its
       // own list right after this.
       updateModalEditAssignButton(null);
+      // Same idea for the "Add Audit Finding" pencil button — only the
+      // Audit Findings Breakdown popup (type === 'findings') turns it on,
+      // a few lines below.
+      const addFindingBtn = document.getElementById('modalAddFindingBtn');
+      if (addFindingBtn) addFindingBtn.classList.add('hidden');
 
       let branchesToDisplay = [];
 
@@ -6066,6 +6106,7 @@ html.page-fade-ready body {
               window.findingsModalState = { type, filterValue, allBranches: [...activeData.branches] };
               modalBody.innerHTML = renderFindingsYearTabs(filterValue) + renderFindingsToolbar() + '<div id="modalTableContainer"></div>';
               renderFindingsModalTable(filterValue);
+              if (addFindingBtn) addFindingBtn.classList.remove('hidden');
           } else if (type === 'accounts') {
               window.accountsModalSort = null;
               window.accountsModalSearch = '';
@@ -10662,6 +10703,307 @@ html.page-fade-ready body {
 
       if (list.length > 0) renderBranchTable(list, container, 'findings', filterValue);
       else container.innerHTML = '<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No branches match your search/filter.</div>';
+    }
+
+    // =========================================================================
+    // Add Audit Finding — standalone raw-data editor (DATE / BRANCH /
+    // CATEGORY / FINDINGS / YEAR), opened via the pencil button in the Audit
+    // Findings Breakdown popup header (#modalAddFindingBtn).
+    //
+    // This is deliberately NOT wired into the main dashboard's live
+    // save/Apps Script pipeline yet — per the ask, it's a standalone popup
+    // meant to be pointed at a (new) sheet/endpoint later. Everything it
+    // does lives in this browser's localStorage:
+    //   - staged rows waiting to be exported (FINDINGS_EDITOR_STORAGE_KEY.staged)
+    //   - any Branch/Category typed in via "+ Add new…" get remembered
+    //     (…extraBranches / …extraCategories) so the picker grows over time
+    //     instead of you retyping the same new branch/category every visit.
+    // The Branch picker also always includes every branch already known to
+    // the live dashboard (activeData.branches), and Category always includes
+    // the 10 categories from the sheet's BRANCHES sheet (column B), so both
+    // pickers are useful from the very first open.
+    //
+    // Companion backend: Code.gs (deploy against the AUDIT FINDINGS
+    // MONITORING sheet) exposes action=addFinding, which appends a row to
+    // RAW DATA and — mirroring this picker behavior — also appends any
+    // brand-new branch/category to the BRANCHES sheet's two picker columns.
+    // =========================================================================
+
+    const FINDINGS_EDITOR_STORAGE_KEY = 'auditFindingsEditor_v1';
+    // Mirrors the BRANCHES sheet's CATEGORY column (10 values) so the
+    // Category picker isn't empty on a fresh browser with no localStorage yet.
+    const DEFAULT_FINDING_CATEGORIES = ['CASH COUNT', 'DOCUMENTATION', 'NOTEBOOKS', 'OFFICIAL RECEIPTS', 'BRANCH IMAGE', 'INVENTORIES', 'FIELD', 'OTHERS', 'ANOMALY', 'BRANCH ASSETS'];
+
+    function loadFindingsEditorStore() {
+      try {
+        const raw = localStorage.getItem(FINDINGS_EDITOR_STORAGE_KEY);
+        if (!raw) return { extraBranches: [], extraCategories: [], staged: [] };
+        const parsed = JSON.parse(raw);
+        return {
+          extraBranches: Array.isArray(parsed.extraBranches) ? parsed.extraBranches : [],
+          extraCategories: Array.isArray(parsed.extraCategories) ? parsed.extraCategories : [],
+          staged: Array.isArray(parsed.staged) ? parsed.staged : []
+        };
+      } catch (e) {
+        return { extraBranches: [], extraCategories: [], staged: [] };
+      }
+    }
+
+    function saveFindingsEditorStore(store) {
+      try { localStorage.setItem(FINDINGS_EDITOR_STORAGE_KEY, JSON.stringify(store)); } catch (e) { /* storage unavailable — staged rows just won't survive a refresh */ }
+    }
+
+    function getFindingsEditorBranchOptions() {
+      const store = loadFindingsEditorStore();
+      const fromDashboard = (activeData.branches || []).map(b => b.name).filter(Boolean);
+      const all = new Set([...fromDashboard, ...store.extraBranches].map(b => String(b).trim().toUpperCase()));
+      return Array.from(all).sort((a, b) => a.localeCompare(b));
+    }
+
+    function getFindingsEditorCategoryOptions() {
+      const store = loadFindingsEditorStore();
+      const all = new Set([...DEFAULT_FINDING_CATEGORIES, ...store.extraCategories].map(c => String(c).trim().toUpperCase()));
+      return Array.from(all).sort((a, b) => a.localeCompare(b));
+    }
+
+    function openAddFindingModal() {
+      const modal = document.getElementById('findingsEditorModal');
+      if (!modal) return;
+      renderFindingsEditorForm();
+      modal.classList.remove('hidden');
+    }
+
+    function closeAddFindingModal() {
+      const modal = document.getElementById('findingsEditorModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function syncFindingsEditorYear() {
+      const dateEl = document.getElementById('findingsEditor-date');
+      const yearEl = document.getElementById('findingsEditor-year');
+      if (!dateEl || !yearEl || !dateEl.value) return;
+      const y = parseInt(dateEl.value.slice(0, 4), 10);
+      if (!isNaN(y)) yearEl.value = y;
+    }
+
+    function toggleFindingsEditorNewBranch(value) {
+      const input = document.getElementById('findingsEditor-branchNew');
+      if (!input) return;
+      if (value === '__new__') { input.classList.remove('hidden'); input.focus(); }
+      else input.classList.add('hidden');
+    }
+
+    function toggleFindingsEditorNewCategory(value) {
+      const input = document.getElementById('findingsEditor-categoryNew');
+      if (!input) return;
+      if (value === '__new__') { input.classList.remove('hidden'); input.focus(); }
+      else input.classList.add('hidden');
+    }
+
+    function renderFindingsEditorForm() {
+      const body = document.getElementById('findingsEditorBody');
+      if (!body) return;
+
+      const branchOpts = getFindingsEditorBranchOptions();
+      const categoryOpts = getFindingsEditorCategoryOptions();
+      const today = new Date();
+      const isoToday = today.toISOString().slice(0, 10);
+
+      body.innerHTML = `
+        <div class="p-3 mb-4 bg-accentAmber/10 border border-accentAmber/20 rounded-xl text-[11px] text-accentAmber leading-relaxed">
+          Standalone entry form — rows below are staged in this browser only, not yet sent to a live sheet. Any new Branch/Category you add here is remembered for next time. Use <strong>Copy CSV</strong> / <strong>Export JSON</strong> once you're ready to push these into a sheet (see the companion Code.gs).
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Date</label>
+            <input id="findingsEditor-date" type="date" value="${isoToday}" onchange="syncFindingsEditorYear()" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Year</label>
+            <input id="findingsEditor-year" type="number" value="${today.getFullYear()}" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Branch</label>
+            <select id="findingsEditor-branchSelect" onchange="toggleFindingsEditorNewBranch(this.value)" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+              <option value="">— Select branch —</option>
+              ${branchOpts.map(b => `<option value="${escapeFindingHTML(b)}">${escapeFindingHTML(b)}</option>`).join('')}
+              <option value="__new__">+ Add new branch…</option>
+            </select>
+            <input id="findingsEditor-branchNew" type="text" placeholder="New branch name" class="hidden mt-2 w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Category</label>
+            <select id="findingsEditor-categorySelect" onchange="toggleFindingsEditorNewCategory(this.value)" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+              <option value="">— Select category —</option>
+              ${categoryOpts.map(c => `<option value="${escapeFindingHTML(c)}">${escapeFindingHTML(c)}</option>`).join('')}
+              <option value="__new__">+ Add new category…</option>
+            </select>
+            <input id="findingsEditor-categoryNew" type="text" placeholder="New category name" class="hidden mt-2 w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Findings / Remarks</label>
+            <textarea id="findingsEditor-findings" rows="3" placeholder="Describe the finding…" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan"></textarea>
+          </div>
+        </div>
+        <div id="findingsEditor-error" class="hidden text-xs text-accentRose font-semibold mb-3"></div>
+        <div class="flex justify-end mb-5">
+          <button onclick="addStagedFindingEntry()" class="px-4 py-2 text-xs font-bold text-white bg-accentIndigo rounded-lg hover:bg-accentIndigo/90 active:scale-95 transition-all">+ Add Entry</button>
+        </div>
+        <div class="border-t border-coolBorder pt-4">
+          <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Staged Entries (<span id="findingsEditor-count">0</span>)</h4>
+            <div class="flex items-center gap-2 flex-wrap">
+              <button onclick="copyStagedFindingsCSV()" class="px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-lg text-[11px] font-semibold text-slate-600 transition-all active:scale-95">Copy CSV</button>
+              <button onclick="exportStagedFindingsJSON()" class="px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-lg text-[11px] font-semibold text-slate-600 transition-all active:scale-95">Export JSON</button>
+              <button onclick="clearStagedFindingEntries()" class="px-2.5 py-1.5 bg-accentRose/10 hover:bg-accentRose/20 border border-accentRose/20 rounded-lg text-[11px] font-semibold text-accentRose transition-all active:scale-95">Clear All</button>
+            </div>
+          </div>
+          <div id="findingsEditor-table" class="max-h-56 overflow-y-auto custom-scrollbar border border-coolBorder rounded-lg"></div>
+        </div>`;
+
+      renderStagedFindingsTable();
+    }
+
+    function addStagedFindingEntry() {
+      const errEl = document.getElementById('findingsEditor-error');
+      if (errEl) errEl.classList.add('hidden');
+
+      const dateVal = (document.getElementById('findingsEditor-date') || {}).value || '';
+      const yearVal = (document.getElementById('findingsEditor-year') || {}).value || '';
+      const branchSelect = (document.getElementById('findingsEditor-branchSelect') || {}).value || '';
+      const branchNew = (document.getElementById('findingsEditor-branchNew') || {}).value || '';
+      const categorySelect = (document.getElementById('findingsEditor-categorySelect') || {}).value || '';
+      const categoryNew = (document.getElementById('findingsEditor-categoryNew') || {}).value || '';
+      const findingVal = ((document.getElementById('findingsEditor-findings') || {}).value || '').trim();
+
+      const branch = (branchSelect === '__new__' ? branchNew : branchSelect).trim().toUpperCase();
+      const category = (categorySelect === '__new__' ? categoryNew : categorySelect).trim().toUpperCase();
+
+      const showError = msg => { if (errEl) { errEl.textContent = msg; errEl.classList.remove('hidden'); } };
+      if (!dateVal) return showError('Date is required.');
+      if (!branch) return showError('Branch is required (pick one, or add a new one).');
+      if (!category) return showError('Category is required (pick one, or add a new one).');
+      if (!findingVal) return showError('Findings / remarks text is required.');
+
+      const store = loadFindingsEditorStore();
+
+      // If either was typed in via "+ Add new…", remember it so it shows up
+      // as a normal option in the picker next time — this is what keeps the
+      // Branch/Category lists growing without retyping the same new value.
+      if (branchSelect === '__new__' && !getFindingsEditorBranchOptions().includes(branch)) store.extraBranches.push(branch);
+      if (categorySelect === '__new__' && !getFindingsEditorCategoryOptions().includes(category)) store.extraCategories.push(category);
+
+      store.staged.push({
+        date: dateVal,
+        branch: branch,
+        category: category,
+        finding: findingVal,
+        year: Number(yearVal) || parseInt(dateVal.slice(0, 4), 10)
+      });
+      saveFindingsEditorStore(store);
+
+      // Reset just the findings text + new-branch/category inputs so the
+      // date/branch/category stay put for logging several findings in a row
+      // for the same branch — a common pattern when working through one
+      // branch's audit at a time.
+      const findingsEl = document.getElementById('findingsEditor-findings');
+      if (findingsEl) findingsEl.value = '';
+      renderFindingsEditorForm();
+      showToast('Finding staged. Not yet sent to a live sheet — use Copy CSV / Export JSON when ready.');
+    }
+
+    function renderStagedFindingsTable() {
+      const container = document.getElementById('findingsEditor-table');
+      const countEl = document.getElementById('findingsEditor-count');
+      if (!container) return;
+      const store = loadFindingsEditorStore();
+      if (countEl) countEl.textContent = store.staged.length;
+
+      if (store.staged.length === 0) {
+        container.innerHTML = `<div class="p-4 text-center text-xs text-slate-400 italic">No entries staged yet.</div>`;
+        return;
+      }
+
+      const rows = store.staged.map((r, idx) => `
+        <tr class="border-t border-coolBorder">
+          <td class="p-2 text-[11px] font-semibold text-slate-500 whitespace-nowrap align-top">${escapeFindingHTML(r.date)}</td>
+          <td class="p-2 text-[11px] font-semibold text-slate-700 whitespace-nowrap align-top">${escapeFindingHTML(r.branch)}</td>
+          <td class="p-2 align-top whitespace-nowrap">${getFindingCategoryBadge(r.category)}</td>
+          <td class="p-2 text-xs text-slate-800 align-top">${escapeFindingHTML(r.finding)}</td>
+          <td class="p-2 align-top text-right">
+            <button onclick="removeStagedFindingEntry(${idx})" title="Remove" aria-label="Remove entry" class="p-1 text-slate-400 hover:text-accentRose hover:bg-accentRose/10 rounded-lg transition-all active:scale-95">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+            </button>
+          </td>
+        </tr>`).join('');
+
+      container.innerHTML = `
+        <table class="w-full text-left border-collapse">
+          <thead class="bg-slate-50 text-[9px] uppercase tracking-wider text-slate-400 font-bold sticky top-0">
+            <tr><th class="p-2 w-20">Date</th><th class="p-2 w-28">Branch</th><th class="p-2 w-32">Category</th><th class="p-2">Findings</th><th class="p-2 w-8"></th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    function removeStagedFindingEntry(index) {
+      const store = loadFindingsEditorStore();
+      store.staged.splice(index, 1);
+      saveFindingsEditorStore(store);
+      renderStagedFindingsTable();
+    }
+
+    function clearStagedFindingEntries() {
+      if (!confirm('Clear all staged entries? This only affects this browser — nothing has been sent anywhere yet.')) return;
+      const store = loadFindingsEditorStore();
+      store.staged = [];
+      saveFindingsEditorStore(store);
+      renderStagedFindingsTable();
+    }
+
+    // Matches the exact RAW DATA sheet column order (DATE, BRANCH, CATEGORY,
+    // FINDINGS, YEAR) so this can be pasted straight into that sheet, or fed
+    // to the Code.gs addFinding endpoint later.
+    function stagedFindingsToCSV() {
+      const store = loadFindingsEditorStore();
+      const escCSV = v => {
+        const s = String(v == null ? '' : v);
+        return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      };
+      const header = ['DATE', 'BRANCH', 'CATEGORY', 'FINDINGS', 'YEAR'];
+      const lines = [header.join(',')].concat(
+        store.staged.map(r => [r.date, r.branch, r.category, r.finding, r.year].map(escCSV).join(','))
+      );
+      return lines.join('\n');
+    }
+
+    function copyStagedFindingsCSV() {
+      const store = loadFindingsEditorStore();
+      if (store.staged.length === 0) { showToast('No staged entries to copy yet.'); return; }
+      const csv = stagedFindingsToCSV();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(csv).then(
+          () => showToast('Copied ' + store.staged.length + ' row(s) as CSV.'),
+          () => showToast("Couldn't copy — your browser blocked clipboard access.")
+        );
+      } else {
+        showToast("Clipboard isn't available in this browser.");
+      }
+    }
+
+    function exportStagedFindingsJSON() {
+      const store = loadFindingsEditorStore();
+      if (store.staged.length === 0) { showToast('No staged entries to export yet.'); return; }
+      const blob = new Blob([JSON.stringify(store.staged, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'audit-findings-staged.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      showToast('Exported ' + store.staged.length + ' row(s) as JSON.');
     }
 
     function renderInlineFindingsPanel(index, branchName, year) {
