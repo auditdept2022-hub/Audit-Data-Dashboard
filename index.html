@@ -6576,7 +6576,42 @@ html.page-fade-ready body {
     // signed-in user, right now.
     let pendingEditAssignment = null; // { branchName, fields } awaiting password confirmation
 
-    function submitEditAssignment(branchName) {
+    // Same idea as findingsAuthCache/checkFindingsAuthorization() above for
+    // Add Audit Finding: cache a successful authorization check for a few
+    // minutes so saving several assignments in a row doesn't pay a network
+    // round trip to Code.gs every single time.
+    const EDIT_ASSIGN_AUTH_CACHE_MS = 4 * 60 * 1000; // 4 minutes
+    let editAssignAuthCache = { ok: false, at: 0 };
+    function editAssignAuthCacheIsFresh() {
+      return editAssignAuthCache.ok && (Date.now() - editAssignAuthCache.at) < EDIT_ASSIGN_AUTH_CACHE_MS;
+    }
+
+    // Checks (server-side, via Code.gs's action=checkEditorAuth, gated by
+    // isAuthorizedEditor) whether the signed-in user is actually allowed to
+    // edit assignments — BEFORE the password gate ever opens. Same pattern
+    // as checkFindingsAuthorization(): find out up front instead of typing
+    // a password first only to be told "no" afterward. Returns true/false;
+    // shows its own toast on failure so callers can just bail out silently.
+    async function checkEditAssignAuthorization() {
+      if (editAssignAuthCacheIsFresh()) return true;
+      const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+      if (!idToken) { showToast('You\u2019re not signed in \u2014 please sign in first.'); return false; }
+      const params = new URLSearchParams({ action: 'checkEditorAuth', secret: appsScriptSecret, idToken: idToken });
+      const url = defaultAppsScriptUrl + '?' + params.toString();
+      let json;
+      try { json = await fetchSheetOnce(url); } catch (e) { /* fall through to unauthorized-style message below */ }
+      if (json && json.success) {
+        editAssignAuthCache = { ok: true, at: Date.now() };
+        return true;
+      }
+      showToast('Not authorized to edit assignments on this account.');
+      return false;
+    }
+
+    // Authorization check happens first (see checkEditAssignAuthorization
+    // above) — only once that clears does the password gate open, same
+    // order as the Add Audit Finding flow.
+    async function submitEditAssignment(branchName) {
       const val = id => (document.getElementById(id) || {}).value || '';
       const upNextAuditorVal = val('editAssign-upNextAuditor');
       const fields = {
@@ -6588,6 +6623,8 @@ html.page-fade-ready body {
               date: val(`editAssign-date${n}`)
           }))
       };
+      const authorized = await checkEditAssignAuthorization();
+      if (!authorized) return;
       pendingEditAssignment = { branchName: branchName, fields: fields };
       openEditAssignPasswordGate(branchName);
     }
@@ -14346,9 +14383,11 @@ html.page-fade-ready body {
       }
       activeData = emptyDashboardData();
       initialLoadGeneration++; // stop any in-flight "keep retrying" loop from the old session
-      // Also drop the cached Quick Links authorization — it belongs to
-      // the account that just signed out, not whoever signs in next.
+      // Also drop the cached Quick Links / Edit Assignment authorization —
+      // it belongs to the account that just signed out, not whoever signs
+      // in next.
       quickLinkAuthCache = { ok: false, at: 0 };
+      editAssignAuthCache = { ok: false, at: 0 };
     };
 
     document.addEventListener("DOMContentLoaded", () => {
