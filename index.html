@@ -11078,11 +11078,21 @@ html.page-fade-ready body {
     const FINDINGS_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzWkiOAEW1Q6B6bwp-le6WLLZXHwqBsXNYW1VFdaphm4-w2jpAT0ffYXbeOf2_dSIY1_g/exec';
     const FINDINGS_EDITOR_SECRET_KEY = 'auditFindingsEditorSecret_v1';
 
-    // The secret must match SHARED_SECRET in that Code.gs file. Kept in
-    // localStorage (not hardcoded here) so it's entered once per browser via
-    // the field in the popup rather than sitting in view-source.
+    // Must match SHARED_SECRET in the Audit Findings Code.gs file.
+    // FIX: this used to be typed in per-browser via a popup field and saved
+    // to localStorage — but that field was never actually added to the
+    // HTML, so loadFindingsEditorSecret() always returned '' and every
+    // request failed the SHARED_SECRET check before sign-in was ever
+    // checked. Hardcoded here instead, the same way appsScriptSecret is
+    // hardcoded for the main dashboard further down this file. Falls back
+    // to a saved localStorage value first, in case anyone previously did
+    // get it set some other way, so no existing setup breaks.
     function loadFindingsEditorSecret() {
-      try { return localStorage.getItem(FINDINGS_EDITOR_SECRET_KEY) || ''; } catch (e) { return ''; }
+      try {
+        const saved = localStorage.getItem(FINDINGS_EDITOR_SECRET_KEY);
+        if (saved) return saved;
+      } catch (e) {}
+      return 'audit findings';
     }
     function saveFindingsEditorSecret(value) {
       try { localStorage.setItem(FINDINGS_EDITOR_SECRET_KEY, value || ''); } catch (e) {}
