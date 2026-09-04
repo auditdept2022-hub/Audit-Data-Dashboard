@@ -4621,29 +4621,12 @@ html.page-fade-ready body {
     </div>
   </div>
 
-  <div id="findingsSaveConfirmModal" class="fixed inset-0 z-[70] hidden">
-    <div class="absolute inset-0 bg-slate-900/70"></div>
-    <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
-      <div class="bg-coolCard w-full max-w-xs rounded-2xl shadow-2xl p-5 pointer-events-auto border border-coolBorder">
-        <div class="flex items-start justify-between gap-3 mb-1">
-          <div class="flex items-center gap-2 min-w-0">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentEmerald flex-shrink-0"><path d="M21.801 10A10 10 0 1 1 17 3.335"></path><path d="m9 11 3 3L22 4"></path></svg>
-            <h3 class="text-sm font-bold text-slate-800 truncate">Confirm Save</h3>
-          </div>
-          <button onclick="cancelFindingsSaveConfirm()" title="Close" aria-label="Close" class="p-2 -mr-2 text-slate-400 hover:text-accentRose hover:bg-accentRose/10 active:scale-95 rounded-xl transition-all cursor-pointer flex-shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
-          </button>
-        </div>
-        <p id="findingsSaveConfirmMessage" class="text-xs text-slate-500 mb-3">Are you sure you want to send these entries to the sheet? This writes them to RAW DATA and can't be undone from here.</p>
-        <div class="flex gap-2 mt-3">
-          <button onclick="cancelFindingsSaveConfirm()" class="flex-1 text-xs font-semibold text-slate-500 hover:text-slate-700 py-2 rounded-xl border border-coolBorder cursor-pointer">Cancel</button>
-          <button id="findingsSaveConfirmSubmitBtn" onclick="confirmFindingsSaveConfirm()" class="flex-1 text-xs font-semibold text-white bg-accentEmerald hover:bg-accentEmerald/90 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-60">
-            <span id="findingsSaveConfirmSubmitLabel">Yes, Save</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
+  <!-- The old "Confirm Save" yes/no modal (#findingsSaveConfirmModal) was
+       removed here: the password gate's "Unlock & Send" button already
+       serves as the confirmation step, so a yes/no modal in front of it was
+       a redundant extra click. See checkFindingsAuthorization() further
+       down for the up-front authorization check that replaced it. -->
+
 
   <!-- Password re-check gated behind "Yes, Save" on the confirm modal above --
        same pattern (and same window.reauthenticateCurrentUser helper) as
@@ -4678,9 +4661,9 @@ html.page-fade-ready body {
   </div>
 
   <!-- Delete confirmation for the Add Audit Finding editor (single row "x" or
-       "Delete All"). Deliberately a SEPARATE modal from #findingsSaveConfirmModal
-       above (rose/red theme + trash icon vs. the emerald/green check used for
-       sends) so a delete never looks or reads like a send confirmation. -->
+       "Delete All"). Rose/red theme + trash icon, distinct from the blue
+       "Unlock & Send" password gate above, so a delete never looks or reads
+       like a send confirmation. -->
   <div id="findingsDeleteConfirmModal" class="fixed inset-0 z-[70] hidden">
     <div class="absolute inset-0 bg-slate-900/70"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
@@ -11102,36 +11085,44 @@ html.page-fade-ready body {
     // on success — a failed send leaves the row in place so nothing is lost.
     //
     // sendStagedFindingEntry() / sendAllStagedFindingsToSheet() are the
-    // public entry points wired to the buttons — they just pop the "Confirm
-    // Save" modal (same centered card style as the password-confirmation
-    // modals) and stash what to do. The actual work happens in the
-    // do*() versions below, only once the user taps "Yes, Save".
-    let _findingsSaveConfirmPending = null;
+    // public entry points wired to the buttons. There's no separate "Are
+    // you sure?" step anymore — the password gate's "Unlock & Send" button
+    // already IS the confirmation, so a yes/no modal in front of it was
+    // just a second click for the same thing. Before that gate opens,
+    // though, this runs a lightweight authorization pre-check (below) so
+    // an account that isn't allow-listed finds out immediately, instead of
+    // typing a password first only to be told "no" afterward.
 
-    function openFindingsSaveConfirm(pending, message) {
-      _findingsSaveConfirmPending = pending;
-      const modal = document.getElementById('findingsSaveConfirmModal');
-      const msgEl = document.getElementById('findingsSaveConfirmMessage');
-      if (msgEl && message) msgEl.textContent = message;
-      if (modal) modal.classList.remove('hidden');
+    // Cache a successful authorization check for a few minutes — same idea
+    // as quickLinkAuthCache above — so sending several rows in a row (or
+    // "Send All" right after opening a row) doesn't pay a network round
+    // trip to Code.gs for every single click.
+    const FINDINGS_AUTH_CACHE_MS = 4 * 60 * 1000; // 4 minutes
+    let findingsAuthCache = { ok: false, at: 0 };
+    function findingsAuthCacheIsFresh() {
+      return findingsAuthCache.ok && (Date.now() - findingsAuthCache.at) < FINDINGS_AUTH_CACHE_MS;
     }
 
-    function cancelFindingsSaveConfirm() {
-      _findingsSaveConfirmPending = null;
-      const modal = document.getElementById('findingsSaveConfirmModal');
-      if (modal) modal.classList.add('hidden');
-    }
-
-    async function confirmFindingsSaveConfirm() {
-      const pending = _findingsSaveConfirmPending;
-      _findingsSaveConfirmPending = null;
-      const modal = document.getElementById('findingsSaveConfirmModal');
-      if (modal) modal.classList.add('hidden');
-      if (!pending) return;
-      // Don't send yet -- require the account password first (see
-      // openFindingsSendPasswordGate below). The actual doSend*() call now
-      // happens only once that password check succeeds.
-      openFindingsSendPasswordGate(pending);
+    // Checks (server-side, via Code.gs's AUDIT_ALLOWED_EMAILS check on
+    // action=list) whether the signed-in user is actually authorized to
+    // touch Audit Findings — BEFORE the password gate ever opens. Returns
+    // true/false; shows its own toast on failure, so callers can just
+    // bail out silently when this returns false.
+    async function checkFindingsAuthorization() {
+      if (findingsAuthCacheIsFresh()) return true;
+      const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+      if (!idToken) { showToast('You\u2019re not signed in — please sign in first.'); return false; }
+      const secret = loadFindingsEditorSecret();
+      const params = new URLSearchParams({ action: 'list', secret: secret, idToken: idToken });
+      const url = FINDINGS_APPS_SCRIPT_URL + '?' + params.toString();
+      let json;
+      try { json = await fetchSheetOnce(url); } catch (e) { /* fall through to unauthorized-style message below */ }
+      if (json && json.success) {
+        findingsAuthCache = { ok: true, at: Date.now() };
+        return true;
+      }
+      showToast('Not authorized to add findings on this account.');
+      return false;
     }
 
     let _pendingFindingsSend = null;
@@ -11214,25 +11205,26 @@ html.page-fade-ready body {
       else if (pending.type === 'all') await doSendAllStagedFindingsToSheet();
     };
 
-    function sendStagedFindingEntry(id, btnEl) {
+    // Straight to the password gate now — see checkFindingsAuthorization
+    // above for why the authorization check happens first and the old
+    // "Are you sure?" step is gone.
+    async function sendStagedFindingEntry(id, btnEl) {
       if (!loadFindingsEditorSecret()) { showToast('Enter the Apps Script secret above first.'); return; }
       const store = loadFindingsEditorStore();
       const row = store.staged.find(r => r.id === id);
       if (!row) return;
-      openFindingsSaveConfirm(
-        { type: 'row', id: id, btnEl: btnEl },
-        'Send this finding (' + row.branch + ' — ' + row.category + ') to the sheet now? This writes it to RAW DATA.'
-      );
+      const authorized = await checkFindingsAuthorization();
+      if (!authorized) return;
+      openFindingsSendPasswordGate({ type: 'row', id: id, btnEl: btnEl });
     }
 
-    function sendAllStagedFindingsToSheet() {
+    async function sendAllStagedFindingsToSheet() {
       if (!loadFindingsEditorSecret()) { showToast('Enter the Apps Script secret above first.'); return; }
       const store = loadFindingsEditorStore();
       if (store.staged.length === 0) { showToast('No staged entries to send.'); return; }
-      openFindingsSaveConfirm(
-        { type: 'all' },
-        'Send all ' + store.staged.length + ' staged entr' + (store.staged.length === 1 ? 'y' : 'ies') + ' to the sheet now? This writes them to RAW DATA.'
-      );
+      const authorized = await checkFindingsAuthorization();
+      if (!authorized) return;
+      openFindingsSendPasswordGate({ type: 'all' });
     }
 
     async function doSendStagedFindingEntry(id, btnEl) {
@@ -11492,11 +11484,12 @@ html.page-fade-ready body {
         </table>`;
     }
 
-    // Delete confirmations use #findingsDeleteConfirmModal — a separate,
-    // rose/red-themed modal from #findingsSaveConfirmModal (used for sends),
-    // so deleting a row or clearing everything never shows the same popup
-    // as sending. Mirrors the openFindingsSaveConfirm/cancel/confirm pattern
-    // used for sends, just with its own pending state and modal ids.
+    // Delete confirmations still use their own #findingsDeleteConfirmModal
+    // yes/no step — deleting a staged row is purely local (browser-only,
+    // nothing sent to the sheet), so there's no password gate afterward to
+    // serve as the "are you sure" moment the way there is for sends. That's
+    // also why this one wasn't removed along with the old send-confirm
+    // modal above.
     let _findingsDeleteConfirmPending = null;
 
     function openFindingsDeleteConfirm(pending, message) {
