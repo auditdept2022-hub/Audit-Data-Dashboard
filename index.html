@@ -11086,14 +11086,21 @@ html.page-fade-ready body {
     // secrets are unrelated and were never meant to be the same value,
     // so every request to the Audit Findings endpoint was failing the
     // secret check regardless of sign-in. This is now set to the actual
-    // Audit Findings SHARED_SECRET ('audit findings'). Falls back to a
-    // saved localStorage value first, in case it's ever changed per-browser
-    // via a popup field, so no existing setup breaks.
+    // Audit Findings SHARED_SECRET ('audit findings').
+    //
+    // FIX (2026-09-04, follow-up): this used to read a saved localStorage
+    // value FIRST and only fall back to the correct constant if nothing
+    // was saved. That made sense back when a popup field could set it —
+    // but no such field exists anymore (onFindingsEditorSecretChange is
+    // never called from any input in this file), so the only way a value
+    // ever got into that localStorage key was the OLD, wrong secret,
+    // saved automatically by earlier code. Once cached in a browser it
+    // would silently win forever, even after this file was corrected —
+    // exactly the "still failing after the fix" symptom. The secret is
+    // now always the real constant, and any stale cached copy is
+    // proactively cleared so it can never take over again.
+    try { localStorage.removeItem(FINDINGS_EDITOR_SECRET_KEY); } catch (e) {}
     function loadFindingsEditorSecret() {
-      try {
-        const saved = localStorage.getItem(FINDINGS_EDITOR_SECRET_KEY);
-        if (saved) return saved;
-      } catch (e) {}
       return 'audit findings';
     }
     function saveFindingsEditorSecret(value) {
