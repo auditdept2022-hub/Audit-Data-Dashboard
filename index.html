@@ -2123,29 +2123,23 @@ header svg.text-royalBlue{ color:#1e3a8a !important; }
   gap:0.4rem;
   padding:0.26rem 0.5rem;
   border-radius:999px;
-  border:1px solid rgba(15,23,42,0.04);
-  background:linear-gradient(135deg,#818cf8,#4f46e5);
-  box-shadow:0 2px 5px -2px rgba(15,23,42,0.28);
+  border:1px solid rgba(15,23,42,0.05);
+  background:rgba(79,70,229,0.07);
+  box-shadow:0 1px 2px rgba(15,23,42,0.04);
   text-align:left;
-  transition:background-color .15s ease, border-color .15s ease, transform .12s cubic-bezier(.2,.8,.2,1), box-shadow .15s ease, filter .15s ease;
+  transition:background-color .15s ease, border-color .15s ease, transform .12s cubic-bezier(.2,.8,.2,1), box-shadow .15s ease;
 }
-/* Colorful gradient fills, cycling per tile so each Quick actions /
-   Quick Links group (7 tiles each) reads as a lively rainbow strip
-   rather than uniform white pills. */
-.menu-tile-grid .menu-tile:nth-child(7n+1){ background:linear-gradient(135deg,#f1f4f9,#e4eaf3); }
-.menu-tile-grid .menu-tile:nth-child(7n+2){ background:linear-gradient(135deg,#eef5f4,#dfece9); }
-.menu-tile-grid .menu-tile:nth-child(7n+3){ background:linear-gradient(135deg,#f6f3ec,#ece3d2); }
-.menu-tile-grid .menu-tile:nth-child(7n+4){ background:linear-gradient(135deg,#f5eff1,#eae0e3); }
-.menu-tile-grid .menu-tile:nth-child(7n+5){ background:linear-gradient(135deg,#f0f1f8,#e3e5f2); }
-.menu-tile-grid .menu-tile:nth-child(7n+6){ background:linear-gradient(135deg,#eff4ef,#e2ebe2); }
-.menu-tile-grid .menu-tile:nth-child(7n)  { background:linear-gradient(135deg,#f4f4f5,#e7e8ea); }
-.menu-tile-grid .menu-tile:nth-child(7n+1) .menu-tile-icon svg{ color:#2c4a72 !important; stroke:#2c4a72 !important; }
-.menu-tile-grid .menu-tile:nth-child(7n+2) .menu-tile-icon svg{ color:#0f766e !important; stroke:#0f766e !important; }
-.menu-tile-grid .menu-tile:nth-child(7n+3) .menu-tile-icon svg{ color:#92702e !important; stroke:#92702e !important; }
-.menu-tile-grid .menu-tile:nth-child(7n+4) .menu-tile-icon svg{ color:#9d4a5a !important; stroke:#9d4a5a !important; }
-.menu-tile-grid .menu-tile:nth-child(7n+5) .menu-tile-icon svg{ color:#4c3f9e !important; stroke:#4c3f9e !important; }
-.menu-tile-grid .menu-tile:nth-child(7n+6) .menu-tile-icon svg{ color:#3f6b48 !important; stroke:#3f6b48 !important; }
-.menu-tile-grid .menu-tile:nth-child(7n)   .menu-tile-icon svg{ color:#52525b !important; stroke:#52525b !important; }
+/* Tint each pill with the SAME accent color already used by its own
+   icon (royalBlue / accentEmerald / accentRose / accentCyan /
+   accentAmber -- the app's existing brand palette, matched via the
+   icon's inline rgba() background) so the Shortcuts menu reads as an
+   extension of the dashboard's own design system instead of an
+   unrelated color set. */
+.menu-tile:has(.menu-tile-icon[style*="37,99,235"]){ background:rgba(37,99,235,0.07); }
+.menu-tile:has(.menu-tile-icon[style*="5,150,105"]){ background:rgba(5,150,105,0.07); }
+.menu-tile:has(.menu-tile-icon[style*="225,29,72"]){ background:rgba(225,29,72,0.07); }
+.menu-tile:has(.menu-tile-icon[style*="14,165,199"]){ background:rgba(14,165,199,0.07); }
+.menu-tile:has(.menu-tile-icon[style*="217,119,6"]){ background:rgba(217,119,6,0.07); }
 .menu-tile-icon{
   display:flex;
   align-items:center;
@@ -2153,7 +2147,6 @@ header svg.text-royalBlue{ color:#1e3a8a !important; }
   width:1.3rem;
   height:1.3rem;
   border-radius:50%;
-  background:rgba(255,255,255,0.75) !important;
   flex-shrink:0;
   transition:background-color .15s ease, transform .15s ease;
 }
@@ -2178,6 +2171,7 @@ header svg.text-royalBlue{ color:#1e3a8a !important; }
   border-right:1.5px solid rgba(30,41,59,0.45);
   transform:rotate(45deg);
   transition:transform .15s ease, border-color .15s ease;
+
 }
 .menu-tile:hover{
   filter:brightness(0.97);
@@ -4915,7 +4909,7 @@ html.page-fade-ready body {
       <div class="menu-tile-grid">
 
         <div role="button" tabindex="0" onclick="window.location.href='attendance_dashboard_v35.html'" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href='attendance_dashboard_v35.html';}" class="menu-tile cursor-pointer select-none">
-          <span class="menu-tile-icon"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue shrink-0"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line><path d="M8 14h.01"></path><path d="M12 14h.01"></path><path d="M16 14h.01"></path><path d="M8 18h.01"></path><path d="M12 18h.01"></path></svg></span>
+          <span class="menu-tile-icon" style="background:rgba(37,99,235,0.10);"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue shrink-0"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line><path d="M8 14h.01"></path><path d="M12 14h.01"></path><path d="M16 14h.01"></path><path d="M8 18h.01"></path><path d="M12 18h.01"></path></svg></span>
           <span class="menu-tile-label">Attendance</span>
         </div>
 
