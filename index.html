@@ -11079,20 +11079,22 @@ html.page-fade-ready body {
     const FINDINGS_EDITOR_SECRET_KEY = 'auditFindingsEditorSecret_v1';
 
     // Must match SHARED_SECRET in the Audit Findings Code.gs file.
-    // FIX: this used to be typed in per-browser via a popup field and saved
-    // to localStorage — but that field was never actually added to the
-    // HTML, so loadFindingsEditorSecret() always returned '' and every
-    // request failed the SHARED_SECRET check before sign-in was ever
-    // checked. Hardcoded here instead, the same way appsScriptSecret is
-    // hardcoded for the main dashboard further down this file. Falls back
-    // to a saved localStorage value first, in case anyone previously did
-    // get it set some other way, so no existing setup breaks.
+    // FIX (2026-09-04): this was previously hardcoded to
+    // 'BToGaifYGLPiWQAEzLdMNSudYbhil3O5nUjBC-xySVM' — that's actually the
+    // MAIN dashboard's appsScriptSecret (a different backend/deployment
+    // entirely), not the Audit Findings script's SHARED_SECRET. The two
+    // secrets are unrelated and were never meant to be the same value,
+    // so every request to the Audit Findings endpoint was failing the
+    // secret check regardless of sign-in. This is now set to the actual
+    // Audit Findings SHARED_SECRET ('audit findings'). Falls back to a
+    // saved localStorage value first, in case it's ever changed per-browser
+    // via a popup field, so no existing setup breaks.
     function loadFindingsEditorSecret() {
       try {
         const saved = localStorage.getItem(FINDINGS_EDITOR_SECRET_KEY);
         if (saved) return saved;
       } catch (e) {}
-      return 'BToGaifYGLPiWQAEzLdMNSudYbhil3O5nUjBC-xySVM';
+      return 'audit findings';
     }
     function saveFindingsEditorSecret(value) {
       try { localStorage.setItem(FINDINGS_EDITOR_SECRET_KEY, value || ''); } catch (e) {}
