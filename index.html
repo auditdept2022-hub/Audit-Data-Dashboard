@@ -4491,16 +4491,17 @@ html.page-fade-ready body {
   <!-- ================= Add Audit Finding (standalone raw-data editor) =================
        Opened by the pencil button in the Audit Findings Breakdown popup header
        (#modalAddFindingBtn -> openAddFindingModal()). This is intentionally its
-       OWN popup, stacked on top of #dataModal (z-[65] > z-50), and is NOT wired
-       into the main dashboard's live save pipeline — it stages rows (DATE /
-       BRANCH / CATEGORY / FINDINGS / YEAR) in this browser's localStorage so
-       nothing is lost between opens, and lets you Copy CSV / Export JSON once
-       you're ready to send them into a real sheet. Branch + Category pickers
-       start from this dashboard's own data and grow with anything you add here
-       — see getFindingsEditorBranchOptions()/getFindingsEditorCategoryOptions()
-       and the FINDINGS_EDITOR_STORAGE_KEY localStorage bucket below.
-       Companion server-side piece: Code.gs (action=addFinding) — point
-       performFindingsExport()/future wiring at that endpoint when ready. -->
+       OWN popup, stacked on top of #dataModal (z-[65] > z-50), and stages rows
+       (DATE / BRANCH / CATEGORY / FINDINGS / YEAR) in this browser's
+       localStorage first, so nothing is lost between opens. From there, rows
+       are sent to the standalone AUDIT FINDINGS MONITORING sheet's own
+       Apps Script backend (FINDINGS_APPS_SCRIPT_URL, action=addFinding —
+       see Code.gs) — either one at a time (per-row send icon) or all at once
+       (Send All to Sheet). This is a SEPARATE deployment from the main
+       dashboard's own Apps Script backend. Branch + Category pickers start
+       from this dashboard's own data and grow with anything you add here —
+       see getFindingsEditorBranchOptions()/getFindingsEditorCategoryOptions()
+       and the FINDINGS_EDITOR_STORAGE_KEY localStorage bucket below. -->
   <div id="findingsEditorModal" class="fixed inset-0 z-[65] hidden">
     <div class="absolute inset-0 bg-slate-900/70"></div>
     <div class="absolute inset-0 flex items-start sm:items-center justify-center overflow-y-auto p-3 sm:p-4">
@@ -10706,27 +10707,25 @@ html.page-fade-ready body {
     }
 
     // =========================================================================
-    // Add Audit Finding — standalone raw-data editor (DATE / BRANCH /
-    // CATEGORY / FINDINGS / YEAR), opened via the pencil button in the Audit
-    // Findings Breakdown popup header (#modalAddFindingBtn).
+    // Add Audit Finding — raw-data editor (DATE / BRANCH / CATEGORY /
+    // FINDINGS / YEAR), opened via the pencil button in the Audit Findings
+    // Breakdown popup header (#modalAddFindingBtn).
     //
-    // This is deliberately NOT wired into the main dashboard's live
-    // save/Apps Script pipeline yet — per the ask, it's a standalone popup
-    // meant to be pointed at a (new) sheet/endpoint later. Everything it
-    // does lives in this browser's localStorage:
-    //   - staged rows waiting to be exported (FINDINGS_EDITOR_STORAGE_KEY.staged)
-    //   - any Branch/Category typed in via "+ Add new…" get remembered
-    //     (…extraBranches / …extraCategories) so the picker grows over time
-    //     instead of you retyping the same new branch/category every visit.
+    // This is its own popup, separate from the main dashboard's Apps Script
+    // backend. New rows are staged in this browser's localStorage first
+    // (FINDINGS_EDITOR_STORAGE_KEY.staged), then sent on demand — per row via
+    // the send icon, or all at once via "Send All to Sheet" — to the
+    // standalone AUDIT FINDINGS MONITORING sheet's own Apps Script web app
+    // (FINDINGS_APPS_SCRIPT_URL, action=addFinding — see the companion
+    // Code.gs). Any Branch/Category typed in via "+ Add new…" is also
+    // remembered locally (…extraBranches / …extraCategories) so the picker
+    // grows over time instead of retyping the same new value every visit —
+    // Code.gs mirrors this server-side by appending new branches/categories
+    // to the BRANCHES sheet's two picker columns whenever a save introduces one.
     // The Branch picker also always includes every branch already known to
     // the live dashboard (activeData.branches), and Category always includes
     // the 10 categories from the sheet's BRANCHES sheet (column B), so both
     // pickers are useful from the very first open.
-    //
-    // Companion backend: Code.gs (deploy against the AUDIT FINDINGS
-    // MONITORING sheet) exposes action=addFinding, which appends a row to
-    // RAW DATA and — mirroring this picker behavior — also appends any
-    // brand-new branch/category to the BRANCHES sheet's two picker columns.
     // =========================================================================
 
     const FINDINGS_EDITOR_STORAGE_KEY = 'auditFindingsEditor_v1';
@@ -10751,6 +10750,109 @@ html.page-fade-ready body {
 
     function saveFindingsEditorStore(store) {
       try { localStorage.setItem(FINDINGS_EDITOR_STORAGE_KEY, JSON.stringify(store)); } catch (e) { /* storage unavailable — staged rows just won't survive a refresh */ }
+    }
+
+    // ---- Live connection to the Code.gs backend for this sheet ----
+    // Deployed separately from the main dashboard's own Apps Script — this
+    // is the /exec URL for the standalone "AUDIT FINDINGS MONITORING" sheet's
+    // Code.gs (action=addFinding etc.), not the dashboard's own backend.
+    const FINDINGS_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzWkiOAEW1Q6B6bwp-le6WLLZXHwqBsXNYW1VFdaphm4-w2jpAT0ffYXbeOf2_dSIY1_g/exec';
+    const FINDINGS_EDITOR_SECRET_KEY = 'auditFindingsEditorSecret_v1';
+
+    // The secret must match SHARED_SECRET in that Code.gs file. Kept in
+    // localStorage (not hardcoded here) so it's entered once per browser via
+    // the field in the popup rather than sitting in view-source.
+    function loadFindingsEditorSecret() {
+      try { return localStorage.getItem(FINDINGS_EDITOR_SECRET_KEY) || ''; } catch (e) { return ''; }
+    }
+    function saveFindingsEditorSecret(value) {
+      try { localStorage.setItem(FINDINGS_EDITOR_SECRET_KEY, value || ''); } catch (e) {}
+    }
+    function onFindingsEditorSecretChange(value) {
+      saveFindingsEditorSecret(value);
+    }
+
+    // Sends one staged row to the Code.gs addFinding endpoint. Uses the same
+    // GET+JSONP transport (fetchSheetOnce, defined further down this file)
+    // already proven reliable for the rest of the dashboard's saves — a
+    // plain POST silently loses its body on Apps Script's redirect, so this
+    // deliberately goes out as a GET with everything in the query string.
+    async function sendFindingRowToSheet(row) {
+      const secret = loadFindingsEditorSecret();
+      const params = new URLSearchParams({
+        action: 'addFinding',
+        secret: secret,
+        date: row.date || '',
+        branch: row.branch || '',
+        category: row.category || '',
+        finding: row.finding || '',
+        year: row.year || ''
+      });
+      const url = FINDINGS_APPS_SCRIPT_URL + '?' + params.toString();
+      const json = await fetchSheetOnce(url);
+      if (!json) throw new Error('No response from the sheet — please try again.');
+      if (json.error) throw new Error(json.error);
+      if (!json.success) throw new Error("Save didn't complete — please try again.");
+      return json;
+    }
+
+    // Sends one staged row (by id) and removes it from the staged list only
+    // on success — a failed send leaves the row in place so nothing is lost.
+    async function sendStagedFindingEntry(id, btnEl) {
+      if (!loadFindingsEditorSecret()) { showToast('Enter the Apps Script secret above first.'); return; }
+      const store = loadFindingsEditorStore();
+      const row = store.staged.find(r => r.id === id);
+      if (!row) return;
+      if (btnEl) btnEl.disabled = true;
+      try {
+        await sendFindingRowToSheet(row);
+        const fresh = loadFindingsEditorStore();
+        fresh.staged = fresh.staged.filter(r => r.id !== id);
+        saveFindingsEditorStore(fresh);
+        renderStagedFindingsTable();
+        showToast('Sent to sheet: ' + row.branch + ' — ' + row.category);
+      } catch (err) {
+        showToast("Couldn't send: " + ((err && err.message) || 'unknown error'));
+      } finally {
+        if (btnEl) btnEl.disabled = false;
+      }
+    }
+
+    // Sends every staged row, one at a time (Apps Script handles one
+    // request at a time well; firing them all concurrently risks
+    // overlapping writes/quota errors). Rows that fail stay staged so nothing
+    // is silently dropped — only what actually saves gets removed.
+    async function sendAllStagedFindingsToSheet() {
+      if (!loadFindingsEditorSecret()) { showToast('Enter the Apps Script secret above first.'); return; }
+      const store = loadFindingsEditorStore();
+      if (store.staged.length === 0) { showToast('No staged entries to send.'); return; }
+
+      const btn = document.getElementById('findingsEditor-sendAllBtn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+
+      const ids = store.staged.map(r => r.id);
+      let sent = 0, failed = 0, lastError = '';
+      for (const id of ids) {
+        const current = loadFindingsEditorStore();
+        const row = current.staged.find(r => r.id === id);
+        if (!row) continue; // already removed (e.g. sent individually mid-loop)
+        try {
+          await sendFindingRowToSheet(row);
+          const fresh = loadFindingsEditorStore();
+          fresh.staged = fresh.staged.filter(r => r.id !== id);
+          saveFindingsEditorStore(fresh);
+          sent++;
+        } catch (err) {
+          failed++;
+          lastError = (err && err.message) || 'unknown error';
+        }
+      }
+
+      renderStagedFindingsTable();
+      if (btn) { btn.disabled = false; btn.textContent = 'Send All to Sheet'; }
+
+      if (failed === 0) showToast('Sent ' + sent + ' row(s) to the sheet.');
+      else showToast('Sent ' + sent + ', ' + failed + ' failed (' + lastError + '). Failed rows are still staged.');
     }
 
     function getFindingsEditorBranchOptions() {
@@ -10809,9 +10911,15 @@ html.page-fade-ready body {
       const today = new Date();
       const isoToday = today.toISOString().slice(0, 10);
 
+      const secretVal = escapeFindingHTML(loadFindingsEditorSecret());
+
       body.innerHTML = `
-        <div class="p-3 mb-4 bg-accentAmber/10 border border-accentAmber/20 rounded-xl text-[11px] text-accentAmber leading-relaxed">
-          Standalone entry form — rows below are staged in this browser only, not yet sent to a live sheet. Any new Branch/Category you add here is remembered for next time. Use <strong>Copy CSV</strong> / <strong>Export JSON</strong> once you're ready to push these into a sheet (see the companion Code.gs).
+        <div class="p-3 mb-3 bg-accentEmerald/10 border border-accentEmerald/20 rounded-xl text-[11px] text-slate-600 leading-relaxed">
+          Connected to your Apps Script sheet backend. Rows you add here are staged in this browser first — use <strong>Send All to Sheet</strong> (or the send icon on a single row) to actually write them to RAW DATA. Enter the secret below once; it's saved in this browser only.
+          <div class="mt-2">
+            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Apps Script Secret</label>
+            <input id="findingsEditor-secret" type="password" value="${secretVal}" placeholder="Must match SHARED_SECRET in Code.gs" onchange="onFindingsEditorSecretChange(this.value)" class="w-full px-3 py-2 bg-white border border-coolBorder rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-accentCyan">
+          </div>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
           <div>
@@ -10853,6 +10961,7 @@ html.page-fade-ready body {
           <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
             <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Staged Entries (<span id="findingsEditor-count">0</span>)</h4>
             <div class="flex items-center gap-2 flex-wrap">
+              <button id="findingsEditor-sendAllBtn" onclick="sendAllStagedFindingsToSheet()" class="px-2.5 py-1.5 bg-accentEmerald text-white hover:bg-accentEmerald/90 rounded-lg text-[11px] font-bold transition-all active:scale-95">Send All to Sheet</button>
               <button onclick="copyStagedFindingsCSV()" class="px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-lg text-[11px] font-semibold text-slate-600 transition-all active:scale-95">Copy CSV</button>
               <button onclick="exportStagedFindingsJSON()" class="px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-lg text-[11px] font-semibold text-slate-600 transition-all active:scale-95">Export JSON</button>
               <button onclick="clearStagedFindingEntries()" class="px-2.5 py-1.5 bg-accentRose/10 hover:bg-accentRose/20 border border-accentRose/20 rounded-lg text-[11px] font-semibold text-accentRose transition-all active:scale-95">Clear All</button>
@@ -10894,6 +11003,7 @@ html.page-fade-ready body {
       if (categorySelect === '__new__' && !getFindingsEditorCategoryOptions().includes(category)) store.extraCategories.push(category);
 
       store.staged.push({
+        id: 'f_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
         date: dateVal,
         branch: branch,
         category: category,
@@ -10909,7 +11019,7 @@ html.page-fade-ready body {
       const findingsEl = document.getElementById('findingsEditor-findings');
       if (findingsEl) findingsEl.value = '';
       renderFindingsEditorForm();
-      showToast('Finding staged. Not yet sent to a live sheet — use Copy CSV / Export JSON when ready.');
+      showToast('Finding staged — hit Send All to Sheet (or the row\u2019s send icon) to write it to RAW DATA.');
     }
 
     function renderStagedFindingsTable() {
@@ -10924,14 +11034,17 @@ html.page-fade-ready body {
         return;
       }
 
-      const rows = store.staged.map((r, idx) => `
+      const rows = store.staged.map(r => `
         <tr class="border-t border-coolBorder">
           <td class="p-2 text-[11px] font-semibold text-slate-500 whitespace-nowrap align-top">${escapeFindingHTML(r.date)}</td>
           <td class="p-2 text-[11px] font-semibold text-slate-700 whitespace-nowrap align-top">${escapeFindingHTML(r.branch)}</td>
           <td class="p-2 align-top whitespace-nowrap">${getFindingCategoryBadge(r.category)}</td>
           <td class="p-2 text-xs text-slate-800 align-top">${escapeFindingHTML(r.finding)}</td>
-          <td class="p-2 align-top text-right">
-            <button onclick="removeStagedFindingEntry(${idx})" title="Remove" aria-label="Remove entry" class="p-1 text-slate-400 hover:text-accentRose hover:bg-accentRose/10 rounded-lg transition-all active:scale-95">
+          <td class="p-2 align-top text-right whitespace-nowrap">
+            <button onclick="sendStagedFindingEntry('${r.id}', this)" title="Send this row to the sheet now" aria-label="Send to sheet" class="p-1 text-slate-400 hover:text-accentEmerald hover:bg-accentEmerald/10 rounded-lg transition-all active:scale-95">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"></path><path d="M22 2 11 13"></path></svg>
+            </button>
+            <button onclick="removeStagedFindingEntry('${r.id}')" title="Remove" aria-label="Remove entry" class="p-1 text-slate-400 hover:text-accentRose hover:bg-accentRose/10 rounded-lg transition-all active:scale-95">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
             </button>
           </td>
@@ -10940,15 +11053,15 @@ html.page-fade-ready body {
       container.innerHTML = `
         <table class="w-full text-left border-collapse">
           <thead class="bg-slate-50 text-[9px] uppercase tracking-wider text-slate-400 font-bold sticky top-0">
-            <tr><th class="p-2 w-20">Date</th><th class="p-2 w-28">Branch</th><th class="p-2 w-32">Category</th><th class="p-2">Findings</th><th class="p-2 w-8"></th></tr>
+            <tr><th class="p-2 w-20">Date</th><th class="p-2 w-28">Branch</th><th class="p-2 w-32">Category</th><th class="p-2">Findings</th><th class="p-2 w-14"></th></tr>
           </thead>
           <tbody>${rows}</tbody>
         </table>`;
     }
 
-    function removeStagedFindingEntry(index) {
+    function removeStagedFindingEntry(id) {
       const store = loadFindingsEditorStore();
-      store.staged.splice(index, 1);
+      store.staged = store.staged.filter(r => r.id !== id);
       saveFindingsEditorStore(store);
       renderStagedFindingsTable();
     }
