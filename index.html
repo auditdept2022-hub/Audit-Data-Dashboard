@@ -3184,10 +3184,13 @@ html.page-fade-ready body {
             </div>
           </div>
 
-          <label class="auth-remember">
-            <input type="checkbox" id="authRememberMe" checked>
-            <span>Keep me signed in</span>
-          </label>
+          <div class="flex items-center justify-between gap-2">
+            <label class="auth-remember">
+              <input type="checkbox" id="authRememberMe" checked>
+              <span>Keep me signed in</span>
+            </label>
+            <button type="button" id="authForgotLink" class="text-xs font-semibold text-accentIndigo hover:underline whitespace-nowrap">Forgot password?</button>
+          </div>
 
           <button type="submit" id="authSubmitBtn"
             class="auth-submit w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold tracking-tight shadow-lg active:scale-[0.98] transition-all duration-200">
@@ -3197,6 +3200,28 @@ html.page-fade-ready body {
 
           <p id="authError" class="hidden text-xs font-semibold text-accentRose bg-accentRose/10 border border-accentRose/20 rounded-lg px-3 py-2 text-center"></p>
         </form>
+
+        <!-- Forgot-password mini-form: swapped in over the sign-in form
+             (same auth-plaque card) instead of a separate modal, so it
+             matches the login screen's styling with no extra markup. -->
+        <div id="authResetPanel" class="hidden space-y-5">
+          <div>
+            <p class="text-xs text-slate-500 mb-4 text-center">Enter your account email and we'll send you a link to reset your password.</p>
+            <label for="authResetEmail" class="auth-label block mb-2">Email</label>
+            <input type="email" id="authResetEmail" autocomplete="username"
+              class="auth-input" placeholder="you@example.com">
+          </div>
+
+          <button type="button" id="authResetSendBtn"
+            class="auth-submit w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold tracking-tight shadow-lg active:scale-[0.98] transition-all duration-200">
+            <span id="authResetSendLabel">Send reset link</span>
+            <svg id="authResetSpinner" class="hidden animate-spin" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
+          </button>
+
+          <button type="button" id="authResetBackBtn" class="w-full text-center text-xs font-semibold text-slate-500 hover:text-slate-700">&larr; Back to sign in</button>
+
+          <p id="authResetMessage" class="hidden text-xs font-semibold rounded-lg px-3 py-2 text-center"></p>
+        </div>
       </div>
 
     </div>
@@ -3542,6 +3567,19 @@ html.page-fade-ready body {
         <h2 id="loadingTitleText" class="text-base font-bold text-slate-900 mb-0.5">Preparing your dashboard</h2>
         <p id="loadingStatusText" class="text-xs text-slate-500 min-h-[1rem]">Connecting to secure server&hellip;</p>
       </div>
+    </div>
+
+    <!-- Escape hatch for a loading screen that's genuinely stuck (not just
+         slow) -- e.g. a stalled request that never resolves into either
+         success or the error box. Sits outside #loadingCore (rather than
+         inside it) so it still works during the blank-cover fast-return
+         path, which hides #loadingCore's contents. Hidden until
+         openLoadingScreen / openBlankCover has been up for
+         STUCK_LOADING_MS with no result, so it never flashes on a normal
+         fast load. -->
+    <div id="loadingStuckBox" class="hidden relative z-10 mt-3 bg-coolCard/95 backdrop-blur border border-coolBorder rounded-2xl shadow-2xl px-4 py-3 w-full max-w-xs mx-4 text-center">
+      <p class="text-xs text-slate-500 mb-2">This is taking longer than usual.</p>
+      <button id="loadingStuckLogoutBtn" type="button" class="w-full py-2 bg-transparent text-slate-500 text-xs font-semibold rounded-xl border border-coolBorder hover:bg-slate-100 active:scale-[0.98] transition-all">Log out</button>
     </div>
 
     <div id="loadingError" class="hidden relative z-10 bg-coolCard border border-coolBorder rounded-2xl shadow-2xl p-8 w-full max-w-sm mx-4 text-center">
@@ -3950,6 +3988,8 @@ html.page-fade-ready body {
       const loadingErrorMessageEl = document.getElementById('loadingErrorMessage');
       const loadingStatusEl = document.getElementById('loadingStatusText');
       const loadingTitleEl = document.getElementById('loadingTitleText');
+      const loadingStuckBox = document.getElementById('loadingStuckBox');
+      const loadingStuckLogoutBtn = document.getElementById('loadingStuckLogoutBtn');
 
       // Coming back from a linked page (Opex / Attendance "Dashboard" button)
       // via ?skipLoading=1 means someone is already signed in and just wants
@@ -4019,6 +4059,35 @@ html.page-fade-ready body {
         clearInterval(statusTimer);
       }
 
+      // Shows a small "Log out" box if the loading screen has been up for
+      // STUCK_LOADING_MS with no result yet (no success, no error box) --
+      // a genuine hang, not just a slow-but-progressing load -- so someone
+      // isn't ever trapped behind the loading screen with no way out.
+      const STUCK_LOADING_MS = 10000;
+      let stuckTimer = null;
+
+      function armStuckTimer(token) {
+        clearStuckTimer();
+        stuckTimer = setTimeout(function() {
+          if (token !== generation) return; // superseded by a newer operation
+          if (loadingStuckBox) loadingStuckBox.classList.remove('hidden');
+        }, STUCK_LOADING_MS);
+      }
+
+      function clearStuckTimer() {
+        if (stuckTimer) {
+          clearTimeout(stuckTimer);
+          stuckTimer = null;
+        }
+        if (loadingStuckBox) loadingStuckBox.classList.add('hidden');
+      }
+
+      if (loadingStuckLogoutBtn) {
+        loadingStuckLogoutBtn.addEventListener('click', function() {
+          if (typeof window.__dashboardSignOut === 'function') window.__dashboardSignOut();
+        });
+      }
+
       function openLoadingScreen(opts) {
         opts = opts || {};
         generation++;
@@ -4031,6 +4100,7 @@ html.page-fade-ready body {
         document.body.style.overflow = 'hidden';
         loadingTitleEl.textContent = opts.title || 'Preparing your dashboard';
         startProgress(opts.messages);
+        armStuckTimer(token);
         return token;
       }
 
@@ -4047,6 +4117,7 @@ html.page-fade-ready body {
       // retry loop giving up, or the retry button failing again).
       window.__showDashboardLoadError = function(err) {
         stopProgress();
+        clearStuckTimer();
         const msg = (err && err.message) ? String(err.message) : '';
         const isAuthIssue = /unauthorized/i.test(msg) || /not signed in/i.test(msg);
         if (loadingErrorMessageEl) {
@@ -4066,6 +4137,7 @@ html.page-fade-ready body {
       function revealDashboard(readyText, token) {
         if (token !== undefined && token !== generation) return; // superseded by a newer operation
         stopProgress();
+        clearStuckTimer();
         loadingStatusEl.textContent = readyText || 'Dashboard ready!';
         // SPEED FIX: this "ready" hold + the opacity fade were both fixed
         // at 350ms (700ms total dead time on every single reveal, even
@@ -4096,6 +4168,7 @@ html.page-fade-ready body {
       function closeLoadingScreen(token) {
         if (token !== undefined && token !== generation) return; // superseded by a newer operation
         stopProgress();
+        clearStuckTimer();
         loadingScreen.style.opacity = '0';
         setTimeout(function() {
           if (token !== undefined && token !== generation) return;
@@ -4120,11 +4193,13 @@ html.page-fade-ready body {
         loadingScreen.style.display = 'flex';
         loadingScreen.style.opacity = '1';
         document.body.style.overflow = 'hidden';
+        armStuckTimer(token);
         return token;
       }
 
       function closeBlankCover(token) {
         if (token !== generation) return; // superseded by a newer operation
+        clearStuckTimer();
         loadingScreen.style.opacity = '0';
         setTimeout(function() {
           if (token !== generation) return;
@@ -14254,7 +14329,8 @@ html.page-fade-ready body {
       browserSessionPersistence,
       signOut,
       EmailAuthProvider,
-      reauthenticateWithCredential
+      reauthenticateWithCredential,
+      sendPasswordResetEmail
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
     // TODO: paste your full config from Firebase Console →
@@ -14355,9 +14431,202 @@ html.page-fade-ready body {
       authError.classList.remove('hidden');
     }
 
+    // ================= FORGOT PASSWORD =====================
+    // Swaps the sign-in form for a small "send reset link" panel inside the
+    // same auth-plaque card, rather than a separate modal, so it inherits
+    // the login screen's styling for free.
+    const authForgotLink = document.getElementById('authForgotLink');
+    const authResetPanel = document.getElementById('authResetPanel');
+    const authResetEmail = document.getElementById('authResetEmail');
+    const authResetSendBtn = document.getElementById('authResetSendBtn');
+    const authResetSendLabel = document.getElementById('authResetSendLabel');
+    const authResetSpinner = document.getElementById('authResetSpinner');
+    const authResetBackBtn = document.getElementById('authResetBackBtn');
+    const authResetMessage = document.getElementById('authResetMessage');
+
+    function showResetMessage(message, isError) {
+      authResetMessage.textContent = message;
+      authResetMessage.classList.remove('hidden');
+      authResetMessage.classList.toggle('text-accentRose', !!isError);
+      authResetMessage.classList.toggle('bg-accentRose/10', !!isError);
+      authResetMessage.classList.toggle('border-accentRose/20', !!isError);
+      authResetMessage.classList.toggle('text-emerald-700', !isError);
+      authResetMessage.classList.toggle('bg-emerald-50', !isError);
+      authResetMessage.classList.toggle('border-emerald-200', !isError);
+      authResetMessage.classList.add(isError ? 'border' : 'border');
+    }
+
+    function openResetPanel() {
+      authError.classList.add('hidden');
+      authResetMessage.classList.add('hidden');
+      authResetEmail.value = authEmail.value || '';
+      authForm.classList.add('hidden');
+      authResetPanel.classList.remove('hidden');
+      setTimeout(function() { authResetEmail.focus(); }, 0);
+    }
+
+    function closeResetPanel() {
+      authResetPanel.classList.add('hidden');
+      authResetMessage.classList.add('hidden');
+      authForm.classList.remove('hidden');
+    }
+
+    if (authForgotLink) {
+      authForgotLink.addEventListener('click', function() {
+        openResetPanel();
+      });
+    }
+
+    if (authResetBackBtn) {
+      authResetBackBtn.addEventListener('click', function() {
+        closeResetPanel();
+      });
+    }
+
+    if (authResetSendBtn) {
+      authResetSendBtn.addEventListener('click', async function() {
+        const emailValue = (authResetEmail.value || '').trim();
+        authResetMessage.classList.add('hidden');
+        if (!emailValue) {
+          showResetMessage('Enter your email address first.', true);
+          authResetEmail.focus();
+          return;
+        }
+        authResetSendBtn.disabled = true;
+        authResetSendBtn.style.opacity = '0.7';
+        authResetSendLabel.textContent = 'Sending\u2026';
+        authResetSpinner.classList.remove('hidden');
+        try {
+          await sendPasswordResetEmail(auth, emailValue);
+          showResetMessage("If that email has an account, we've sent a password reset link. Check your inbox (and spam folder).", false);
+        } catch (err) {
+          const code = err && err.code;
+          let msg = "Couldn't send the reset email. Please try again.";
+          // Firebase deliberately doesn't reveal whether an email is
+          // registered via a distinct error, so an invalid-email format
+          // is really the only case worth calling out separately here.
+          if (code === 'auth/invalid-email') {
+            msg = 'That email address looks invalid.';
+          } else if (code === 'auth/too-many-requests') {
+            msg = 'Too many attempts. Please wait a bit and try again.';
+          }
+          showResetMessage(msg, true);
+        } finally {
+          authResetSendBtn.disabled = false;
+          authResetSendBtn.style.opacity = '1';
+          authResetSendLabel.textContent = 'Send reset link';
+          authResetSpinner.classList.add('hidden');
+        }
+      });
+    }
+
+    // ================= LOGIN LOCKOUT (3 wrong attempts -> 3 min lock) =====
+    // Client-side only: tracked per email address in localStorage, keyed
+    // so it survives a page reload but never blocks OTHER emails on a
+    // shared computer. This is a UX/friction layer, not the app's real
+    // brute-force defense — Firebase Auth already throttles repeated
+    // failed sign-ins server-side (surfaced here as the
+    // 'auth/too-many-requests' error code) regardless of anything below,
+    // and that's the protection that can't be bypassed by clearing
+    // storage or opening a private window.
+    const AUTH_LOCKOUT_MAX_ATTEMPTS = 3;
+    const AUTH_LOCKOUT_DURATION_MS = 3 * 60 * 1000; // 3 minutes
+    let authLockoutTimerId = null;
+
+    function authLockoutKey(email) {
+      return 'authLockout:' + String(email || '').trim().toLowerCase();
+    }
+
+    function getAuthLockoutRecord(email) {
+      try {
+        const raw = localStorage.getItem(authLockoutKey(email));
+        if (!raw) return { count: 0, lockUntil: 0 };
+        const parsed = JSON.parse(raw);
+        return { count: parsed.count || 0, lockUntil: parsed.lockUntil || 0 };
+      } catch (e) {
+        return { count: 0, lockUntil: 0 };
+      }
+    }
+
+    function setAuthLockoutRecord(email, record) {
+      try { localStorage.setItem(authLockoutKey(email), JSON.stringify(record)); }
+      catch (e) { /* ignore (e.g. private-mode storage full) */ }
+    }
+
+    function clearAuthLockoutRecord(email) {
+      try { localStorage.removeItem(authLockoutKey(email)); } catch (e) {}
+    }
+
+    function formatLockoutRemaining(ms) {
+      const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+      const m = Math.floor(totalSeconds / 60);
+      const s = totalSeconds % 60;
+      return m + ':' + (s < 10 ? '0' : '') + s;
+    }
+
+    // Disables the submit button and shows a live "try again in m:ss"
+    // countdown until `lockUntil` passes, then auto-clears the lock.
+    function startAuthLockoutCountdown(emailKey, lockUntil) {
+      if (authLockoutTimerId) { clearInterval(authLockoutTimerId); authLockoutTimerId = null; }
+      authSubmitBtn.disabled = true;
+      authSubmitBtn.style.opacity = '0.6';
+
+      function tick() {
+        const remaining = lockUntil - Date.now();
+        if (remaining <= 0) {
+          clearInterval(authLockoutTimerId);
+          authLockoutTimerId = null;
+          clearAuthLockoutRecord(emailKey);
+          authSubmitBtn.disabled = false;
+          authSubmitBtn.style.opacity = '1';
+          authError.classList.add('hidden');
+          return;
+        }
+        showAuthError('Too many failed attempts. Try again in ' + formatLockoutRemaining(remaining) + '.');
+      }
+      tick();
+      authLockoutTimerId = setInterval(tick, 1000);
+    }
+
+    // After a submit attempt, either resume the normal button state or
+    // (if that attempt just triggered a lock) keep it disabled instead of
+    // letting the normal setSubmitting(false) undo the lock.
+    function resetSubmitButtonUnlessLocked(emailKey) {
+      const record = getAuthLockoutRecord(emailKey);
+      if (record.lockUntil > Date.now()) {
+        authSubmitLabel.textContent = 'Sign In';
+        authSpinner.classList.add('hidden');
+        authSubmitBtn.disabled = true;
+        authSubmitBtn.style.opacity = '0.6';
+      } else {
+        setSubmitting(false);
+      }
+    }
+
+    // If the person reloads the page (or tabs into the email field) while
+    // already locked out, show the countdown immediately instead of
+    // waiting for another failed submit.
+    authEmail.addEventListener('blur', () => {
+      const record = getAuthLockoutRecord(authEmail.value);
+      if (record.lockUntil > Date.now()) {
+        startAuthLockoutCountdown(authEmail.value.trim().toLowerCase(), record.lockUntil);
+      }
+    });
+    // ================= END LOGIN LOCKOUT =================
+
     authForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       authError.classList.add('hidden');
+
+      const emailValue = authEmail.value.trim();
+      const emailKey = emailValue.toLowerCase();
+
+      const existingRecord = getAuthLockoutRecord(emailKey);
+      if (existingRecord.lockUntil > Date.now()) {
+        startAuthLockoutCountdown(emailKey, existingRecord.lockUntil);
+        return;
+      }
+
       setSubmitting(true);
       try {
         // "Keep me signed in" (checked by default) keeps the session in the
@@ -14367,13 +14636,33 @@ html.page-fade-ready body {
         // which is safer on a shared/public computer.
         const persistence = authRememberMe.checked ? browserLocalPersistence : browserSessionPersistence;
         await setPersistence(auth, persistence);
-        await signInWithEmailAndPassword(auth, authEmail.value.trim(), authPassword.value);
+        await signInWithEmailAndPassword(auth, emailValue, authPassword.value);
+        // Successful sign-in: forget any past failed attempts for this email.
+        clearAuthLockoutRecord(emailKey);
         // onAuthStateChanged below handles revealing the dashboard.
       } catch (err) {
         console.error('Sign-in failed:', err);
-        showAuthError('Invalid email or password.');
+
+        if (err && err.code === 'auth/too-many-requests') {
+          // Firebase's own server-side throttle already kicked in — don't
+          // layer our shorter local lock on top of a longer server one.
+          showAuthError('Too many attempts. Please wait a few minutes and try again.');
+        } else {
+          const record = getAuthLockoutRecord(emailKey);
+          const newCount = (record.count || 0) + 1;
+
+          if (newCount >= AUTH_LOCKOUT_MAX_ATTEMPTS) {
+            const lockUntil = Date.now() + AUTH_LOCKOUT_DURATION_MS;
+            setAuthLockoutRecord(emailKey, { count: 0, lockUntil: lockUntil });
+            startAuthLockoutCountdown(emailKey, lockUntil);
+          } else {
+            setAuthLockoutRecord(emailKey, { count: newCount, lockUntil: 0 });
+            showAuthError('Invalid email or password. ' +
+              (AUTH_LOCKOUT_MAX_ATTEMPTS - newCount) + ' attempt(s) left before a temporary lock.');
+          }
+        }
       } finally {
-        setSubmitting(false);
+        resetSubmitButtonUnlessLocked(emailKey);
       }
     });
 
