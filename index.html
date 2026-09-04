@@ -11180,13 +11180,23 @@ html.page-fade-ready body {
       const secret = loadFindingsEditorSecret();
       const params = new URLSearchParams({ action: 'list', secret: secret, idToken: idToken });
       const url = FINDINGS_APPS_SCRIPT_URL + '?' + params.toString();
-      let json;
-      try { json = await fetchSheetOnce(url); } catch (e) { /* fall through to unauthorized-style message below */ }
+      let json, fetchErr;
+      try { json = await fetchSheetOnce(url); } catch (e) { fetchErr = e; }
       if (json && json.success) {
         findingsAuthCache = { ok: true, at: Date.now() };
         return true;
       }
-      showToast('Not authorized to add findings on this account.');
+      // Show the ACTUAL reason instead of a one-size-fits-all message — a
+      // wrong secret, a network/JSONP failure, and 'your email isn't on
+      // the allowlist' all used to render as the exact same generic toast,
+      // which made this endpoint impossible to debug from the outside.
+      // This check only ever runs against the person's own signed-in
+      // account, so telling them the real reason isn't a privacy leak.
+      const reason = (json && json.error) ? json.error
+        : (fetchErr ? ('Could not reach the sheet — ' + ((fetchErr && fetchErr.message) || 'request failed') + '.')
+        : 'No response from the sheet.');
+      showToast('Not authorized to add findings: ' + reason);
+      console.error('[findings auth check] failed:', { reason, json, fetchErr });
       return false;
     }
 
