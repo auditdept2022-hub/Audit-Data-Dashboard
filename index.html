@@ -2290,9 +2290,9 @@ input#tableSearch:focus, select:focus{
   position:fixed;
   top:1.1rem;
   left:50%;
-  z-index:60;
+  z-index:10000;
   display:flex;
-  align-items:center;
+  align-items:flex-start;
   gap:.55rem;
   width:max-content;
   max-width:min(90vw,380px);
@@ -2339,7 +2339,7 @@ input#tableSearch:focus, select:focus{
 }
 #toast .toast-icon svg{ width:.9rem; height:.9rem; display:block; }
 #toast .toast-body{ flex:1 1 auto; min-width:0; }
-#toast .toast-message{ font-size:.8rem; font-weight:600; line-height:1.3; letter-spacing:-.01em; color:#f8fafc; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#toast .toast-message{ font-size:.8rem; font-weight:600; line-height:1.3; letter-spacing:-.01em; color:#f8fafc; display:block; white-space:normal; overflow-wrap:break-word; }
 #toast .toast-close{
   flex-shrink:0;
   width:1.4rem;
@@ -5778,6 +5778,14 @@ html.page-fade-ready body {
       loading: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 3a9 9 0 1 0 9 9"></path></svg>'
     };
     let toastHideTimer = null;
+    // How long a toast stays up before it starts fading, in ms. Bumped up
+    // from the old hardcoded 4000ms — now that messages can wrap onto a
+    // second line instead of being cut off with "…", they need a bit more
+    // time to actually be read. Set once here and applied to both the
+    // auto-hide timer AND the CSS progress-bar animation (via the
+    // --toast-duration custom property below) so the two can never drift
+    // out of sync with each other.
+    const TOAST_DURATION_MS = 5500;
 
     // Picks an icon/color for the toast based on the message text, unless
     // the caller passes an explicit type. Callers throughout the dashboard
@@ -5830,6 +5838,7 @@ html.page-fade-ready body {
       toast.classList.remove('toast-visible');
       progressBar.style.animation = 'none';
       void progressBar.offsetWidth;
+      toast.style.setProperty('--toast-duration', TOAST_DURATION_MS + 'ms');
       progressBar.style.animation = '';
       toast.classList.add('toast-visible');
 
@@ -5848,7 +5857,7 @@ html.page-fade-ready body {
         toastHideTimer = setTimeout(() => {
           toast.classList.remove('toast-visible');
           toastHideTimer = null;
-        }, 4000);
+        }, TOAST_DURATION_MS);
       }
     }
 
