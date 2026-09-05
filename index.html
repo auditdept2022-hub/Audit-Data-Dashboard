@@ -5037,9 +5037,9 @@ html.page-fade-ready body {
           <span class="menu-tile-label">Update Sheet</span>
         </div>
 
-        <!-- "Data Updater" -- placeholder tile, not wired up to a backend
-             action yet. openDataUpdater() below just shows a toast for
-             now; swap its body for the real handler when this is ready. -->
+        <!-- "Data Updater" -- opens Data-updater.html, the standalone
+             tool for pushing/pulling branch data. See openDataUpdater()
+             further down. -->
         <div role="button" tabindex="0" onclick="openDataUpdater()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDataUpdater();}" class="menu-tile cursor-pointer select-none">
           <span class="menu-tile-icon" style="background:rgba(37,99,235,0.10);"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue shrink-0"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 16h5v5"></path></svg></span>
           <span class="menu-tile-label">Data Updater</span>
@@ -6226,65 +6226,65 @@ html.page-fade-ready body {
       } else if (type === 'emergency') {
           let historyHtml = '';
           if (activeData.emergencyHistory && activeData.emergencyHistory.length > 0) {
-              historyHtml = activeData.emergencyHistory.map(h => `
-                  <div class="bg-gray-50 p-3 rounded-lg border border-coolBorder">
-                      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                          <div>
-                              <span class="text-[10px] text-slate-400 font-bold uppercase block mb-1">Recent Auditor</span>
-                              <span class="text-sm font-semibold text-slate-800">${h.auditor || 'N/A'}</span>
+              historyHtml = activeData.emergencyHistory.map(h => {
+                  const initial = (h.auditor || '?').trim().charAt(0).toUpperCase() || '?';
+                  return `
+                  <div class="flex items-start gap-2.5 py-2.5">
+                      <div class="shrink-0 mt-0.5 w-6 h-6 rounded-full bg-accentRose/10 text-accentRose flex items-center justify-center text-[10px] font-bold">${initial}</div>
+                      <div class="min-w-0 flex-1">
+                          <div class="flex items-baseline gap-1.5 flex-wrap">
+                              <span class="text-[12.5px] font-bold text-slate-800">${h.auditor || 'N/A'}</span>
+                              <span class="text-[10.5px] text-slate-400">at</span>
+                              <span class="text-[12px] font-semibold text-slate-600 truncate">${h.branch || 'N/A'}</span>
                           </div>
-                          <div>
-                              <span class="text-[10px] text-slate-400 font-bold uppercase block mb-1">Branch</span>
-                              <span class="text-sm font-semibold text-slate-800">${h.branch || 'N/A'}</span>
-                          </div>
-                          <div>
-                              <span class="text-[10px] text-slate-400 font-bold uppercase block mb-1">Date of Audit</span>
-                              <span class="text-sm font-semibold text-slate-800">${h.details || 'N/A'}</span>
+                          <div class="flex items-center gap-1.5 mt-0.5 min-w-0">
+                              <span class="text-[10.5px] text-slate-400 shrink-0">${h.details || 'N/A'}</span>
+                              ${h.remark ? `<span class="text-slate-300 shrink-0">&bull;</span><span class="text-[10.5px] text-slate-500 italic truncate">${h.remark}</span>` : ''}
                           </div>
                       </div>
-                      ${h.remark ? `
-                      <div class="mt-2 pt-2 border-t border-coolBorder">
-                          <span class="text-[10px] text-slate-400 font-bold uppercase block mb-1">Remark</span>
-                          <span class="text-sm text-slate-700 whitespace-pre-wrap">${h.remark}</span>
-                      </div>` : ''}
-                  </div>
-              `).join('');
+                  </div>`;
+              }).join('');
+              historyHtml = `<div class="divide-y divide-coolBorder">${historyHtml}</div>`;
           } else {
-              historyHtml = `<div class="text-sm text-slate-500 italic p-4 text-center">No recent emergency history found.</div>`;
+              historyHtml = `<div class="text-xs text-slate-400 italic py-6 text-center">No recent emergency history found.</div>`;
           }
 
           const pendingAuditor = getNextEmergencyRotationAuditor();
           const rotationStepsHtml = EMERGENCY_ROTATION_CYCLE.map(name => {
               const isPending = name === pendingAuditor;
               return isPending
-                  ? `<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold tracking-wide bg-accentAmber text-white shadow-sm shadow-accentAmber/25">
-                       <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+                  ? `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide bg-accentAmber text-white shadow-sm shadow-accentAmber/25">
+                       <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
                        ${name}
                      </span>`
-                  : `<span class="px-3 py-1.5 rounded-full text-[11px] font-semibold tracking-wide bg-slate-50 text-slate-500 border border-slate-200">${name}</span>`;
-          }).join(`<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-300 shrink-0"><path d="m9 18 6-6-6-6"></path></svg>`);
+                  : `<span class="px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wide bg-slate-50 text-slate-500 border border-slate-200">${name}</span>`;
+          }).join(`<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-300 shrink-0"><path d="m9 18 6-6-6-6"></path></svg>`);
 
           modalBody.innerHTML = `
-          <div class="p-5 bg-accentRose/10 border border-accentRose/20 rounded-xl mb-4">
-            <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0">
-                <h3 class="font-bold text-lg mb-2 text-accentRose">Emergency Auditor Standby</h3>
-                <p class="text-sm text-accentRose">The current emergency auditor is <strong class="text-accentEmerald">${activeData.summary.emergencyAuditor || 'PENDING'}</strong>.</p>
+          <div class="p-4 bg-accentRose/10 border border-accentRose/20 rounded-xl mb-3">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <div class="shrink-0 w-9 h-9 rounded-full bg-accentRose/15 text-accentRose flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path></svg>
+                </div>
+                <div class="min-w-0">
+                  <p class="text-[10px] font-bold uppercase tracking-wider text-accentRose/70">Current Emergency Auditor</p>
+                  <p class="text-[15px] font-extrabold text-slate-800 truncate">${activeData.summary.emergencyAuditor || 'PENDING'}</p>
+                </div>
               </div>
               <button onclick="openEditEmergencyModal()" title="Set emergency auditor" aria-label="Set emergency auditor" class="shrink-0 flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-white bg-accentRose rounded-lg hover:bg-accentRose/90 active:scale-95 transition-all cursor-pointer">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
                 Set
               </button>
             </div>
-            <div class="mt-4 pt-3 border-t border-accentRose/20 flex items-center gap-2 flex-wrap">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-accentAmber shrink-0"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>
-              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0">Next up:</span>
-              <div class="flex items-center gap-1.5 flex-wrap">${rotationStepsHtml}</div>
+            <div class="mt-3 pt-3 border-t border-accentRose/15 flex items-center gap-2 flex-wrap">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0">Next up</span>
+              <div class="flex items-center gap-1 flex-wrap">${rotationStepsHtml}</div>
             </div>
           </div>
-          <div class="p-5 bg-white border border-coolBorder rounded-xl shadow-sm">
-            <h3 class="font-bold text-sm text-slate-700 mb-3 uppercase tracking-wider">Emergency Auditor History</h3>
-            <div class="flex flex-col gap-3 max-h-80 overflow-y-auto custom-scrollbar pr-2">
+          <div class="p-4 bg-white border border-coolBorder rounded-xl shadow-sm">
+            <h3 class="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-1">History</h3>
+            <div class="max-h-72 overflow-y-auto custom-scrollbar pr-1">
                 ${historyHtml}
             </div>
           </div>`;
@@ -7828,13 +7828,17 @@ html.page-fade-ready body {
       }
     }
 
-    // Fired from the shortcuts menu's "Data Updater" item. Placeholder --
-    // no backend action wired up yet. Replace this body with the real
-    // handler (modal / confirm / Apps Script call, following the same
-    // pattern as updateOverallDataFromMenu above) once that's ready.
+    // Fired from the shortcuts menu's "Data Updater" item. Opens
+    // Data-updater.html, a separate standalone page that sits right next
+    // to this file wherever the dashboard is hosted (same GitHub repo/
+    // Pages site, same folder) — same pattern as PARTS REQUEST's
+    // Parts_Request.html link above. It has its own Google Sheet
+    // connections (stored in its own localStorage) and isn't gated by
+    // Code.gs's EDITOR_EMAILS/QUICKLINKS_ALLOWED_EMAILS, so no password
+    // re-check here — it just navigates.
     function openDataUpdater() {
       if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
-      showToast('Data Updater is coming soon.', 'info');
+      window.location.href = 'Data-updater.html';
     }
 
     // Fired from the shortcuts menu's "Emergency Auditor" item.
@@ -11264,26 +11268,52 @@ html.page-fade-ready body {
       return _findingsAuthStatus;
     }
 
-    // Updates just the status line + Send button in an already-rendered
+    // Small inline icon set for the banner below — kept tiny/self-contained
+    // rather than pulling in an icon library just for four glyphs.
+    const FINDINGS_AUTH_ICONS = {
+      spinner: '<svg class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="42" stroke-dashoffset="14" opacity="0.9"/></svg>',
+      check:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      signin:  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      lock:    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="10.5" width="16" height="10" rx="2" stroke="currentColor" stroke-width="2"/><path d="M7.5 10.5V7a4.5 4.5 0 0 1 9 0v3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="15.5" r="1.4" fill="currentColor"/></svg>'
+    };
+
+    // Updates just the status banner + Send button in an already-rendered
     // form, without rebuilding it — rebuilding mid-check would wipe out
     // anything the person had already started typing while the (network)
     // authorization check was still in flight.
+    //
+    // Renders the status area as a proper bordered banner (icon + headline
+    // + supporting line) instead of a single line of colored text, so an
+    // access-related message reads as an intentional, professional piece
+    // of UI rather than an ad-hoc warning string.
     function renderFindingsAuthStatus() {
       const el = document.getElementById('findingsEditor-authStatus');
       const sendAllBtn = document.getElementById('findingsEditor-sendAllBtn');
       if (!el) return;
       const s = _findingsAuthStatus;
+
+      // theme: border/bg/icon-bg/icon-color/title-color per state
+      let theme, icon, title, body;
+
       if (!s.checked) {
-        el.className = 'mb-3 text-[11px] font-semibold text-slate-400';
-        el.textContent = 'Checking sign-in\u2026';
+        theme = { wrap: 'border-slate-200 bg-slate-50', iconWrap: 'bg-slate-200 text-slate-500', title: 'text-slate-600' };
+        icon = FINDINGS_AUTH_ICONS.spinner;
+        title = 'Checking sign-in\u2026';
+        body = 'Confirming your account\u2019s access before you start.';
       } else if (s.authorized) {
-        el.className = 'mb-3 text-[11px] font-semibold text-accentEmerald';
-        el.textContent = 'Signed in as ' + (s.email || 'your account') + ' \u2014 ready to send.';
+        theme = { wrap: 'border-accentEmerald/25 bg-accentEmerald/5', iconWrap: 'bg-accentEmerald/15 text-accentEmerald', title: 'text-accentEmerald' };
+        icon = FINDINGS_AUTH_ICONS.check;
+        title = 'Ready to send';
+        body = 'Signed in as <span class="font-semibold text-slate-700">' + escapeFindingHTML(s.email || 'your account') + '</span>.';
       } else if (s.reason === 'not-signed-in') {
-        el.className = 'mb-3 text-[11px] font-semibold text-accentRose';
-        el.textContent = 'Not signed in to the dashboard \u2014 sign in to send findings. You can still stage entries below.';
+        theme = { wrap: 'border-amber-200 bg-amber-50', iconWrap: 'bg-amber-100 text-amber-600', title: 'text-amber-700' };
+        icon = FINDINGS_AUTH_ICONS.signin;
+        title = 'Sign-in required';
+        body = 'Sign in to the dashboard to send findings. You can still stage entries below in the meantime.';
       } else {
-        el.className = 'mb-3 text-[11px] font-semibold text-accentRose';
+        theme = { wrap: 'border-accentRose/25 bg-accentRose/5', iconWrap: 'bg-accentRose/15 text-accentRose', title: 'text-accentRose' };
+        icon = FINDINGS_AUTH_ICONS.lock;
+        title = 'Account not authorized to send';
         // Show the ACTUAL reason Code.gs gave (not a generic message) — this
         // banner is only ever seen by the signed-in person themselves, in
         // their own browser, so there's no guessing-attack risk here the
@@ -11294,9 +11324,20 @@ html.page-fade-ready body {
         // Properties mismatch apart from a stale/un-redeployed script apart
         // from a genuinely wrong allow-list.
         const rawReason = String(s.reason || '').replace(/^unauthorized:\s*/i, '').trim();
-        const detail = (rawReason && rawReason.toLowerCase() !== 'not-authorized') ? ' (' + rawReason + ')' : '';
-        el.textContent = (s.email ? 'Signed in as ' + s.email + ', but this' : 'This') + ' account isn\u2019t allowed to send findings' + detail + '. You can still stage entries below for an allowed account to send.';
+        const detail = (rawReason && rawReason.toLowerCase() !== 'not-authorized') ? ' <span class="text-slate-400">(' + escapeFindingHTML(rawReason) + ')</span>' : '';
+        body = (s.email ? '<span class="font-semibold text-slate-700">' + escapeFindingHTML(s.email) + '</span> isn\u2019t on the approved list for sending findings' : 'This account isn\u2019t on the approved list for sending findings') + detail +
+          '. Entries you stage below will be saved here so an authorized account can review and send them.';
       }
+
+      el.innerHTML =
+        '<div class="flex items-start gap-3 rounded-xl border ' + theme.wrap + ' px-3.5 py-3">' +
+          '<div class="shrink-0 w-7 h-7 rounded-full flex items-center justify-center ' + theme.iconWrap + '">' + icon + '</div>' +
+          '<div class="min-w-0">' +
+            '<p class="text-[12.5px] font-bold ' + theme.title + ' leading-tight">' + title + '</p>' +
+            '<p class="mt-0.5 text-[11.5px] text-slate-500 leading-snug">' + body + '</p>' +
+          '</div>' +
+        '</div>';
+
       if (sendAllBtn) {
         const disable = !s.authorized;
         sendAllBtn.disabled = disable;
@@ -11589,7 +11630,7 @@ html.page-fade-ready body {
 
       body.innerHTML = `
         <input id="findingsEditor-secret" type="hidden" value="${secretVal}">
-        <div id="findingsEditor-authStatus" class="mb-3 text-[11px] font-semibold text-slate-400">Checking sign-in\u2026</div>
+        <div id="findingsEditor-authStatus" class="mb-4"></div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
           <div>
             <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Date</label>
