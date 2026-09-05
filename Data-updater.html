@@ -508,6 +508,9 @@
   table.preview tbody tr:nth-child(even) td.frozen-col{ background:#FAFAF7; }
   table.preview th.frozen-col-0, table.preview td.frozen-col-0{ left:0; }
   table.preview th.frozen-col-1, table.preview td.frozen-col-1{ left:18px; }
+  /* Branch name column — the frozen column that isn't the row-number
+     column — rendered bold so branch names stand out from the data. */
+  table.preview td.frozen-col:not(.idx-col){ font-weight:700; }
 
   /* ---------- Period picker ---------- */
   .period-picker{
@@ -877,14 +880,6 @@
       <div id="gsTabPanels"></div>
       <div class="empty-hint" id="gsEmptyHint">Loading your Sheet data…</div>
     </div>
-  </div>
-
-  <div class="log-panel">
-    <div class="log-head" onclick="toggleLog()">
-      <h4>ACTIVITY LOG</h4>
-      <span class="chev" id="logChev">▾</span>
-    </div>
-    <div class="log-body" id="logBody"></div>
   </div>
 
 </main>
@@ -2388,16 +2383,18 @@ function switchPage(page) {
 
 function log(msg, kind) {
   const body = document.getElementById('logBody');
-  const entry = document.createElement('div');
-  entry.className = 'log-entry' + (kind ? ' ' + kind : '');
   const time = new Date().toLocaleTimeString();
-  entry.innerHTML = '<span class="t">' + time + '</span><span class="msg">' + msg + '</span>';
-  body.prepend(entry);
+  if (body) {
+    const entry = document.createElement('div');
+    entry.className = 'log-entry' + (kind ? ' ' + kind : '');
+    entry.innerHTML = '<span class="t">' + time + '</span><span class="msg">' + msg + '</span>';
+    body.prepend(entry);
+  }
 
   // Every completed action (success or failure — e.g. a push, a delete,
   // a Sheet load) also surfaces in the notification bell. Plain
-  // in-progress messages (no kind) stay in the activity log only, so the
-  // bell doesn't fill up with "Pushing…"/"Fetching…" noise.
+  // in-progress messages (no kind) stay out of the bell, so it doesn't
+  // fill up with "Pushing…"/"Fetching…" noise.
   if (kind === 'ok' || kind === 'err') pushNotification(msg, kind, time);
 }
 
@@ -2475,13 +2472,6 @@ function markChipLoaded(inputId, filename) {
     chip.appendChild(nameEl);
   }
   nameEl.textContent = filename;
-}
-
-function toggleLog() {
-  const body = document.getElementById('logBody');
-  const chev = document.getElementById('logChev');
-  body.classList.toggle('show');
-  chev.style.transform = body.classList.contains('show') ? 'rotate(180deg)' : 'rotate(0deg)';
 }
 
 function openModal(id) {
@@ -3116,12 +3106,9 @@ function buildPeriodPickerHtml(panelId, titleRow, maxCols, category, tabKey) {
   periodSegmentsByPanel[panelId] = segments;
   if (segments.length < 2) return { pickerHtml: '', menuHtml: '' }; // nothing to pick between yet
 
-  // Delete only makes sense once a specific period is picked, and only
-  // when we know which connection/tab this panel actually came from.
-  // It lives inside the per-table "⋮" menu (see buildTableMenuHtml)
-  // instead of sitting as its own button in the picker row.
-  const canDelete = !!(category && tabKey);
-  const menuHtml = canDelete ? buildTableMenuHtml(panelId, category, tabKey) : '';
+  // Delete-period feature removed per request — the per-table "⋮" menu
+  // (which held "Delete this period") no longer renders.
+  const menuHtml = '';
 
   // VIEW PERIOD picker UI removed per request — keep the hidden month
   // input around (off-screen) so applyPeriodFilter/clearPeriodFilter and
@@ -4216,7 +4203,7 @@ function renderServicePreview() {
 
   serviceBranchNames.forEach((name, i) => {
     html += '<tr>' +
-      '<td><input type="text" value="' + escapeAttr(name) + '" style="width:150px;" onchange="editServiceValue(' + i + ',\'name\',this.value)"></td>' +
+      '<td><input type="text" value="' + escapeAttr(name) + '" style="width:150px;font-weight:700;" onchange="editServiceValue(' + i + ',\'name\',this.value)"></td>' +
       '<td><input type="text" value="' + escapeAttr(serviceActual[i]) + '" style="width:90px;" onchange="editServiceValue(' + i + ',\'actual\',this.value)"></td>' +
       '<td><button class="btn" style="padding:4px 9px;" onclick="removeServiceRow(' + i + ')" title="Remove row">✕</button></td>' +
       '</tr>';
