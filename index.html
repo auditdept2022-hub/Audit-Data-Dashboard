@@ -4628,36 +4628,38 @@ html.page-fade-ready body {
        down for the up-front authorization check that replaced it. -->
 
 
-  <!-- STANDALONE sign-in gate for sending a finding (single row or "Send
-       All"). Unlike editAssignPasswordModal / quickLinkPasswordModal, this
-       does NOT depend on the main dashboard's Firebase sign-in session
-       (window.getCurrentIdToken / window.reauthenticateCurrentUser) at all —
-       it asks for one of the AUDIT_ALLOWED_EMAILS accounts + its password
-       right here, signs in against Firebase directly over REST
-       (findingsFirebaseSignIn_, further down), and uses THAT token for the
-       Code.gs call. So this keeps working even if the main dashboard sign-in
-       is broken/signed-out/mid-fix — it's fully self-contained. -->
-  <div id="findingsSendPasswordModal" class="fixed inset-0 z-[70] hidden">
+  <!-- Send confirmation for staged findings. This used to ask for a
+       separate email + password sign-in against Firebase before every
+       send, completely independent of the main dashboard's own sign-in.
+       That was confusing (people are already signed in to see the
+       dashboard at all) and error-prone (mistyped passwords, accounts that
+       looked "real" but weren't allow-listed, etc). It's replaced with a
+       plain "are you sure" using the SAME session that's already signed in
+       to the dashboard (window.getCurrentIdToken) — see
+       findingsGetAuthToken_()/checkFindingsAuthorization() further down.
+       Code.gs still independently verifies that ID token against Firebase's
+       own servers and against AUDIT_ALLOWED_EMAILS on every request, so
+       nothing about server-side security changed — only where the token
+       comes from. -->
+  <div id="findingsSendConfirmModal" class="fixed inset-0 z-[70] hidden">
     <div class="absolute inset-0 bg-slate-900/70"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
       <div class="bg-coolCard w-full max-w-xs rounded-2xl shadow-2xl p-5 pointer-events-auto border border-coolBorder">
         <div class="flex items-start justify-between gap-3 mb-1">
           <div class="flex items-center gap-2 min-w-0">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue flex-shrink-0"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-            <h3 class="text-sm font-bold text-slate-800 truncate">Sign In to Send</h3>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue flex-shrink-0"><path d="m22 2-7 20-4-9-9-4Z"></path><path d="M22 2 11 13"></path></svg>
+            <h3 class="text-sm font-bold text-slate-800 truncate">Send to Sheet</h3>
           </div>
-          <button onclick="cancelFindingsSendPassword()" title="Close" aria-label="Close" class="p-2 -mr-2 text-slate-400 hover:text-accentRose hover:bg-accentRose/10 active:scale-95 rounded-xl transition-all cursor-pointer flex-shrink-0">
+          <button onclick="cancelFindingsSendConfirm()" title="Close" aria-label="Close" class="p-2 -mr-2 text-slate-400 hover:text-accentRose hover:bg-accentRose/10 active:scale-95 rounded-xl transition-all cursor-pointer flex-shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
           </button>
         </div>
-        <p class="text-xs text-slate-500 mb-3">Sign in with an allowed Audit Findings account to send <span id="findingsSendPasswordWhatLabel" class="font-semibold text-slate-600">this finding</span> to the sheet.</p>
-        <input id="findingsSendEmailInput" type="email" autocomplete="username" placeholder="Allowed email" onkeydown="if(event.key==='Enter'){document.getElementById('findingsSendPasswordInput').focus();}" class="w-full px-3 py-2 rounded-xl border border-coolBorder text-sm focus:outline-none focus:ring-2 focus:ring-accentBlue/40 mb-2" />
-        <input id="findingsSendPasswordInput" type="password" autocomplete="current-password" placeholder="Password" onkeydown="if(event.key==='Enter'){submitFindingsSendPassword();}" class="w-full px-3 py-2 rounded-xl border border-coolBorder text-sm focus:outline-none focus:ring-2 focus:ring-accentBlue/40 mb-1" />
-        <p id="findingsSendPasswordError" class="text-[11px] text-accentRose mb-1 hidden">Incorrect email or password. Try again.</p>
+        <p class="text-xs text-slate-500 mb-1">Send <span id="findingsSendConfirmWhatLabel" class="font-semibold text-slate-600">this finding</span> to RAW DATA<span id="findingsSendConfirmEmailWrap"> as <span id="findingsSendConfirmEmailLabel" class="font-semibold text-slate-600"></span></span>?</p>
+        <p id="findingsSendConfirmError" class="text-[11px] text-accentRose mb-1 hidden"></p>
         <div class="flex gap-2 mt-3">
-          <button onclick="cancelFindingsSendPassword()" class="flex-1 text-xs font-semibold text-slate-500 hover:text-slate-700 py-2 rounded-xl border border-coolBorder cursor-pointer">Cancel</button>
-          <button id="findingsSendPasswordSubmitBtn" onclick="submitFindingsSendPassword()" class="flex-1 text-xs font-semibold text-white bg-royalBlue hover:bg-blue-700 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-60">
-            <span id="findingsSendPasswordSubmitLabel">Sign In &amp; Send</span>
+          <button onclick="cancelFindingsSendConfirm()" class="flex-1 text-xs font-semibold text-slate-500 hover:text-slate-700 py-2 rounded-xl border border-coolBorder cursor-pointer">Cancel</button>
+          <button id="findingsSendConfirmSubmitBtn" onclick="confirmFindingsSend()" class="flex-1 text-xs font-semibold text-white bg-royalBlue hover:bg-blue-700 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-60">
+            <span id="findingsSendConfirmSubmitLabel">Send</span>
           </button>
         </div>
       </div>
@@ -11075,11 +11077,6 @@ html.page-fade-ready body {
       try { localStorage.setItem(FINDINGS_EDITOR_STORAGE_KEY, JSON.stringify(store)); } catch (e) { /* storage unavailable — staged rows just won't survive a refresh */ }
     }
 
-    // Remembers the last email typed into the standalone sign-in gate below,
-    // purely so the field isn't blank on every send — the password itself
-    // is never stored anywhere.
-    const FINDINGS_LAST_EMAIL_KEY = 'auditFindingsEditor_lastEmail_v1';
-
     // ---- Live connection to the Code.gs backend for this sheet ----
     // Deployed separately from the main dashboard's own Apps Script — this
     // is the /exec URL for the standalone "AUDIT FINDINGS MONITORING" sheet's
@@ -11119,50 +11116,23 @@ html.page-fade-ready body {
       saveFindingsEditorSecret(value);
     }
 
-    // Firebase Web API key for the SAME Firebase project as the main
-    // dashboard's firebaseConfig.apiKey (see the FIREBASE AUTH LOGIC
-    // <script type="module"> block near the end of this file) — just used
-    // here over plain REST instead of the SDK. This is what makes the
-    // findings send flow "standalone": it doesn't touch the main dashboard's
-    // `auth` object or its signed-in session at all, so it keeps working
-    // regardless of what that session is doing.
-    const FINDINGS_FIREBASE_API_KEY = 'AIzaSyCuntpbNHmez53kWE9nyORhNC62W_FvrTU';
-
-    // Signs in directly against Firebase's Identity Toolkit REST API with an
-    // email + password typed into the send gate below, independent of
-    // whatever the main dashboard's own Firebase Auth session is doing.
-    // Returns a fresh { idToken, email } on success; throws on failure with
-    // Firebase's own error code (e.g. 'EMAIL_NOT_FOUND', 'INVALID_PASSWORD',
-    // 'INVALID_LOGIN_CREDENTIALS', 'TOO_MANY_ATTEMPTS_TRY_LATER') as the
-    // message, which findingsSendPasswordErrorMessage() below turns into
-    // something readable. This ID token is then handed to Code.gs exactly
-    // like the main dashboard's own idToken was before — Code.gs's
-    // authorizeRequest_() still verifies it against Firebase's own servers
-    // and still checks it against AUDIT_ALLOWED_EMAILS, so server-side
-    // security is unchanged; only where the token comes from is different.
-    async function findingsFirebaseSignIn_(email, password) {
-      const url = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' + encodeURIComponent(FINDINGS_FIREBASE_API_KEY);
-      let res, json;
-      try {
-        res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email, password: password, returnSecureToken: true })
-        });
-        json = await res.json();
-      } catch (e) {
-        throw new Error('network-request-failed');
-      }
-      if (!res.ok || !json || !json.idToken) {
-        throw new Error((json && json.error && json.error.message) || ('HTTP ' + (res ? res.status : '?')));
-      }
-      return { idToken: json.idToken, email: json.email || email };
+    // Gets a live ID token for whoever is already signed in to the main
+    // dashboard (window.getCurrentIdToken — see the FIREBASE AUTH LOGIC
+    // <script type="module"> block near the end of this file). The findings
+    // backend (Code.gs, a separate Apps Script deployment) happens to run
+    // on the SAME Firebase project as the dashboard, so this same token is
+    // valid there too — Code.gs's authorizeRequest_() independently
+    // verifies it against Firebase's own servers and against
+    // AUDIT_ALLOWED_EMAILS on every request, exactly as before. This
+    // replaces the old standalone email/password re-sign-in, which asked
+    // people to type a password they'd already typed once just to open the
+    // dashboard, and was a common source of "it's not working" (typos,
+    // TOO_MANY_ATTEMPTS lockouts, accounts that looked fine but weren't
+    // allow-listed).
+    async function findingsGetAuthToken_() {
+      if (typeof window.getCurrentIdToken !== 'function') return null;
+      try { return await window.getCurrentIdToken(); } catch (e) { return null; }
     }
-
-    // The token obtained from the standalone sign-in gate, held in memory
-    // only (never localStorage) for the duration of a send. Cleared as soon
-    // as it's been used so a later send always re-proves identity.
-    let _findingsAuthToken = null;
 
     // Sends one staged row to the Code.gs addFinding endpoint. Uses the same
     // GET+JSONP transport (fetchSheetOnce, defined further down this file)
@@ -11171,11 +11141,12 @@ html.page-fade-ready body {
     // deliberately goes out as a GET with everything in the query string.
     async function sendFindingRowToSheet(row) {
       const secret = loadFindingsEditorSecret();
-      if (!_findingsAuthToken || !_findingsAuthToken.idToken) throw new Error('not-signed-in');
+      const idToken = await findingsGetAuthToken_();
+      if (!idToken) throw new Error('not-signed-in');
       const params = new URLSearchParams({
         action: 'addFinding',
         secret: secret,
-        idToken: _findingsAuthToken.idToken,
+        idToken: idToken,
         date: row.date || '',
         branch: row.branch || '',
         category: row.category || '',
@@ -11197,48 +11168,102 @@ html.page-fade-ready body {
       return json;
     }
 
-    // Sends one staged row (by id) and removes it from the staged list only
-    // on success — a failed send leaves the row in place so nothing is lost.
-    //
-    // sendStagedFindingEntry() / sendAllStagedFindingsToSheet() are the
-    // public entry points wired to the buttons. There's no separate "Are
-    // you sure?" step — the standalone sign-in gate's "Sign In & Send"
-    // button IS the confirmation AND the authorization check in one step
-    // (see submitFindingsSendPassword below), so both entry points just
-    // open that gate directly.
+    // Cached result of the last authorization check (action=list), so the
+    // "Signed in as…" status line and the Send button's enabled state don't
+    // need a fresh round trip on every keystroke — only when the modal is
+    // (re)opened, see checkFindingsAuthorization()/openAddFindingModal().
+    let _findingsAuthStatus = { checked: false, authorized: false, email: '' };
+
+    // Up-front, read-only check of "is the currently signed-in dashboard
+    // account allowed to send findings?" — run once when the Add Finding
+    // modal opens, so someone finds out immediately (via the status line
+    // under the form) instead of only after filling in the whole form and
+    // hitting Send. Also folds the sheet's own current BRANCHES/CATEGORY
+    // picker lists into _findingsAuthStatus so getFindingsEditorBranchOptions/
+    // getFindingsEditorCategoryOptions can include values added by OTHER
+    // people, not just this browser's local memory.
+    async function checkFindingsAuthorization() {
+      const email = (typeof window.getCurrentUserEmail === 'function' && window.getCurrentUserEmail()) || '';
+      const idToken = await findingsGetAuthToken_();
+      if (!idToken) {
+        _findingsAuthStatus = { checked: true, authorized: false, email: email, reason: 'not-signed-in' };
+        return _findingsAuthStatus;
+      }
+      try {
+        const secret = loadFindingsEditorSecret();
+        const params = new URLSearchParams({ action: 'list', secret: secret, idToken: idToken });
+        const json = await fetchSheetOnce(FINDINGS_APPS_SCRIPT_URL + '?' + params.toString());
+        if (json && json.success) {
+          _findingsAuthStatus = {
+            checked: true, authorized: true, email: email,
+            branches: Array.isArray(json.branches) ? json.branches : [],
+            categories: Array.isArray(json.categories) ? json.categories : []
+          };
+        } else {
+          _findingsAuthStatus = { checked: true, authorized: false, email: email, reason: (json && json.error) || 'not-authorized' };
+        }
+      } catch (e) {
+        _findingsAuthStatus = { checked: true, authorized: false, email: email, reason: 'network' };
+      }
+      return _findingsAuthStatus;
+    }
+
+    // Updates just the status line + Send button in an already-rendered
+    // form, without rebuilding it — rebuilding mid-check would wipe out
+    // anything the person had already started typing while the (network)
+    // authorization check was still in flight.
+    function renderFindingsAuthStatus() {
+      const el = document.getElementById('findingsEditor-authStatus');
+      const sendAllBtn = document.getElementById('findingsEditor-sendAllBtn');
+      if (!el) return;
+      const s = _findingsAuthStatus;
+      if (!s.checked) {
+        el.className = 'mb-3 text-[11px] font-semibold text-slate-400';
+        el.textContent = 'Checking sign-in\u2026';
+      } else if (s.authorized) {
+        el.className = 'mb-3 text-[11px] font-semibold text-accentEmerald';
+        el.textContent = 'Signed in as ' + (s.email || 'your account') + ' \u2014 ready to send.';
+      } else if (s.reason === 'not-signed-in') {
+        el.className = 'mb-3 text-[11px] font-semibold text-accentRose';
+        el.textContent = 'Not signed in to the dashboard \u2014 sign in to send findings. You can still stage entries below.';
+      } else {
+        el.className = 'mb-3 text-[11px] font-semibold text-accentRose';
+        el.textContent = (s.email ? 'Signed in as ' + s.email + ', but this' : 'This') + ' account isn\u2019t allowed to send findings. You can still stage entries below for an allowed account to send.';
+      }
+      if (sendAllBtn) {
+        const disable = !s.authorized;
+        sendAllBtn.disabled = disable;
+        sendAllBtn.classList.toggle('opacity-60', disable);
+        sendAllBtn.classList.toggle('cursor-not-allowed', disable);
+        sendAllBtn.title = disable ? 'Only an allowed Audit Findings account can send to the sheet' : 'Send all staged entries to the sheet';
+      }
+    }
+
+    // Turns a raw error into something readable, without confirming to
+    // someone whether an unlisted account is otherwise "real."
+    function findingsSendErrorMessage_(reason) {
+      const r = String(reason || '');
+      if (/not-signed-in/i.test(r)) return 'Please sign in to the dashboard, then try again.';
+      if (/not-authorized|unauthorized|AUDIT_ALLOWED_EMAILS/i.test(r)) return 'That account isn\u2019t allowed to add findings.';
+      if (/network-request-failed|network/i.test(r)) return 'Network error \u2014 check your connection and try again.';
+      return r || 'Something went wrong. Please try again.';
+    }
 
     let _pendingFindingsSend = null;
 
-    function openFindingsSendPasswordGate(pending) {
+    // Lightweight "are you sure?" before writing to the sheet — replaces
+    // the old email/password gate. Authorization was already confirmed (or
+    // not) up front by checkFindingsAuthorization() when the modal opened,
+    // so this is just a confirmation step, not a login step.
+    function openFindingsSendConfirm(pending) {
       _pendingFindingsSend = pending;
-      const modal = document.getElementById('findingsSendPasswordModal');
-      const emailInput = document.getElementById('findingsSendEmailInput');
-      const input = document.getElementById('findingsSendPasswordInput');
-      const err = document.getElementById('findingsSendPasswordError');
-      const whatLabel = document.getElementById('findingsSendPasswordWhatLabel');
-      if (!modal || !input) return;
-      err.classList.add('hidden');
-      input.value = '';
-      if (emailInput) {
-        // Same account as the dashboard: if someone is already signed in to
-        // the dashboard, lock the email to that account instead of asking
-        // for it again — this only re-proves the password, standalone from
-        // (and not dependent on) the dashboard's own token/session plumbing.
-        // Falls back to a free-typed, remembered email if nobody's signed
-        // in to the dashboard right now.
-        const dashboardEmail = (typeof window.getCurrentUserEmail === 'function' && window.getCurrentUserEmail()) || '';
-        if (dashboardEmail) {
-          emailInput.value = dashboardEmail;
-          emailInput.readOnly = true;
-          emailInput.classList.add('bg-slate-50', 'text-slate-500', 'cursor-not-allowed');
-        } else {
-          let lastEmail = '';
-          try { lastEmail = localStorage.getItem(FINDINGS_LAST_EMAIL_KEY) || ''; } catch (e) {}
-          emailInput.value = lastEmail;
-          emailInput.readOnly = false;
-          emailInput.classList.remove('bg-slate-50', 'text-slate-500', 'cursor-not-allowed');
-        }
-      }
+      const modal = document.getElementById('findingsSendConfirmModal');
+      const whatLabel = document.getElementById('findingsSendConfirmWhatLabel');
+      const emailLabel = document.getElementById('findingsSendConfirmEmailLabel');
+      const emailWrap = document.getElementById('findingsSendConfirmEmailWrap');
+      const err = document.getElementById('findingsSendConfirmError');
+      if (!modal) return;
+      if (err) err.classList.add('hidden');
       if (whatLabel) {
         if (pending && pending.type === 'all') {
           const store = loadFindingsEditorStore();
@@ -11247,112 +11272,59 @@ html.page-fade-ready body {
           whatLabel.textContent = 'this finding';
         }
       }
-      setFindingsSendPasswordSubmitting(false);
-      modal.classList.remove('hidden');
-      setTimeout(function() {
-        if (emailInput && !emailInput.value) emailInput.focus();
-        else input.focus();
-      }, 50);
-    }
-
-    window.cancelFindingsSendPassword = function() {
-      const modal = document.getElementById('findingsSendPasswordModal');
-      if (modal) modal.classList.add('hidden');
-      _pendingFindingsSend = null;
-    };
-
-    function setFindingsSendPasswordSubmitting(isSubmitting) {
-      const btn = document.getElementById('findingsSendPasswordSubmitBtn');
-      const label = document.getElementById('findingsSendPasswordSubmitLabel');
-      const input = document.getElementById('findingsSendPasswordInput');
-      const emailInput = document.getElementById('findingsSendEmailInput');
-      if (btn) btn.disabled = isSubmitting;
-      if (input) input.disabled = isSubmitting;
-      if (emailInput) emailInput.disabled = isSubmitting;
-      if (label) label.textContent = isSubmitting ? 'Signing in\u2026' : 'Sign In & Send';
-    }
-
-    // Turns a raw error (Firebase REST error code, our own 'not-authorized'
-    // for an email that isn't on AUDIT_ALLOWED_EMAILS, or a network failure)
-    // into something readable, without confirming to a wrong-password
-    // guesser whether the email itself was real.
-    function findingsSendPasswordErrorMessage(reason) {
-      const r = String(reason || '');
-      if (/EMAIL_NOT_FOUND|INVALID_PASSWORD|INVALID_LOGIN_CREDENTIALS/i.test(r)) return 'Incorrect email or password. Try again.';
-      if (/TOO_MANY_ATTEMPTS/i.test(r)) return 'Too many attempts. Please wait a moment and try again.';
-      if (/USER_DISABLED/i.test(r)) return 'This account has been disabled.';
-      if (/network-request-failed|network/i.test(r)) return 'Network error \u2014 check your connection and try again.';
-      if (/not-authorized|unauthorized|AUDIT_ALLOWED_EMAILS/i.test(r)) return 'That account isn\u2019t allowed to add findings.';
-      return 'Incorrect email or password. Try again.';
-    }
-
-    // Step 2 of sending a finding: person types an allowed email + its
-    // password -> sign in directly against Firebase (standalone — see
-    // findingsFirebaseSignIn_ above, doesn't touch the main dashboard's own
-    // sign-in session) -> confirm Code.gs also accepts that token (secret +
-    // AUDIT_ALLOWED_EMAILS) -> only THEN actually write it to RAW DATA via
-    // doSendStagedFindingEntry / doSendAllStagedFindingsToSheet.
-    window.submitFindingsSendPassword = async function() {
-      const pending = _pendingFindingsSend;
-      const emailInput = document.getElementById('findingsSendEmailInput');
-      const input = document.getElementById('findingsSendPasswordInput');
-      const err = document.getElementById('findingsSendPasswordError');
-      if (!pending || !input) { window.cancelFindingsSendPassword(); return; }
-      const email = (emailInput && emailInput.value || '').trim();
-      const password = input.value;
-      if (!email) {
-        err.textContent = 'Enter your email.';
-        err.classList.remove('hidden');
-        emailInput.focus();
-        return;
-      }
-      setFindingsSendPasswordSubmitting(true);
-      try {
-        const signedIn = await findingsFirebaseSignIn_(email, password);
-        // Confirm Code.gs's own secret + allow-list check accepts this
-        // token BEFORE closing the gate, so a real-but-unlisted account
-        // finds out here rather than after the row silently fails.
-        const secret = loadFindingsEditorSecret();
-        const checkParams = new URLSearchParams({ action: 'list', secret: secret, idToken: signedIn.idToken });
-        const checkJson = await fetchSheetOnce(FINDINGS_APPS_SCRIPT_URL + '?' + checkParams.toString());
-        if (!checkJson || !checkJson.success) {
-          throw new Error((checkJson && checkJson.error) || 'not-authorized');
+      if (emailLabel && emailWrap) {
+        if (_findingsAuthStatus.email) {
+          emailLabel.textContent = _findingsAuthStatus.email;
+          emailWrap.classList.remove('hidden');
+        } else {
+          emailWrap.classList.add('hidden');
         }
-        _findingsAuthToken = { idToken: signedIn.idToken, email: signedIn.email, at: Date.now() };
-        try { localStorage.setItem(FINDINGS_LAST_EMAIL_KEY, signedIn.email); } catch (e) {}
-      } catch (e) {
-        setFindingsSendPasswordSubmitting(false);
-        err.textContent = findingsSendPasswordErrorMessage(e && e.message);
-        err.classList.remove('hidden');
-        input.value = '';
-        input.focus();
-        return;
       }
-      const modal = document.getElementById('findingsSendPasswordModal');
+      modal.classList.remove('hidden');
+    }
+
+    window.cancelFindingsSendConfirm = function() {
+      const modal = document.getElementById('findingsSendConfirmModal');
       if (modal) modal.classList.add('hidden');
       _pendingFindingsSend = null;
-      setFindingsSendPasswordSubmitting(false);
-      if (pending.type === 'row') await doSendStagedFindingEntry(pending.id, pending.btnEl);
-      else if (pending.type === 'all') await doSendAllStagedFindingsToSheet();
-      _findingsAuthToken = null; // one-shot — next send proves identity again
     };
 
-    // Straight to the standalone sign-in gate — see submitFindingsSendPassword
-    // above for why the authorization check now happens as part of that gate
-    // instead of as a separate pre-check tied to the main dashboard session.
+    function setFindingsSendConfirmSubmitting_(isSubmitting) {
+      const btn = document.getElementById('findingsSendConfirmSubmitBtn');
+      const label = document.getElementById('findingsSendConfirmSubmitLabel');
+      if (btn) btn.disabled = isSubmitting;
+      if (label) label.textContent = isSubmitting ? 'Sending\u2026' : 'Send';
+    }
+
+    window.confirmFindingsSend = async function() {
+      const pending = _pendingFindingsSend;
+      const err = document.getElementById('findingsSendConfirmError');
+      if (!pending) { window.cancelFindingsSendConfirm(); return; }
+      setFindingsSendConfirmSubmitting_(true);
+      try {
+        if (pending.type === 'row') await doSendStagedFindingEntry(pending.id, pending.btnEl);
+        else await doSendAllStagedFindingsToSheet();
+        const modal = document.getElementById('findingsSendConfirmModal');
+        if (modal) modal.classList.add('hidden');
+        _pendingFindingsSend = null;
+      } catch (e) {
+        if (err) { err.textContent = findingsSendErrorMessage_(e && e.message); err.classList.remove('hidden'); }
+      } finally {
+        setFindingsSendConfirmSubmitting_(false);
+      }
+    };
+
     async function sendStagedFindingEntry(id, btnEl) {
-      if (!loadFindingsEditorSecret()) { showToast('Enter the Apps Script secret above first.'); return; }
       const store = loadFindingsEditorStore();
       const row = store.staged.find(r => r.id === id);
       if (!row) return;
-      openFindingsSendPasswordGate({ type: 'row', id: id, btnEl: btnEl });
+      openFindingsSendConfirm({ type: 'row', id: id, btnEl: btnEl });
     }
 
     async function sendAllStagedFindingsToSheet() {
-      if (!loadFindingsEditorSecret()) { showToast('Enter the Apps Script secret above first.'); return; }
       const store = loadFindingsEditorStore();
       if (store.staged.length === 0) { showToast('No staged entries to send.'); return; }
-      openFindingsSendPasswordGate({ type: 'all' });
+      openFindingsSendConfirm({ type: 'all' });
     }
 
     async function doSendStagedFindingEntry(id, btnEl) {
@@ -11369,19 +11341,10 @@ html.page-fade-ready body {
         showToast('Sent to sheet: ' + row.branch + ' — ' + row.category);
       } catch (err) {
         const msg = (err && err.message) || 'unknown error';
-        showToast("Couldn't send: " + findingsSendFailureMessage_(msg));
+        showToast("Couldn't send: " + findingsSendErrorMessage_(msg));
       } finally {
         if (btnEl) btnEl.disabled = false;
       }
-    }
-
-    // Same idea as findingsSendPasswordErrorMessage but for errors surfaced
-    // AFTER the sign-in gate already succeeded (e.g. the in-memory token
-    // expired mid-"Send All", or Code.gs rejected this specific row).
-    function findingsSendFailureMessage_(msg) {
-      if (msg === 'not-signed-in') return 'Session expired \u2014 please sign in again and resend.';
-      if (msg === 'not-authorized') return 'That account isn\u2019t allowed to add findings.';
-      return msg;
     }
 
     // Sends every staged row, one at a time (Apps Script handles one
@@ -11410,7 +11373,7 @@ html.page-fade-ready body {
         } catch (err) {
           failed++;
           const msg = (err && err.message) || 'unknown error';
-          lastError = findingsSendFailureMessage_(msg);
+          lastError = findingsSendErrorMessage_(msg);
         }
       }
 
@@ -11424,13 +11387,15 @@ html.page-fade-ready body {
     function getFindingsEditorBranchOptions() {
       const store = loadFindingsEditorStore();
       const fromDashboard = (activeData.branches || []).map(b => b.name).filter(Boolean);
-      const all = new Set([...fromDashboard, ...store.extraBranches].map(b => String(b).trim().toUpperCase()));
+      const fromSheet = (_findingsAuthStatus && _findingsAuthStatus.branches) || [];
+      const all = new Set([...fromDashboard, ...fromSheet, ...store.extraBranches].map(b => String(b).trim().toUpperCase()).filter(Boolean));
       return Array.from(all).sort((a, b) => a.localeCompare(b));
     }
 
     function getFindingsEditorCategoryOptions() {
       const store = loadFindingsEditorStore();
-      const all = new Set([...DEFAULT_FINDING_CATEGORIES, ...store.extraCategories].map(c => String(c).trim().toUpperCase()));
+      const fromSheet = (_findingsAuthStatus && _findingsAuthStatus.categories) || [];
+      const all = new Set([...DEFAULT_FINDING_CATEGORIES, ...fromSheet, ...store.extraCategories].map(c => String(c).trim().toUpperCase()).filter(Boolean));
       return Array.from(all).sort((a, b) => a.localeCompare(b));
     }
 
@@ -11439,6 +11404,13 @@ html.page-fade-ready body {
       if (!modal) return;
       renderFindingsEditorForm();
       modal.classList.remove('hidden');
+      // Kick off the up-front authorization check (and pull the sheet's
+      // current BRANCHES/CATEGORY lists) without rebuilding the form — see
+      // renderFindingsAuthStatus(). If it resolves after the person already
+      // started picking a branch/category, only the status line + Send
+      // button update; the select lists refresh next time the form is
+      // rebuilt (e.g. after "+ Add Entry").
+      checkFindingsAuthorization().then(renderFindingsAuthStatus);
     }
 
     function closeAddFindingModal() {
@@ -11481,6 +11453,7 @@ html.page-fade-ready body {
 
       body.innerHTML = `
         <input id="findingsEditor-secret" type="hidden" value="${secretVal}">
+        <div id="findingsEditor-authStatus" class="mb-3 text-[11px] font-semibold text-slate-400">Checking sign-in\u2026</div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
           <div>
             <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Date</label>
@@ -11535,6 +11508,7 @@ html.page-fade-ready body {
         </div>`;
 
       renderStagedFindingsTable();
+      renderFindingsAuthStatus();
     }
 
     function addStagedFindingEntry() {
