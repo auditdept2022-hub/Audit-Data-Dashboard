@@ -11228,7 +11228,18 @@ html.page-fade-ready body {
         el.textContent = 'Not signed in to the dashboard \u2014 sign in to send findings. You can still stage entries below.';
       } else {
         el.className = 'mb-3 text-[11px] font-semibold text-accentRose';
-        el.textContent = (s.email ? 'Signed in as ' + s.email + ', but this' : 'This') + ' account isn\u2019t allowed to send findings. You can still stage entries below for an allowed account to send.';
+        // Show the ACTUAL reason Code.gs gave (not a generic message) — this
+        // banner is only ever seen by the signed-in person themselves, in
+        // their own browser, so there's no guessing-attack risk here the
+        // way there would be on a public login form. Concretely: this text
+        // will say things like "bad secret", "account has no verified
+        // email", or "X is not on AUDIT_ALLOWED_EMAILS" straight from the
+        // backend, which is exactly what's needed to tell a Script
+        // Properties mismatch apart from a stale/un-redeployed script apart
+        // from a genuinely wrong allow-list.
+        const rawReason = String(s.reason || '').replace(/^unauthorized:\s*/i, '').trim();
+        const detail = (rawReason && rawReason.toLowerCase() !== 'not-authorized') ? ' (' + rawReason + ')' : '';
+        el.textContent = (s.email ? 'Signed in as ' + s.email + ', but this' : 'This') + ' account isn\u2019t allowed to send findings' + detail + '. You can still stage entries below for an allowed account to send.';
       }
       if (sendAllBtn) {
         const disable = !s.authorized;
