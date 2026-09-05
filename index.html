@@ -11453,37 +11453,53 @@ html.page-fade-ready body {
       return type === 'branch' ? getFindingsEditorBranchOptions() : getFindingsEditorCategoryOptions();
     }
 
-    // Branch/Category dropdown panels used to be `position:fixed`,
-    // positioned via manual getBoundingClientRect() math on every open,
-    // scroll and resize. That math (and the underlying "fixed inside a
-    // touch-scrolling container" browser quirk it was working around) is
-    // exactly what was making the panel appear to drift sideways / away
-    // from its trigger and swallow taps meant for an option.
+    // BUG FIX ("can't select" branch/category options): this panel used to
+    // stay `position:absolute` inside its trigger's `.relative` wrapper,
+    // which itself lives inside #findingsEditorBody — and that body has
+    // `overflow-y-auto` (it's the scrollable area of the popup). An
+    // absolutely-positioned descendant is clipped by ANY scrolling
+    // ancestor, no matter its z-index, so once the Branch/Category panel
+    // opened low enough in the form, part (or all) of its option list was
+    // being clipped by that scroll box. The options could still be partly
+    // visible but taps on the clipped portion never reached the button —
+    // clicks don't land on content a scrolling ancestor has cut off.
     //
-    // Fixed with a much simpler, standard approach: the panel is now
-    // `position:absolute` inside its trigger's own `.relative` wrapper
-    // (top-full = flush against the trigger's bottom edge, left-0 right-0
-    // = same width as the trigger). That anchors it directly to the field
-    // via normal CSS layout, so it moves together with the trigger as the
-    // form scrolls, always overlapping the fields underneath instead of
-    // detaching from them — it literally cannot end up somewhere else on
-    // screen. The only thing still computed in JS is whether to open
-    // below or above the trigger, based on how much room is left.
+    // Fixed by detaching the panel from that scroll box entirely: on open,
+    // it's moved to be a direct child of <body> (so nothing can clip it)
+    // and positioned with `position:fixed` using the trigger's live
+    // on-screen rect. It's discarded automatically next time the form
+    // re-renders (renderFindingsEditorForm rebuilds the whole form and
+    // sweeps up any leftover body-level panel first — see there).
     function positionFindingsEditorDropdown(type) {
       const trigger = document.getElementById(`findingsEditor-${type}Trigger`);
       const dropdown = document.getElementById(`findingsEditor-${type}Dropdown`);
       if (!trigger || !dropdown) return;
+      if (dropdown.parentElement !== document.body) document.body.appendChild(dropdown);
       const rect = trigger.getBoundingClientRect();
       const viewportH = window.innerHeight || document.documentElement.clientHeight;
       const approxPanelH = 240; // search bar + option list at full height
       const spaceBelow = viewportH - rect.bottom;
       const spaceAbove = rect.top;
       const openAbove = spaceBelow < approxPanelH && spaceAbove > spaceBelow;
-      dropdown.classList.toggle('top-full', !openAbove);
-      dropdown.classList.toggle('mt-1', !openAbove);
-      dropdown.classList.toggle('bottom-full', openAbove);
-      dropdown.classList.toggle('mb-1', openAbove);
+      dropdown.classList.remove('top-full', 'mt-1', 'bottom-full', 'mb-1', 'left-0', 'right-0');
+      dropdown.style.position = 'fixed';
+      dropdown.style.left = rect.left + 'px';
+      dropdown.style.width = rect.width + 'px';
+      dropdown.style.top = openAbove ? '' : (rect.bottom + 4) + 'px';
+      dropdown.style.bottom = openAbove ? (viewportH - rect.top + 4) + 'px' : '';
     }
+
+    // A fixed-position panel is anchored to the viewport, not to the
+    // trigger's spot inside the scrolling form — so if the person scrolls
+    // #findingsEditorBody while a panel is open, the trigger moves out from
+    // under it. Rather than re-run getBoundingClientRect math on every
+    // scroll tick (the exact approach that caused the earlier iOS drift
+    // bug noted above this function), just close the panel on scroll;
+    // reopening it a tap later re-measures the trigger's new position.
+    document.addEventListener('DOMContentLoaded', function() {
+      const scrollHost = document.getElementById('findingsEditorBody');
+      if (scrollHost) scrollHost.addEventListener('scroll', () => closeFindingsEditorDropdowns(), { passive: true });
+    });
 
     function closeFindingsEditorDropdowns(exceptType) {
       ['branch', 'category'].forEach(t => {
@@ -11580,6 +11596,13 @@ html.page-fade-ready body {
     function renderFindingsEditorForm(preserveBranch, preserveCategory) {
       const body = document.getElementById('findingsEditorBody');
       if (!body) return;
+
+      // Sweep up any Branch/Category dropdown panel left over from a
+      // previous render — positionFindingsEditorDropdown() moves the open
+      // panel to be a direct child of <body> (see notes there) so it can't
+      // get clipped, and it needs to be removed here rather than left
+      // orphaned once this render replaces the form that used to own it.
+      document.querySelectorAll('body > [id^="findingsEditor-"][id$="Dropdown"]').forEach(el => el.remove());
 
       const branchOpts = getFindingsEditorBranchOptions();
       const categoryOpts = getFindingsEditorCategoryOptions();
