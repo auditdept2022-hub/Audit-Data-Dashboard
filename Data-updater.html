@@ -1139,16 +1139,6 @@
       <div id="connList"></div>
       <button class="btn btn-ghost btn-small" style="margin-top:4px;" onclick="startAddConn()">+ Add new sheet connection</button>
 
-      <div style="margin-top:20px; border-top:1px solid var(--line-soft); padding-top:18px;">
-        <h4 style="margin-top:0;">AI photo reading (Service panel)</h4>
-        <p style="margin-top:0;">The Service panel reads branch/target/actual values straight from a photo using your own Anthropic API key. Get one at <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a>. Stored only in this browser, sent directly to Anthropic — never through any other server.</p>
-        <div class="field">
-          <label>ANTHROPIC API KEY</label>
-          <input type="password" id="anthropicApiKeyInput" placeholder="sk-ant-..." onchange="saveAnthropicApiKey()">
-        </div>
-        <div class="note">Because this key is used from the browser, anyone with access to this device/browser could see it in dev tools. Only use a key you're comfortable keeping here.</div>
-      </div>
-
       <div id="connFormWrap" style="display:none; margin-top:20px; border-top:1px solid var(--line-soft); padding-top:18px;">
         <h4 id="connFormTitle" style="margin-top:0;">Add new connection</h4>
 
@@ -2513,28 +2503,6 @@ function getConnections() {
 }
 function saveConnections(list) { localStorage.setItem(CONN_KEY, JSON.stringify(list)); }
 
-// ---------- Anthropic API key (bring-your-own-key, browser-only) ----------
-// Used only by the Service panel's photo extraction. Stored in
-// localStorage on this device, sent directly to api.anthropic.com from
-// the browser — never passed through any other server.
-const ANTHROPIC_KEY_STORAGE = 'branchDataUpdater.anthropicApiKey';
-function getAnthropicApiKey() {
-  return (localStorage.getItem(ANTHROPIC_KEY_STORAGE) || '').trim();
-}
-function saveAnthropicApiKey() {
-  const val = document.getElementById('anthropicApiKeyInput').value.trim();
-  if (val) {
-    localStorage.setItem(ANTHROPIC_KEY_STORAGE, val);
-    log('Saved Anthropic API key for Service photo reading.', 'ok');
-  } else {
-    localStorage.removeItem(ANTHROPIC_KEY_STORAGE);
-  }
-}
-function loadAnthropicApiKeyIntoField() {
-  const el = document.getElementById('anthropicApiKeyInput');
-  if (el) el.value = getAnthropicApiKey();
-}
-
 // One-time upgrade: anyone with the old single-URL setup gets it carried
 // over as their first named connection, so nothing breaks on load.
 function migrateOldConnection() {
@@ -2549,7 +2517,6 @@ function openSetup() {
   document.getElementById('setupModal').classList.add('show');
   renderConnList();
   hideConnForm();
-  loadAnthropicApiKeyIntoField();
 }
 // Opens the setup modal AND jumps straight into the "add connection"
 // form — used by the "Connect now" button so it's a single click
@@ -2558,7 +2525,6 @@ function openSetupFor(category) {
   document.getElementById('setupModal').classList.add('show');
   renderConnList();
   startAddConn();
-  loadAnthropicApiKeyIntoField();
 }
 function closeSetup() { document.getElementById('setupModal').classList.remove('show'); }
 
@@ -4361,7 +4327,19 @@ async function pushService() {
   }
 }
 
+// Default connection: this Google Apps Script Web app URL is baked in
+// here so the sheet is connected automatically on first load, with no
+// need to open Setup and paste it in. Editing/removing it works the
+// same as any other connection.
+const DEFAULT_CONN_URL = 'https://script.google.com/macros/s/AKfycbzTwHJpjPleb9dS3ggEWUnStZNHVIe51fmNBIKgeIFgYpL5qFbJLBQvRpPe0yPpag/exec';
+function seedDefaultConnection() {
+  if (getConnections().length === 0) {
+    saveConnections([{ id: genId(), name: 'Main Sheet', url: DEFAULT_CONN_URL, category: 'branch' }]);
+  }
+}
+
 migrateOldConnection();
+seedDefaultConnection();
 switchPage('branch');
 refreshStatus();
 populateConnDropdowns();
