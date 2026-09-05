@@ -347,6 +347,23 @@
       }
     }
 
+    /* Bug fix: the Branch/Category pickers in "Add Audit Finding" are
+       position:fixed panels (see positionFindingsEditorDropdown()) so they
+       can float freely above the form instead of being clipped by it.
+       Their scrolling ancestor, #findingsEditorBody, previously inherited
+       -webkit-overflow-scrolling:touch from the shared .custom-scrollbar
+       rule below. On iOS/iPadOS Safari, a position:fixed element nested
+       inside an ancestor using momentum ("touch") scrolling is composited
+       relative to THAT ancestor instead of the real viewport while/after
+       it scrolls — so the dropdown panel would render offset from its
+       trigger button ("drift sideways" / overlapping the wrong spot), and
+       taps would land on whatever was actually at that visual position
+       instead of the option that appeared to be there ("can't select").
+       Turning momentum scrolling off just for this one container (modern
+       iOS scrolls smoothly without it anyway) keeps position:fixed
+       descendants correctly pinned to the viewport. */
+    #findingsEditorBody { -webkit-overflow-scrolling: auto; }
+
     #scorecardScrollWrap { -webkit-overflow-scrolling: touch; }
     @media (max-width: 767px) {
       #scorecardScrollWrap { scroll-snap-type: x proximity; }
@@ -11460,9 +11477,18 @@ html.page-fade-ready body {
       const desiredListH = 192; // same as the old max-h-48
       const spaceBelow = viewportH - rect.bottom - margin;
       const spaceAbove = rect.top - margin;
+      const viewportW = window.innerWidth || document.documentElement.clientWidth;
 
-      dropdown.style.left = Math.max(margin, rect.left) + 'px';
-      dropdown.style.width = rect.width + 'px';
+      // Clamp horizontally so the panel is always fully on-screen. Width
+      // matches the trigger by default, but is capped to the viewport too
+      // (e.g. a very narrow window) and the left edge is pulled back in if
+      // that width would otherwise push the panel past the right edge —
+      // without this it could render partly (or fully) off-screen and
+      // look like it had "drifted sideways" away from its trigger.
+      const panelW = Math.min(rect.width, viewportW - margin * 2);
+      const clampedLeft = Math.min(Math.max(margin, rect.left), viewportW - panelW - margin);
+      dropdown.style.left = clampedLeft + 'px';
+      dropdown.style.width = panelW + 'px';
 
       if (spaceBelow >= (searchBarH + 100) || spaceBelow >= spaceAbove) {
         const panelH = Math.max(searchBarH + 80, Math.min(searchBarH + desiredListH, spaceBelow));
@@ -11508,6 +11534,13 @@ html.page-fade-ready body {
         const search = document.getElementById(`findingsEditor-${type}Search`);
         renderFindingsEditorDropdownOptions(type, '');
         positionFindingsEditorDropdown(type);
+        // Re-measure one frame later too: right after the modal itself has
+        // opened (or on the very first tap after render) the trigger's
+        // on-screen position can still shift slightly as the browser
+        // finishes laying things out, so the first measurement above can
+        // be a frame stale. This second pass settles the panel exactly
+        // under its trigger instead of leaving it visibly offset.
+        requestAnimationFrame(() => positionFindingsEditorDropdown(type));
         if (search) { search.value = ''; setTimeout(() => search.focus(), 0); }
       }
     }
