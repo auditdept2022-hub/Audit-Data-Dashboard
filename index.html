@@ -6242,6 +6242,11 @@ html.page-fade-ready body {
                               <span class="text-sm font-semibold text-slate-800">${h.details || 'N/A'}</span>
                           </div>
                       </div>
+                      ${h.remark ? `
+                      <div class="mt-2 pt-2 border-t border-coolBorder">
+                          <span class="text-[10px] text-slate-400 font-bold uppercase block mb-1">Remark</span>
+                          <span class="text-sm text-slate-700 whitespace-pre-wrap">${h.remark}</span>
+                      </div>` : ''}
                   </div>
               `).join('');
           } else {
@@ -6881,6 +6886,34 @@ html.page-fade-ready body {
       return EMERGENCY_ROTATION_CYCLE[(idx + 1) % EMERGENCY_ROTATION_CYCLE.length];
     }
 
+    // Who the "Set Emergency Auditor" form should default to: the auditor
+    // who is CURRENTLY standing by and is therefore the one completing
+    // *this* branch/date assignment being logged. This is deliberately
+    // different from getNextEmergencyRotationAuditor() above (which
+    // answers "who comes after the current auditor?" for the standby
+    // strip's "Next up" highlight) — the form needs "who is doing the
+    // work being recorded right now?", not "who's on deck?". Saving this
+    // form is what actually advances the standby rotation forward (see
+    // performEditEmergencySave / the backend's saveEmergencyAuditorToSheet).
+    function getEmergencyAuditorCompletingNow() {
+      const currentAuditor = String(activeData.summary.emergencyAuditor || '').trim().toUpperCase();
+      if (currentAuditor && currentAuditor !== 'PENDING') return currentAuditor;
+      // Nothing set yet — start the cycle from the top rather than
+      // leaving the field blank.
+      return EMERGENCY_ROTATION_CYCLE[0];
+    }
+
+    // Given the auditor who just completed an assignment, work out who
+    // the new standing auditor should become. Mirrors the backend's
+    // saveEmergencyAuditorToSheet() exactly, so the optimistic local
+    // update never disagrees with what actually got written to the Sheet.
+    function computeNextStandingAuditor(justCompletedUpper, isOverride) {
+      if (isOverride) return justCompletedUpper;
+      const idx = EMERGENCY_ROTATION_CYCLE.indexOf(justCompletedUpper);
+      if (idx === -1) return justCompletedUpper; // unknown name — can't advance, just set it
+      return EMERGENCY_ROTATION_CYCLE[(idx + 1) % EMERGENCY_ROTATION_CYCLE.length];
+    }
+
     function openEditEmergencyModal() {
       openModal('Set Emergency Auditor', 'editEmergency', null);
     }
@@ -6895,10 +6928,13 @@ html.page-fade-ready body {
       const currentAuditor = (activeData.summary.emergencyAuditor && activeData.summary.emergencyAuditor !== 'PENDING') ? activeData.summary.emergencyAuditor : '';
       const currentAuditorUpper = currentAuditor.toUpperCase();
       const knownUpper = AUDITOR_NAMES.map(n => n.toUpperCase());
-      // Default the form to whoever's next in the standby rotation, so
-      // opening this form and hitting Save is a one-click "advance the
-      // rotation" action. Still fully overridable via the dropdown.
-      const pendingAuditor = getNextEmergencyRotationAuditor();
+      // Default the form to whoever is CURRENTLY standing by — that's the
+      // auditor completing this branch/date assignment. Hitting Save
+      // automatically advances the standby rotation to the next person
+      // afterward; it does not need to be picked here. Still fully
+      // overridable via the dropdown for the rare case someone else
+      // covered this one.
+      const pendingAuditor = getEmergencyAuditorCompletingNow();
       const auditorOptions =
           `<option value="" ${!pendingAuditor ? 'selected' : ''}>—</option>` +
           (currentAuditor && !knownUpper.includes(currentAuditorUpper)
@@ -6949,22 +6985,24 @@ html.page-fade-ready body {
                     Emergency Auditor
                   </label>
                   <button type="button" id="editEmer-overrideToggle" onclick="toggleEditEmerOverride()"
-                          title="Pick someone other than the next auditor in the rotation"
+                          title="Pick someone other than the current standing auditor"
                           class="text-[10px] font-bold text-slate-400 hover:text-accentRose cursor-pointer underline decoration-dotted underline-offset-2">
                     Override
                   </button>
                 </div>
 
-                <!-- Default view: auto-picked, locked to whoever's next in -->
-                <!-- EMERGENCY_ROTATION_CYCLE. Nothing to choose here — the -->
-                <!-- pending name is baked into data-pending and that's what -->
-                <!-- submitEditEmergency() reads unless Override is active. -->
+                <!-- Default view: auto-picked, locked to whoever is -->
+                <!-- CURRENTLY standing by — they're the one completing -->
+                <!-- this branch/date assignment. Saving automatically -->
+                <!-- advances the rotation to the next person afterward. -->
+                <!-- The pending name is baked into data-pending and that's -->
+                <!-- what submitEditEmergency() reads unless Override is active. -->
                 <div id="editEmer-autoDisplay" data-pending="${escapeHTML(pendingAuditor || '')}"
                      class="flex items-center gap-2.5 bg-accentAmber/10 border border-accentAmber/25 rounded-lg px-3 py-2.5">
                   <div class="w-7 h-7 rounded-full bg-accentAmber text-white flex items-center justify-center font-extrabold text-[11px] shrink-0">${escapeHTML(pendingAuditor ? pendingAuditor.charAt(0) : '?')}</div>
                   <div class="min-w-0">
                     <p class="text-sm font-bold text-slate-800 leading-tight">${escapeHTML(pendingAuditor || '\u2014')}</p>
-                    <p class="text-[10px] text-slate-500 mt-0.5">Auto-picked &mdash; next in the standby rotation</p>
+                    <p class="text-[10px] text-slate-500 mt-0.5">Auto-picked &mdash; current standing auditor</p>
                   </div>
                 </div>
 
@@ -7006,6 +7044,15 @@ html.page-fade-ready body {
                 </label>
                 <input id="editEmer-date" type="date" value="${todayInput}"
                        class="w-full px-3 py-2.5 bg-gray-50 border border-coolBorder rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-accentRose/40 focus:border-accentRose/50 transition-shadow">
+              </div>
+
+              <div>
+                <label class="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-accentRose"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+                  Remarks <span class="normal-case font-medium text-slate-400 tracking-normal">(optional)</span>
+                </label>
+                <textarea id="editEmer-remark" rows="2" placeholder="Any notes about this emergency audit…"
+                       class="w-full px-3 py-2.5 bg-gray-50 border border-coolBorder rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-accentRose/40 focus:border-accentRose/50 transition-shadow resize-none"></textarea>
               </div>
 
             </div>
@@ -7071,6 +7118,7 @@ html.page-fade-ready body {
           : ((autoDisplay && autoDisplay.dataset.pending) || '').trim();
       const branch = (val('editEmer-branchOther').trim() || val('editEmer-branch').trim());
       const date = val('editEmer-date');
+      const remark = val('editEmer-remark').trim();
 
       const errEl = document.getElementById('editEmer-error');
       if (!auditor) {
@@ -7079,7 +7127,7 @@ html.page-fade-ready body {
       }
       if (errEl) errEl.classList.add('hidden');
 
-      pendingEditEmergency = { fields: { auditor: auditor, branch: branch, date: date, override: isOverriding } };
+      pendingEditEmergency = { fields: { auditor: auditor, branch: branch, date: date, remark: remark, override: isOverriding } };
       openEditEmergencyPasswordGate();
     }
 
@@ -7161,12 +7209,19 @@ html.page-fade-ready body {
           // Optimistic local update so the dashboard (and this modal, if
           // reopened) reflects the change immediately, without waiting on
           // a full server refetch.
+          //
+          // auditorUpper is who just COMPLETED this branch/date assignment
+          // (that's what gets logged to history). The new STANDING auditor
+          // is whoever comes next after them in the rotation — computed the
+          // same way the backend computes it, so this never drifts out of
+          // sync with what's actually on the Sheet.
           const auditorUpper = (fields.auditor || '').toUpperCase();
-          activeData.summary.emergencyAuditor = auditorUpper;
+          const newStandingAuditor = computeNextStandingAuditor(auditorUpper, !!fields.override);
+          activeData.summary.emergencyAuditor = newStandingAuditor;
           const nameEl = document.getElementById('emergency-auditor-name');
           const initialEl = document.getElementById('emergency-auditor-initial');
-          if (nameEl) nameEl.innerText = auditorUpper || 'PENDING';
-          if (initialEl) initialEl.innerText = auditorUpper ? auditorUpper[0].toUpperCase() : '?';
+          if (nameEl) nameEl.innerText = newStandingAuditor || 'PENDING';
+          if (initialEl) initialEl.innerText = newStandingAuditor ? newStandingAuditor[0].toUpperCase() : '?';
 
           if (!activeData.emergencyHistory) activeData.emergencyHistory = [];
           let dateLabel = fields.date;
@@ -7177,7 +7232,7 @@ html.page-fade-ready body {
                   dateLabel = `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
               }
           }
-          activeData.emergencyHistory.unshift({ auditor: auditorUpper, branch: fields.branch || '', details: dateLabel || '' });
+          activeData.emergencyHistory.unshift({ auditor: auditorUpper, branch: fields.branch || '', details: dateLabel || '', remark: fields.remark || '' });
 
           if (typeof updateCalculations === 'function') updateCalculations();
           if (typeof initDashboard === 'function') initDashboard();
@@ -7220,6 +7275,7 @@ html.page-fade-ready body {
           auditor: fields.auditor || '',
           branch: fields.branch || '',
           date: fields.date || '',
+          remark: fields.remark || '',
           override: fields.override ? 'true' : 'false'
       });
       const url = defaultAppsScriptUrl + '?' + params.toString();
@@ -8151,10 +8207,10 @@ html.page-fade-ready body {
       }
 
       if (type === 'emergency') {
-          const rows = (activeData.emergencyHistory || []).map(function(h) { return [h.auditor || '', h.branch || '', h.details || '']; });
+          const rows = (activeData.emergencyHistory || []).map(function(h) { return [h.auditor || '', h.branch || '', h.details || '', h.remark || '']; });
           return { title: plainTitle, filenameBase: 'Emergency_Auditor_Status', sheets: [
               { name: 'Status', headers: ['Field', 'Value'], rows: [['Current Emergency Auditor', activeData.summary.emergencyAuditor || 'PENDING']] },
-              { name: 'History', headers: ['Auditor', 'Branch', 'Date of Audit'], rows: rows }
+              { name: 'History', headers: ['Auditor', 'Branch', 'Date of Audit', 'Remark'], rows: rows }
           ]};
       }
 
@@ -8302,7 +8358,7 @@ html.page-fade-ready body {
           { name: 'Declining Sales', headers: ['Branch', 'Unit Drop (Mar\u2192May)'], rows: (activeData.topDecliningSales || []).map(function(x) { return [x.name, x.label]; }) },
           { name: 'Declining Service', headers: ['Branch', 'Shortfall vs Target'], rows: (activeData.topDecliningService || []).map(function(x) { return [x.name, x.label]; }) },
           { name: 'Auditors', headers: ['Auditor', 'Assigned Branches'], rows: (activeData.auditors || []).map(function(a) { return [a.name, a.count]; }) },
-          { name: 'Emergency History', headers: ['Auditor', 'Branch', 'Date of Audit'], rows: (activeData.emergencyHistory || []).map(function(h) { return [h.auditor || '', h.branch || '', h.details || '']; }) },
+          { name: 'Emergency History', headers: ['Auditor', 'Branch', 'Date of Audit', 'Remark'], rows: (activeData.emergencyHistory || []).map(function(h) { return [h.auditor || '', h.branch || '', h.details || '', h.remark || '']; }) },
           { name: 'Data Audit Remarks', headers: ['Branch', 'Auditor', 'Remark'], rows: dataAuditRows },
           { name: 'Audit Findings Detail', headers: ['Branch', 'Date', 'Year', 'Category', 'Finding'], rows: findingsDetailRows },
           { name: 'Audit Rotation Schedule', headers: ['Branch', 'Round', 'Auditor', 'Date', 'Interval (days)', 'Note'], rows: auditScheduleRows }
@@ -13065,12 +13121,15 @@ html.page-fade-ready body {
                             fVal = `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
                         }
                     }
-                    
+
+                    const gVal = r[6] !== undefined ? String(r[6]).trim() : "";
+
                     if ((dVal || eVal || fVal) && dVal.toUpperCase() !== "AUDITOR") {
                         activeData.emergencyHistory.push({
                             auditor: dVal,
                             branch: eVal,
-                            details: fVal
+                            details: fVal,
+                            remark: gVal
                         });
                     }
                 }
