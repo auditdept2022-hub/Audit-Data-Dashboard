@@ -11454,7 +11454,12 @@ html.page-fade-ready body {
       const optionsList = document.getElementById(`findingsEditor-${type}Options`);
       if (!trigger || !dropdown) return;
       const rect = trigger.getBoundingClientRect();
-      const viewportH = window.innerHeight || document.documentElement.clientHeight;
+      // Prefer visualViewport's height when available: on phones, once the
+      // on-screen keyboard is up, window.innerHeight still reports the
+      // full (pre-keyboard) layout height, which made this think there was
+      // room below the trigger when the keyboard was actually covering it.
+      const vv = window.visualViewport;
+      const viewportH = (vv && vv.height) || window.innerHeight || document.documentElement.clientHeight;
       const margin = 8;
       const searchBarH = 41; // height of the "Type to search..." input row
       const desiredListH = 192; // same as the old max-h-48
@@ -11489,6 +11494,18 @@ html.page-fade-ready body {
     // #findingsEditorBody's own internal scrolling, not just window scroll.
     window.addEventListener('resize', findingsEditorRepositionOpenDropdown);
     window.addEventListener('scroll', findingsEditorRepositionOpenDropdown, true);
+    // On phones/tablets, opening the on-screen keyboard doesn't fire a
+    // `resize`/`scroll` on `window` — it only changes `window.visualViewport`.
+    // Without this, the dropdown (and its search box) stayed positioned for
+    // the pre-keyboard layout and could end up nowhere near the Branch/
+    // Category field once the keyboard opened. Also see the
+    // `{ preventScroll: true }` note on the search box's `.focus()` call
+    // below, which addresses the other half of the same "jumps away from
+    // the field" bug.
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', findingsEditorRepositionOpenDropdown);
+      window.visualViewport.addEventListener('scroll', findingsEditorRepositionOpenDropdown);
+    }
 
     function closeFindingsEditorDropdowns(exceptType) {
       ['branch', 'category'].forEach(t => {
@@ -11508,7 +11525,25 @@ html.page-fade-ready body {
         const search = document.getElementById(`findingsEditor-${type}Search`);
         renderFindingsEditorDropdownOptions(type, '');
         positionFindingsEditorDropdown(type);
-        if (search) { search.value = ''; setTimeout(() => search.focus(), 0); }
+        if (search) {
+          search.value = '';
+          // { preventScroll: true } is the actual fix for the dropdown
+          // "jumping" to a random spot: the search box lives inside
+          // #findingsEditorBody (overflow-y-auto), and even though the
+          // dropdown itself renders `position: fixed` elsewhere on screen,
+          // a plain .focus() still makes the browser scroll that underlying
+          // scrollable form to where the search box WOULD be in normal
+          // flow. That scroll happens after we've already positioned the
+          // dropdown, so it visibly detaches from the Branch/Category field
+          // and lands wherever the form happened to scroll to.
+          // preventScroll tells the browser not to do that; we already
+          // handle placing the dropdown correctly ourselves.
+          setTimeout(() => search.focus({ preventScroll: true }), 0);
+          // Belt-and-suspenders: re-run the position calc one more time
+          // after focus/keyboard settle, in case the on-screen keyboard
+          // resizes the viewport a beat after this fires.
+          setTimeout(() => positionFindingsEditorDropdown(type), 120);
+        }
       }
     }
 
