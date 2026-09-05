@@ -11545,6 +11545,16 @@ html.page-fade-ready body {
     // onclick). Reads which dropdown ('branch' or 'category') was clicked
     // from the containing options list's id, and the picked value back off
     // the button's data attribute (already HTML-unescaped by the browser).
+    //
+    // CAPTURE PHASE (the trailing `true`) is required here: #findingsEditorDialog
+    // has onclick="event.stopPropagation()" so that clicks inside the popup
+    // don't bubble out to the backdrop and close the whole modal. Since the
+    // option buttons are descendants of that dialog, a normal bubble-phase
+    // listener on document would get cut off by that stopPropagation() and
+    // never fire. Capture-phase listeners run top-down BEFORE the bubble
+    // phase (and before that stopPropagation call happens), so this one
+    // always sees the click regardless of what stopPropagation calls exist
+    // further down the tree.
     document.addEventListener('click', function(e) {
       const optBtn = e.target.closest('.findings-editor-option');
       if (!optBtn) return;
@@ -11552,7 +11562,7 @@ html.page-fade-ready body {
       if (!optionsContainer) return;
       const type = optionsContainer.id.replace('findingsEditor-', '').replace('Options', '');
       selectFindingsEditorDropdownOption(type, optBtn.getAttribute('data-findings-option'));
-    });
+    }, true);
 
     function selectFindingsEditorDropdownOption(type, value) {
       const hidden = document.getElementById(`findingsEditor-${type}Select`);
@@ -11571,7 +11581,10 @@ html.page-fade-ready body {
     }
 
     // Close whichever dropdown is open if the person taps/clicks anywhere
-    // outside its trigger button or its own list.
+    // outside its trigger button or its own list. Capture phase (see the
+    // matching note on the option-select listener above) so this isn't
+    // swallowed by #findingsEditorDialog's onclick="event.stopPropagation()"
+    // when the person clicks some other field inside the same popup.
     document.addEventListener('click', function(e) {
       ['branch', 'category'].forEach(t => {
         const dropdown = document.getElementById(`findingsEditor-${t}Dropdown`);
@@ -11580,7 +11593,7 @@ html.page-fade-ready body {
         if (dropdown.contains(e.target) || (trigger && trigger.contains(e.target))) return;
         dropdown.classList.add('hidden');
       });
-    });
+    }, true);
 
     function renderFindingsEditorForm(preserveBranch, preserveCategory) {
       const body = document.getElementById('findingsEditorBody');
