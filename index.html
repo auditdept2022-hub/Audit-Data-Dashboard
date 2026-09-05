@@ -11453,68 +11453,37 @@ html.page-fade-ready body {
       return type === 'branch' ? getFindingsEditorBranchOptions() : getFindingsEditorCategoryOptions();
     }
 
-    // Branch/Category dropdown panels are positioned with `fixed` (viewport
-    // coordinates), computed here from the trigger button's own position,
-    // instead of `absolute` inside the scrolling form. An absolutely
-    // positioned panel gets silently clipped by the nearest scrollable
-    // ancestor (#findingsEditorBody, which is overflow-y-auto) whenever it
-    // would extend past that container's visible edge — on a phone, where
-    // the form has little room below the fold, that made the option list
-    // partially or fully unreachable/untappable. `fixed` + a manual
-    // getBoundingClientRect() calculation is immune to that: it also flips
-    // the panel above the trigger when there isn't enough room below (e.g.
-    // with the on-screen keyboard open), and is kept in sync with
-    // findingsEditorRepositionOpenDropdown() while scrolling/resizing.
+    // Branch/Category dropdown panels used to be `position:fixed`,
+    // positioned via manual getBoundingClientRect() math on every open,
+    // scroll and resize. That math (and the underlying "fixed inside a
+    // touch-scrolling container" browser quirk it was working around) is
+    // exactly what was making the panel appear to drift sideways / away
+    // from its trigger and swallow taps meant for an option.
+    //
+    // Fixed with a much simpler, standard approach: the panel is now
+    // `position:absolute` inside its trigger's own `.relative` wrapper
+    // (top-full = flush against the trigger's bottom edge, left-0 right-0
+    // = same width as the trigger). That anchors it directly to the field
+    // via normal CSS layout, so it moves together with the trigger as the
+    // form scrolls, always overlapping the fields underneath instead of
+    // detaching from them — it literally cannot end up somewhere else on
+    // screen. The only thing still computed in JS is whether to open
+    // below or above the trigger, based on how much room is left.
     function positionFindingsEditorDropdown(type) {
       const trigger = document.getElementById(`findingsEditor-${type}Trigger`);
       const dropdown = document.getElementById(`findingsEditor-${type}Dropdown`);
-      const optionsList = document.getElementById(`findingsEditor-${type}Options`);
       if (!trigger || !dropdown) return;
       const rect = trigger.getBoundingClientRect();
       const viewportH = window.innerHeight || document.documentElement.clientHeight;
-      const margin = 8;
-      const searchBarH = 41; // height of the "Type to search..." input row
-      const desiredListH = 192; // same as the old max-h-48
-      const spaceBelow = viewportH - rect.bottom - margin;
-      const spaceAbove = rect.top - margin;
-      const viewportW = window.innerWidth || document.documentElement.clientWidth;
-
-      // Clamp horizontally so the panel is always fully on-screen. Width
-      // matches the trigger by default, but is capped to the viewport too
-      // (e.g. a very narrow window) and the left edge is pulled back in if
-      // that width would otherwise push the panel past the right edge —
-      // without this it could render partly (or fully) off-screen and
-      // look like it had "drifted sideways" away from its trigger.
-      const panelW = Math.min(rect.width, viewportW - margin * 2);
-      const clampedLeft = Math.min(Math.max(margin, rect.left), viewportW - panelW - margin);
-      dropdown.style.left = clampedLeft + 'px';
-      dropdown.style.width = panelW + 'px';
-
-      if (spaceBelow >= (searchBarH + 100) || spaceBelow >= spaceAbove) {
-        const panelH = Math.max(searchBarH + 80, Math.min(searchBarH + desiredListH, spaceBelow));
-        dropdown.style.top = (rect.bottom + 4) + 'px';
-        dropdown.style.bottom = 'auto';
-        dropdown.style.maxHeight = panelH + 'px';
-        if (optionsList) optionsList.style.maxHeight = (panelH - searchBarH) + 'px';
-      } else {
-        const panelH = Math.max(searchBarH + 80, Math.min(searchBarH + desiredListH, spaceAbove));
-        dropdown.style.top = 'auto';
-        dropdown.style.bottom = (viewportH - rect.top + 4) + 'px';
-        dropdown.style.maxHeight = panelH + 'px';
-        if (optionsList) optionsList.style.maxHeight = (panelH - searchBarH) + 'px';
-      }
+      const approxPanelH = 240; // search bar + option list at full height
+      const spaceBelow = viewportH - rect.bottom;
+      const spaceAbove = rect.top;
+      const openAbove = spaceBelow < approxPanelH && spaceAbove > spaceBelow;
+      dropdown.classList.toggle('top-full', !openAbove);
+      dropdown.classList.toggle('mt-1', !openAbove);
+      dropdown.classList.toggle('bottom-full', openAbove);
+      dropdown.classList.toggle('mb-1', openAbove);
     }
-
-    function findingsEditorRepositionOpenDropdown() {
-      ['branch', 'category'].forEach(t => {
-        const d = document.getElementById(`findingsEditor-${t}Dropdown`);
-        if (d && !d.classList.contains('hidden')) positionFindingsEditorDropdown(t);
-      });
-    }
-    // Bound once; scroll listens in the capture phase so it also fires for
-    // #findingsEditorBody's own internal scrolling, not just window scroll.
-    window.addEventListener('resize', findingsEditorRepositionOpenDropdown);
-    window.addEventListener('scroll', findingsEditorRepositionOpenDropdown, true);
 
     function closeFindingsEditorDropdowns(exceptType) {
       ['branch', 'category'].forEach(t => {
@@ -11534,13 +11503,6 @@ html.page-fade-ready body {
         const search = document.getElementById(`findingsEditor-${type}Search`);
         renderFindingsEditorDropdownOptions(type, '');
         positionFindingsEditorDropdown(type);
-        // Re-measure one frame later too: right after the modal itself has
-        // opened (or on the very first tap after render) the trigger's
-        // on-screen position can still shift slightly as the browser
-        // finishes laying things out, so the first measurement above can
-        // be a frame stale. This second pass settles the panel exactly
-        // under its trigger instead of leaving it visibly offset.
-        requestAnimationFrame(() => positionFindingsEditorDropdown(type));
         if (search) { search.value = ''; setTimeout(() => search.focus(), 0); }
       }
     }
@@ -11645,7 +11607,7 @@ html.page-fade-ready body {
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 text-slate-400"><path d="m6 9 6 6 6-6"></path></svg>
             </button>
             <input type="hidden" id="findingsEditor-branchSelect" value="${escapeFindingHTML(preserveBranch || '')}">
-            <div id="findingsEditor-branchDropdown" class="hidden fixed z-[80] bg-white border border-coolBorder rounded-lg shadow-lg overflow-hidden">
+            <div id="findingsEditor-branchDropdown" class="hidden absolute left-0 right-0 top-full mt-1 z-[80] bg-white border border-coolBorder rounded-lg shadow-lg overflow-hidden">
               <input type="text" id="findingsEditor-branchSearch" placeholder="Type to search…" oninput="filterFindingsEditorDropdown('branch')" class="w-full px-3 py-2 text-sm border-b border-coolBorder focus:outline-none">
               <div id="findingsEditor-branchOptions" class="max-h-48 overflow-y-auto custom-scrollbar overscroll-contain"></div>
             </div>
@@ -11658,7 +11620,7 @@ html.page-fade-ready body {
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 text-slate-400"><path d="m6 9 6 6 6-6"></path></svg>
             </button>
             <input type="hidden" id="findingsEditor-categorySelect" value="${escapeFindingHTML(preserveCategory || '')}">
-            <div id="findingsEditor-categoryDropdown" class="hidden fixed z-[80] bg-white border border-coolBorder rounded-lg shadow-lg overflow-hidden">
+            <div id="findingsEditor-categoryDropdown" class="hidden absolute left-0 right-0 top-full mt-1 z-[80] bg-white border border-coolBorder rounded-lg shadow-lg overflow-hidden">
               <input type="text" id="findingsEditor-categorySearch" placeholder="Type to search…" oninput="filterFindingsEditorDropdown('category')" class="w-full px-3 py-2 text-sm border-b border-coolBorder focus:outline-none">
               <div id="findingsEditor-categoryOptions" class="max-h-48 overflow-y-auto custom-scrollbar overscroll-contain"></div>
             </div>
