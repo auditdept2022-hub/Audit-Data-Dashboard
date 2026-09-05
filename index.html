@@ -11437,19 +11437,88 @@ html.page-fade-ready body {
       if (!isNaN(y)) yearEl.value = y;
     }
 
-    function toggleFindingsEditorNewBranch(value) {
-      const input = document.getElementById('findingsEditor-branchNew');
-      if (!input) return;
-      if (value === '__new__') { input.classList.remove('hidden'); input.focus(); }
-      else input.classList.add('hidden');
+    // =========================================================================
+    // Branch / Category pickers — scrollable, searchable dropdowns.
+    // Replaces plain <select> elements (whose native option list is easy to
+    // lose track of once there are 50+ branches) with a small custom
+    // dropdown: a search box on top and a fixed-height, explicitly
+    // scrollable list underneath (max-h-48 overflow-y-auto), so picking an
+    // item is always just "scroll or type, then tap" no matter how long the
+    // list gets. The underlying hidden input (#findingsEditor-branchSelect /
+    // -categorySelect) keeps the same id the rest of the form already reads
+    // from (addStagedFindingEntry(), etc.), so nothing downstream needed to
+    // change.
+    // =========================================================================
+
+    function getFindingsEditorDropdownOptions(type) {
+      return type === 'branch' ? getFindingsEditorBranchOptions() : getFindingsEditorCategoryOptions();
     }
 
-    function toggleFindingsEditorNewCategory(value) {
-      const input = document.getElementById('findingsEditor-categoryNew');
-      if (!input) return;
-      if (value === '__new__') { input.classList.remove('hidden'); input.focus(); }
-      else input.classList.add('hidden');
+    function closeFindingsEditorDropdowns(exceptType) {
+      ['branch', 'category'].forEach(t => {
+        if (t === exceptType) return;
+        const d = document.getElementById(`findingsEditor-${t}Dropdown`);
+        if (d) d.classList.add('hidden');
+      });
     }
+
+    function toggleFindingsEditorDropdown(type) {
+      const dropdown = document.getElementById(`findingsEditor-${type}Dropdown`);
+      if (!dropdown) return;
+      const willOpen = dropdown.classList.contains('hidden');
+      closeFindingsEditorDropdowns(willOpen ? type : null);
+      dropdown.classList.toggle('hidden', !willOpen);
+      if (willOpen) {
+        const search = document.getElementById(`findingsEditor-${type}Search`);
+        renderFindingsEditorDropdownOptions(type, '');
+        if (search) { search.value = ''; setTimeout(() => search.focus(), 0); }
+      }
+    }
+
+    function filterFindingsEditorDropdown(type) {
+      const search = document.getElementById(`findingsEditor-${type}Search`);
+      renderFindingsEditorDropdownOptions(type, (search && search.value) || '');
+    }
+
+    function renderFindingsEditorDropdownOptions(type, query) {
+      const container = document.getElementById(`findingsEditor-${type}Options`);
+      if (!container) return;
+      const opts = getFindingsEditorDropdownOptions(type);
+      const q = query.trim().toUpperCase();
+      const filtered = q ? opts.filter(o => o.includes(q)) : opts;
+      const rows = filtered.map(o => `<button type="button" onclick="selectFindingsEditorDropdownOption('${type}', ${JSON.stringify(o)})" class="w-full text-left px-3 py-2 text-sm hover:bg-gray-100">${escapeFindingHTML(o)}</button>`).join('');
+      const emptyRow = filtered.length ? '' : `<div class="px-3 py-2 text-xs text-slate-400">No matches</div>`;
+      const newRow = `<button type="button" onclick="selectFindingsEditorDropdownOption('${type}', '__new__')" class="w-full text-left px-3 py-2 text-sm text-accentIndigo font-semibold hover:bg-gray-100 border-t border-coolBorder">+ Add new ${type}…</button>`;
+      container.innerHTML = rows + emptyRow + newRow;
+    }
+
+    function selectFindingsEditorDropdownOption(type, value) {
+      const hidden = document.getElementById(`findingsEditor-${type}Select`);
+      const label = document.getElementById(`findingsEditor-${type}Label`);
+      const dropdown = document.getElementById(`findingsEditor-${type}Dropdown`);
+      const newInput = document.getElementById(`findingsEditor-${type}New`);
+      if (hidden) hidden.value = value;
+      if (dropdown) dropdown.classList.add('hidden');
+      if (value === '__new__') {
+        if (label) label.textContent = '+ Add new ' + type + '…';
+        if (newInput) { newInput.classList.remove('hidden'); newInput.focus(); }
+      } else {
+        if (label) label.textContent = value || (type === 'branch' ? '— Select branch —' : '— Select category —');
+        if (newInput) newInput.classList.add('hidden');
+      }
+    }
+
+    // Close whichever dropdown is open if the person taps/clicks anywhere
+    // outside its trigger button or its own list.
+    document.addEventListener('click', function(e) {
+      ['branch', 'category'].forEach(t => {
+        const dropdown = document.getElementById(`findingsEditor-${t}Dropdown`);
+        const trigger = document.getElementById(`findingsEditor-${t}Trigger`);
+        if (!dropdown || dropdown.classList.contains('hidden')) return;
+        if (dropdown.contains(e.target) || (trigger && trigger.contains(e.target))) return;
+        dropdown.classList.add('hidden');
+      });
+    });
 
     function renderFindingsEditorForm(preserveBranch, preserveCategory) {
       const body = document.getElementById('findingsEditorBody');
@@ -11474,22 +11543,30 @@ html.page-fade-ready body {
             <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Year</label>
             <input id="findingsEditor-year" type="number" value="${today.getFullYear()}" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
           </div>
-          <div>
+          <div class="relative">
             <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Branch</label>
-            <select id="findingsEditor-branchSelect" onchange="toggleFindingsEditorNewBranch(this.value)" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
-              <option value="" ${!preserveBranch ? 'selected' : ''}>— Select branch —</option>
-              ${branchOpts.map(b => `<option value="${escapeFindingHTML(b)}" ${b === preserveBranch ? 'selected' : ''}>${escapeFindingHTML(b)}</option>`).join('')}
-              <option value="__new__">+ Add new branch…</option>
-            </select>
+            <button type="button" id="findingsEditor-branchTrigger" onclick="toggleFindingsEditorDropdown('branch')" class="w-full flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm text-left focus:outline-none focus:ring-1 focus:ring-accentCyan">
+              <span id="findingsEditor-branchLabel" class="truncate">${preserveBranch ? escapeFindingHTML(preserveBranch) : '— Select branch —'}</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 text-slate-400"><path d="m6 9 6 6 6-6"></path></svg>
+            </button>
+            <input type="hidden" id="findingsEditor-branchSelect" value="${escapeFindingHTML(preserveBranch || '')}">
+            <div id="findingsEditor-branchDropdown" class="hidden absolute z-30 mt-1 w-full bg-white border border-coolBorder rounded-lg shadow-lg overflow-hidden">
+              <input type="text" id="findingsEditor-branchSearch" placeholder="Type to search…" oninput="filterFindingsEditorDropdown('branch')" class="w-full px-3 py-2 text-sm border-b border-coolBorder focus:outline-none">
+              <div id="findingsEditor-branchOptions" class="max-h-48 overflow-y-auto custom-scrollbar"></div>
+            </div>
             <input id="findingsEditor-branchNew" type="text" placeholder="New branch name" class="hidden mt-2 w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
           </div>
-          <div>
+          <div class="relative">
             <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Category</label>
-            <select id="findingsEditor-categorySelect" onchange="toggleFindingsEditorNewCategory(this.value)" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
-              <option value="" ${!preserveCategory ? 'selected' : ''}>— Select category —</option>
-              ${categoryOpts.map(c => `<option value="${escapeFindingHTML(c)}" ${c === preserveCategory ? 'selected' : ''}>${escapeFindingHTML(c)}</option>`).join('')}
-              <option value="__new__">+ Add new category…</option>
-            </select>
+            <button type="button" id="findingsEditor-categoryTrigger" onclick="toggleFindingsEditorDropdown('category')" class="w-full flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm text-left focus:outline-none focus:ring-1 focus:ring-accentCyan">
+              <span id="findingsEditor-categoryLabel" class="truncate">${preserveCategory ? escapeFindingHTML(preserveCategory) : '— Select category —'}</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 text-slate-400"><path d="m6 9 6 6 6-6"></path></svg>
+            </button>
+            <input type="hidden" id="findingsEditor-categorySelect" value="${escapeFindingHTML(preserveCategory || '')}">
+            <div id="findingsEditor-categoryDropdown" class="hidden absolute z-30 mt-1 w-full bg-white border border-coolBorder rounded-lg shadow-lg overflow-hidden">
+              <input type="text" id="findingsEditor-categorySearch" placeholder="Type to search…" oninput="filterFindingsEditorDropdown('category')" class="w-full px-3 py-2 text-sm border-b border-coolBorder focus:outline-none">
+              <div id="findingsEditor-categoryOptions" class="max-h-48 overflow-y-auto custom-scrollbar"></div>
+            </div>
             <input id="findingsEditor-categoryNew" type="text" placeholder="New category name" class="hidden mt-2 w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
           </div>
           <div class="sm:col-span-2">
