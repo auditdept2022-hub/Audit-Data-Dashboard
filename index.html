@@ -796,6 +796,10 @@
             emergencyAuditor: activeData.summary?.emergencyAuditor || "PENDING",
             trendLabels: activeData.summary?.trendLabels || ["MARCH", "APRIL", "MAY"],
             // Falls back to the main trendLabels (then the hard default) if
+            // the Service-section header wasn't found on this sheet, so
+            // older exports without a separate Service updater still work.
+            serviceTrendLabels: activeData.summary?.serviceTrendLabels || activeData.summary?.trendLabels || ["MARCH", "APRIL", "MAY"],
+            // Falls back to the main trendLabels (then the hard default) if
             // the Sales-section header wasn't found on this sheet, so older
             // exports without a separate Sales updater still work as before.
             salesTrendLabels: activeData.summary?.salesTrendLabels || activeData.summary?.trendLabels || ["MARCH", "APRIL", "MAY"]
@@ -929,7 +933,7 @@
         activeData.topDecliningCollection = [...tb]
             .sort((a,b) => a.effLatest - b.effLatest)
             .slice(0, 10)
-            .map(x => ({ name: x.name, label: `${x.effLatest}% (Latest)` }));
+            .map(x => ({ name: x.name, label: `${x.effLatest}% (${(activeData.summary && activeData.summary.trendLabels && activeData.summary.trendLabels[2]) || 'Latest'})` }));
 
         activeData.topDecliningSales = [...tb]
             .filter(b => b.sales === 'Declining')
@@ -8030,20 +8034,22 @@ html.page-fade-ready body {
       // match whatever 3-month rolling window the sheet currently shows
       // instead of staying stuck on "Mar/Apr/May" forever.
       const _m = (activeData.summary && activeData.summary.trendLabels) || ['MAR', 'APR', 'LATEST'];
-      // Sales has its own updater/month labels — see salesTrendLabels.
+      // Sales and Service each have their own updater/month labels — see
+      // salesTrendLabels / serviceTrendLabels.
       const _sm = (activeData.summary && activeData.summary.salesTrendLabels) || _m;
+      const _svm = (activeData.summary && activeData.summary.serviceTrendLabels) || _m;
       add('Collection Status', b.collection);
       add('Sales Status', b.sales);
       add('Service Status', b.service);
       add('Efficiency \u2014 ' + _m[0] + ' (%)', b.effMar);
       add('Efficiency \u2014 ' + _m[1] + ' (%)', b.effApr);
-      add('Efficiency \u2014 Latest (%)', b.effLatest);
+      add('Efficiency \u2014 ' + _m[2] + ' (%)', b.effLatest);
       add('Repo Rate \u2014 ' + _m[0] + ' (%)', (Number(b.repoRateMar) || 0).toFixed(2));
       add('Repo Rate \u2014 ' + _m[1] + ' (%)', (Number(b.repoRateApr) || 0).toFixed(2));
-      add('Repo Rate \u2014 Latest (%)', (Number(b.repoRateLatest) || 0).toFixed(2));
+      add('Repo Rate \u2014 ' + _m[2] + ' (%)', (Number(b.repoRateLatest) || 0).toFixed(2));
       add('No. of Repo \u2014 ' + _m[0], b.noOfRepoMar);
       add('No. of Repo \u2014 ' + _m[1], b.noOfRepoApr);
-      add('No. of Repo \u2014 Latest', b.noOfRepoLatest);
+      add('No. of Repo \u2014 ' + _m[2], b.noOfRepoLatest);
       add('Accounts \u2014 ' + _m[0], b.accountsMar);
       add('Accounts \u2014 ' + _m[1], b.accountsApr);
       add('Accounts \u2014 ' + _m[2], b.accountsMay);
@@ -8051,9 +8057,9 @@ html.page-fade-ready body {
       if (b.salesApr) add('Sales ' + _sm[1] + ' (INS / COD / CA)', b.salesApr.ins + ' / ' + b.salesApr.cod + ' / ' + b.salesApr.ca);
       if (b.salesMay) add('Sales ' + _sm[2] + ' (INS / COD / CA)', b.salesMay.ins + ' / ' + b.salesMay.cod + ' / ' + b.salesMay.ca);
       add('Service Target', b.serviceTarget);
-      add('Service \u2014 ' + _m[0], b.serviceMar);
-      add('Service \u2014 ' + _m[1], b.serviceApr);
-      add('Service \u2014 ' + _m[2], b.serviceMay);
+      add('Service \u2014 ' + _svm[0], b.serviceMar);
+      add('Service \u2014 ' + _svm[1], b.serviceApr);
+      add('Service \u2014 ' + _svm[2], b.serviceMay);
       add('Findings 2024', b.findings2024);
       add('Findings 2025', b.findings2025);
       add('Findings 2026', b.findings2026);
@@ -8251,19 +8257,21 @@ html.page-fade-ready body {
       // export's column headers always match the sheet's actual rolling
       // 3-month window instead of staying stuck on "Mar/Apr/May" forever.
       const _exportM = (activeData.summary && activeData.summary.trendLabels) || ['MAR', 'APR', 'LATEST'];
-      // Sales has its own updater/month labels — see salesTrendLabels.
+      // Sales and Service each have their own updater/month labels — see
+      // salesTrendLabels / serviceTrendLabels.
       const _exportSalesM = (activeData.summary && activeData.summary.salesTrendLabels) || _exportM;
+      const _exportServiceM = (activeData.summary && activeData.summary.serviceTrendLabels) || _exportM;
       const sheets = [
           { name: 'Summary', headers: ['Metric', 'Value'], rows: summaryRows },
-          { name: 'Branches', headers: ['#', 'Branch', 'Audit Status', 'Auditor', 'Last Audit Date', 'Up Next Auditor', 'Expected Audit Date', 'Collection', 'Sales', 'Service', 'Eff ' + _exportM[0] + ' %', 'Eff ' + _exportM[1] + ' %', 'Eff Latest %', 'Repo Rate ' + _exportM[0] + ' %', 'Repo Rate ' + _exportM[1] + ' %', 'Repo Rate Latest %', 'No. of Repo ' + _exportM[0], 'No. of Repo ' + _exportM[1], 'No. of Repo Latest', 'Accounts ' + _exportM[0], 'Accounts ' + _exportM[1], 'Accounts ' + _exportM[2], 'Sales ' + _exportSalesM[0] + ' (INS/COD/CA)', 'Sales ' + _exportSalesM[1] + ' (INS/COD/CA)', 'Sales ' + _exportSalesM[2] + ' (INS/COD/CA)', 'Expected INS', 'Expected COD', 'Service Target', 'Service ' + _exportM[0], 'Service ' + _exportM[1], 'Service ' + _exportM[2], 'Findings 2024', 'Findings 2025', 'Findings 2026'], rows: branchRows },
+          { name: 'Branches', headers: ['#', 'Branch', 'Audit Status', 'Auditor', 'Last Audit Date', 'Up Next Auditor', 'Expected Audit Date', 'Collection', 'Sales', 'Service', 'Eff ' + _exportM[0] + ' %', 'Eff ' + _exportM[1] + ' %', 'Eff ' + _exportM[2] + ' %', 'Repo Rate ' + _exportM[0] + ' %', 'Repo Rate ' + _exportM[1] + ' %', 'Repo Rate ' + _exportM[2] + ' %', 'No. of Repo ' + _exportM[0], 'No. of Repo ' + _exportM[1], 'No. of Repo ' + _exportM[2], 'Accounts ' + _exportM[0], 'Accounts ' + _exportM[1], 'Accounts ' + _exportM[2], 'Sales ' + _exportSalesM[0] + ' (INS/COD/CA)', 'Sales ' + _exportSalesM[1] + ' (INS/COD/CA)', 'Sales ' + _exportSalesM[2] + ' (INS/COD/CA)', 'Expected INS', 'Expected COD', 'Service Target', 'Service ' + _exportServiceM[0], 'Service ' + _exportServiceM[1], 'Service ' + _exportServiceM[2], 'Findings 2024', 'Findings 2025', 'Findings 2026'], rows: branchRows },
           { name: 'Assignment Queue', headers: ['Branch', 'Up Next Auditor', 'Expected Audit Date', 'Last Audit Date', 'Last Auditor', 'Recent Audit Date', 'Recent Auditor', 'Audit Interval (to date)'], rows: assignmentQueueRows },
           { name: 'Lowest Efficiency', headers: ['Branch', 'Efficiency %'], rows: (activeData.lowestEfficiency || []).map(function(x) { return [x.branch, x.rate]; }) },
           { name: 'Highest Repo Rate', headers: ['Branch', 'Repo Rate %'], rows: (activeData.highestRepo || []).map(function(x) { return [x.branch, (Number(x.rate) || 0).toFixed(2)]; }) },
           { name: 'Highest No. of Repo', headers: ['Branch', 'No. of Repo'], rows: (activeData.highestNoRepo || []).map(function(x) { return [x.branch, x.count]; }) },
           { name: 'Top Findings FY26', headers: ['Branch', 'Findings 2026'], rows: (activeData.topFindings26 || []).map(function(x) { return [x.name, x.count]; }) },
           { name: 'Recovering Branches', headers: ['#', 'Branch', 'Collection Status'], rows: (activeData.branches || []).filter(function(b) { return b.collection === 'Recovering'; }).map(function(b, i) { return [i + 1, b.name, b.collection]; }) },
-          { name: 'Declining Collection', headers: ['Branch', 'Latest Efficiency'], rows: (activeData.topDecliningCollection || []).map(function(x) { return [x.name, x.label]; }) },
-          { name: 'Declining Sales', headers: ['Branch', 'Unit Drop (Mar\u2192May)'], rows: (activeData.topDecliningSales || []).map(function(x) { return [x.name, x.label]; }) },
+          { name: 'Declining Collection', headers: ['Branch', _exportM[2] + ' Efficiency'], rows: (activeData.topDecliningCollection || []).map(function(x) { return [x.name, x.label]; }) },
+          { name: 'Declining Sales', headers: ['Branch', 'Unit Drop (' + _exportSalesM[0] + '\u2192' + _exportSalesM[2] + ')'], rows: (activeData.topDecliningSales || []).map(function(x) { return [x.name, x.label]; }) },
           { name: 'Declining Service', headers: ['Branch', 'Shortfall vs Target'], rows: (activeData.topDecliningService || []).map(function(x) { return [x.name, x.label]; }) },
           { name: 'Auditors', headers: ['Auditor', 'Assigned Branches'], rows: (activeData.auditors || []).map(function(a) { return [a.name, a.count]; }) },
           { name: 'Emergency History', headers: ['Auditor', 'Branch', 'Date of Audit', 'Remark'], rows: (activeData.emergencyHistory || []).map(function(h) { return [h.auditor || '', h.branch || '', h.details || '', h.remark || '']; }) },
@@ -8683,10 +8691,11 @@ html.page-fade-ready body {
 
           rowsHtml = netRows + acctRows;
       } else if (type === 'service') {
+          const svcLbls = (activeData.summary && activeData.summary.serviceTrendLabels) || trendLbls;
           const targetTotal = list.reduce((s, b) => s + (Number(b.serviceTarget) || 0), 0);
           const keys = ['serviceMar', 'serviceApr', 'serviceMay'];
           const monthActuals = keys.map(k => list.reduce((s, b) => s + (Number(b[k]) || 0), 0));
-          rowsHtml = trendLbls.map((lbl, i) => {
+          rowsHtml = svcLbls.map((lbl, i) => {
               const diff = monthActuals[i] - targetTotal;
               const diffClass = diff >= 0 ? 'text-accentEmerald' : 'text-accentRose';
               const diffSign = diff >= 0 ? '+' : '';
@@ -10277,7 +10286,7 @@ html.page-fade-ready body {
       <div class="flex flex-wrap items-center gap-1.5 mb-2">
         ${summaryPill(totalBranches, 'Total Branches', { neutral: true, active: activeStatus === 'ALL', onClick: `onclick="setModalStatusFilter('ALL')"` })}
         ${buildStatusPills('collection', list, activeStatus)}
-        ${summaryPill(meanEff + '%', 'Avg Eff Latest', { tint: 'accentIndigo' })}
+        ${summaryPill(meanEff + '%', 'Avg Eff ' + (((activeData.summary && activeData.summary.trendLabels) || ['Mar', 'Apr', 'Latest'])[2]), { tint: 'accentIndigo' })}
       </div>
       ${activeStatus === 'ALL' ? buildTopPerformersList([...list].filter(b => b.collection !== 'Declining').sort((a, b) => b.effLatest - a.effLatest).slice(0, 5), (b) => `${b.effLatest}%`, 'accentIndigo') : ''}`;
     }
@@ -10292,7 +10301,7 @@ html.page-fade-ready body {
       <div class="flex flex-wrap items-center gap-1.5 mb-2">
         ${summaryPill(totalBranches, 'Total Branches', { neutral: true, active: activeStatus === 'ALL', onClick: `onclick="setModalStatusFilter('ALL')"` })}
         ${buildStatusPills('service', list, activeStatus)}
-        ${summaryPill('₱' + totalMay.toLocaleString(), 'Total ₱ (Latest Mo.)', { tint: 'accentCyan' })}
+        ${summaryPill('₱' + totalMay.toLocaleString(), 'Total ₱ (' + (((activeData.summary && activeData.summary.serviceTrendLabels) || ['Mar', 'Apr', 'Latest'])[2]) + ')', { tint: 'accentCyan' })}
       </div>
       ${activeStatus === 'ALL' ? buildTopPerformersList([...list].filter(b => b.service !== 'Declining').sort((a, b) => Number(b.serviceMay) - Number(a.serviceMay)).slice(0, 5), (b) => `₱${Number(b.serviceMay).toLocaleString()}`, 'accentCyan') : ''}`;
     }
@@ -10383,8 +10392,11 @@ html.page-fade-ready body {
       let detailHeaders = '';
       let showEffRepo = true;
       const trendLbls = activeData.summary.trendLabels || ["MAR", "APR", "MAY"];
-      // Sales section uses its own (separately-updated) month labels.
+      // Sales and Service sections each use their own (separately-updated)
+      // month labels since they can be rolled forward on different
+      // schedules than the Accounts columns.
       const salesTrendLbls = activeData.summary.salesTrendLabels || trendLbls;
+      const serviceTrendLbls = activeData.summary.serviceTrendLabels || trendLbls;
       if (type === 'collection') {
         const sortState = (window.modalFilterState && window.modalFilterState.effSort) || null;
         const sortIcon = sortState === 'desc' ? '↓' : (sortState === 'asc' ? '↑' : '↕');
@@ -10433,9 +10445,9 @@ html.page-fade-ready body {
         const sortIcon = sortState === 'desc' ? '↓' : (sortState === 'asc' ? '↑' : '↕');
         detailHeaders = `
           <th class="p-2 bg-gray-50 text-center">Target</th>
-          <th class="p-2 bg-gray-50 text-center">${trendLbls[0]}</th>
-          <th class="p-2 bg-gray-50 text-center">${trendLbls[1]}</th>
-          <th class="p-2 bg-gray-50 text-center cursor-pointer select-none hover:text-accentIndigo transition-colors" onclick="toggleServiceSort()">${trendLbls[2]} <span class="inline-block ml-0.5">${sortIcon}</span></th>`;
+          <th class="p-2 bg-gray-50 text-center">${serviceTrendLbls[0]}</th>
+          <th class="p-2 bg-gray-50 text-center">${serviceTrendLbls[1]}</th>
+          <th class="p-2 bg-gray-50 text-center cursor-pointer select-none hover:text-accentIndigo transition-colors" onclick="toggleServiceSort()">${serviceTrendLbls[2]} <span class="inline-block ml-0.5">${sortIcon}</span></th>`;
         showEffRepo = false;
       } else if (type === 'all') {
         detailHeaders = `<th class="p-2 bg-gray-50 text-center whitespace-nowrap">Audit Status</th>`;
@@ -12820,6 +12832,49 @@ html.page-fade-ready body {
               }
           }
           activeData.summary.salesTrendLabels = salesMonthLabels;
+
+          // Service section (columns AD/AE/AF, indices 29/30/31 =
+          // serviceMar/serviceApr/serviceMay) can also be rolled forward on
+          // its own schedule, independently of the Accounts columns (C/D/E)
+          // — same reasoning as the Sales scan above, and why the dashboard
+          // could keep showing an old Service month label (e.g. "MAY") even
+          // after the sheet's own Service columns had already moved to
+          // "JUN"/"JUL"/"AUG". Check the BRANCHES header row itself first
+          // (in case the month name sits right there, like Accounts does),
+          // then fall back to scanning a few rows above (in case it's a
+          // merged block header, like Sales) before finally falling back to
+          // the Accounts trend labels.
+          let serviceMonthLabels = monthLabels.slice();
+          const serviceLabelCols = [29, 30, 31]; // AD, AE, AF — serviceMar/Apr/May
+          if (rawRows[headerRowIndex]) {
+              const hrSame = rawRows[headerRowIndex];
+              const candidateSame = serviceLabelCols.map(c => String(hrSame[c] || "").trim());
+              if (candidateSame.some(v => v)) {
+                  serviceMonthLabels = [
+                      candidateSame[0] || serviceMonthLabels[0],
+                      candidateSame[1] || serviceMonthLabels[1],
+                      candidateSame[2] || serviceMonthLabels[2]
+                  ];
+              }
+          }
+          if (serviceMonthLabels[0] === monthLabels[0] && serviceMonthLabels[1] === monthLabels[1] && serviceMonthLabels[2] === monthLabels[2]) {
+              for (let back = 1; back <= 4; back++) {
+                  const idx = headerRowIndex - back;
+                  if (idx < 0) break;
+                  const r = rawRows[idx];
+                  if (!r) continue;
+                  const candidate = serviceLabelCols.map(c => String(r[c] || "").trim());
+                  if (candidate.some(v => v)) {
+                      serviceMonthLabels = [
+                          candidate[0] || serviceMonthLabels[0],
+                          candidate[1] || serviceMonthLabels[1],
+                          candidate[2] || serviceMonthLabels[2]
+                      ];
+                      break;
+                  }
+              }
+          }
+          activeData.summary.serviceTrendLabels = serviceMonthLabels;
 
           // Expected Audit Date (AUDIT DATA (FINAL) column AM) — read
           // straight from the AUDIT DATA (FINAL) sheet itself rather than
