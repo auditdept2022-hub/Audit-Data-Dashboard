@@ -6202,6 +6202,9 @@ html.page-fade-ready body {
               window.findingsModalSort = null;
               window.findingsModalSearch = '';
               window.findingsModalStatusFilter = 'ALL';
+              window.findingsModalCategoryFilter = 'ALL';
+              window.findingsModalDateFrom = '';
+              window.findingsModalDateTo = '';
               window.findingsModalState = { type, filterValue, allBranches: [...activeData.branches] };
               modalBody.innerHTML = renderFindingsYearTabs(filterValue) + renderFindingsToolbar() + '<div id="modalTableContainer"></div>';
               renderFindingsModalTable(filterValue);
@@ -10833,12 +10836,43 @@ html.page-fade-ready body {
       // the toolbar this function normally redraws.
       const tabsEl = document.getElementById('findingsYearTabs');
       if (tabsEl && state) tabsEl.outerHTML = renderFindingsYearTabs(state.filterValue);
+      // The toolbar itself swaps between the branch-status capsules and the
+      // Category/Date filters depending on whether "Recently Added" is on,
+      // so it has to be redrawn whenever that toggles too.
+      const toolbarEl = document.getElementById('findingsToolbarWrap');
+      if (toolbarEl) toolbarEl.outerHTML = renderFindingsToolbar();
+    }
+
+    // Category/Date filters for the "Recently Added" findings list — these
+    // slice the flat list of individual findings, unlike the branch-status
+    // capsules (Pending/For Audit/Done) which only make sense on the
+    // per-branch breakdown. Branch itself is already covered by the
+    // existing search box, so it isn't duplicated here.
+    function setFindingsCategoryFilter(value) {
+      window.findingsModalCategoryFilter = value || 'ALL';
+      const state = window.findingsModalState;
+      if (state) renderFindingsModalTable(state.filterValue);
+    }
+
+    function setFindingsDateFrom(value) {
+      window.findingsModalDateFrom = value || '';
+      const state = window.findingsModalState;
+      if (state) renderFindingsModalTable(state.filterValue);
+    }
+
+    function setFindingsDateTo(value) {
+      window.findingsModalDateTo = value || '';
+      const state = window.findingsModalState;
+      if (state) renderFindingsModalTable(state.filterValue);
     }
 
     function resetFindingsFilters() {
       window.findingsModalSort = null;
       window.findingsModalSearch = '';
       window.findingsModalStatusFilter = 'ALL';
+      window.findingsModalCategoryFilter = 'ALL';
+      window.findingsModalDateFrom = '';
+      window.findingsModalDateTo = '';
       const searchInput = document.getElementById('findingsSearchInput');
       if (searchInput) searchInput.value = '';
       const statusSelect = document.getElementById('findingsAuditStatusFilter');
@@ -10847,33 +10881,77 @@ html.page-fade-ready body {
       if (state) renderFindingsModalTable(state.filterValue);
       const tabsEl = document.getElementById('findingsYearTabs');
       if (tabsEl && state) tabsEl.outerHTML = renderFindingsYearTabs(state.filterValue);
+      const toolbarEl = document.getElementById('findingsToolbarWrap');
+      if (toolbarEl) toolbarEl.outerHTML = renderFindingsToolbar();
     }
 
     function renderFindingsToolbar() {
       const searchVal = escapeFindingHTML(window.findingsModalSearch || '');
       const statusVal = window.findingsModalStatusFilter || 'ALL';
-      const statusCapsule = (value, label) => {
-        const active = value === statusVal;
-        return `<button type="button" onclick="setFindingsStatusFilter('${value}')" class="px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border transition-all active:scale-95 ${active ? 'bg-accentCyan text-white border-accentCyan shadow-sm shadow-accentCyan/25' : 'bg-white text-slate-600 border-coolBorder hover:border-accentCyan/50'}">${label}</button>`;
-      };
-      return `
-      <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
+      const isRecent = statusVal === 'RECENT';
+
+      // Branch is always filterable via this search box (works the same in
+      // both modes), so it isn't duplicated as a separate control below.
+      const searchBox = `
         <div class="relative flex-1 min-w-[180px]">
           <span class="absolute inset-y-0 left-0 flex items-center pl-2.5">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-slate-400"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
           </span>
           <input type="text" id="findingsSearchInput" placeholder="Search branch..." value="${searchVal}" oninput="setFindingsSearch(this.value)" class="w-full pl-8 pr-3 py-1.5 bg-white border border-coolBorder rounded-lg text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all">
-        </div>
+        </div>`;
+
+      const resetBtn = `
+        <button type="button" onclick="resetFindingsFilters()" class="px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-lg text-xs font-semibold text-slate-600 transition-all active:scale-95 whitespace-nowrap">
+          Reset
+        </button>`;
+
+      const countLabel = `<span id="findingsCountLabel" class="text-[11px] font-semibold text-slate-400 whitespace-nowrap sm:ml-auto"></span>`;
+
+      if (isRecent) {
+        // "Recently Added" is a flat list of individual findings, not
+        // branches — a branch audit-status (Pending/For Audit/Done) doesn't
+        // apply to a single finding, so this view filters by the fields the
+        // list actually has instead: Category, Date (range), and Branch
+        // (via the search box above).
+        const categoryVal = window.findingsModalCategoryFilter || 'ALL';
+        const dateFromVal = escapeFindingHTML(window.findingsModalDateFrom || '');
+        const dateToVal = escapeFindingHTML(window.findingsModalDateTo || '');
+        const categoryOptions = DEFAULT_FINDING_CATEGORIES.map(c =>
+          `<option value="${c}" ${c === categoryVal ? 'selected' : ''}>${escapeFindingHTML(c)}</option>`
+        ).join('');
+
+        return `
+        <div id="findingsToolbarWrap" class="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
+          ${searchBox}
+          <select id="findingsCategoryFilter" onchange="setFindingsCategoryFilter(this.value)" class="px-2.5 py-1.5 bg-white border border-coolBorder rounded-lg text-xs font-semibold text-slate-600 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all">
+            <option value="ALL" ${categoryVal === 'ALL' ? 'selected' : ''}>All Categories</option>
+            ${categoryOptions}
+          </select>
+          <div class="flex items-center gap-1.5">
+            <input type="date" id="findingsDateFrom" value="${dateFromVal}" onchange="setFindingsDateFrom(this.value)" title="From date" class="px-2 py-1.5 bg-white border border-coolBorder rounded-lg text-xs text-slate-600 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all">
+            <span class="text-xs text-slate-400 font-semibold">to</span>
+            <input type="date" id="findingsDateTo" value="${dateToVal}" onchange="setFindingsDateTo(this.value)" title="To date" class="px-2 py-1.5 bg-white border border-coolBorder rounded-lg text-xs text-slate-600 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all">
+          </div>
+          ${resetBtn}
+          ${countLabel}
+        </div>`;
+      }
+
+      const statusCapsule = (value, label) => {
+        const active = value === statusVal;
+        return `<button type="button" onclick="setFindingsStatusFilter('${value}')" class="px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border transition-all active:scale-95 ${active ? 'bg-accentCyan text-white border-accentCyan shadow-sm shadow-accentCyan/25' : 'bg-white text-slate-600 border-coolBorder hover:border-accentCyan/50'}">${label}</button>`;
+      };
+      return `
+      <div id="findingsToolbarWrap" class="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
+        ${searchBox}
         <div class="flex items-center gap-1.5 flex-wrap">
           ${statusCapsule('ALL', 'All')}
           ${statusCapsule('PENDING', 'Pending')}
           ${statusCapsule('FOR AUDIT', 'For Audit')}
           ${statusCapsule('DONE', 'Done')}
         </div>
-        <button type="button" onclick="resetFindingsFilters()" class="px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-lg text-xs font-semibold text-slate-600 transition-all active:scale-95 whitespace-nowrap">
-          Reset
-        </button>
-        <span id="findingsCountLabel" class="text-[11px] font-semibold text-slate-400 whitespace-nowrap sm:ml-auto"></span>
+        ${resetBtn}
+        ${countLabel}
       </div>`;
     }
 
@@ -10932,14 +11010,24 @@ html.page-fade-ready body {
     // Records only have a real per-finding DATE from FY2026 onward (see
     // formatFindingDate) — anything undated (older years) sorts to the
     // bottom rather than being dropped, so nothing silently disappears.
-    function getRecentFindingsRecords(year, query) {
+    function getRecentFindingsRecords(year, query, category, dateFrom, dateTo) {
       const allDetail = (activeData && activeData.auditFindingsDetail) || {};
       const q = (query || '').trim().toLowerCase();
+      const cat = (category && category !== 'ALL') ? String(category).trim().toUpperCase() : '';
+      const from = (dateFrom || '').trim();
+      const to = (dateTo || '').trim();
       const records = [];
       Object.keys(allDetail).forEach(branchName => {
         if (q && !branchName.toLowerCase().includes(q)) return;
         (allDetail[branchName] || []).forEach(r => {
-          if (getRecordYear(r) === year) records.push(Object.assign({}, r, { branch: branchName }));
+          if (getRecordYear(r) !== year) return;
+          if (cat && String(r.category || '').trim().toUpperCase() !== cat) return;
+          // Only records with a real date (FY2026+) can be matched against
+          // a date range — an undated older-year record simply can't fall
+          // inside/outside a range that was never logged for it.
+          if (from && (!r.date || r.date < from)) return;
+          if (to && (!r.date || r.date > to)) return;
+          records.push(Object.assign({}, r, { branch: branchName }));
         });
       });
       records.sort((a, b) => {
@@ -10959,7 +11047,10 @@ html.page-fade-ready body {
     function renderRecentFindingsList(container, filterValue) {
       const year = Number(String(filterValue).replace('findings', '')) || new Date().getFullYear();
       const query = window.findingsModalSearch || '';
-      const records = getRecentFindingsRecords(year, query);
+      const category = window.findingsModalCategoryFilter || 'ALL';
+      const dateFrom = window.findingsModalDateFrom || '';
+      const dateTo = window.findingsModalDateTo || '';
+      const records = getRecentFindingsRecords(year, query, category, dateFrom, dateTo);
 
       const countLabel = document.getElementById('findingsCountLabel');
       if (countLabel) countLabel.textContent = `Showing ${records.length} recently added finding${records.length === 1 ? '' : 's'} for FY${year}`;
