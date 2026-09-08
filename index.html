@@ -11505,6 +11505,19 @@ html.page-fade-ready body {
     }
 
     async function sendAllStagedFindingsToSheet() {
+      // If there's a branch/category/remarks typed into the form that was
+      // never turned into a staged row, don't send — make the user click
+      // "+ Add Entry" first so nothing typed gets sent (or dropped)
+      // without them explicitly staging it.
+      if (hasUnstagedFindingsEditorInput()) {
+        const errEl = document.getElementById('findingsEditor-error');
+        if (errEl) {
+          errEl.textContent = 'Click "+ Add Entry" to stage this finding before sending.';
+          errEl.classList.remove('hidden');
+        }
+        return;
+      }
+
       const store = loadFindingsEditorStore();
       if (store.staged.length === 0) { showToast('No staged entries to send.'); return; }
       openFindingsSendConfirm({ type: 'all' });
@@ -11790,11 +11803,11 @@ html.page-fade-ready body {
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
           <div>
             <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Date</label>
-            <input id="findingsEditor-date" type="date" value="${isoToday}" onchange="syncFindingsEditorYear()" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+            <input id="findingsEditor-date" type="date" value="${isoToday}" onchange="syncFindingsEditorYear()" onkeydown="if(event.key==='Enter'){event.preventDefault();addStagedFindingEntry();}" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
           </div>
           <div>
             <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Year</label>
-            <input id="findingsEditor-year" type="number" value="${today.getFullYear()}" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+            <input id="findingsEditor-year" type="number" value="${today.getFullYear()}" onkeydown="if(event.key==='Enter'){event.preventDefault();addStagedFindingEntry();}" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
           </div>
           <div class="relative">
             <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Branch</label>
@@ -11807,7 +11820,7 @@ html.page-fade-ready body {
               <input type="text" id="findingsEditor-branchSearch" placeholder="Type to search…" oninput="filterFindingsEditorDropdown('branch')" class="w-full px-3 py-2 text-sm border-b border-coolBorder focus:outline-none">
               <div id="findingsEditor-branchOptions" class="max-h-48 overflow-y-auto custom-scrollbar overscroll-contain"></div>
             </div>
-            <input id="findingsEditor-branchNew" type="text" placeholder="New branch name" class="hidden mt-2 w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+            <input id="findingsEditor-branchNew" type="text" placeholder="New branch name" onkeydown="if(event.key==='Enter'){event.preventDefault();addStagedFindingEntry();}" class="hidden mt-2 w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
           </div>
           <div class="relative">
             <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Category</label>
@@ -11820,11 +11833,11 @@ html.page-fade-ready body {
               <input type="text" id="findingsEditor-categorySearch" placeholder="Type to search…" oninput="filterFindingsEditorDropdown('category')" class="w-full px-3 py-2 text-sm border-b border-coolBorder focus:outline-none">
               <div id="findingsEditor-categoryOptions" class="max-h-48 overflow-y-auto custom-scrollbar overscroll-contain"></div>
             </div>
-            <input id="findingsEditor-categoryNew" type="text" placeholder="New category name" class="hidden mt-2 w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+            <input id="findingsEditor-categoryNew" type="text" placeholder="New category name" onkeydown="if(event.key==='Enter'){event.preventDefault();addStagedFindingEntry();}" class="hidden mt-2 w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
           </div>
           <div class="sm:col-span-2">
             <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Findings / Remarks</label>
-            <textarea id="findingsEditor-findings" rows="3" placeholder="Describe the finding…" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan"></textarea>
+            <textarea id="findingsEditor-findings" rows="3" placeholder="Describe the finding…" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();addStagedFindingEntry();}" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan"></textarea>
           </div>
         </div>
         <div id="findingsEditor-error" class="hidden text-xs text-accentRose font-semibold mb-3"></div>
@@ -11900,6 +11913,21 @@ html.page-fade-ready body {
       if (findingsEl) findingsEl.value = '';
       renderFindingsEditorForm(branch, category);
       showToast('Finding staged — hit Send All to Sheet (or the row\u2019s send icon) to write it to RAW DATA.');
+      return true;
+    }
+
+    // True if the form currently has branch/category/remarks typed in that
+    // haven't been turned into a staged row yet (via "+ Add Entry"). Used
+    // by Send so it doesn't silently skip whatever you just filled in.
+    function hasUnstagedFindingsEditorInput() {
+      const branchSelect = (document.getElementById('findingsEditor-branchSelect') || {}).value || '';
+      const branchNew = (document.getElementById('findingsEditor-branchNew') || {}).value || '';
+      const categorySelect = (document.getElementById('findingsEditor-categorySelect') || {}).value || '';
+      const categoryNew = (document.getElementById('findingsEditor-categoryNew') || {}).value || '';
+      const findingVal = ((document.getElementById('findingsEditor-findings') || {}).value || '').trim();
+      const branchTyped = (branchSelect === '__new__' ? branchNew : branchSelect).trim();
+      const categoryTyped = (categorySelect === '__new__' ? categoryNew : categorySelect).trim();
+      return !!(branchTyped || categoryTyped || findingVal);
     }
 
     function renderStagedFindingsTable() {
@@ -15966,6 +15994,7 @@ html.page-fade-ready body {
       { id: 'editAssignPasswordModal', z: 70 },
       { id: 'sideMenu', z: 70 },
       { id: 'exportPickerModal', z: 60 },
+      { id: 'findingsEditorModal', z: 65 },
       { id: 'dataModal', z: 50 },
       { id: 'branchFilterPanel', z: 50 },
       { id: 'miniCalendarPopup', z: 50 }
