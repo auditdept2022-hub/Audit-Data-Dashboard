@@ -14615,7 +14615,13 @@ html.page-fade-ready body {
 
             const fetchUrl = baseUrl + '?secret=' + encodeURIComponent(appsScriptSecret) +
               '&idToken=' + encodeURIComponent(idToken) +
-              '&nocache=' + Date.now() + '_' + attempt;
+              '&nocache=' + Date.now() + '_' + attempt +
+              // Hard reset: only on a manual "Update Data" click, never on
+              // silent auto-refreshes, so this doesn't change the normal
+              // cached-load behavior — it just guarantees this one action
+              // always pulls live data straight off the Sheet instead of
+              // whatever the backend's short-lived cache is holding.
+              (isAutoLoad ? '' : '&hardReset=1');
             console.log('[dashboard-timing] fetchSheet attempt ' + attempt + '/' + MAX_ATTEMPTS + ' starting (isAutoLoad=' + isAutoLoad + ')');
             const json = await fetchSheetOnce(fetchUrl);
             console.log('[dashboard-timing] fetchSheet attempt ' + attempt + ' got a response in ' + Math.round(performance.now() - __attemptT0) + 'ms');
