@@ -1018,12 +1018,8 @@
             <select id="repoTargetConn"></select>
           </div>
           <div class="field">
-            <label>TARGET TAB NAME</label>
-            <input type="text" id="repoTargetName" value="Repo">
-          </div>
-          <div class="field">
-            <label>SHEET TITLE</label>
-            <input type="text" id="repoSheetTitle" value="REPO INVENTORY LISTING: 2026">
+            <label>PUSHES INTO</label>
+            <input type="text" value="Collection Efficiency (NO. OF REPO / REPO RATE columns)" readonly disabled>
           </div>
           <div class="field">
             <label>PERIOD LABEL</label>
@@ -3591,7 +3587,13 @@ function extractRepo(rows) {
     }
   });
 
-  const outRows = [['BRANCH NAME', 'ENDING INVENTORY']];
+  // Sheet's two Repo metric columns are "NO. OF REPO" and "REPO RATE".
+  // "Ending Inventory" from the source report IS the "NO. OF REPO" count
+  // (same number, just a different name in the source file). REPO RATE
+  // has no source column yet, so it's pushed blank for now — still sent
+  // every period (not omitted) so both metric groups stay in sync and
+  // don't drift apart column-for-column like before.
+  const outRows = [['BRANCH NAME', 'NO. OF REPO', 'REPO RATE']];
   const dataRows = [];
   const branchNames = [];
   const missing = [];
@@ -3600,22 +3602,22 @@ function extractRepo(rows) {
     const entry = found[normalizeBranchName(name)];
     branchNames.push(name);
     if (entry) {
-      outRows.push([name, entry.endingInv]);
-      dataRows.push([entry.endingInv]);
+      outRows.push([name, entry.endingInv, '']);
+      dataRows.push([entry.endingInv, '']);
     } else {
-      outRows.push([name, '']);
-      dataRows.push(['']);
+      outRows.push([name, '', '']);
+      dataRows.push(['', '']);
       missing.push(name);
     }
   });
 
   branchNames.push(REPO_TOTAL_LABEL);
   if (grandTotal) {
-    outRows.push([REPO_TOTAL_LABEL, grandTotal.endingInv]);
-    dataRows.push([grandTotal.endingInv]);
+    outRows.push([REPO_TOTAL_LABEL, grandTotal.endingInv, '']);
+    dataRows.push([grandTotal.endingInv, '']);
   } else {
-    outRows.push([REPO_TOTAL_LABEL, '']);
-    dataRows.push(['']);
+    outRows.push([REPO_TOTAL_LABEL, '', '']);
+    dataRows.push(['', '']);
     missing.push(REPO_TOTAL_LABEL);
   }
 
@@ -3660,8 +3662,13 @@ async function pushRepo() {
     statusEl.className = 'push-status err';
     return;
   }
-  const targetName = document.getElementById('repoTargetName').value.trim() || 'Repo';
-  const sheetTitle = document.getElementById('repoSheetTitle').value.trim() || 'REPO INVENTORY LISTING';
+  // Repo data is a second metric group on the SAME "Collection Efficiency"
+  // sheet/tab (NO. OF REPO + REPO RATE columns) — it is never its own tab.
+  // The tab name / sheet title are fixed here (not read from user-editable
+  // fields) so a typo or leftover "Repo" value can't spin off a separate
+  // tab again like before.
+  const targetName = 'Collection Efficiency';
+  const sheetTitle = 'CONSOLIDATED AGING OF ACCOUNTS: 2026';
   const period = document.getElementById('repoPeriodLabel').value.trim();
   if (!period) {
     statusEl.textContent = 'Enter a period label (e.g. "AUGUST") before pushing.';
@@ -3688,7 +3695,7 @@ async function pushRepo() {
           branchNames: repoBranchNames,
           totalsLabel: REPO_TOTAL_LABEL,
           period: period,
-          columnHeaders: ['ENDING INVENTORY'],
+          columnHeaders: ['NO. OF REPO', 'REPO RATE'],
           data: repoData
         }]
       })
