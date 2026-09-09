@@ -3505,9 +3505,14 @@ async function pushExtract() {
 // Same branch list as Collection Efficiency — reused as-is.
 const REPO_BRANCHES = COLLECTION_EFFICIENCY_BRANCHES;
 const REPO_TOTAL_LABEL = 'GRAND TOTAL';
-// Column J (0-based index 9) in the Repo Inventory Listing report =
-// "Ending Inv" — the value this extraction pulls per branch.
-const COL_REPO_ENDING_INV = 9;
+// Column K (0-based index 10) in the Repo Inventory Listing report =
+// "Ending Inv Less SU" — the value this extraction pulls per branch.
+// (Column layout, verified against the report: A=Branch, B=Beg Inv,
+// C=Sales, D=Delivery, E=Mer Transfer, F=Repo Unit, G=Adj(DB),
+// H=Adj(CR), I=Ending Inv, J=Service Unit, K=Ending Inv Less SU.
+// Was previously reading column J ("Service Unit") by mistake, which
+// pulled the wrong number into the Repo push every time.)
+const COL_REPO_ENDING_INV = 10;
 
 let repoWorkbook = {};
 let repoRows = null;
@@ -3564,7 +3569,7 @@ function onRepoSheetChange() {
 /**
  * Same matching approach as extractCollectionEfficiency: walk every row,
  * and whenever Column A (index 0) matches a known branch name, take that
- * row's Column J value (index 9 = "Ending Inv"). Region-header rows
+ * row's Column K value (index 10 = "Ending Inv Less SU"). Region-header rows
  * ("BATANGAS/MINDORO", literal "Branch" sub-headers) and "Sub Total"
  * rows never match a real branch name, so they're skipped automatically
  * without any special-casing.
@@ -3588,7 +3593,7 @@ function extractRepo(rows) {
   });
 
   // Sheet's two Repo metric columns are "NO. OF REPO" and "REPO RATE".
-  // "Ending Inventory" from the source report IS the "NO. OF REPO" count
+  // "Ending Inv Less SU" from the source report IS the "NO. OF REPO" count
   // (same number, just a different name in the source file). REPO RATE
   // has no source column yet, so it's pushed blank for now — still sent
   // every period (not omitted) so both metric groups stay in sync and
