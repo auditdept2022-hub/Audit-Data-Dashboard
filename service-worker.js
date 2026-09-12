@@ -1,7 +1,9 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached, so old
 // clients pick up the new files instead of serving stale ones forever.
-const CACHE_VERSION = 'audit-dashboard-v1';
+const CACHE_VERSION = 'audit-dashboard-v2'; // bumped: forces every existing
+                                             // client to install this fixed
+                                             // worker instead of reusing v1
 const CACHE_NAME = CACHE_VERSION;
 
 // The app shell: the minimum set of files needed to render the dashboard
@@ -19,7 +21,18 @@ const APP_SHELL = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
+      .then((cache) =>
+        // FIX: cache.addAll(APP_SHELL) previously let the browser's own
+        // HTTP cache answer these fetches, so a freshly-installed service
+        // worker could still precache an OLD copy of index.html if the
+        // browser had one cached. { cache: 'reload' } forces each of
+        // these requests to actually hit the network, bypassing HTTP
+        // cache, so the app shell we precache is always the real current
+        // version.
+        Promise.all(
+          APP_SHELL.map((url) => cache.add(new Request(url, { cache: 'reload' })))
+        )
+      )
       .then(() => self.skipWaiting())
   );
 });
@@ -80,10 +93,22 @@ self.addEventListener('fetch', (event) => {
   // online, with an offline fallback to the last cached shell.
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request)
+      // FIX: plain fetch(request) could still be quietly answered by the
+      // browser's own HTTP cache (separate from this Cache Storage API),
+      // which defeats "network-first" — a login could run on a stale
+      // cached build of index.html even though this code correctly asked
+      // for the network. { cache: 'no-store' } forces a real round trip
+      // to the server every time this branch runs.
+      fetch(request, { cache: 'no-store' })
         .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          // FIX: only cache genuinely good responses. Previously any
+          // response (including a transient 404/500 from the host) got
+          // written over the last good cached copy, so a brief server
+          // hiccup could permanently poison the offline fallback.
+          if (response && response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          }
           return response;
         })
         .catch(() => caches.match('./index.html'))
@@ -97,8 +122,10 @@ self.addEventListener('fetch', (event) => {
     caches.match(request).then((cached) =>
       cached ||
       fetch(request).then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+        if (response && response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+        }
         return response;
       })
     )
