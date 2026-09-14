@@ -11768,11 +11768,14 @@ html.page-fade-ready body {
 
     // Silent (no toast on failure) check of whether the signed-in account
     // is allowed to manage OTHER accounts (block/unblock/force sign-out) --
-    // same backend gate (action=checkEditorAuth -> isAuthorizedEditor in
-    // Code.gs) as Edit Assignment, just without checkEditAssignAuthorization's
-    // user-facing "Not authorized" toast, since simply opening "Currently
-    // Active" as a non-editor shouldn't nag anyone -- it should just show
-    // a plain read-only list with no admin buttons.
+    // its own backend gate (action=checkAccountManagerAuth ->
+    // isAuthorizedAccountManager/ACTIVE_ACCOUNTS_MANAGER_EMAILS in Code.gs),
+    // separate from the Edit Assignment editor check, so this permission
+    // can be granted to different people than assignment-editing without
+    // touching EDITOR_EMAILS. No user-facing "Not authorized" toast here,
+    // since simply opening "Currently Active" as a non-manager shouldn't
+    // nag anyone -- it should just show a plain read-only list with no
+    // admin buttons.
     const ACCOUNT_MGR_AUTH_CACHE_MS = 4 * 60 * 1000; // 4 minutes
     let accountMgrAuthCache = { ok: false, at: 0 };
     async function checkCanManageAccounts() {
@@ -11780,7 +11783,7 @@ html.page-fade-ready body {
       try {
         const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
         if (!idToken) return false;
-        const params = new URLSearchParams({ action: 'checkEditorAuth', secret: appsScriptSecret, idToken: idToken });
+        const params = new URLSearchParams({ action: 'checkAccountManagerAuth', secret: appsScriptSecret, idToken: idToken });
         const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
         if (json && json.success) {
           accountMgrAuthCache = { ok: true, at: Date.now() };
