@@ -14501,8 +14501,16 @@ html.page-fade-ready body {
     // a loading spinner. Silent no-op on failure (e.g. not signed in
     // yet, or offline) — the modal's own loader will just fetch normally
     // if this didn't get a chance to run.
-    function prefetchOverallDataInBackground() {
-      fetchOverallDataPayload(false).catch(function (err) {
+    // HARD RESET: a manual "Update Data" click (forceRefresh=true) means the
+    // person explicitly asked for the latest numbers, so this in-memory
+    // Overall Data cache (normally reused for up to 6 hours, see
+    // OVERALL_DATA_CLIENT_CACHE_MS) needs to be bypassed too — otherwise the
+    // main dashboard would show fresh numbers while the Overall Data
+    // Snapshot modal kept serving up to a 6-hour-old copy right after the
+    // person just asked for a hard reset. Silent background auto-refreshes
+    // keep using the cache as before (forceRefresh=false).
+    function prefetchOverallDataInBackground(forceRefresh) {
+      fetchOverallDataPayload(!!forceRefresh).catch(function (err) {
         console.warn('[overallData] background prefetch skipped:', err && err.message ? err.message : err);
       });
     }
@@ -15216,10 +15224,14 @@ html.page-fade-ready body {
             // to call on every fetchSheet() (manual or auto-refresh) —
             // fetchOverallDataPayload() itself no-ops instantly if a
             // still-fresh copy is already in memory (see
-            // OVERALL_DATA_CLIENT_CACHE_MS), so this only actually hits
-            // the network the first time, or after the cache has
-            // genuinely gone stale.
-            prefetchOverallDataInBackground();
+            // OVERALL_DATA_CLIENT_CACHE_MS), so on an auto-refresh this
+            // only actually hits the network the first time, or after the
+            // cache has genuinely gone stale.
+            // HARD RESET: on a manual "Update Data" click (isAutoLoad is
+            // false) this forces a real refetch instead, so the Overall
+            // Data Snapshot modal can't keep showing up to 6h-old numbers
+            // right after the person explicitly asked for a hard reset.
+            prefetchOverallDataInBackground(!isAutoLoad);
             return;
           } catch (error) {
             lastError = error;
