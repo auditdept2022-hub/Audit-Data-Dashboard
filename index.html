@@ -4993,7 +4993,7 @@ html.page-fade-ready body {
           </div>
           <div class="min-w-0">
             <h3 class="text-base font-bold text-slate-900">Currently Active</h3>
-            <p class="text-xs text-slate-500">Accounts active in the last couple minutes</p>
+            <p class="text-xs text-slate-500">Green = active now &middot; gray = signed in earlier</p>
           </div>
         </div>
         <div id="whoAmIList" class="flex flex-col gap-2 max-h-64 overflow-y-auto custom-scrollbar mb-4">
@@ -11766,109 +11766,136 @@ html.page-fade-ready body {
       return diffHr + (diffHr === 1 ? ' hr ago' : ' hrs ago');
     }
 
-    // Silent (no toast on failure) check of whether the signed-in account
-    // is allowed to manage OTHER accounts (block/unblock/force sign-out) --
-    // its own backend gate (action=checkAccountManagerAuth ->
-    // isAuthorizedAccountManager/ACTIVE_ACCOUNTS_MANAGER_EMAILS in Code.gs),
-    // separate from the Edit Assignment editor check, so this permission
-    // can be granted to different people than assignment-editing without
-    // touching EDITOR_EMAILS. No user-facing "Not authorized" toast here,
-    // since simply opening "Currently Active" as a non-manager shouldn't
-    // nag anyone -- it should just show a plain read-only list with no
-    // admin buttons.
-    const ACCOUNT_MGR_AUTH_CACHE_MS = 4 * 60 * 1000; // 4 minutes
-    let accountMgrAuthCache = { ok: false, at: 0 };
-    async function checkCanManageAccounts() {
-      if (accountMgrAuthCache.ok && (Date.now() - accountMgrAuthCache.at) < ACCOUNT_MGR_AUTH_CACHE_MS) return true;
+    // SPEED FIX: canManage now comes back as part of the action=activeUsers
+    // response itself (see handleActiveUsersGet in Code.gs) instead of a
+    // second, parallel action=checkAccountManagerAuth round trip. Apps
+    // Script executions are the slow part here, not the client -- cutting
+    // two round trips down to one roughly halves how long the panel takes
+    // to show anything, especially on a cold start.
+
+    // SPEED FIX: cache the last successful response and render it
+    // immediately (stale-while-revalidate) instead of showing "Loading…"
+    // on every open -- the list refreshes in the background right after,
+    // same as before, but re-opening the panel (or its 15s auto-refresh)
+    // now updates in place instead of flashing back to a loading state.
+    let cachedActiveAccountsJson = null;
+
+    // Fire-and-forget warm-up, called right after sign-in (see
+    // startPresenceHeartbeat below) so by the time anyone actually opens
+    // "Currently Active" for the first time, the list is often already
+    // cached and renders instantly instead of waiting on a fresh Apps
+    // Script round trip. Best-effort: any failure here just means the
+    // first real open falls back to fetching live, exactly like before
+    // this existed.
+    window.prewarmActiveAccountsList = async function() {
       try {
         const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
-        if (!idToken) return false;
-        const params = new URLSearchParams({ action: 'checkAccountManagerAuth', secret: appsScriptSecret, idToken: idToken });
+        if (!idToken) return;
+        const params = new URLSearchParams({ action: 'activeUsers', secret: appsScriptSecret, idToken: idToken });
         const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
-        if (json && json.success) {
-          accountMgrAuthCache = { ok: true, at: Date.now() };
-          return true;
-        }
+        if (json && json.success) cachedActiveAccountsJson = json;
       } catch (err) {
-        console.warn('[presence] checkCanManageAccounts failed:', err && err.message ? err.message : err);
+        // silent -- purely a warm-up
       }
-      return false;
+    };
+
+    function renderActiveAccountsList(json) {
+      const listEl = document.getElementById('whoAmIList');
+      if (!listEl) return;
+      const canManage = !!json.canManage;
+      const myEmail = (window.getCurrentUserEmail ? window.getCurrentUserEmail() : '').toLowerCase();
+      const accounts = (json.active || []).slice().sort(function (a, b) {
+        // "You" always first, then active-right-now, then most-recently-
+        // seen, so the people you're most likely to act on are up top.
+        const aMe = String(a.email || '').toLowerCase() === myEmail;
+        const bMe = String(b.email || '').toLowerCase() === myEmail;
+        if (aMe !== bMe) return aMe ? -1 : 1;
+        if (a.active !== b.active) return a.active ? -1 : 1;
+        return (b.lastSeenAt || 0) - (a.lastSeenAt || 0);
+      });
+
+      if (!accounts.length) {
+        listEl.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">No known accounts.</p>';
+        return;
+      }
+
+      // Nothing to manage yet if you're the only signed-in-and-active
+      // account -- make that explicit instead of leaving a manager
+      // wondering why no Block/Sign out buttons showed up (they only ever
+      // appear on OTHER people's rows, never your own).
+      const onlyYouActive = canManage && accounts.filter(function (a) { return a.active; }).length <= 1 &&
+        (accounts[0].active ? accounts[0].email.toLowerCase() === myEmail : true);
+      const hintHtml = onlyYouActive
+        ? '<p class="text-xs text-slate-400 text-center italic pt-1">You\u2019re the only one active right now \u2014 Block / Sign out buttons for other accounts will show up here once they sign in.</p>'
+        : '';
+
+      listEl.innerHTML = accounts.map(function (u) {
+        const email = String(u.email || '');
+        const isYou = email.toLowerCase() === myEmail;
+        const blocked = u.blocked === true;
+        const initial = (email.charAt(0) || '?').toUpperCase();
+        const neverSignedIn = !u.lastSeenAt;
+
+        // Per-account admin controls -- only rendered for managers, and
+        // never for your own row (use "Sign Out (this device)" below for
+        // that). Data-* attributes (not inline onclick) so an email
+        // containing a quote/apostrophe can never break out of the
+        // attribute -- see the delegated click listener further down.
+        // Available even on an away/never-signed-in row (e.g. blocking
+        // someone pre-emptively before they've ever signed in).
+        const actionsHtml = (!isYou && canManage)
+          ? (
+            '<div class="flex items-center gap-1 shrink-0">' +
+              '<button type="button" data-whoami-action="block" data-email="' + escapeForHtml(email) + '" data-blocked="' + (blocked ? '1' : '0') + '" class="text-[11px] font-semibold px-2 py-1 rounded-lg transition-colors ' + (blocked ? 'text-accentEmerald hover:bg-accentEmerald/10' : 'text-accentAmber hover:bg-accentAmber/10') + '">' + (blocked ? 'Unblock' : 'Block') + '</button>' +
+              (u.active ? '<button type="button" data-whoami-action="signout" data-email="' + escapeForHtml(email) + '" class="text-[11px] font-semibold px-2 py-1 rounded-lg text-accentRose hover:bg-accentRose/10 transition-colors">Sign out</button>' : '') +
+            '</div>'
+          )
+          : '<span class="w-2 h-2 rounded-full ' + (blocked ? 'bg-accentRose' : (u.active ? 'bg-accentEmerald' : 'bg-slate-300')) + ' shrink-0" title="' + (blocked ? 'Blocked' : (u.active ? 'Active now' : 'Not currently active')) + '"></span>';
+
+        const statusLabel = neverSignedIn
+          ? 'Never signed in'
+          : escapeForHtml(formatLastSeenRelative(u.lastSeenAt)) + (u.active ? '' : ' \u2014 away');
+
+        return '' +
+          '<div class="flex items-center gap-3 p-2.5 rounded-xl border ' + (blocked ? 'border-accentRose/30 bg-accentRose/5' : (u.active ? 'border-coolBorder' : 'border-coolBorder/60 opacity-80')) + '">' +
+            '<div class="w-8 h-8 rounded-full bg-royalBlue/10 text-royalBlue flex items-center justify-center text-xs font-bold uppercase shrink-0">' + escapeForHtml(initial) + '</div>' +
+            '<div class="min-w-0 flex-1">' +
+              '<p class="text-sm font-semibold text-slate-800 truncate">' + escapeForHtml(email) + (isYou ? ' <span class="text-royalBlue font-bold">(You)</span>' : '') + (blocked ? ' <span class="text-accentRose font-bold">(Blocked)</span>' : '') + '</p>' +
+              '<p class="text-xs text-slate-400">' + statusLabel + '</p>' +
+            '</div>' +
+            actionsHtml +
+          '</div>';
+      }).join('') + hintHtml;
     }
 
     async function loadActiveAccountsList() {
       const listEl = document.getElementById('whoAmIList');
       if (!listEl) return;
+      // Show cached data immediately if we have it (from an earlier open
+      // this session, or the sign-in prewarm), instead of a blank
+      // "Loading…" every single time -- then still fetch fresh below.
+      if (cachedActiveAccountsJson) {
+        renderActiveAccountsList(cachedActiveAccountsJson);
+      } else if (!listEl.children.length) {
+        listEl.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">Loading\u2026</p>';
+      }
       try {
         const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
         if (!idToken) {
           listEl.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">Not signed in.</p>';
           return;
         }
-        // Run in parallel -- the account list and the "am I allowed to
-        // manage other accounts" check are independent, so there's no
-        // reason to make one wait on the other.
         const params = new URLSearchParams({ action: 'activeUsers', secret: appsScriptSecret, idToken: idToken });
-        const [json, canManage] = await Promise.all([
-          fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString()),
-          checkCanManageAccounts()
-        ]);
+        const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
         if (!json || json.error) throw new Error((json && json.error) || 'Failed to load');
-
-        const myEmail = (window.getCurrentUserEmail ? window.getCurrentUserEmail() : '').toLowerCase();
-        const active = (json.active || []).slice().sort(function (a, b) {
-          // "You" always first, then most-recently-seen.
-          const aMe = String(a.email || '').toLowerCase() === myEmail;
-          const bMe = String(b.email || '').toLowerCase() === myEmail;
-          if (aMe !== bMe) return aMe ? -1 : 1;
-          return (b.lastSeenAt || 0) - (a.lastSeenAt || 0);
-        });
-
-        if (!active.length) {
-          listEl.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">No one is currently active.</p>';
-          return;
-        }
-
-        // Nothing to manage yet if you're the only one signed in -- make
-        // that explicit instead of leaving an editor wondering why no
-        // Block/Sign out buttons showed up (they only ever appear on
-        // OTHER people's rows, never your own).
-        const onlyYouActive = canManage && active.length === 1 && active[0].email && active[0].email.toLowerCase() === myEmail;
-        const hintHtml = onlyYouActive
-          ? '<p class="text-xs text-slate-400 text-center italic pt-1">You\u2019re the only one active right now \u2014 Block / Sign out buttons for other accounts will show up here once they sign in.</p>'
-          : '';
-
-        listEl.innerHTML = active.map(function (u) {
-          const email = String(u.email || '');
-          const isYou = email.toLowerCase() === myEmail;
-          const blocked = u.blocked === true;
-          const initial = (email.charAt(0) || '?').toUpperCase();
-
-          // Per-account admin controls -- only rendered for editors, and
-          // never for your own row (use "Sign Out (this device)" below
-          // for that). Data-* attributes (not inline onclick) so an email
-          // containing a quote/apostrophe can never break out of the
-          // attribute -- see the delegated click listener further down.
-          const actionsHtml = (!isYou && canManage)
-            ? (
-              '<div class="flex items-center gap-1 shrink-0">' +
-                '<button type="button" data-whoami-action="block" data-email="' + escapeForHtml(email) + '" data-blocked="' + (blocked ? '1' : '0') + '" class="text-[11px] font-semibold px-2 py-1 rounded-lg transition-colors ' + (blocked ? 'text-accentEmerald hover:bg-accentEmerald/10' : 'text-accentAmber hover:bg-accentAmber/10') + '">' + (blocked ? 'Unblock' : 'Block') + '</button>' +
-                '<button type="button" data-whoami-action="signout" data-email="' + escapeForHtml(email) + '" class="text-[11px] font-semibold px-2 py-1 rounded-lg text-accentRose hover:bg-accentRose/10 transition-colors">Sign out</button>' +
-              '</div>'
-            )
-            : '<span class="w-2 h-2 rounded-full ' + (blocked ? 'bg-accentRose' : 'bg-accentEmerald') + ' shrink-0" title="' + (blocked ? 'Blocked' : 'Active') + '"></span>';
-
-          return '' +
-            '<div class="flex items-center gap-3 p-2.5 rounded-xl border ' + (blocked ? 'border-accentRose/30 bg-accentRose/5' : 'border-coolBorder') + '">' +
-              '<div class="w-8 h-8 rounded-full bg-royalBlue/10 text-royalBlue flex items-center justify-center text-xs font-bold uppercase shrink-0">' + escapeForHtml(initial) + '</div>' +
-              '<div class="min-w-0 flex-1">' +
-                '<p class="text-sm font-semibold text-slate-800 truncate">' + escapeForHtml(email) + (isYou ? ' <span class="text-royalBlue font-bold">(You)</span>' : '') + (blocked ? ' <span class="text-accentRose font-bold">(Blocked)</span>' : '') + '</p>' +
-                '<p class="text-xs text-slate-400">' + escapeForHtml(formatLastSeenRelative(u.lastSeenAt)) + '</p>' +
-              '</div>' +
-              actionsHtml +
-            '</div>';
-        }).join('') + hintHtml;
+        cachedActiveAccountsJson = json;
+        renderActiveAccountsList(json);
       } catch (err) {
-        listEl.innerHTML = '<p class="text-sm text-accentRose text-center py-4">Couldn\u2019t load active accounts.</p>';
+        // If we already showed cached data above, leave it up rather than
+        // blowing it away with an error on a background refresh failure.
+        if (!cachedActiveAccountsJson) {
+          listEl.innerHTML = '<p class="text-sm text-accentRose text-center py-4">Couldn\u2019t load active accounts.</p>';
+        }
         console.warn('[presence] loadActiveAccountsList failed:', err && err.message ? err.message : err);
       }
     }
@@ -15387,14 +15414,14 @@ html.page-fade-ready body {
       }
       activeData = emptyDashboardData();
       initialLoadGeneration++; // stop any in-flight "keep retrying" loop from the old session
-      // Also drop the cached Quick Links / Edit Assignment / account-manager
-      // authorization — it belongs to the account that just signed out, not
-      // whoever signs in next. Also clear the one-shot "blocked" guard so a
-      // freshly unblocked account that signs back in can be caught again if
-      // it's ever re-blocked.
+      // Also drop the cached Quick Links / Edit Assignment authorization
+      // and the cached "Currently Active" list — they belong to the
+      // account that just signed out, not whoever signs in next. Also
+      // clear the one-shot "blocked" guard so a freshly unblocked account
+      // that signs back in can be caught again if it's ever re-blocked.
       quickLinkAuthCache = { ok: false, at: 0 };
       editAssignAuthCache = { ok: false, at: 0 };
-      accountMgrAuthCache = { ok: false, at: 0 };
+      cachedActiveAccountsJson = null;
       window.__accountBlockedHandled = false;
     };
 
@@ -16109,6 +16136,14 @@ html.page-fade-ready body {
           // Non-blocking and best-effort; never delays the dashboard.
           if (window.prewarmQuickLinksAuthorization) {
             window.prewarmQuickLinksAuthorization();
+          }
+          // SPEED FIX: same idea for "Currently Active" -- warm it in the
+          // background right after sign-in so the first time it's opened
+          // this session it can render from cache instantly instead of
+          // waiting on a fresh Apps Script round trip. Non-blocking and
+          // best-effort; never delays the dashboard.
+          if (window.prewarmActiveAccountsList) {
+            window.prewarmActiveAccountsList();
           }
         } else {
           // Already loaded once this session (e.g. auth token refresh) —
