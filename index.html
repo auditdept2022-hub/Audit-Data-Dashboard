@@ -4975,25 +4975,33 @@ html.page-fade-ready body {
     <div class="toast-progress"><div class="toast-progress-bar" id="toastProgressBar"></div></div>
   </div>
 
-  <!-- ================= WHO'S LOGGED IN (quick action) =================
-       Simple read-only info modal for the "Who's Logged In" quick action
-       tile in the side menu: shows the currently signed-in account's
-       email (from window.getCurrentUserEmail(), exposed by the Firebase
-       auth logic), with a Sign Out shortcut and a Close button. Pure UI
-       -- see openWhoAmIModal()/closeWhoAmIModal()/signOutFromWhoAmI()
-       further down for the wiring. -->
+  <!-- ================= CURRENTLY ACTIVE (quick action) =================
+       Info modal for the "Who's Logged In" quick action tile in the side
+       menu: lists every allow-listed account that's had a recent
+       heartbeat (see sendPresenceHeartbeat()/action=heartbeat), not just
+       the current device's own sign-in -- so this shows who else is
+       actually using the dashboard right now. Refreshes while open. Pure
+       UI -- see openWhoAmIModal()/closeWhoAmIModal()/signOutFromWhoAmI()/
+       loadActiveAccountsList() further down for the wiring. -->
   <div id="whoAmIModal" class="fixed inset-0 z-[70] hidden">
     <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" onclick="closeWhoAmIModal()"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl shadow-2xl max-w-xs w-full p-6 text-center">
-        <div class="w-14 h-14 mx-auto rounded-full bg-royalBlue/10 text-royalBlue flex items-center justify-center mb-3">
-          <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+      <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-5">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-11 h-11 rounded-full bg-royalBlue/10 text-royalBlue flex items-center justify-center shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          </div>
+          <div class="min-w-0">
+            <h3 class="text-base font-bold text-slate-900">Currently Active</h3>
+            <p class="text-xs text-slate-500">Accounts active in the last couple minutes</p>
+          </div>
         </div>
-        <h3 class="text-base font-bold text-slate-900 mb-1">Signed in as</h3>
-        <p id="whoAmIEmail" class="text-sm font-semibold text-royalBlue break-all mb-5">—</p>
+        <div id="whoAmIList" class="flex flex-col gap-2 max-h-64 overflow-y-auto custom-scrollbar mb-4">
+          <p class="text-sm text-slate-400 text-center py-4">Loading\u2026</p>
+        </div>
         <div class="flex flex-col gap-2">
           <button type="button" onclick="closeWhoAmIModal()" class="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition-colors">Close</button>
-          <button type="button" onclick="signOutFromWhoAmI()" class="w-full py-2.5 rounded-xl bg-accentRose/10 hover:bg-accentRose/20 text-accentRose text-sm font-semibold transition-colors">Sign Out</button>
+          <button type="button" onclick="signOutFromWhoAmI()" class="w-full py-2.5 rounded-xl bg-accentRose/10 hover:bg-accentRose/20 text-accentRose text-sm font-semibold transition-colors">Sign Out (this device)</button>
         </div>
       </div>
     </div>
@@ -5162,14 +5170,17 @@ html.page-fade-ready body {
           <span class="menu-tile-label">Add Findings</span>
         </div>
 
-        <!-- "Who's Logged In" -- quick action that shows exactly which
-             account is currently signed in (reads window.getCurrentUserEmail()
-             from the Firebase auth logic), with a Sign Out shortcut right
-             there too. See openWhoAmIModal() further down. -->
+        <!-- "Who's Logged In" -- quick action that lists every allow-listed
+             account with a recent presence heartbeat (action=activeUsers,
+             fed by sendPresenceHeartbeat()), not just this device's own
+             sign-in -- so it shows everyone currently active in the app,
+             with a Sign Out shortcut for this device too. See
+             openWhoAmIModal() further down. -->
         <div role="button" tabindex="0" onclick="openWhoAmIModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openWhoAmIModal();}" class="menu-tile cursor-pointer select-none">
-          <span class="menu-tile-icon" style="background:rgba(79,70,229,0.10);"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentIndigo shrink-0"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span>
+          <span class="menu-tile-icon" style="background:rgba(79,70,229,0.10);"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentIndigo shrink-0"><path d="M16 21v-2a4 4 0 0 0-3-3.87"></path><path d="M13 3.13a4 4 0 0 1 0 7.75"></path><path d="M8 21v-2a4 4 0 0 0-4-4H2"></path><circle cx="5" cy="7" r="4"></circle></svg></span>
           <span class="menu-tile-label">Who's Logged In</span>
         </div>
+      
 
       </div>
 
@@ -11659,30 +11670,126 @@ html.page-fade-ready body {
       return Array.from(all).sort((a, b) => a.localeCompare(b));
     }
 
-    // ================= WHO'S LOGGED IN (quick action) =================
-    // Shows exactly which account is currently signed in -- reads
-    // window.getCurrentUserEmail(), exposed by the Firebase auth logic
-    // further down this file -- plus a one-tap Sign Out. Pure UI wiring;
-    // the actual sign-in/out flow lives entirely in the auth module.
+    // ================= CURRENTLY ACTIVE (presence + quick action) =====
+    // Two halves:
+    //  1. A lightweight heartbeat, sent every PRESENCE_HEARTBEAT_INTERVAL_MS
+    //     while someone is signed in, that tells the backend "this account
+    //     was just using the app" (action=heartbeat -- see Code.gs).
+    //  2. The "Who's Logged In" quick action, which asks the backend for
+    //     every allow-listed account with a recent-enough heartbeat
+    //     (action=activeUsers) and lists them -- not just this device's
+    //     own sign-in, but everyone currently using the dashboard.
+    const PRESENCE_HEARTBEAT_INTERVAL_MS = 45 * 1000;
+    let presenceHeartbeatTimer = null;
+
+    async function sendPresenceHeartbeat() {
+      try {
+        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+        if (!idToken) return;
+        const params = new URLSearchParams({ action: 'heartbeat', secret: appsScriptSecret, idToken: idToken });
+        await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
+      } catch (err) {
+        // Best-effort -- a missed heartbeat just means this account briefly
+        // drops off the "Currently Active" list until the next one lands.
+        console.warn('[presence] heartbeat failed:', err && err.message ? err.message : err);
+      }
+    }
+    function startPresenceHeartbeat() {
+      if (presenceHeartbeatTimer) return; // already running
+      sendPresenceHeartbeat(); // send one immediately on sign-in, don't wait a full interval
+      presenceHeartbeatTimer = setInterval(sendPresenceHeartbeat, PRESENCE_HEARTBEAT_INTERVAL_MS);
+    }
+    function stopPresenceHeartbeat() {
+      if (presenceHeartbeatTimer) { clearInterval(presenceHeartbeatTimer); presenceHeartbeatTimer = null; }
+    }
+
+    function escapeForHtml(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
+    function formatLastSeenRelative(ms) {
+      const diffSec = Math.max(0, Math.round((Date.now() - ms) / 1000));
+      if (diffSec < 15) return 'just now';
+      if (diffSec < 60) return diffSec + 's ago';
+      const diffMin = Math.round(diffSec / 60);
+      if (diffMin < 60) return diffMin + (diffMin === 1 ? ' min ago' : ' mins ago');
+      const diffHr = Math.round(diffMin / 60);
+      return diffHr + (diffHr === 1 ? ' hr ago' : ' hrs ago');
+    }
+
+    async function loadActiveAccountsList() {
+      const listEl = document.getElementById('whoAmIList');
+      if (!listEl) return;
+      try {
+        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+        if (!idToken) {
+          listEl.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">Not signed in.</p>';
+          return;
+        }
+        const params = new URLSearchParams({ action: 'activeUsers', secret: appsScriptSecret, idToken: idToken });
+        const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
+        if (!json || json.error) throw new Error((json && json.error) || 'Failed to load');
+
+        const myEmail = (window.getCurrentUserEmail ? window.getCurrentUserEmail() : '').toLowerCase();
+        const active = (json.active || []).slice().sort(function (a, b) {
+          // "You" always first, then most-recently-seen.
+          const aMe = String(a.email || '').toLowerCase() === myEmail;
+          const bMe = String(b.email || '').toLowerCase() === myEmail;
+          if (aMe !== bMe) return aMe ? -1 : 1;
+          return (b.lastSeenAt || 0) - (a.lastSeenAt || 0);
+        });
+
+        if (!active.length) {
+          listEl.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">No one is currently active.</p>';
+          return;
+        }
+
+        listEl.innerHTML = active.map(function (u) {
+          const email = String(u.email || '');
+          const isYou = email.toLowerCase() === myEmail;
+          const initial = (email.charAt(0) || '?').toUpperCase();
+          return '' +
+            '<div class="flex items-center gap-3 p-2.5 rounded-xl border border-coolBorder">' +
+              '<div class="w-8 h-8 rounded-full bg-royalBlue/10 text-royalBlue flex items-center justify-center text-xs font-bold uppercase shrink-0">' + escapeForHtml(initial) + '</div>' +
+              '<div class="min-w-0 flex-1">' +
+                '<p class="text-sm font-semibold text-slate-800 truncate">' + escapeForHtml(email) + (isYou ? ' <span class="text-royalBlue font-bold">(You)</span>' : '') + '</p>' +
+                '<p class="text-xs text-slate-400">' + escapeForHtml(formatLastSeenRelative(u.lastSeenAt)) + '</p>' +
+              '</div>' +
+              '<span class="w-2 h-2 rounded-full bg-accentEmerald shrink-0" title="Active"></span>' +
+            '</div>';
+        }).join('');
+      } catch (err) {
+        listEl.innerHTML = '<p class="text-sm text-accentRose text-center py-4">Couldn\u2019t load active accounts.</p>';
+        console.warn('[presence] loadActiveAccountsList failed:', err && err.message ? err.message : err);
+      }
+    }
+
+    const WHOAMI_REFRESH_INTERVAL_MS = 15 * 1000;
+    let whoAmIRefreshTimer = null;
+
     function openWhoAmIModal() {
       if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
-      const emailEl = document.getElementById('whoAmIEmail');
-      if (emailEl) {
-        const email = window.getCurrentUserEmail ? window.getCurrentUserEmail() : '';
-        emailEl.textContent = email || 'Not signed in';
-      }
       const modal = document.getElementById('whoAmIModal');
       if (modal) modal.classList.remove('hidden');
+      loadActiveAccountsList();
+      // Keep the list current while the modal is actually open, so
+      // someone watching it see accounts come/go in near-real-time
+      // instead of only on open.
+      if (whoAmIRefreshTimer) clearInterval(whoAmIRefreshTimer);
+      whoAmIRefreshTimer = setInterval(loadActiveAccountsList, WHOAMI_REFRESH_INTERVAL_MS);
     }
     function closeWhoAmIModal() {
       const modal = document.getElementById('whoAmIModal');
       if (modal) modal.classList.add('hidden');
+      if (whoAmIRefreshTimer) { clearInterval(whoAmIRefreshTimer); whoAmIRefreshTimer = null; }
     }
     function signOutFromWhoAmI() {
       closeWhoAmIModal();
       if (window.__dashboardSignOut) window.__dashboardSignOut();
     }
-    // ================= END WHO'S LOGGED IN =================
+    // ================= END CURRENTLY ACTIVE =================
 
     function openAddFindingModal() {
       const modal = document.getElementById('findingsEditorModal');
@@ -15677,6 +15784,7 @@ html.page-fade-ready body {
         authPassword.value = '';
         startIdleTracking();
         startAutoRefresh();
+        startPresenceHeartbeat();
 
         // Login phase is done — now it's safe to load real data and show
         // the loading screen. Data loading is gated on this sign-in check
@@ -15731,6 +15839,7 @@ html.page-fade-ready body {
         stopIdleTracking();
         clearStoredActivityAt();
         stopAutoRefresh();
+        stopPresenceHeartbeat();
         authGate.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
         authLogoutBtn.classList.add('hidden');
