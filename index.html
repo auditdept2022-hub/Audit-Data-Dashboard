@@ -4981,7 +4981,7 @@ html.page-fade-ready body {
        heartbeat (see sendPresenceHeartbeat()/action=heartbeat), not just
        the current device's own sign-in -- so this shows who else is
        actually using the dashboard right now. Refreshes while open. Pure
-       UI -- see openWhoAmIModal()/closeWhoAmIModal()/signOutFromWhoAmI()/
+       UI -- see openWhoAmIModal()/closeWhoAmIModal()/
        loadActiveAccountsList() further down for the wiring. -->
   <div id="whoAmIModal" class="fixed inset-0 z-[70] hidden">
     <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" onclick="closeWhoAmIModal()"></div>
@@ -4993,7 +4993,6 @@ html.page-fade-ready body {
           </div>
           <div class="min-w-0">
             <h3 class="text-base font-bold text-slate-900">Currently Active</h3>
-            <p class="text-xs text-slate-500">Green = active now &middot; gray = signed in earlier</p>
           </div>
         </div>
         <div id="whoAmIList" class="flex flex-col gap-2 max-h-64 overflow-y-auto custom-scrollbar mb-4">
@@ -5001,7 +5000,6 @@ html.page-fade-ready body {
         </div>
         <div class="flex flex-col gap-2">
           <button type="button" onclick="closeWhoAmIModal()" class="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition-colors">Close</button>
-          <button type="button" onclick="signOutFromWhoAmI()" class="w-full py-2.5 rounded-xl bg-accentRose/10 hover:bg-accentRose/20 text-accentRose text-sm font-semibold transition-colors">Sign Out (this device)</button>
         </div>
       </div>
     </div>
@@ -11819,16 +11817,6 @@ html.page-fade-ready body {
         return;
       }
 
-      // Nothing to manage yet if you're the only signed-in-and-active
-      // account -- make that explicit instead of leaving a manager
-      // wondering why no Block/Sign out buttons showed up (they only ever
-      // appear on OTHER people's rows, never your own).
-      const onlyYouActive = canManage && accounts.filter(function (a) { return a.active; }).length <= 1 &&
-        (accounts[0].active ? accounts[0].email.toLowerCase() === myEmail : true);
-      const hintHtml = onlyYouActive
-        ? '<p class="text-xs text-slate-400 text-center italic pt-1">You\u2019re the only one active right now \u2014 Block / Sign out buttons for other accounts will show up here once they sign in.</p>'
-        : '';
-
       listEl.innerHTML = accounts.map(function (u) {
         const email = String(u.email || '');
         const isYou = email.toLowerCase() === myEmail;
@@ -11837,10 +11825,10 @@ html.page-fade-ready body {
         const neverSignedIn = !u.lastSeenAt;
 
         // Per-account admin controls -- only rendered for managers, and
-        // never for your own row (use "Sign Out (this device)" below for
-        // that). Data-* attributes (not inline onclick) so an email
-        // containing a quote/apostrophe can never break out of the
-        // attribute -- see the delegated click listener further down.
+        // never for your own row (use the side menu's own "Log out" to
+        // sign this device out). Data-* attributes (not inline onclick) so
+        // an email containing a quote/apostrophe can never break out of
+        // the attribute -- see the delegated click listener further down.
         // Available even on an away/never-signed-in row (e.g. blocking
         // someone pre-emptively before they've ever signed in).
         const actionsHtml = (!isYou && canManage)
@@ -11865,7 +11853,7 @@ html.page-fade-ready body {
             '</div>' +
             actionsHtml +
           '</div>';
-      }).join('') + hintHtml;
+      }).join('');
     }
 
     async function loadActiveAccountsList() {
@@ -12083,10 +12071,6 @@ html.page-fade-ready body {
       const modal = document.getElementById('whoAmIModal');
       if (modal) modal.classList.add('hidden');
       if (whoAmIRefreshTimer) { clearInterval(whoAmIRefreshTimer); whoAmIRefreshTimer = null; }
-    }
-    function signOutFromWhoAmI() {
-      closeWhoAmIModal();
-      if (window.__dashboardSignOut) window.__dashboardSignOut();
     }
     // ================= END CURRENTLY ACTIVE =================
 
