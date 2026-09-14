@@ -11865,7 +11865,18 @@ html.page-fade-ready body {
       if (cachedActiveAccountsJson) {
         renderActiveAccountsList(cachedActiveAccountsJson);
       } else if (!listEl.children.length) {
-        listEl.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">Loading\u2026</p>';
+        // No cache yet (very first open this session, before the sign-in
+        // prewarm has landed) -- show an instant placeholder for at least
+        // yourself instead of a bare "Loading…" with nothing to look at,
+        // since we already know who's asking without waiting on the
+        // network at all. Gets fully replaced the moment real data
+        // arrives below.
+        const myEmailNow = (window.getCurrentUserEmail && window.getCurrentUserEmail()) || '';
+        if (myEmailNow) {
+          renderActiveAccountsList({ active: [{ email: myEmailNow, lastSeenAt: Date.now(), active: true, blocked: false }], canManage: false });
+        } else {
+          listEl.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">Loading\u2026</p>';
+        }
       }
       try {
         const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
@@ -11879,8 +11890,9 @@ html.page-fade-ready body {
         cachedActiveAccountsJson = json;
         renderActiveAccountsList(json);
       } catch (err) {
-        // If we already showed cached data above, leave it up rather than
-        // blowing it away with an error on a background refresh failure.
+        // If we already showed cached (or optimistic placeholder) data
+        // above, leave it up rather than blowing it away with an error on
+        // a background refresh failure.
         if (!cachedActiveAccountsJson) {
           listEl.innerHTML = '<p class="text-sm text-accentRose text-center py-4">Couldn\u2019t load active accounts.</p>';
         }
@@ -16108,6 +16120,17 @@ html.page-fade-ready body {
             window.__dashboardReadyResolve = resolve;
           });
 
+          // SPEED FIX: kick this off FIRST, before the heavier dashboard
+          // data load below -- it's a small, cheap request, and firing it
+          // ahead of the big stuff means it gets a head start on the
+          // network instead of competing with (and often losing to) the
+          // dashboard's own much larger data fetch for Apps Script's
+          // limited concurrent-execution slots. Non-blocking and
+          // best-effort; never delays the dashboard.
+          if (window.prewarmActiveAccountsList) {
+            window.prewarmActiveAccountsList();
+          }
+
           if (window.loadInitialDashboardData) {
             window.loadInitialDashboardData();
           }
@@ -16120,14 +16143,6 @@ html.page-fade-ready body {
           // Non-blocking and best-effort; never delays the dashboard.
           if (window.prewarmQuickLinksAuthorization) {
             window.prewarmQuickLinksAuthorization();
-          }
-          // SPEED FIX: same idea for "Currently Active" -- warm it in the
-          // background right after sign-in so the first time it's opened
-          // this session it can render from cache instantly instead of
-          // waiting on a fresh Apps Script round trip. Non-blocking and
-          // best-effort; never delays the dashboard.
-          if (window.prewarmActiveAccountsList) {
-            window.prewarmActiveAccountsList();
           }
         } else {
           // Already loaded once this session (e.g. auth token refresh) —
