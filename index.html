@@ -3081,7 +3081,38 @@ html.page-fade-ready body {
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
-        navigator.serviceWorker.register('service-worker.js').catch(function () {});
+        navigator.serviceWorker.register('service-worker.js').then(function (reg) {
+          // Actively check for a newer service-worker.js on every load
+          // instead of waiting for the browser's own (much lazier,
+          // sometimes 24h+) background update check. Cheap no-op if
+          // already up to date.
+          reg.update().catch(function () {});
+        }).catch(function () {});
+      });
+
+      // FIX: the old service worker (v1) could keep controlling an
+      // already-open tab even after a newer one (v2+) finished
+      // installing and activating in the background — skipWaiting() +
+      // clients.claim() hand over control for the NEXT navigation, but
+      // they don't do anything for the page that's already loaded and
+      // running under the old worker's fetch handlers. That's exactly
+      // the "stuck on loading, need to refresh again and again" symptom:
+      // each manual refresh was a fresh roll of the dice on whether the
+      // browser had finally swapped controllers yet, rather than the
+      // fix applying immediately after it was deployed.
+      //
+      // Reloading once, right when control actually changes hands, means
+      // the current tab picks up the fixed worker (and whatever it now
+      // serves) on the very next load instead of leaving it up to chance
+      // and manual refreshing. Guarded with a flag so this can only ever
+      // fire once per tab — a service worker taking control doesn't
+      // normally happen more than once in a session, but this makes sure
+      // a stray second event can never trigger a reload loop.
+      let __swControllerRefreshed = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (__swControllerRefreshed) return;
+        __swControllerRefreshed = true;
+        window.location.reload();
       });
     }
   </script>
@@ -4944,6 +4975,30 @@ html.page-fade-ready body {
     <div class="toast-progress"><div class="toast-progress-bar" id="toastProgressBar"></div></div>
   </div>
 
+  <!-- ================= WHO'S LOGGED IN (quick action) =================
+       Simple read-only info modal for the "Who's Logged In" quick action
+       tile in the side menu: shows the currently signed-in account's
+       email (from window.getCurrentUserEmail(), exposed by the Firebase
+       auth logic), with a Sign Out shortcut and a Close button. Pure UI
+       -- see openWhoAmIModal()/closeWhoAmIModal()/signOutFromWhoAmI()
+       further down for the wiring. -->
+  <div id="whoAmIModal" class="fixed inset-0 z-[70] hidden">
+    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" onclick="closeWhoAmIModal()"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-xs w-full p-6 text-center">
+        <div class="w-14 h-14 mx-auto rounded-full bg-royalBlue/10 text-royalBlue flex items-center justify-center mb-3">
+          <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        </div>
+        <h3 class="text-base font-bold text-slate-900 mb-1">Signed in as</h3>
+        <p id="whoAmIEmail" class="text-sm font-semibold text-royalBlue break-all mb-5">—</p>
+        <div class="flex flex-col gap-2">
+          <button type="button" onclick="closeWhoAmIModal()" class="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition-colors">Close</button>
+          <button type="button" onclick="signOutFromWhoAmI()" class="w-full py-2.5 rounded-xl bg-accentRose/10 hover:bg-accentRose/20 text-accentRose text-sm font-semibold transition-colors">Sign Out</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <header class="relative border-b border-blue-800 sticky top-0 z-40 shadow-md app-header-reveal" style="background: #0f2547; padding-top: env(safe-area-inset-top, 0px);">
 
     <!-- Plays over the header on every manual "Update data" click, in sync
@@ -5050,7 +5105,7 @@ html.page-fade-ready body {
       <details class="side-menu-group-details" open>
         <summary class="side-menu-group-summary">
           <span class="side-menu-group-title">Quick actions</span>
-          <span class="side-menu-group-count">7</span>
+          <span class="side-menu-group-count">8</span>
           <svg class="side-menu-group-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
         </summary>
 
@@ -5105,6 +5160,15 @@ html.page-fade-ready body {
         <div role="button" tabindex="0" onclick="openAddFindingModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAddFindingModal();}" class="menu-tile cursor-pointer select-none">
           <span class="menu-tile-icon" style="background:rgba(14,165,199,0.10);"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentCyan shrink-0"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><path d="M9 14h3"></path><path d="M12 12.5v3"></path></svg></span>
           <span class="menu-tile-label">Add Findings</span>
+        </div>
+
+        <!-- "Who's Logged In" -- quick action that shows exactly which
+             account is currently signed in (reads window.getCurrentUserEmail()
+             from the Firebase auth logic), with a Sign Out shortcut right
+             there too. See openWhoAmIModal() further down. -->
+        <div role="button" tabindex="0" onclick="openWhoAmIModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openWhoAmIModal();}" class="menu-tile cursor-pointer select-none">
+          <span class="menu-tile-icon" style="background:rgba(79,70,229,0.10);"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentIndigo shrink-0"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span>
+          <span class="menu-tile-label">Who's Logged In</span>
         </div>
 
       </div>
@@ -11595,6 +11659,31 @@ html.page-fade-ready body {
       return Array.from(all).sort((a, b) => a.localeCompare(b));
     }
 
+    // ================= WHO'S LOGGED IN (quick action) =================
+    // Shows exactly which account is currently signed in -- reads
+    // window.getCurrentUserEmail(), exposed by the Firebase auth logic
+    // further down this file -- plus a one-tap Sign Out. Pure UI wiring;
+    // the actual sign-in/out flow lives entirely in the auth module.
+    function openWhoAmIModal() {
+      if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
+      const emailEl = document.getElementById('whoAmIEmail');
+      if (emailEl) {
+        const email = window.getCurrentUserEmail ? window.getCurrentUserEmail() : '';
+        emailEl.textContent = email || 'Not signed in';
+      }
+      const modal = document.getElementById('whoAmIModal');
+      if (modal) modal.classList.remove('hidden');
+    }
+    function closeWhoAmIModal() {
+      const modal = document.getElementById('whoAmIModal');
+      if (modal) modal.classList.add('hidden');
+    }
+    function signOutFromWhoAmI() {
+      closeWhoAmIModal();
+      if (window.__dashboardSignOut) window.__dashboardSignOut();
+    }
+    // ================= END WHO'S LOGGED IN =================
+
     function openAddFindingModal() {
       const modal = document.getElementById('findingsEditorModal');
       if (!modal) return;
@@ -14854,7 +14943,29 @@ html.page-fade-ready body {
 
         function scheduleInitialRetry(err) {
           if (mySession !== initialLoadGeneration) return;
-          if (isTerminalDashboardError(err)) { giveUp(err); return; }
+          if (isTerminalDashboardError(err)) {
+            // FIX: the backend replies with the exact same "Unauthorized"
+            // text whether the signed-in account is genuinely not
+            // allow-listed, OR the server-side ID-token verification call
+            // itself just had a one-off hiccup (e.g. a brief network blip
+            // between Apps Script and Google's Identity Toolkit). Treating
+            // every "Unauthorized" as instantly terminal meant a real,
+            // correctly signed-in account could get permanently stuck on
+            // the loading screen from a single transient glitch -- the
+            // only way out was a manual page refresh, which simply reset
+            // this retry budget and let a fresh attempt succeed. Retrying
+            // a couple of times first (quickly, not the full backoff)
+            // lets a real glitch clear on its own; a genuinely unauthorized
+            // account will just fail the same way again and still end up
+            // at the real error screen a couple seconds later.
+            if (attemptCount < 3) {
+              console.log('[dashboard-timing] got "' + (err && err.message) + '" on attempt ' + attemptCount + ' -- retrying a couple times before treating it as terminal');
+              setTimeout(attemptInitialLoad, 1500);
+              return;
+            }
+            giveUp(err);
+            return;
+          }
           if (attemptCount >= MAX_INITIAL_ATTEMPTS) { giveUp(err); return; }
           console.log('[dashboard-timing] retrying outer attempt in ' + Math.round(retryDelay) + 'ms');
           setTimeout(attemptInitialLoad, retryDelay);
@@ -15497,126 +15608,13 @@ html.page-fade-ready body {
       });
     }
 
-    // Auto sign-out after 24 hours of no interaction, so a session left
-    // open on a shared/public computer doesn't stay unlocked forever.
-    // Only runs while someone is actually signed in (started/stopped from
-    // the onAuthStateChanged handler below) and resets on any real activity.
-    //
-    // Implementation note: this is deliberately timestamp-based (Date.now())
-    // and re-checked on an interval + on visibilitychange, rather than a
-    // single chained setTimeout(). A lone ~24 hour setTimeout gets heavily
-    // throttled (or paused entirely on some mobile browsers) once the tab
-    // is backgrounded/minimized — which is exactly when someone is "away" —
-    // so that approach could silently fail to fire. Re-deriving idle time
-    // from a real wall-clock timestamp every check is reliable regardless
-    // of how long timers were throttled while hidden.
-    const IDLE_TIMEOUT_MS = 24 * 60 * 60 * 1000;
-    const IDLE_CHECK_INTERVAL_MS = 15 * 1000; // re-check every 15s
-    // Persisted (not just in-memory) so the "last activity" timestamp
-    // survives a page reload / app restart. On the Android (APK/TWA)
-    // build, Android routinely kills the app process while it's
-    // backgrounded; on desktop, people close and reopen the browser.
-    // Either way, Firebase's persisted sign-in means onAuthStateChanged
-    // fires again on relaunch and (previously) restarted the idle clock
-    // from zero, so someone who'd actually been away for hours never
-    // got signed out. Storing the timestamp in localStorage lets us
-    // recover the *real* elapsed idle time across restarts instead.
-    const IDLE_STORAGE_KEY = 'auditDashboardLastActivityAt';
-    let idleTrackingActive = false;
-    let lastActivityAt = 0;
-    let idleCheckInterval = null;
-
-    function readStoredActivityAt() {
-      try {
-        const raw = window.localStorage.getItem(IDLE_STORAGE_KEY);
-        const parsed = raw ? parseInt(raw, 10) : NaN;
-        return isNaN(parsed) ? null : parsed;
-      } catch (err) {
-        return null; // localStorage unavailable (private mode, etc.)
-      }
-    }
-    function writeStoredActivityAt(ts) {
-      try {
-        window.localStorage.setItem(IDLE_STORAGE_KEY, String(ts));
-      } catch (err) {
-        // ignore — worst case we fall back to in-memory-only tracking
-      }
-    }
-    function clearStoredActivityAt() {
-      try { window.localStorage.removeItem(IDLE_STORAGE_KEY); } catch (err) {}
-    }
-
-    function handleIdleTimeout() {
-      stopIdleTracking();
-      clearStoredActivityAt();
-      signOut(auth).catch(function(err) {
-        console.warn('Idle auto sign-out failed:', err);
-      });
-    }
-    function checkIdleElapsed() {
-      if (!idleTrackingActive) return;
-      // Re-read from storage (not just the in-memory value) in case
-      // another tab/window updated it more recently.
-      const stored = readStoredActivityAt();
-      if (stored !== null && stored > lastActivityAt) lastActivityAt = stored;
-      if (Date.now() - lastActivityAt >= IDLE_TIMEOUT_MS) {
-        handleIdleTimeout();
-      }
-    }
-    // Writes are cheap but happen on every mousemove/scroll — throttle
-    // the localStorage write itself to at most once every few seconds.
-    let lastStoredWriteAt = 0;
-    function resetIdleTimer() {
-      if (!idleTrackingActive) return; // idle tracking isn't active (signed out)
-      lastActivityAt = Date.now();
-      if (lastActivityAt - lastStoredWriteAt > 3000) {
-        lastStoredWriteAt = lastActivityAt;
-        writeStoredActivityAt(lastActivityAt);
-      }
-    }
-    const IDLE_ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'touchmove', 'wheel', 'click', 'input'];
-    function startIdleTracking() {
-      if (idleTrackingActive) return; // already tracking
-
-      // Before (re)starting the clock, check whether we already blew
-      // past the timeout while the app/tab was closed or backgrounded.
-      // Without this, relaunching after being away for hours would
-      // just reset lastActivityAt to "now" and the person would stay
-      // signed in indefinitely.
-      const stored = readStoredActivityAt();
-      if (stored !== null && Date.now() - stored >= IDLE_TIMEOUT_MS) {
-        handleIdleTimeout();
-        return;
-      }
-
-      idleTrackingActive = true;
-      lastActivityAt = stored !== null ? stored : Date.now();
-      writeStoredActivityAt(lastActivityAt);
-      // IMPORTANT: registered with { capture: true }, not just passive.
-      // "scroll" (and, on some browsers, "wheel"/"touchmove" inside a
-      // nested overflow container) does NOT bubble, so a document-level
-      // listener in the normal bubble phase never sees someone scrolling
-      // through a data panel/modal -- they'd look "idle" and get signed
-      // out mid-use. Capture-phase listeners fire top-down on the way to
-      // the target regardless of bubbling, so they still catch it.
-      IDLE_ACTIVITY_EVENTS.forEach(function(evt) {
-        document.addEventListener(evt, resetIdleTimer, { passive: true, capture: true });
-      });
-      document.addEventListener('visibilitychange', checkIdleElapsed);
-      idleCheckInterval = setInterval(checkIdleElapsed, IDLE_CHECK_INTERVAL_MS);
-    }
-    function stopIdleTracking() {
-      if (!idleTrackingActive) return;
-      idleTrackingActive = false;
-      if (idleCheckInterval) {
-        clearInterval(idleCheckInterval);
-        idleCheckInterval = null;
-      }
-      IDLE_ACTIVITY_EVENTS.forEach(function(evt) {
-        document.removeEventListener(evt, resetIdleTimer, { capture: true });
-      });
-      document.removeEventListener('visibilitychange', checkIdleElapsed);
-    }
+    // Idle auto sign-out removed per request — signed-in sessions now stay
+    // signed in indefinitely (same as before, minus the 24h idle timeout).
+    // Kept as harmless no-ops (rather than deleting every call site) so
+    // nothing else in this file has to change.
+    function startIdleTracking() {}
+    function stopIdleTracking() {}
+    function clearStoredActivityAt() {}
 
     // ================= SILENT BACKGROUND AUTO-REFRESH =================
     // Keeps the dashboard's numbers current without anyone having to
@@ -15815,7 +15813,7 @@ html.page-fade-ready body {
       'dataModal', 'exportPickerModal', 'exportPasswordModal',
       'quickLinkPasswordModal', 'editAssignPasswordModal',
       'exitConfirmModal', 'menuOverlay', 'miniCalendarPopup',
-      'branchFilterPanel'
+      'branchFilterPanel', 'whoAmIModal'
     ];
 
     function isVisible(el) {
@@ -15995,6 +15993,7 @@ html.page-fade-ready body {
     var OVERLAY_SCOPES = [
       { id: 'authGate', z: 200 },
       { id: 'exitConfirmModal', z: 80 },
+      { id: 'whoAmIModal', z: 70 },
       { id: 'exportPasswordModal', z: 70 },
       { id: 'quickLinkPasswordModal', z: 70 },
       { id: 'editAssignPasswordModal', z: 70 },
