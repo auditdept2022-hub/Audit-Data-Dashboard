@@ -6288,10 +6288,8 @@ html.page-fade-ready body {
           let historyHtml = '';
           if (activeData.emergencyHistory && activeData.emergencyHistory.length > 0) {
               historyHtml = activeData.emergencyHistory.map(h => {
-                  const initial = (h.auditor || '?').trim().charAt(0).toUpperCase() || '?';
                   return `
                   <div class="flex items-start gap-2.5 py-2.5">
-                      <div class="shrink-0 mt-0.5 w-6 h-6 rounded-full bg-accentRose/10 text-accentRose flex items-center justify-center text-[10px] font-bold">${initial}</div>
                       <div class="min-w-0 flex-1">
                           <div class="flex items-baseline gap-1.5 flex-wrap">
                               <span class="text-[12.5px] font-bold text-slate-800">${h.auditor || 'N/A'}</span>
@@ -7362,6 +7360,7 @@ html.page-fade-ready body {
     // column fully sortable (see renderAssignmentModalView / setAssignmentSort).
     function openAuditQueueModal(sortField) {
       window.assignmentFilterState = defaultAssignmentFilterState();
+      window.assignmentStatusDropdownOpen = false;
       assignmentSortField = sortField || 'recent';
       assignmentSortDir = (assignmentSortField === 'name') ? 'asc' : 'desc';
       openModal('Assignment Branches Overview', 'assignment', null);
@@ -9050,9 +9049,14 @@ html.page-fade-ready body {
       });
     }
 
+    // Kept for the summary pills (Total/Done/For Audit/Pending), which still
+    // behave as a single-value toggle: clicking one narrows to just that
+    // status, clicking Total Branches (or 'ALL') clears the filter entirely.
+    // The dropdown next to it (see toggleAssignmentStatusOption) layers
+    // proper multi-select on top of the same array-shaped state.
     function setAssignmentAuditFilter(value) {
       if (!window.assignmentFilterState) window.assignmentFilterState = defaultAssignmentFilterState();
-      window.assignmentFilterState.auditStatus = value;
+      window.assignmentFilterState.auditStatus = (!value || value === 'ALL') ? [] : [value];
       renderAssignmentModalView();
     }
 
@@ -9060,13 +9064,40 @@ html.page-fade-ready body {
     // the fields this table actually shows (audit status, the audited-by
     // auditor, and branch name search), not the Collection/Sales/Service/
     // Risk filters that belong to the Branch Scorecard's own table.
+    // auditStatus is an array of selected statuses; an empty array means
+    // "All Audit Status" (no filter applied).
     function defaultAssignmentFilterState() {
-      return { auditStatus: 'ALL', auditor: 'ALL', search: '' };
+      return { auditStatus: [], auditor: 'ALL', search: '' };
     }
 
     function setAssignmentFilter(key, value) {
       if (!window.assignmentFilterState) window.assignmentFilterState = defaultAssignmentFilterState();
       window.assignmentFilterState[key] = value;
+      renderAssignmentModalView();
+    }
+
+    // Multi-select handling for the Audit Status dropdown in the Assignment
+    // Branches Overview popup. Selected statuses live as an array on
+    // assignmentFilterState.auditStatus; toggling adds/removes one entry at
+    // a time so several statuses can be shown together.
+    function toggleAssignmentStatusOption(value) {
+      if (!window.assignmentFilterState) window.assignmentFilterState = defaultAssignmentFilterState();
+      const state = window.assignmentFilterState;
+      const arr = Array.isArray(state.auditStatus) ? state.auditStatus.slice() : [];
+      const idx = arr.indexOf(value);
+      if (idx >= 0) { arr.splice(idx, 1); } else { arr.push(value); }
+      state.auditStatus = arr;
+      renderAssignmentModalView();
+    }
+
+    function clearAssignmentStatusFilter() {
+      if (!window.assignmentFilterState) window.assignmentFilterState = defaultAssignmentFilterState();
+      window.assignmentFilterState.auditStatus = [];
+      renderAssignmentModalView();
+    }
+
+    function toggleAssignmentStatusDropdown() {
+      window.assignmentStatusDropdownOpen = !window.assignmentStatusDropdownOpen;
       renderAssignmentModalView();
     }
 
@@ -9086,6 +9117,7 @@ html.page-fade-ready body {
 
     function resetAssignmentFilters() {
       window.assignmentFilterState = defaultAssignmentFilterState();
+      window.assignmentStatusDropdownOpen = false;
       assignmentSortField = 'recent';
       assignmentSortDir = 'desc';
       renderAssignmentModalView();
@@ -9132,6 +9164,27 @@ html.page-fade-ready body {
       });
       const auditorOptions = Array.from(auditorSet).sort((a, b) => a.localeCompare(b));
 
+      // Audit Status is multi-select: several statuses can be checked at
+      // once, unlike the single-value Auditor dropdown below it.
+      const statusChoices = [
+          { value: 'PENDING', label: 'Pending' },
+          { value: 'FOR AUDIT', label: 'For Audit' },
+          { value: 'DONE', label: 'Done' }
+      ];
+      const selectedStatuses = Array.isArray(state.auditStatus) ? state.auditStatus : [];
+      const statusLabel = selectedStatuses.length === 0
+          ? 'All Audit Status'
+          : statusChoices.filter(c => selectedStatuses.includes(c.value)).map(c => c.label).join(', ');
+      const isOpen = !!window.assignmentStatusDropdownOpen;
+      const statusCheckboxesHtml = statusChoices.map(c => {
+          const checked = selectedStatuses.includes(c.value);
+          return `
+          <label class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer text-xs text-slate-700 select-none">
+            <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleAssignmentStatusOption('${c.value}')" class="rounded border-coolBorder text-accentCyan focus:ring-accentCyan cursor-pointer">
+            ${c.label}
+          </label>`;
+      }).join('');
+
       return `
       <div class="flex flex-col lg:flex-row lg:items-center gap-3 mb-4">
         <div class="relative flex-1 min-w-[200px]">
@@ -9142,12 +9195,20 @@ html.page-fade-ready body {
         </div>
 
         <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-2">
-          <select onchange="setAssignmentFilter('auditStatus', this.value)" class="w-full sm:w-auto px-3 py-2 bg-white border border-coolBorder rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
-            ${opt('ALL', 'All Audit Status', state.auditStatus)}
-            ${opt('PENDING', 'Pending', state.auditStatus)}
-            ${opt('FOR AUDIT', 'For Audit', state.auditStatus)}
-            ${opt('DONE', 'Done', state.auditStatus)}
-          </select>
+          <div class="relative col-span-2 sm:col-span-1">
+            <button type="button" onclick="toggleAssignmentStatusDropdown()" class="w-full sm:w-auto flex items-center justify-between gap-2 px-3 py-2 bg-white border border-coolBorder rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
+              <span class="truncate max-w-[160px]" title="${escapeAttr(statusLabel)}">${statusLabel}</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 text-slate-400"><path d="m6 9 6 6 6-6"></path></svg>
+            </button>
+            ${isOpen ? `
+            <div class="absolute z-20 mt-1 w-48 bg-white border border-coolBorder rounded-xl shadow-lg p-1.5">
+              ${statusCheckboxesHtml}
+              <div class="border-t border-coolBorder mt-1 pt-1 flex items-center justify-between px-1">
+                <button type="button" onclick="clearAssignmentStatusFilter()" class="text-[11px] text-slate-400 hover:text-slate-600 cursor-pointer">Clear</button>
+                <button type="button" onclick="toggleAssignmentStatusDropdown()" class="text-[11px] font-semibold text-accentCyan hover:text-accentCyan/70 cursor-pointer">Done</button>
+              </div>
+            </div>` : ''}
+          </div>
 
           <select onchange="setAssignmentFilter('auditor', this.value)" class="w-full sm:w-auto px-3 py-2 bg-white border border-coolBorder rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
             ${opt('ALL', 'All Auditors', state.auditor)}
@@ -9303,20 +9364,29 @@ html.page-fade-ready body {
           baseList = baseList.filter(b => b.name.toLowerCase().includes(q));
       }
 
+      // auditStatus is an array of one or more selected statuses (multi-select
+      // dropdown) — empty means no filter, i.e. "All Audit Status".
+      const selectedStatuses = Array.isArray(state.auditStatus) ? state.auditStatus : (state.auditStatus && state.auditStatus !== 'ALL' ? [state.auditStatus] : []);
+      const statusLabels = { 'PENDING': 'Pending', 'FOR AUDIT': 'For Audit', 'DONE': 'Done' };
+
       let list = baseList;
-      if (state.auditStatus && state.auditStatus !== 'ALL') {
-          list = list.filter(b => (b.auditStatus || '').toUpperCase() === state.auditStatus);
+      if (selectedStatuses.length > 0) {
+          list = list.filter(b => selectedStatuses.includes((b.auditStatus || '').toUpperCase()));
       }
 
       const modalTitle = document.getElementById('modalTitle');
-      modalTitle.innerHTML = (state.auditStatus === 'ALL' || !state.auditStatus)
+      modalTitle.innerHTML = selectedStatuses.length === 0
           ? 'Assignment Branches Overview'
-          : `Assignment Branches Overview — ${state.auditStatus}`;
+          : `Assignment Branches Overview — ${selectedStatuses.map(s => statusLabels[s] || s).join(', ')}`;
       modalTitle.title = modalTitle.textContent;
 
       updateModalEditAssignButton(list);
 
-      const barsHtml = buildAllBranchesSummaryBar(baseList, 'setAssignmentAuditFilter', state.auditStatus, { hidePerformers: true }) + buildAssignmentFilterBar(state);
+      // The summary pills only understand a single active value; when
+      // exactly one status is selected, highlight its matching pill (same
+      // as before), otherwise treat none/multiple as no single pill active.
+      const pillActiveValue = selectedStatuses.length === 0 ? 'ALL' : (selectedStatuses.length === 1 ? selectedStatuses[0] : null);
+      const barsHtml = buildAllBranchesSummaryBar(baseList, 'setAssignmentAuditFilter', pillActiveValue, { hidePerformers: true }) + buildAssignmentFilterBar(state);
 
       const modalBody = document.getElementById('modalBody');
       modalBody.innerHTML = `${barsHtml}<div id="modalTableContainer"></div>`;
