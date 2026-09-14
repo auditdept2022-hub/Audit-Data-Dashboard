@@ -11687,7 +11687,15 @@ html.page-fade-ready body {
         const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
         if (!idToken) return;
         const params = new URLSearchParams({ action: 'heartbeat', secret: appsScriptSecret, idToken: idToken });
-        await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
+        const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
+        // An admin used the per-account "Sign out" button on this account
+        // (see forceSignOutActiveAccount()/action=forceSignOutAccount in
+        // Code.gs) since our last heartbeat -- sign this device out now,
+        // same as if the person had clicked "Log out" themselves.
+        if (json && json.forceSignOut) {
+          showToast('You\u2019ve been signed out by an admin.');
+          if (typeof window.__dashboardSignOut === 'function') window.__dashboardSignOut();
+        }
       } catch (err) {
         // Best-effort -- a missed heartbeat just means this account briefly
         // drops off the "Currently Active" list until the next one lands.
@@ -11719,6 +11727,32 @@ html.page-fade-ready body {
       return diffHr + (diffHr === 1 ? ' hr ago' : ' hrs ago');
     }
 
+    // Silent (no toast on failure) check of whether the signed-in account
+    // is allowed to manage OTHER accounts (block/unblock/force sign-out) --
+    // same backend gate (action=checkEditorAuth -> isAuthorizedEditor in
+    // Code.gs) as Edit Assignment, just without checkEditAssignAuthorization's
+    // user-facing "Not authorized" toast, since simply opening "Currently
+    // Active" as a non-editor shouldn't nag anyone -- it should just show
+    // a plain read-only list with no admin buttons.
+    const ACCOUNT_MGR_AUTH_CACHE_MS = 4 * 60 * 1000; // 4 minutes
+    let accountMgrAuthCache = { ok: false, at: 0 };
+    async function checkCanManageAccounts() {
+      if (accountMgrAuthCache.ok && (Date.now() - accountMgrAuthCache.at) < ACCOUNT_MGR_AUTH_CACHE_MS) return true;
+      try {
+        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+        if (!idToken) return false;
+        const params = new URLSearchParams({ action: 'checkEditorAuth', secret: appsScriptSecret, idToken: idToken });
+        const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
+        if (json && json.success) {
+          accountMgrAuthCache = { ok: true, at: Date.now() };
+          return true;
+        }
+      } catch (err) {
+        console.warn('[presence] checkCanManageAccounts failed:', err && err.message ? err.message : err);
+      }
+      return false;
+    }
+
     async function loadActiveAccountsList() {
       const listEl = document.getElementById('whoAmIList');
       if (!listEl) return;
@@ -11728,8 +11762,14 @@ html.page-fade-ready body {
           listEl.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">Not signed in.</p>';
           return;
         }
+        // Run in parallel -- the account list and the "am I allowed to
+        // manage other accounts" check are independent, so there's no
+        // reason to make one wait on the other.
         const params = new URLSearchParams({ action: 'activeUsers', secret: appsScriptSecret, idToken: idToken });
-        const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
+        const [json, canManage] = await Promise.all([
+          fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString()),
+          checkCanManageAccounts()
+        ]);
         if (!json || json.error) throw new Error((json && json.error) || 'Failed to load');
 
         const myEmail = (window.getCurrentUserEmail ? window.getCurrentUserEmail() : '').toLowerCase();
@@ -11749,20 +11789,99 @@ html.page-fade-ready body {
         listEl.innerHTML = active.map(function (u) {
           const email = String(u.email || '');
           const isYou = email.toLowerCase() === myEmail;
+          const blocked = u.blocked === true;
           const initial = (email.charAt(0) || '?').toUpperCase();
+
+          // Per-account admin controls -- only rendered for editors, and
+          // never for your own row (use "Sign Out (this device)" below
+          // for that). Data-* attributes (not inline onclick) so an email
+          // containing a quote/apostrophe can never break out of the
+          // attribute -- see the delegated click listener further down.
+          const actionsHtml = (!isYou && canManage)
+            ? (
+              '<div class="flex items-center gap-1 shrink-0">' +
+                '<button type="button" data-whoami-action="block" data-email="' + escapeForHtml(email) + '" data-blocked="' + (blocked ? '1' : '0') + '" class="text-[11px] font-semibold px-2 py-1 rounded-lg transition-colors ' + (blocked ? 'text-accentEmerald hover:bg-accentEmerald/10' : 'text-accentAmber hover:bg-accentAmber/10') + '">' + (blocked ? 'Unblock' : 'Block') + '</button>' +
+                '<button type="button" data-whoami-action="signout" data-email="' + escapeForHtml(email) + '" class="text-[11px] font-semibold px-2 py-1 rounded-lg text-accentRose hover:bg-accentRose/10 transition-colors">Sign out</button>' +
+              '</div>'
+            )
+            : '<span class="w-2 h-2 rounded-full ' + (blocked ? 'bg-accentRose' : 'bg-accentEmerald') + ' shrink-0" title="' + (blocked ? 'Blocked' : 'Active') + '"></span>';
+
           return '' +
-            '<div class="flex items-center gap-3 p-2.5 rounded-xl border border-coolBorder">' +
+            '<div class="flex items-center gap-3 p-2.5 rounded-xl border ' + (blocked ? 'border-accentRose/30 bg-accentRose/5' : 'border-coolBorder') + '">' +
               '<div class="w-8 h-8 rounded-full bg-royalBlue/10 text-royalBlue flex items-center justify-center text-xs font-bold uppercase shrink-0">' + escapeForHtml(initial) + '</div>' +
               '<div class="min-w-0 flex-1">' +
-                '<p class="text-sm font-semibold text-slate-800 truncate">' + escapeForHtml(email) + (isYou ? ' <span class="text-royalBlue font-bold">(You)</span>' : '') + '</p>' +
+                '<p class="text-sm font-semibold text-slate-800 truncate">' + escapeForHtml(email) + (isYou ? ' <span class="text-royalBlue font-bold">(You)</span>' : '') + (blocked ? ' <span class="text-accentRose font-bold">(Blocked)</span>' : '') + '</p>' +
                 '<p class="text-xs text-slate-400">' + escapeForHtml(formatLastSeenRelative(u.lastSeenAt)) + '</p>' +
               '</div>' +
-              '<span class="w-2 h-2 rounded-full bg-accentEmerald shrink-0" title="Active"></span>' +
+              actionsHtml +
             '</div>';
         }).join('');
       } catch (err) {
         listEl.innerHTML = '<p class="text-sm text-accentRose text-center py-4">Couldn\u2019t load active accounts.</p>';
         console.warn('[presence] loadActiveAccountsList failed:', err && err.message ? err.message : err);
+      }
+    }
+
+    // One delegated listener for every Block/Unblock/Sign out button in the
+    // list, instead of re-binding a fresh listener on every re-render.
+    (function setupWhoAmIActionDelegation() {
+      const listEl = document.getElementById('whoAmIList');
+      if (!listEl) return;
+      listEl.addEventListener('click', function (evt) {
+        const btn = evt.target.closest('[data-whoami-action]');
+        if (!btn) return;
+        const email = btn.getAttribute('data-email') || '';
+        const action = btn.getAttribute('data-whoami-action');
+        if (action === 'block') {
+          const isCurrentlyBlocked = btn.getAttribute('data-blocked') === '1';
+          toggleBlockActiveAccount(email, !isCurrentlyBlocked);
+        } else if (action === 'signout') {
+          forceSignOutActiveAccount(email);
+        }
+      });
+    })();
+
+    // Blocks (or unblocks) a single account -- targets ONLY that one email,
+    // never the whole list. Blocking locks that account out of the
+    // dashboard immediately (see isAccountBlocked()/doGet() in Code.gs) and
+    // signs it out of any device it's currently on within one heartbeat
+    // (~45s) or its next request, whichever comes first -- see
+    // sendPresenceHeartbeat()/fetchSheetOnce()'s blocked-response handling.
+    async function toggleBlockActiveAccount(email, block) {
+      if (!email) return;
+      const verb = block ? 'block' : 'unblock';
+      if (block && !confirm('Block ' + email + ' from the dashboard?\n\nThey\u2019ll be signed out and locked out until you unblock them.')) return;
+      try {
+        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+        if (!idToken) { showToast('You\u2019re not signed in.'); return; }
+        const params = new URLSearchParams({ action: block ? 'blockAccount' : 'unblockAccount', secret: appsScriptSecret, idToken: idToken, email: email });
+        const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
+        if (!json || json.error) throw new Error((json && json.error) || ('Failed to ' + verb + ' that account.'));
+        showToast(block ? (email + ' has been blocked.') : (email + ' has been unblocked.'));
+        loadActiveAccountsList();
+      } catch (err) {
+        showToast((err && err.message) || ('Couldn\u2019t ' + verb + ' that account.'));
+      }
+    }
+
+    // Kicks a single account off right now, without blocking it long-term --
+    // it can sign straight back in. Stamps forceSignOutAt on that one
+    // account's presence doc; their device picks it up on its next
+    // heartbeat (~45s) and signs itself out locally. See
+    // handleForceSignOutAccountGet() in Code.gs.
+    async function forceSignOutActiveAccount(email) {
+      if (!email) return;
+      if (!confirm('Sign out ' + email + ' from their current device right now?')) return;
+      try {
+        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+        if (!idToken) { showToast('You\u2019re not signed in.'); return; }
+        const params = new URLSearchParams({ action: 'forceSignOutAccount', secret: appsScriptSecret, idToken: idToken, email: email });
+        const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
+        if (!json || json.error) throw new Error((json && json.error) || 'Failed to sign out that account.');
+        showToast(email + ' will be signed out shortly.');
+        loadActiveAccountsList();
+      } catch (err) {
+        showToast((err && err.message) || 'Couldn\u2019t sign out that account.');
       }
     }
 
@@ -14041,6 +14160,25 @@ html.page-fade-ready body {
     // default read-sized budgets above for a specific, known-heavier call
     // (see HEAVY_*_TIMEOUT_MS). Every existing caller that doesn't pass it
     // behaves exactly as before.
+    // Every authenticated action passes through Code.gs's block check (see
+    // isAccountBlocked() in doGet), which replies with this exact message
+    // the instant an account is blocked -- including for a device that was
+    // already mid-session when the block happened. Catching it in ONE place
+    // (every call goes through fetchSheetOnce) means a block takes effect
+    // everywhere -- heartbeat, dashboard refresh, quick links, etc. -- the
+    // moment the next request lands, without having to special-case every
+    // individual call site.
+    function handleBlockedAccountResponse(json) {
+      if (json && typeof json.error === 'string' && /blocked from the dashboard/i.test(json.error)) {
+        if (!window.__accountBlockedHandled) {
+          window.__accountBlockedHandled = true;
+          showToast(json.error);
+          if (typeof window.__dashboardSignOut === 'function') window.__dashboardSignOut();
+        }
+      }
+      return json;
+    }
+
     async function fetchSheetOnce(url, timeouts) {
       const directMs = (timeouts && timeouts.directMs) || DIRECT_FETCH_TIMEOUT_MS;
       const jsonpMs = (timeouts && timeouts.jsonpMs) || JSONP_FETCH_TIMEOUT_MS;
@@ -14051,20 +14189,20 @@ html.page-fade-ready body {
       // duplicate request sent, no race, no hedge delay.
       if (learnedTransport === 'jsonp') {
         try {
-          return await fetchJSONP(url, jsonpMs);
+          return handleBlockedAccountResponse(await fetchJSONP(url, jsonpMs));
         } catch (err) {
           // The learned transport failed this time (e.g. a network change) —
           // fall back to the other one just for this call, and re-learn.
           setLearnedTransport(null);
-          return await fetchDirect(url, directMs).then(function(d) { setLearnedTransport('direct'); return d; });
+          return await fetchDirect(url, directMs).then(function(d) { setLearnedTransport('direct'); return handleBlockedAccountResponse(d); });
         }
       }
       if (learnedTransport === 'direct') {
         try {
-          return await fetchDirect(url, directMs);
+          return handleBlockedAccountResponse(await fetchDirect(url, directMs));
         } catch (err) {
           setLearnedTransport(null);
-          return await fetchJSONP(url, jsonpMs).then(function(d) { setLearnedTransport('jsonp'); return d; });
+          return await fetchJSONP(url, jsonpMs).then(function(d) { setLearnedTransport('jsonp'); return handleBlockedAccountResponse(d); });
         }
       }
 
@@ -14083,11 +14221,11 @@ html.page-fade-ready body {
       try {
         const data = await fetchJSONP(url, jsonpMs);
         setLearnedTransport('jsonp');
-        return data;
+        return handleBlockedAccountResponse(data);
       } catch (jsonpErr) {
         const data = await fetchDirect(url, directMs);
         setLearnedTransport('direct');
-        return data;
+        return handleBlockedAccountResponse(data);
       }
     }
 
@@ -15096,11 +15234,15 @@ html.page-fade-ready body {
       }
       activeData = emptyDashboardData();
       initialLoadGeneration++; // stop any in-flight "keep retrying" loop from the old session
-      // Also drop the cached Quick Links / Edit Assignment authorization —
-      // it belongs to the account that just signed out, not whoever signs
-      // in next.
+      // Also drop the cached Quick Links / Edit Assignment / account-manager
+      // authorization — it belongs to the account that just signed out, not
+      // whoever signs in next. Also clear the one-shot "blocked" guard so a
+      // freshly unblocked account that signs back in can be caught again if
+      // it's ever re-blocked.
       quickLinkAuthCache = { ok: false, at: 0 };
       editAssignAuthCache = { ok: false, at: 0 };
+      accountMgrAuthCache = { ok: false, at: 0 };
+      window.__accountBlockedHandled = false;
     };
 
     document.addEventListener("DOMContentLoaded", () => {
