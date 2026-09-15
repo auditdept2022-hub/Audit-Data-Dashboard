@@ -11343,7 +11343,25 @@ html.page-fade-ready body {
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 8v4l3 3"></path><circle cx="12" cy="12" r="10"></circle></svg>
         Recently Added
       </button>`;
-      return `<div id="findingsYearTabs" class="flex items-center gap-2 shrink-0"><span class="text-xs font-semibold text-slate-500 mr-1 whitespace-nowrap">Findings Year:</span>${rows}${recentBtn}</div>`;
+
+      // "Recently Audited" sits right beside "Recently Added" — it answers a
+      // different question. "Recently Added" lists the newest FINDINGS that
+      // have been typed in. "Recently Audited" instead lists the branches
+      // that were physically visited/audited most recently (sourced from
+      // each branch's own lastAuditDate/lastAuditDateRaw, same field the
+      // Branch Audit Interval stack card on the main dashboard uses), so a
+      // branch shows up here the moment it's audited even if nobody has
+      // encoded its findings into the sheet yet — the Remarks column falls
+      // back to "No remarks yet" in that case (see renderRecentlyAuditedList).
+      const isAuditedActive = (window.findingsModalStatusFilter || 'ALL') === 'RECENT_AUDITED';
+      const auditedClass = isAuditedActive
+          ? 'bg-accentEmerald text-white border-accentEmerald shadow-sm shadow-accentEmerald/25'
+          : 'bg-white text-slate-600 border-coolBorder hover:border-accentEmerald/50 hover:bg-accentEmerald/5';
+      const auditedBtn = `<button onclick="setFindingsStatusFilter('${isAuditedActive ? 'ALL' : 'RECENT_AUDITED'}')" title="Show branches audited most recently, even if their findings haven't been encoded yet" class="pl-2.5 pr-3.5 py-1.5 text-xs font-bold rounded-full border transition-all active:scale-95 inline-flex items-center gap-1 ${auditedClass}">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+        Recently Audited
+      </button>`;
+      return `<div id="findingsYearTabs" class="flex items-center gap-2 shrink-0"><span class="text-xs font-semibold text-slate-500 mr-1 whitespace-nowrap">Findings Year:</span>${rows}${recentBtn}${auditedBtn}</div>`;
     }
 
     function switchFindingsYear(filterValue) {
@@ -11648,6 +11666,20 @@ html.page-fade-ready body {
         </div>`;
       }
 
+      if (statusVal === 'RECENT_AUDITED') {
+        // "Recently Audited" is also a flat list (of branches, not
+        // findings), and — unlike "Recently Added" — its rows don't all
+        // have a Category, since some haven't had their findings encoded
+        // yet. So this view keeps just the branch search box, no
+        // Category/status filters.
+        return `
+        <div id="findingsToolbarWrap" class="flex items-center gap-2 shrink-0">
+          ${searchBox}
+          ${resetBtn}
+          ${countLabel}
+        </div>`;
+      }
+
       const statusCapsule = (value, label) => {
         const active = value === statusVal;
         return `<button type="button" onclick="setFindingsStatusFilter('${value}')" class="px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border transition-all active:scale-95 ${active ? 'bg-accentCyan text-white border-accentCyan shadow-sm shadow-accentCyan/25' : 'bg-white text-slate-600 border-coolBorder hover:border-accentCyan/50'}">${label}</button>`;
@@ -11686,6 +11718,11 @@ html.page-fade-ready body {
       // whatever's typed in the search box and the FY tab that's active).
       if (statusFilter === 'RECENT') {
         renderRecentFindingsList(container, filterValue);
+        return;
+      }
+
+      if (statusFilter === 'RECENT_AUDITED') {
+        renderRecentlyAuditedList(container, filterValue);
         return;
       }
 
@@ -11778,6 +11815,84 @@ html.page-fade-ready body {
                 <th class="p-2 bg-gray-50 whitespace-nowrap min-w-[140px]">Branch</th>
                 <th class="p-2 bg-gray-50 whitespace-nowrap">Category</th>
                 <th class="p-2 bg-gray-50">Finding</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-coolBorder text-sm">${rows}</tbody>
+          </table>
+      </div>`;
+    }
+
+    // Builds the flat "Recently Audited" list: every branch that has a
+    // recorded lastAuditDate (b.lastAuditDateRaw, the same field the
+    // Branch Audit Interval stack card reads), most-recently-audited
+    // first — regardless of whether its findings have been typed in yet.
+    // For each branch, pulls that branch's own findings for the FY tab
+    // that's currently open (activeData.auditFindingsDetail) and joins
+    // them into a single Remarks string; a branch with none yet gets
+    // remarks: null so the renderer can show "No remarks yet" instead of
+    // silently leaving the row blank — that's the whole point of this
+    // view: surfacing branches that were audited but not yet encoded.
+    function getRecentlyAuditedRecords(year, query) {
+      const state = window.findingsModalState;
+      const branches = (state && state.allBranches) || activeData.branches || [];
+      const q = (query || '').trim().toLowerCase();
+      const allDetail = (activeData && activeData.auditFindingsDetail) || {};
+      return branches
+        .filter(b => b.lastAuditDateRaw)
+        .filter(b => !q || String(b.name || '').toLowerCase().includes(q))
+        .sort((a, b) => (b.lastAuditDateRaw || 0) - (a.lastAuditDateRaw || 0))
+        .map(b => {
+          const findings = (allDetail[b.name] || []).filter(r => getRecordYear(r) === year);
+          const remarks = findings.length
+            ? findings.map(r => escapeFindingHTML(r.finding)).join('; ')
+            : null;
+          return {
+            name: b.name,
+            auditor: b.auditor || 'Unassigned',
+            lastAuditDate: b.lastAuditDate || '—',
+            remarks
+          };
+        });
+    }
+
+    // Renders the flat "Recently Audited" list (Date Audited / Branch /
+    // Auditor / Remarks, most-recently-audited first) in place of the
+    // usual per-branch breakdown table. A branch whose findings haven't
+    // been encoded into the sheet yet shows "No remarks yet" in Remarks
+    // (styled muted/italic) instead of a blank cell, so it's immediately
+    // obvious which recently-audited branches still need their findings
+    // typed in. Mirrors renderRecentFindingsList's scroll/sticky-header
+    // styling so switching capsules doesn't visually jar.
+    function renderRecentlyAuditedList(container, filterValue) {
+      const year = Number(String(filterValue).replace('findings', '')) || new Date().getFullYear();
+      const query = window.findingsModalSearch || '';
+      const records = getRecentlyAuditedRecords(year, query);
+
+      const countLabel = document.getElementById('findingsCountLabel');
+      if (countLabel) countLabel.textContent = `Showing ${records.length} recently audited branch${records.length === 1 ? '' : 'es'}`;
+
+      if (records.length === 0) {
+        container.innerHTML = `<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No recently audited branches on record${query ? ' matching your search' : ''}.</div>`;
+        return;
+      }
+
+      const rows = records.map(r => `
+        <tr class="border-t border-coolBorder">
+          <td class="p-2 text-[11px] font-semibold text-slate-500 tabular-nums whitespace-nowrap align-top">${escapeFindingHTML(r.lastAuditDate)}</td>
+          <td class="p-2 text-[11px] font-semibold text-slate-700 whitespace-nowrap align-top">${escapeFindingHTML(r.name)}</td>
+          <td class="p-2 text-[11px] text-slate-500 whitespace-nowrap align-top">${escapeFindingHTML(r.auditor)}</td>
+          <td class="p-2 text-xs align-top ${r.remarks ? 'text-slate-800' : 'text-slate-400 italic'}">${r.remarks || 'No remarks yet'}</td>
+        </tr>`).join('');
+
+      container.innerHTML = `
+      <div class="rounded-xl border border-coolBorder h-[500px] max-h-[60vh] overflow-auto custom-scrollbar">
+          <table class="w-full min-w-[640px] text-left border-collapse bg-white relative">
+            <thead class="bg-gray-50 border-b border-coolBorder text-xs text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-10 shadow-sm">
+              <tr>
+                <th class="p-2 bg-gray-50 whitespace-nowrap w-32">Date Audited</th>
+                <th class="p-2 bg-gray-50 whitespace-nowrap min-w-[140px]">Branch</th>
+                <th class="p-2 bg-gray-50 whitespace-nowrap">Auditor</th>
+                <th class="p-2 bg-gray-50">Remarks</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-coolBorder text-sm">${rows}</tbody>
