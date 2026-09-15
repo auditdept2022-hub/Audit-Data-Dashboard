@@ -314,6 +314,135 @@
     #auditScheduleWrap { display: flex; flex-direction: column; height: 100%; min-height: 0; }
     #auditScheduleCards { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 
+    /* ===== Compact modal views (.mv-*) =====================================
+       Shared layout for the Auditor Workload, Emergency Auditor Status and
+       Edit Assignment popups. These three used to be stacks of padded cards
+       with a short, fixed-height scroll box inside, so the popup itself grew
+       with fullscreen but the content kept its small windowed size and left
+       a large empty area underneath. Here the view is a flex column that
+       always fills the dialog: a fixed header strip, one scroll region that
+       takes every remaining pixel, and (for forms) a pinned action bar.
+       Lists use an auto-fill grid, so extra width in fullscreen turns into
+       more columns instead of dead space. */
+    .mv, .mv *, .mv *::before, .mv *::after { box-sizing: border-box; }
+    #modalBody.mv-mode { overflow: hidden !important; display: flex; flex-direction: column; padding: 0 !important; }
+    .mv { display: flex; flex-direction: column; height: 100%; min-height: 0; background: #fff; }
+    .mv-head { flex: 0 0 auto; padding: 8px 13px; border-bottom: 1px solid #e7e9f2; background: #fff; }
+    .mv-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; background: #fbfcfe; }
+    .mv-foot { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 7px 13px; border-top: 1px solid #e7e9f2; background: #fbfbfe; }
+    .mv-foot-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+    .mv-head-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .mv-head-main { min-width: 0; flex: 1 1 180px; }
+    .mv-title { font-size: 15px; font-weight: 800; color: #1e293b; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mv-sub { font-size: 11px; color: #94a3b8; margin-top: 0; }
+    .mv-avatar { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; background: rgba(91,61,240,.1); color: #5b3df0; }
+    .mv-stats { display: flex; align-items: center; }
+    .mv-stat { display: flex; flex-direction: column; padding: 0 12px; border-left: 1px solid #e7e9f2; }
+    .mv-stat:first-child { border-left: 0; padding-left: 0; }
+    .mv-stat b { font-size: 15px; font-weight: 800; color: #1e293b; line-height: 1.15; }
+    .mv-stat span { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #94a3b8; margin-top: 2px; }
+    .mv-search { height: 30px; width: 200px; max-width: 100%; padding: 0 10px; border: 1px solid #e7e9f2; border-radius: 8px; background: #fff; font-size: 12px; color: #1e293b; }
+    .mv-search::placeholder { color: #b6bdcd; }
+    .mv-search:focus { outline: none; border-color: #5b3df0; box-shadow: 0 0 0 3px rgba(91,61,240,.12); }
+
+    /* Hairline-separated list: 1px grid gaps over a tinted background do the
+       dividing, so rows stay dense without a border on every cell. */
+    .mv-grid { background: #fff; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); align-content: start; }
+    .mv-item { display: block; width: 100%; text-align: left; border: 0; border-right: 1px solid #eef0f7; border-bottom: 1px solid #eef0f7; background: #fff; padding: 5px 12px; cursor: pointer; transition: background .12s ease; }
+    .mv-item:hover { background: #f7f6ff; }
+    .mv-item:focus-visible { outline: 2px solid #5b3df0; outline-offset: -2px; }
+    .mv-item-name { display: block; font-size: 12px; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mv-item-meta { display: block; font-size: 10.5px; color: #94a3b8; margin-top: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mv-empty { padding: 22px 14px; text-align: center; font-size: 12.5px; color: #94a3b8; }
+
+    .mv-chip { display: inline-block; vertical-align: 1px; margin-left: 5px; padding: 1px 6px; border-radius: 999px; font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+    .mv-chip-amber { background: rgba(217,122,6,.12); color: #b45309; }
+
+    /* Emergency status header + rotation queue */
+    .mv-head-alert { background: #fff5f8; border-bottom: 1px solid rgba(225,29,95,.16); }
+    .mv-alert-icon { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center; background: rgba(225,29,95,.12); color: #e11d5f; }
+    .mv-btn-rose { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border: 0; border-radius: 9px; background: #e11d5f; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; transition: background .12s ease; }
+    .mv-btn-rose:hover { background: #c81854; }
+    .mv-queue { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 7px; padding-top: 6px; border-top: 1px solid rgba(225,29,95,.14); }
+    .mv-queue-label { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #94a3b8; }
+    .mv-step { padding: 2px 9px; border-radius: 999px; font-size: 10.5px; font-weight: 700; background: #fff; color: #64748b; border: 1px solid #e7e9f2; }
+    .mv-step-next { display: inline-flex; align-items: center; gap: 5px; background: #d97a06; color: #fff; border-color: #d97a06; }
+    .mv-step-sep { color: #cbd5e1; }
+
+    /* Dense data table (emergency history) */
+    .mv-table { width: 100%; border-collapse: collapse; background: #fff; }
+    .mv-table col.mv-col-date { width: 130px; }
+    .mv-table col.mv-col-name { width: 145px; }
+    .mv-table col.mv-col-branch { width: 220px; }
+    .mv-table th { position: sticky; top: 0; z-index: 1; background: #f8f9fd; text-align: left; padding: 5px 12px; font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #94a3b8; border-bottom: 1px solid #e7e9f2; white-space: nowrap; }
+    .mv-table td { padding: 5px 12px; border-bottom: 1px solid #f1f2f8; font-size: 12px; color: #475569; vertical-align: top; }
+    .mv-table tbody tr:hover td { background: #fafaff; }
+    .mv-td-strong { font-weight: 700; color: #1e293b; white-space: nowrap; }
+    .mv-td-date { color: #94a3b8; font-size: 11px; white-space: nowrap; }
+
+    /* Edit Assignment form */
+    .mv-form { width: 100%; max-width: 860px; margin: 0 auto; padding: 12px; }
+    .mv-section { border: 1px solid #e7e9f2; border-radius: 12px; overflow: hidden; background: #fff; }
+    .mv-section + .mv-section { margin-top: 10px; }
+    .mv-section-head { padding: 6px 12px; background: #f8f9fd; border-bottom: 1px solid #e7e9f2; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #64748b; }
+    .mv-section-body { padding: 10px 12px; }
+    .mv-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+    .mv-field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .mv-field > .mv-input { min-width: 0; }
+    .mv-label { font-size: 11px; font-weight: 600; color: #64748b; }
+    .mv-input { width: 100%; height: 32px; padding: 0 9px; border: 1px solid #e7e9f2; border-radius: 7px; background: #fff; font-size: 13px; color: #1e293b; }
+    .mv-input:focus { outline: none; border-color: #5b3df0; box-shadow: 0 0 0 3px rgba(91,61,240,.12); }
+    .mv-round { display: grid; grid-template-columns: 78px minmax(0,1fr) 170px; gap: 8px; align-items: center; padding: 6px 12px; border-bottom: 1px solid #f1f2f8; }
+    .mv-round:last-child { border-bottom: 0; }
+    .mv-round-no { font-size: 12px; font-weight: 700; color: #475569; }
+    /* Column headings for the rotation rounds: the Auditor/Date pair is
+       identical on all four rows, so it's labelled once at the top instead
+       of four times over. Below 640px the rows stack and each field shows
+       its own label again (see the media query). */
+    .mv-round-head { padding: 5px 12px; background: #f8f9fd; border-bottom: 1px solid #e7e9f2; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #64748b; }
+    .mv-round .mv-label { display: none; }
+    .mv-hint { margin-top: 8px; font-size: 11.5px; line-height: 1.5; color: #94a3b8; }
+    .mv-error { font-size: 12px; font-weight: 600; color: #e11d5f; }
+    .mv-btn-ghost { height: 32px; padding: 0 13px; border: 0; border-radius: 8px; background: transparent; font-size: 12.5px; font-weight: 600; color: #64748b; cursor: pointer; }
+    .mv-btn-ghost:hover { background: #eef0f7; }
+    .mv-btn-primary { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 15px; border: 0; border-radius: 8px; background: #5b3df0; color: #fff; font-size: 12.5px; font-weight: 700; cursor: pointer; transition: background .12s ease; }
+    .mv-btn-primary:hover { background: #4b2fd8; }
+    .mv-btn-primary:disabled { opacity: .7; cursor: default; }
+
+    /* Printing copies the popup's markup into #printArea, which has no
+       height of its own — so the fill-the-dialog flex layout has to unwind
+       back into normal flow or the scroll region would clip everything past
+       the first screenful. Controls that can't be used on paper drop out. */
+    @media print {
+      .mv, .mv-scroll { display: block !important; height: auto !important; max-height: none !important; overflow: visible !important; background: #fff !important; }
+      .mv-foot, .mv-search, .mv-btn-rose { display: none !important; }
+      .mv-table th { position: static !important; }
+      .mv-item { break-inside: avoid; }
+    }
+
+    @media (max-width: 640px) {
+      .mv-head { padding: 8px 11px; }
+      .mv-stat { padding: 0 12px; }
+      .mv-search { width: 100%; }
+      .mv-form { padding: 10px; }
+      .mv-round { grid-template-columns: 1fr; gap: 6px; }
+      .mv-round-head { display: none; }
+      .mv-round .mv-label { display: block; }
+      .mv-round-no { color: #94a3b8; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+      /* A four-column table can't stay legible at phone width, so each
+         history entry collapses into a stacked block: who + where on the
+         first line, then the date and the reason underneath. */
+      .mv-table, .mv-table tbody, .mv-table tr { display: block; width: 100%; }
+      .mv-table thead { display: none; }
+      .mv-table tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px 8px; padding: 6px 11px; border-bottom: 1px solid #f1f2f8; }
+      .mv-table td { display: block; border: 0; padding: 0; }
+      .mv-table td.mv-td-strong { order: 1; }
+      .mv-table td.mv-td-branch { order: 2; flex: 1 1 auto; font-size: 12px; }
+      .mv-table td.mv-td-date { order: 3; flex: 0 0 auto; }
+      .mv-table td.mv-td-reason { order: 4; flex: 1 1 60%; font-size: 11.5px; color: #64748b; }
+    }
+
     /* On phones AND narrow/tablet-width screens, EVERY data popup
        (#modalDialog) is ALWAYS edge-to-edge full-screen — enforced purely
        in CSS (not via a JS class toggle timed against the open animation)
@@ -6243,6 +6372,143 @@ html.page-fade-ready body {
       openModal(prev.title, prev.type, prev.filterValue, { fromBack: true });
     }
 
+
+    // ---- Shared helpers for the compact modal views (.mv-* layout) --------
+    // mvEsc: safe for text nodes AND quoted HTML attributes.
+    // mvArg: additionally escapes the quote/backslash characters that would
+    //        break out of a single-quoted JS string inside an onclick="".
+    function mvEsc(str) {
+      return String(str == null ? '' : str)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+    function mvArg(str) {
+      return mvEsc(String(str == null ? '' : str).replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
+    }
+    function mvInitials(name) {
+      const parts = String(name || '?').trim().split(/[\s\-]+/).filter(Boolean);
+      if (!parts.length) return '?';
+      if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    // Live filter for any .mv-grid / list whose rows carry data-mv-search.
+    // Rows are hidden in place (no re-render) so scroll position and any
+    // click handlers on them survive typing.
+    function mvFilterList(inputEl, listId) {
+      const list = document.getElementById(listId);
+      if (!list) return;
+      const q = (inputEl.value || '').trim().toLowerCase();
+      let shown = 0;
+      list.querySelectorAll('[data-mv-search]').forEach(row => {
+          const hit = !q || row.getAttribute('data-mv-search').indexOf(q) !== -1;
+          row.style.display = hit ? '' : 'none';
+          if (hit) shown++;
+      });
+      const empty = document.getElementById(listId + '-empty');
+      if (empty) empty.style.display = shown ? 'none' : '';
+      const counter = document.getElementById(listId + '-count');
+      if (counter) counter.textContent = shown;
+    }
+
+    // Auditor Workload popup. Header strip (who + how many) stays put; the
+    // engagement list below takes the whole remaining height and reflows
+    // into as many columns as the width allows, so fullscreen actually
+    // shows more branches instead of more empty space.
+    function renderAuditorWorkloadModal(auditorName, modalBody) {
+      const auditorObj = (activeData.auditors || []).find(a => a.name === auditorName)
+          || { name: auditorName, count: 0, branches: [] };
+      const rows = buildAuditorEngagementRows(auditorObj.name, auditorObj.branches || []);
+      const rotatedCount = rows.filter(r => r.rotated).length;
+
+      const itemsHtml = rows.map(row => `
+          <button type="button" class="mv-item" data-mv-search="${mvEsc(String(row.branch).toLowerCase())}"
+                  onclick="openModalDetail('${mvArg(row.branch)}')">
+            <span class="mv-item-name">${mvEsc(row.branch)}${row.rotated ? '<span class="mv-chip mv-chip-amber">Rotated</span>' : ''}</span>
+            <span class="mv-item-meta">${mvEsc(row.dateLabel)}</span>
+          </button>`).join('');
+
+      const listHtml = rows.length
+          ? `<div class="mv-grid" id="auditorEngagements">${itemsHtml}</div>
+             <div class="mv-empty" id="auditorEngagements-empty" style="display:none">No branch matches that search.</div>`
+          : `<div class="mv-empty">No branches are mapped to ${mvEsc(auditorObj.name)} yet.</div>`;
+
+      modalBody.classList.add('mv-mode');
+      modalBody.innerHTML = `
+        <div class="mv">
+          <div class="mv-head">
+            <div class="mv-head-row">
+              <div class="mv-avatar">${mvEsc(mvInitials(auditorObj.name))}</div>
+              <div class="mv-head-main">
+                <div class="mv-title">${mvEsc(auditorObj.name)}</div>
+                <div class="mv-sub">Branch audits tracked by this auditor</div>
+              </div>
+              <div class="mv-stats">
+                <div class="mv-stat"><b>${rows.length}</b><span>Branches</span></div>
+                <div class="mv-stat"><b>${rotatedCount}</b><span>Rotated</span></div>
+              </div>
+              ${rows.length ? `<input type="search" class="mv-search" placeholder="Filter branches"
+                      aria-label="Filter branches" oninput="mvFilterList(this,'auditorEngagements')">` : ''}
+            </div>
+          </div>
+          <div class="mv-scroll custom-scrollbar">${listHtml}</div>
+        </div>`;
+    }
+
+    // Emergency Auditor Status popup. Who is on call + the rotation queue sit
+    // in a fixed strip at the top; the history below is a dense table that
+    // fills the rest of the dialog instead of a short capped scroll box.
+    function renderEmergencyStatusModal(modalBody) {
+      const history = activeData.emergencyHistory || [];
+      const rowsHtml = history.map(h => `
+          <tr>
+            <td class="mv-td-date">${mvEsc(h.details || '—')}</td>
+            <td class="mv-td-strong">${mvEsc(h.auditor || '—')}</td>
+            <td class="mv-td-branch">${mvEsc(h.branch || '—')}</td>
+            <td class="mv-td-reason">${mvEsc(h.remark || '—')}</td>
+          </tr>`).join('');
+
+      const historyHtml = history.length
+          ? `<table class="mv-table">
+               <colgroup><col class="mv-col-date"><col class="mv-col-name"><col class="mv-col-branch"><col></colgroup>
+               <thead><tr><th>Date</th><th>Auditor</th><th>Branch</th><th>Reason</th></tr></thead>
+               <tbody>${rowsHtml}</tbody>
+             </table>`
+          : `<div class="mv-empty">No emergency assignments recorded yet.</div>`;
+
+      const pendingAuditor = getNextEmergencyRotationAuditor();
+      const queueHtml = EMERGENCY_ROTATION_CYCLE.map(name => {
+          const isPending = name === pendingAuditor;
+          return isPending
+              ? `<span class="mv-step mv-step-next"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>${mvEsc(name)}</span>`
+              : `<span class="mv-step">${mvEsc(name)}</span>`;
+      }).join('<span class="mv-step-sep">&rsaquo;</span>');
+
+      modalBody.classList.add('mv-mode');
+      modalBody.innerHTML = `
+        <div class="mv">
+          <div class="mv-head mv-head-alert">
+            <div class="mv-head-row">
+              <div class="mv-alert-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path></svg>
+              </div>
+              <div class="mv-head-main">
+                <div class="mv-title">${mvEsc(activeData.summary.emergencyAuditor || 'Not set')}</div>
+                <div class="mv-sub">On call for emergency audits</div>
+              </div>
+              <button onclick="openEditEmergencyModal()" class="mv-btn-rose" title="Set emergency auditor" aria-label="Set emergency auditor">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+                Change
+              </button>
+            </div>
+            <div class="mv-queue">
+              <span class="mv-queue-label">Next up</span>
+              ${queueHtml}
+            </div>
+          </div>
+          <div class="mv-scroll custom-scrollbar">${historyHtml}</div>
+        </div>`;
+    }
+
     function openModal(title, type, filterValue, navOpts) {
       navOpts = navOpts || {};
       const modalEl = document.getElementById('dataModal');
@@ -6271,6 +6537,9 @@ html.page-fade-ready body {
       // scrolling-cards-only layout; every other modal keeps the normal
       // whole-body scroll, so make sure this doesn't leak between opens.
       modalBody.classList.remove('audit-schedule-mode');
+      // Same for the compact fill-the-dialog layout used by the Auditor
+      // Workload / Emergency Status / Edit Assignment views.
+      modalBody.classList.remove('mv-mode');
       // Default the header Edit button off; the 'all' branches-overview
       // path (renderModalFilteredView, below) turns it back on for its
       // own list right after this.
@@ -6297,100 +6566,9 @@ html.page-fade-ready body {
       } else if (type === 'editAssignment') {
           renderEditAssignmentModal(filterValue, modalBody);
       } else if (type === 'auditor') {
-          const auditorObj = (activeData.auditors || []).find(a => a.name === filterValue) || { name: filterValue, count: 0, branches: [] };
-          const engagementRows = buildAuditorEngagementRows(auditorObj.name, auditorObj.branches || []);
-          let branchesHtml = '';
-
-          if (engagementRows.length > 0) {
-              branchesHtml = engagementRows.map((row, idx) => `
-                  <div class="flex items-center gap-2 p-2.5 bg-gray-50 border border-coolBorder rounded-lg hover:border-accentIndigo/30 cursor-pointer active:scale-95 transition-all" onclick="openModalDetail('${row.branch}')">
-                      <div class="w-5 h-5 rounded bg-accentIndigo/10 text-accentIndigo flex items-center justify-center font-bold flex-shrink-0 text-[10px]">${idx + 1}</div>
-                      <div class="min-w-0 flex-1">
-                        <span class="text-xs font-semibold text-slate-700 truncate block">${row.branch}${row.rotated ? ' <span class="text-[9px] font-bold text-accentAmber align-middle">(ROTATED)</span>' : ''}</span>
-                        <span class="text-[10px] text-slate-400 truncate block">${row.dateLabel}</span>
-                      </div>
-                  </div>
-              `).join('');
-          } else {
-              branchesHtml = `<div class="col-span-1 md:col-span-2 text-sm text-slate-500 italic p-4 text-center bg-gray-50 rounded-xl border border-coolBorder">No branches mapped.</div>`;
-          }
-
-          modalBody.innerHTML = `
-          <div class="p-5 bg-accentIndigo/10 border border-accentIndigo/20 rounded-xl mb-5 shadow-sm">
-            <h3 class="font-bold text-lg text-accentIndigo mb-2">Auditor Engagement Details</h3>
-            <p class="text-sm text-slate-700"><strong>${auditorObj.name}</strong> is assigned to track <strong>${auditorObj.count}</strong> branch audits.</p>
-          </div>
-          <div class="bg-white border border-coolBorder rounded-xl p-5 shadow-sm">
-              <h4 class="text-xs font-bold text-slate-400 uppercase mb-4 tracking-wider flex items-center gap-2">
-                  Assigned Engagements
-              </h4>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
-                  ${branchesHtml}
-              </div>
-          </div>`;
+          renderAuditorWorkloadModal(filterValue, modalBody);
       } else if (type === 'emergency') {
-          let historyHtml = '';
-          if (activeData.emergencyHistory && activeData.emergencyHistory.length > 0) {
-              historyHtml = activeData.emergencyHistory.map(h => {
-                  return `
-                  <div class="flex items-start gap-2.5 py-2.5">
-                      <div class="min-w-0 flex-1">
-                          <div class="flex items-baseline gap-1.5 flex-wrap">
-                              <span class="text-[12.5px] font-bold text-slate-800">${h.auditor || 'N/A'}</span>
-                              <span class="text-[10.5px] text-slate-400">at</span>
-                              <span class="text-[12px] font-semibold text-slate-600 truncate">${h.branch || 'N/A'}</span>
-                          </div>
-                          <div class="flex items-center gap-1.5 mt-0.5 min-w-0">
-                              <span class="text-[10.5px] text-slate-400 shrink-0">${h.details || 'N/A'}</span>
-                              ${h.remark ? `<span class="text-slate-300 shrink-0">&bull;</span><span class="text-[10.5px] text-slate-500 italic truncate">${h.remark}</span>` : ''}
-                          </div>
-                      </div>
-                  </div>`;
-              }).join('');
-              historyHtml = `<div class="divide-y divide-coolBorder">${historyHtml}</div>`;
-          } else {
-              historyHtml = `<div class="text-xs text-slate-400 italic py-6 text-center">No recent emergency history found.</div>`;
-          }
-
-          const pendingAuditor = getNextEmergencyRotationAuditor();
-          const rotationStepsHtml = EMERGENCY_ROTATION_CYCLE.map(name => {
-              const isPending = name === pendingAuditor;
-              return isPending
-                  ? `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide bg-accentAmber text-white shadow-sm shadow-accentAmber/25">
-                       <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
-                       ${name}
-                     </span>`
-                  : `<span class="px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wide bg-slate-50 text-slate-500 border border-slate-200">${name}</span>`;
-          }).join(`<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-300 shrink-0"><path d="m9 18 6-6-6-6"></path></svg>`);
-
-          modalBody.innerHTML = `
-          <div class="p-4 bg-accentRose/10 border border-accentRose/20 rounded-xl mb-3">
-            <div class="flex items-center justify-between gap-3">
-              <div class="flex items-center gap-2.5 min-w-0">
-                <div class="shrink-0 w-9 h-9 rounded-full bg-accentRose/15 text-accentRose flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path></svg>
-                </div>
-                <div class="min-w-0">
-                  <p class="text-[10px] font-bold uppercase tracking-wider text-accentRose/70">Current Emergency Auditor</p>
-                  <p class="text-[15px] font-extrabold text-slate-800 truncate">${activeData.summary.emergencyAuditor || 'PENDING'}</p>
-                </div>
-              </div>
-              <button onclick="openEditEmergencyModal()" title="Set emergency auditor" aria-label="Set emergency auditor" class="shrink-0 flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-white bg-accentRose rounded-lg hover:bg-accentRose/90 active:scale-95 transition-all cursor-pointer">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
-                Set
-              </button>
-            </div>
-            <div class="mt-3 pt-3 border-t border-accentRose/15 flex items-center gap-2 flex-wrap">
-              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0">Next up</span>
-              <div class="flex items-center gap-1 flex-wrap">${rotationStepsHtml}</div>
-            </div>
-          </div>
-          <div class="p-4 bg-white border border-coolBorder rounded-xl shadow-sm">
-            <h3 class="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-1">History</h3>
-            <div class="max-h-72 overflow-y-auto custom-scrollbar pr-1">
-                ${historyHtml}
-            </div>
-          </div>`;
+          renderEmergencyStatusModal(modalBody);
       } else if (type === 'editEmergency') {
           renderEditEmergencyModal(modalBody);
       } else if (type === 'overallData') {
@@ -6601,62 +6779,72 @@ html.page-fade-ready body {
       };
 
       const rotationRowHtml = (roundNum, label) => `
-          <div class="grid grid-cols-2 gap-3 mb-4 no-fs-grid">
-            <div>
-              <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">${label} Auditor</label>
-              <select id="editAssign-auditor${roundNum}" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+          <div class="mv-round">
+            <div class="mv-round-no">${label}</div>
+            <div class="mv-field">
+              <label class="mv-label" for="editAssign-auditor${roundNum}">Auditor</label>
+              <select id="editAssign-auditor${roundNum}" class="mv-input">
                 ${auditorOptionsFor(roundNum)}
               </select>
             </div>
-            <div>
-              <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">${label} Date</label>
-              <input id="editAssign-date${roundNum}" type="date" value="${(roundsByNumber[roundNum] && roundsByNumber[roundNum].dateInput) || ''}"
-                     class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+            <div class="mv-field">
+              <label class="mv-label" for="editAssign-date${roundNum}">Date</label>
+              <input id="editAssign-date${roundNum}" type="date" class="mv-input"
+                     value="${(roundsByNumber[roundNum] && roundsByNumber[roundNum].dateInput) || ''}">
             </div>
           </div>`;
 
+      modalBody.classList.add('mv-mode');
       modalBody.innerHTML = `
-        <div class="bg-white border border-coolBorder rounded-xl p-5 shadow-sm w-full max-w-3xl mx-auto">
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-            <div>
-              <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Branch</label>
-              <select id="editAssign-branch" onchange="openEditAssignmentModal(this.value)"
-                      class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
-                ${branchOptions}
-              </select>
-            </div>
+        <div class="mv">
+          <div class="mv-scroll custom-scrollbar">
+            <div class="mv-form">
+              <div class="mv-section">
+                <div class="mv-section-head">Next audit</div>
+                <div class="mv-section-body">
+                  <div class="mv-cols">
+                    <div class="mv-field">
+                      <label class="mv-label" for="editAssign-branch">Branch</label>
+                      <select id="editAssign-branch" class="mv-input" onchange="openEditAssignmentModal(this.value)">
+                        ${branchOptions}
+                      </select>
+                    </div>
+                    <div class="mv-field">
+                      <label class="mv-label" for="editAssign-expectedDate">Expected audit date</label>
+                      <input id="editAssign-expectedDate" type="date" class="mv-input"
+                             value="${(b && b.expectedAuditDateInput) || ''}">
+                    </div>
+                    <div class="mv-field">
+                      <label class="mv-label" for="editAssign-upNextAuditor">Auditor up next</label>
+                      <select id="editAssign-upNextAuditor" class="mv-input">
+                        ${assignedAuditorOptions}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-            <div>
-              <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Expected Audit Date</label>
-              <input id="editAssign-expectedDate" type="date" value="${(b && b.expectedAuditDateInput) || ''}"
-                     class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
-            </div>
+              <div class="mv-section">
+                <div class="mv-section-head">Rotation schedule</div>
+                <div class="mv-round mv-round-head"><div>Round</div><div>Auditor</div><div>Date</div></div>
+                ${rotationRowHtml(1, '1st round')}
+                ${rotationRowHtml(2, '2nd round')}
+                ${rotationRowHtml(3, '3rd round')}
+                ${rotationRowHtml(4, '4th round')}
+              </div>
 
-            <div>
-              <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Up Next Auditor</label>
-              <select id="editAssign-upNextAuditor" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
-                ${assignedAuditorOptions}
-              </select>
+              <p class="mv-hint">Recording a rotation round clears the expected audit date and the auditor up next. Set them again once the following audit is scheduled.</p>
             </div>
           </div>
-
-          <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 mt-5 border-t border-coolBorder pt-4">Audit Rotation Schedule</div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-            ${rotationRowHtml(1, '1st Rotation')}
-            ${rotationRowHtml(2, '2nd Rotation')}
-            ${rotationRowHtml(3, '3rd Rotation')}
-            ${rotationRowHtml(4, '4th Rotation')}
-          </div>
-
-          <div id="editAssign-error" class="hidden text-xs text-accentRose font-semibold mb-3"></div>
-
-          <div class="flex justify-end gap-2">
-            <button id="editAssign-cancelBtn" onclick="closeModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
-            <button id="editAssign-saveBtn" onclick="submitEditAssignment('${escapeHTML(resolvedName)}')"
-                    class="px-4 py-2 text-xs font-bold text-white bg-accentIndigo rounded-lg hover:bg-accentIndigo/90 transition-colors flex items-center gap-2 disabled:opacity-70">
-              <span id="editAssign-saveLabel">Save Assignment</span>
-              <svg id="editAssign-saveSpinner" class="hidden animate-spin" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
-            </button>
+          <div class="mv-foot">
+            <div id="editAssign-error" class="mv-error hidden"></div>
+            <div class="mv-foot-actions">
+              <button id="editAssign-cancelBtn" onclick="closeModal()" class="mv-btn-ghost">Cancel</button>
+              <button id="editAssign-saveBtn" class="mv-btn-primary" onclick="submitEditAssignment('${escapeHTML(resolvedName)}')">
+                <span id="editAssign-saveLabel">Save assignment</span>
+                <svg id="editAssign-saveSpinner" class="hidden animate-spin" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
+              </button>
+            </div>
           </div>
         </div>
       `;
