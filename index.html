@@ -11344,23 +11344,20 @@ html.page-fade-ready body {
         Recently Added
       </button>`;
 
-      // "Recently Audited" sits right beside "Recently Added" — it answers a
-      // different question. "Recently Added" lists the newest FINDINGS that
-      // have been typed in. "Recently Audited" instead lists the branches
-      // that were physically visited/audited most recently (sourced from
-      // each branch's own lastAuditDate/lastAuditDateRaw, same field the
-      // Branch Audit Interval stack card on the main dashboard uses), so a
-      // branch shows up here the moment it's audited even if nobody has
-      // encoded its findings into the sheet yet — the Remarks column falls
-      // back to "No remarks yet" in that case (see renderRecentlyAuditedList).
+      // "Recently Audited" sits right beside "Recently Added" — a simple,
+      // flat, most-recently-audited-first list of branches (Branch + Date
+      // Audited only, no Auditor/Remarks), sourced from each branch's own
+      // lastAuditDate/lastAuditDateRaw (same field the Branch Audit
+      // Interval stack card on the main dashboard uses).
       const isAuditedActive = (window.findingsModalStatusFilter || 'ALL') === 'RECENT_AUDITED';
       const auditedClass = isAuditedActive
           ? 'bg-accentEmerald text-white border-accentEmerald shadow-sm shadow-accentEmerald/25'
           : 'bg-white text-slate-600 border-coolBorder hover:border-accentEmerald/50 hover:bg-accentEmerald/5';
-      const auditedBtn = `<button onclick="setFindingsStatusFilter('${isAuditedActive ? 'ALL' : 'RECENT_AUDITED'}')" title="Show branches audited most recently, even if their findings haven't been encoded yet" class="pl-2.5 pr-3.5 py-1.5 text-xs font-bold rounded-full border transition-all active:scale-95 inline-flex items-center gap-1 ${auditedClass}">
+      const auditedBtn = `<button onclick="setFindingsStatusFilter('${isAuditedActive ? 'ALL' : 'RECENT_AUDITED'}')" title="Show branches audited most recently" class="pl-2.5 pr-3.5 py-1.5 text-xs font-bold rounded-full border transition-all active:scale-95 inline-flex items-center gap-1 ${auditedClass}">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
         Recently Audited
       </button>`;
+
       return `<div id="findingsYearTabs" class="flex items-center gap-2 shrink-0"><span class="text-xs font-semibold text-slate-500 mr-1 whitespace-nowrap">Findings Year:</span>${rows}${recentBtn}${auditedBtn}</div>`;
     }
 
@@ -11667,11 +11664,9 @@ html.page-fade-ready body {
       }
 
       if (statusVal === 'RECENT_AUDITED') {
-        // "Recently Audited" is also a flat list (of branches, not
-        // findings), and — unlike "Recently Added" — its rows don't all
-        // have a Category, since some haven't had their findings encoded
-        // yet. So this view keeps just the branch search box, no
-        // Category/status filters.
+        // "Recently Audited" is a flat list of branches, not findings — a
+        // branch audit-status doesn't apply here (every row here IS an
+        // audited branch), so this view keeps just the branch search box.
         return `
         <div id="findingsToolbarWrap" class="flex items-center gap-2 shrink-0">
           ${searchBox}
@@ -11822,78 +11817,32 @@ html.page-fade-ready body {
       </div>`;
     }
 
-    // Two dates are "the same audit visit" if they fall on the same
-    // calendar day — compared via local Y/M/D components, not raw
-    // timestamps, so a UTC-vs-local offset in either source can't make
-    // the same day look like two different ones.
-    function isSameAuditDay(branchRawTs, findingDateIso) {
-      if (!branchRawTs || !findingDateIso) return false;
-      const a = new Date(branchRawTs);
-      const b = new Date(findingDateIso + 'T00:00:00');
-      if (isNaN(a.getTime()) || isNaN(b.getTime())) return false;
-      return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-    }
-
     // Builds the flat "Recently Audited" list: every branch that has a
     // recorded lastAuditDate (b.lastAuditDateRaw, the same field the
     // Branch Audit Interval stack card reads), most-recently-audited
     // first — regardless of whether its findings have been typed in yet.
-    // Remarks are sourced from getRecentFindingsRecords — the exact same
-    // flattened list the "Recently Added" capsule renders — rather than a
-    // separate read of activeData.auditFindingsDetail, so the two views
-    // can never disagree about what counts as "logged" for a given date.
-    // A finding only counts toward a branch's remarks if it falls on the
-    // same calendar day as that branch's lastAuditDate (isSameAuditDay
-    // above): a branch audited again since its last encoded finding, or
-    // one with older findings sitting in the sheet from a prior visit,
-    // must NOT show those as if they belonged to this most recent visit.
-    // No same-day finding yet → remarks: null, so the renderer shows
-    // "No remarks yet": that's the whole point of this view, surfacing
-    // branches that were just audited but not yet encoded.
-    function getRecentlyAuditedRecords(year, query) {
+    function getRecentlyAuditedRecords(query) {
       const state = window.findingsModalState;
       const branches = (state && state.allBranches) || activeData.branches || [];
       const q = (query || '').trim().toLowerCase();
-
-      // Same records "Recently Added" shows for this FY, grouped by
-      // branch, so both capsules are always reading from one list.
-      const addedRecords = getRecentFindingsRecords(year, '', null);
-      const findingsByBranch = {};
-      addedRecords.forEach(r => {
-        if (!findingsByBranch[r.branch]) findingsByBranch[r.branch] = [];
-        findingsByBranch[r.branch].push(r);
-      });
-
       return branches
         .filter(b => b.lastAuditDateRaw)
         .filter(b => !q || String(b.name || '').toLowerCase().includes(q))
         .sort((a, b) => (b.lastAuditDateRaw || 0) - (a.lastAuditDateRaw || 0))
-        .map(b => {
-          const matches = (findingsByBranch[b.name] || []).filter(r => isSameAuditDay(b.lastAuditDateRaw, r.date));
-          const remarks = matches.length
-            ? matches.map(r => escapeFindingHTML(r.finding)).join('; ')
-            : null;
-          return {
-            name: b.name,
-            auditor: b.auditor || 'Unassigned',
-            lastAuditDate: b.lastAuditDate || '—',
-            remarks
-          };
-        });
+        .map(b => ({
+          name: b.name,
+          auditor: b.auditor || 'Unassigned',
+          lastAuditDate: b.lastAuditDate || '—'
+        }));
     }
 
     // Renders the flat "Recently Audited" list (Date Audited / Branch /
-    // Auditor / Remarks, most-recently-audited first) in place of the
-    // usual per-branch breakdown table. A branch whose findings haven't
-    // been encoded into the sheet yet shows "No remarks yet" in Remarks
-    // (styled muted/italic) instead of a blank cell, so it's immediately
-    // obvious which recently-audited branches still need their findings
-    // typed in. Mirrors renderRecentFindingsList's scroll/sticky-header
-    // styling so switching capsules doesn't visually jar.
+    // Auditor, most-recently-audited first) in place of the usual
+    // per-branch breakdown table. Mirrors renderRecentFindingsList's
+    // scroll/sticky-header styling so switching capsules doesn't visually jar.
     function renderRecentlyAuditedList(container, filterValue) {
-      const year = Number(String(filterValue).replace('findings', '')) || new Date().getFullYear();
       const query = window.findingsModalSearch || '';
-      const records = getRecentlyAuditedRecords(year, query);
+      const records = getRecentlyAuditedRecords(query);
 
       const countLabel = document.getElementById('findingsCountLabel');
       if (countLabel) countLabel.textContent = `Showing ${records.length} recently audited branch${records.length === 1 ? '' : 'es'}`;
@@ -11908,18 +11857,16 @@ html.page-fade-ready body {
           <td class="p-2 text-[11px] font-semibold text-slate-500 tabular-nums whitespace-nowrap align-top">${escapeFindingHTML(r.lastAuditDate)}</td>
           <td class="p-2 text-[11px] font-semibold text-slate-700 whitespace-nowrap align-top">${escapeFindingHTML(r.name)}</td>
           <td class="p-2 text-[11px] text-slate-500 whitespace-nowrap align-top">${escapeFindingHTML(r.auditor)}</td>
-          <td class="p-2 text-xs align-top ${r.remarks ? 'text-slate-800' : 'text-slate-400 italic'}">${r.remarks || 'No remarks yet'}</td>
         </tr>`).join('');
 
       container.innerHTML = `
       <div class="rounded-xl border border-coolBorder h-[500px] max-h-[60vh] overflow-auto custom-scrollbar">
-          <table class="w-full min-w-[640px] text-left border-collapse bg-white relative">
+          <table class="w-full min-w-[560px] text-left border-collapse bg-white relative">
             <thead class="bg-gray-50 border-b border-coolBorder text-xs text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-10 shadow-sm">
               <tr>
                 <th class="p-2 bg-gray-50 whitespace-nowrap w-32">Date Audited</th>
                 <th class="p-2 bg-gray-50 whitespace-nowrap min-w-[140px]">Branch</th>
                 <th class="p-2 bg-gray-50 whitespace-nowrap">Auditor</th>
-                <th class="p-2 bg-gray-50">Remarks</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-coolBorder text-sm">${rows}</tbody>
