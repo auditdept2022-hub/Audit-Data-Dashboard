@@ -7802,29 +7802,12 @@ html.page-fade-ready body {
     // clickable (not just the label text) and opens the same in-app
     // Audit Findings popup used by the dashboard's stat cards, instead of
     // navigating away to an external spreadsheet.
-    function openAuditFindingsFromMenu() {
-      openModal('Audit Findings — All Branches (FY2026)', 'findings', 'findings2026');
-      if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
-    }
 
     // Fired from the shortcuts menu's "Jump to" items — smooth-scrolls to a
     // section on the dashboard (offset for the sticky header) instead of
     // linking out anywhere, then closes the menu.
-    function scrollToSection(sectionId) {
-      const el = document.getElementById(sectionId);
-      if (el) {
-        const headerOffset = 96;
-        const top = el.getBoundingClientRect().top + window.pageYOffset - headerOffset;
-        window.scrollTo({ top: top, behavior: 'smooth' });
-      }
-      if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
-    }
 
     // Fired from the shortcuts menu's "Update Data" item.
-    function updateDataFromMenu() {
-      fetchSheet().catch(function(e) { console.warn('Update data failed:', e); });
-      if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
-    }
 
     // Fired from the shortcuts menu's "Update Sheet" item. Tells the Apps
     // Script backend (action=updateOverallData) to pull this run's newest
@@ -7948,10 +7931,6 @@ html.page-fade-ready body {
     }
 
     // Fired from the shortcuts menu's "Emergency Auditor" item.
-    function openEmergencyAuditorFromMenu() {
-      openModal('Emergency Auditor Status', 'emergency', null);
-      if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
-    }
 
     function toggleModalFullscreen() {
       const dialog = document.getElementById('modalDialog');
@@ -8805,13 +8784,6 @@ html.page-fade-ready body {
     // this is purely a space-saving label. Falls back to a plain
     // toLocaleString() for small numbers so short values aren't
     // needlessly abbreviated (e.g. "₱850" stays "₱850", not "₱0.9K").
-    function formatCompactPeso(n) {
-      const sign = n < 0 ? '-' : '';
-      const abs = Math.abs(n);
-      if (abs >= 1000000) return sign + (abs / 1000000).toFixed(abs % 1000000 === 0 ? 0 : 1) + 'M';
-      if (abs >= 10000) return sign + (abs / 1000).toFixed(abs % 1000 === 0 ? 0 : 1) + 'K';
-      return sign + abs.toLocaleString();
-    }
 
     // One month, one small card (label on top, headline value, optional
     // target/diff subtitle) — sized to sit three-in-a-row, kept narrow
@@ -10465,16 +10437,6 @@ html.page-fade-ready body {
     // single combined Top 5 Performers list (see buildTopPerformersList
     // calls above). Left here in case a per-status breakdown is wanted
     // again later.
-    function buildCategoryTopPerformersLists(list, statusField, statuses, sortFn, displayFn, accentColors, activeStatus) {
-      const buckets = (activeStatus && activeStatus !== 'ALL') ? [activeStatus] : statuses;
-      return buckets.map(status => {
-        const top5 = list
-          .filter(b => b[statusField] === status)
-          .sort((a, b) => sortFn(b) - sortFn(a))
-          .slice(0, 5);
-        return buildTopPerformersList(top5, displayFn, accentColors[status] || 'accentIndigo', status);
-      }).join('');
-    }
 
     // Shared capsule (pill) stat used by every popup's top summary row
     // (Sales/Collection/Service/All Branches overviews). One line —
@@ -11782,12 +11744,6 @@ html.page-fade-ready body {
       }
     };
 
-    async function sendStagedFindingEntry(id, btnEl) {
-      const store = loadFindingsEditorStore();
-      const row = store.staged.find(r => r.id === id);
-      if (!row) return;
-      openFindingsSendConfirm({ type: 'row', id: id, btnEl: btnEl });
-    }
 
     async function sendAllStagedFindingsToSheet() {
       // If there's a branch/category/remarks typed into the form that was
@@ -12852,34 +12808,7 @@ html.page-fade-ready body {
       return lines.join('\n');
     }
 
-    function copyStagedFindingsCSV() {
-      const store = loadFindingsEditorStore();
-      if (store.staged.length === 0) { showToast('No staged entries to copy yet.'); return; }
-      const csv = stagedFindingsToCSV();
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(csv).then(
-          () => showToast('Copied ' + store.staged.length + ' row(s) as CSV.'),
-          () => showToast("Couldn't copy — your browser blocked clipboard access.")
-        );
-      } else {
-        showToast("Clipboard isn't available in this browser.");
-      }
-    }
 
-    function exportStagedFindingsJSON() {
-      const store = loadFindingsEditorStore();
-      if (store.staged.length === 0) { showToast('No staged entries to export yet.'); return; }
-      const blob = new Blob([JSON.stringify(store.staged, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'audit-findings-staged.json';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      showToast('Exported ' + store.staged.length + ' row(s) as JSON.');
-    }
 
     function renderInlineFindingsPanel(index, branchName, year) {
         const body = document.getElementById(`findingsPanelBody-${index}`);
