@@ -250,8 +250,8 @@
   }
   /* Fullscreen toggle for the main data popup: breaks the dialog out of
      its centred/padded wrapper to fill the viewport edge-to-edge. Uses
-     !important because it has to win over the inline max-w-5xl /
-     max-h-[85vh] / rounded-2xl utility classes already on the element. */
+     !important because it has to win over the inline w-[90vw] /
+     max-h-[90vh] / rounded-2xl utility classes already on the element. */
   #modalDialog.modal-fullscreen {
     position: fixed !important;
     inset: 0 !important;
@@ -351,12 +351,16 @@
        card with real gutters between them, rather than a dense hairline
        list — reads more like a deck of records than a spreadsheet. */
     .mv-scroll { padding: 12px; }
-    .mv-grid { background: transparent; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; align-content: start; }
+    .mv-grid { background: transparent; display: grid; grid-template-columns: repeat(auto-fill, minmax(255px, 1fr)); gap: 10px; align-content: start; }
     .mv-item { display: block; width: 100%; text-align: left; border: 1px solid #e7e9f2; border-radius: 11px; background: #fff; padding: 11px 13px; cursor: pointer; box-shadow: 0 1px 2px rgba(15,23,42,.04); transition: box-shadow .15s ease, transform .15s ease, border-color .15s ease; }
     .mv-item:hover { border-color: #d7d3fb; box-shadow: 0 6px 16px rgba(91,61,240,.12); transform: translateY(-1px); }
     .mv-item:focus-visible { outline: 2px solid #5b3df0; outline-offset: 2px; }
     .mv-item-name { display: block; font-size: 12.5px; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .mv-item-meta { display: block; font-size: 11px; color: #94a3b8; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Date ranges ("Old: ... -> Latest: ...") were forced onto a single
+       nowrap line with an ellipsis, which cut most of the date off on
+       anything but a very wide card. Let it wrap onto 2 lines instead so
+       the full date is actually readable. */
+    .mv-item-meta { display: block; font-size: 11px; color: #94a3b8; margin-top: 3px; white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.45; word-break: break-word; }
     .mv-empty { padding: 22px 14px; text-align: center; font-size: 12.5px; color: #94a3b8; }
 
     .mv-chip { display: inline-block; vertical-align: 1px; margin-left: 5px; padding: 1px 6px; border-radius: 999px; font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
@@ -4815,7 +4819,7 @@ html.page-fade-ready body {
   <div id="branchFilterPanel" class="hidden fixed inset-0 z-50">
     <div class="absolute inset-0 bg-slate-900/65"></div>
     <div class="absolute inset-0 flex items-center justify-center overflow-y-auto p-3 sm:p-4">
-      <div id="branchFilterModalBox" class="bg-white w-[85vw] max-h-[85vh] my-auto rounded-2xl shadow-2xl flex flex-col border border-coolBorder overflow-hidden" onclick="event.stopPropagation()">
+      <div id="branchFilterModalBox" class="bg-white w-[90vw] max-h-[90vh] my-auto rounded-2xl shadow-2xl flex flex-col border border-coolBorder overflow-hidden" onclick="event.stopPropagation()">
         <div class="p-4 border-b border-coolBorder shrink-0">
           <div class="flex items-center justify-between mb-1.5">
             <span class="text-sm text-slate-700">Select Branches</span>
@@ -4844,7 +4848,7 @@ html.page-fade-ready body {
   <div id="dataModal" class="fixed inset-0 z-50 transition-opacity duration-300 opacity-0 hidden">
     <div class="absolute inset-0 bg-slate-900/65"></div>
     <div class="absolute inset-0 flex items-start sm:items-center justify-center overflow-y-auto p-3 sm:p-4">
-      <div class="bg-coolCard w-[85vw] h-[80vh] h-[80dvh] my-auto rounded-2xl shadow-2xl flex flex-col transform transition-transform duration-300 border border-coolBorder scale-95" id="modalDialog" onclick="event.stopPropagation()">
+      <div class="bg-coolCard w-[90vw] h-[90vh] h-[90dvh] my-auto rounded-2xl shadow-2xl flex flex-col transform transition-transform duration-300 border border-coolBorder scale-95" id="modalDialog" onclick="event.stopPropagation()">
         <div class="modal-header-bar px-3 sm:px-4 py-2 sm:py-2.5 flex flex-wrap justify-between items-center gap-x-3 gap-y-1.5 rounded-t-2xl">
           <div class="flex items-center gap-2 min-w-0 w-full sm:w-auto sm:flex-1">
             <button id="modalBackBtn" onclick="modalGoBack()" title="Back" aria-label="Back to previous view" class="hidden p-2 -ml-1 modal-header-icon-btn active:scale-95 rounded-xl transition-all cursor-pointer flex-shrink-0">
@@ -4900,7 +4904,7 @@ html.page-fade-ready body {
   <div id="findingsEditorModal" class="fixed inset-0 z-[65] hidden">
     <div class="absolute inset-0 bg-slate-900/70"></div>
     <div class="absolute inset-0 flex items-start sm:items-center justify-center overflow-y-auto p-3 sm:p-4">
-      <div id="findingsEditorDialog" class="bg-coolCard w-[90vw] sm:w-[32rem] max-h-[85vh] my-auto rounded-2xl shadow-2xl flex flex-col border border-coolBorder" onclick="event.stopPropagation()">
+      <div id="findingsEditorDialog" class="bg-coolCard w-[90vw] sm:w-[32rem] max-h-[90vh] my-auto rounded-2xl shadow-2xl flex flex-col border border-coolBorder" onclick="event.stopPropagation()">
         <div class="modal-header-bar px-4 py-2.5 flex justify-between items-center rounded-t-2xl shrink-0">
           <h2 class="text-sm sm:text-base font-bold text-white truncate">Add Audit Finding</h2>
           <button onclick="closeAddFindingModal()" title="Close" aria-label="Close" class="p-2 modal-header-icon-btn modal-header-icon-btn-close active:scale-95 rounded-xl transition-all cursor-pointer">
@@ -4988,7 +4992,7 @@ html.page-fade-ready body {
   <div id="exportPickerModal" class="fixed inset-0 z-[60] hidden">
     <div class="absolute inset-0 bg-slate-900/65"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
-      <div class="bg-coolCard w-[85vw] rounded-2xl shadow-2xl p-5 pointer-events-auto border border-coolBorder max-h-[85vh] flex flex-col">
+      <div class="bg-coolCard w-[90vw] rounded-2xl shadow-2xl p-5 pointer-events-auto border border-coolBorder max-h-[90vh] flex flex-col">
         <div class="flex items-start justify-between gap-3 mb-1">
           <h3 class="text-sm font-bold text-slate-800" id="exportPickerTitle">Download Report</h3>
           <button onclick="closeExportPicker()" title="Close" aria-label="Close" class="p-2 -mr-2 -mt-1 text-slate-400 hover:text-accentRose hover:bg-accentRose/10 active:scale-95 rounded-xl transition-all cursor-pointer flex-shrink-0">
@@ -5609,6 +5613,7 @@ html.page-fade-ready body {
         <div class="mt-4">
           <h3 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900" id="stat-total-branches">—</h3>
           <p class="text-xs text-slate-500 mt-1" id="stat-branches-sub">—</p>
+          <p class="text-[11px] font-semibold mt-1" id="stat-total-branches-trend"></p>
         </div>
       </div>
 
@@ -5620,6 +5625,7 @@ html.page-fade-ready body {
         <div class="mt-4">
           <h3 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-accentEmerald" id="stat-collection-improving">— <span class="text-sm font-medium text-slate-500">improving</span></h3>
           <p class="text-xs text-slate-500 mt-1 font-medium" id="stat-collection-sub">—</p>
+          <p class="text-[11px] font-semibold mt-1" id="stat-collection-trend"></p>
         </div>
       </div>
 
@@ -5631,6 +5637,7 @@ html.page-fade-ready body {
         <div class="mt-4">
           <h3 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-accentIndigo" id="stat-sales-improving">— <span class="text-sm font-medium text-slate-500">improving</span></h3>
           <p class="text-xs text-slate-500 mt-1" id="stat-sales-sub">—</p>
+          <p class="text-[11px] font-semibold mt-1" id="stat-sales-trend"></p>
         </div>
       </div>
 
@@ -5642,6 +5649,7 @@ html.page-fade-ready body {
         <div class="mt-4">
           <h3 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-accentCyan" id="stat-service-target">— <span class="text-sm font-medium text-slate-500">on target</span></h3>
           <p class="text-xs text-slate-500 mt-1" id="stat-service-sub">—</p>
+          <p class="text-[11px] font-semibold mt-1" id="stat-service-trend"></p>
         </div>
       </div>
     </div>
@@ -5667,6 +5675,7 @@ html.page-fade-ready body {
           </div>
         </div>
         <p class="text-xs text-accentRose mt-3 text-center" id="stat-findings-2025-sub"></p>
+        <p class="text-[11px] font-semibold mt-1 text-center" id="stat-findings2026-trend"></p>
       </div>
 
       <div onclick="openAuditQueueModal()" class="bg-coolCard border border-coolBorder rounded-2xl p-3.5 sm:p-4 hover:border-accentAmber/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
@@ -13183,18 +13192,58 @@ html.page-fade-ready body {
       requestAnimationFrame(tick);
     }
 
+    // Session-over-session trend badges for the overview KPI cards. There's
+    // no historical snapshot of these particular counts on the backend (only
+    // Accounts/Repo carry a real previous-month figure — see their own
+    // trend logic further down), so this compares against the value this
+    // same browser last saw, i.e. "since your last check of this dashboard"
+    // rather than "vs last month". Still genuinely useful: it turns a bare
+    // count into a direction, which is the #1 thing a KPI strip is missing.
+    // goodDirection: 'up' (more is good), 'down' (more is bad), or
+    // 'neutral' (informational only, e.g. branch count — added branches
+    // isn't inherently good or bad, so it's never colored red/green).
+    const STAT_SNAPSHOT_KEY = 'auditDashboard_v1_statSnapshot';
+    function renderTrendBadge(elId, current, previous, goodDirection) {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      if (previous === undefined || previous === null || !Number.isFinite(previous)) {
+        el.innerHTML = ''; // nothing to compare against yet (first load this browser has seen)
+        return;
+      }
+      const diff = current - previous;
+      if (diff === 0) {
+        el.innerHTML = ''; // nothing changed since last check -- show nothing instead of a "no change" badge
+        return;
+      }
+      let color = 'text-slate-400';
+      if (goodDirection !== 'neutral') {
+        const isGood = goodDirection === 'down' ? diff < 0 : diff > 0;
+        color = isGood ? 'text-accentEmerald' : 'text-accentRose';
+      }
+      const icon = diff > 0 ? '\u25b2' : '\u25bc';
+      const diffLabel = diff > 0 ? `+${diff}` : `\u2212${Math.abs(diff)}`;
+      el.innerHTML = `<span class="${color}">${icon} ${diffLabel}</span> <span class="text-slate-400 font-normal">since last check</span>`;
+    }
+
     function updateStatCards() {
       const sum = activeData.summary;
-      
+
+      let prevSnapshot = {};
+      try { prevSnapshot = JSON.parse(localStorage.getItem(STAT_SNAPSHOT_KEY) || '{}') || {}; } catch (e) { prevSnapshot = {}; }
+
       animateCountUp(document.getElementById('stat-total-branches'), sum.totalBranches || 0);
       document.getElementById('stat-branches-sub').innerText = `${sum.doneCount || 0} done · ${sum.forAuditCount || 0} for audit · ${sum.pendingCount || 0} pending`;
+      renderTrendBadge('stat-total-branches-trend', sum.totalBranches || 0, prevSnapshot.totalBranches, 'neutral');
       
       animateCountUp(document.getElementById('stat-collection-improving'), sum.improvingCollection || 0, { suffixHTML: ' <span class="text-sm font-medium text-slate-500">improving</span>' });
       document.getElementById('stat-collection-sub').innerText = `${sum.decliningCollection || 0} declining · ${sum.stableCollection || 0} stable · ${sum.recoveringCollection || 0} recovering`;
+      renderTrendBadge('stat-collection-trend', sum.improvingCollection || 0, prevSnapshot.improvingCollection, 'up');
       animateCountUp(document.getElementById('stat-sales-improving'), sum.salesImproving || 0, { suffixHTML: ' <span class="text-sm font-medium text-slate-500">improving</span>' });
       document.getElementById('stat-sales-sub').innerText = `${sum.salesDeclining || 0} declining · ${sum.salesStable || 0} stable`;
+      renderTrendBadge('stat-sales-trend', sum.salesImproving || 0, prevSnapshot.salesImproving, 'up');
       animateCountUp(document.getElementById('stat-service-target'), sum.serviceTarget || 0, { suffixHTML: ' <span class="text-sm font-medium text-slate-500">on target</span>' });
       document.getElementById('stat-service-sub').innerText = `${sum.serviceDeclining || 0} declining`;
+      renderTrendBadge('stat-service-trend', sum.serviceTarget || 0, prevSnapshot.serviceTarget, 'up');
       
       const pctChange = sum.findings2024 > 0 ? Math.round(((sum.findings2025 - sum.findings2024) / sum.findings2024) * 100) : 0;
       
@@ -13203,6 +13252,21 @@ html.page-fade-ready body {
       document.getElementById('stat-findings-2025-sub').innerText = pctChange >= 0 ? `+${pctChange}% vs 2024` : `${pctChange}% vs 2024`;
       
       animateCountUp(document.getElementById('stat-findings-2026'), sum.findings2026 || 0);
+      renderTrendBadge('stat-findings2026-trend', sum.findings2026 || 0, prevSnapshot.findings2026, 'down');
+
+      // Persist this run's figures as "previous" for the next time this
+      // browser loads the dashboard. Best-effort: private/incognito modes
+      // or a full storage quota just mean no trend badge next time, never
+      // a broken dashboard.
+      try {
+        localStorage.setItem(STAT_SNAPSHOT_KEY, JSON.stringify({
+          totalBranches: sum.totalBranches || 0,
+          improvingCollection: sum.improvingCollection || 0,
+          salesImproving: sum.salesImproving || 0,
+          serviceTarget: sum.serviceTarget || 0,
+          findings2026: sum.findings2026 || 0
+        }));
+      } catch (e) { /* non-fatal */ }
       // NOTE: sum.totalAccounts is a comma-formatted STRING (see
       // totalAccounts: totalAccountsLatestRaw.toLocaleString() above) —
       // animateCountUp does Number(target), and Number("12,924") is NaN,
@@ -13288,7 +13352,7 @@ html.page-fade-ready body {
               ? recent.map(b => `
                   <div class="flex items-center justify-between gap-2 text-[10px] leading-tight">
                       <span class="font-medium text-slate-600 truncate">${b.name}</span>
-                      <span class="text-slate-400 whitespace-nowrap truncate max-w-[45%]">${b.lastAuditDate || '—'}</span>
+                      <span class="text-slate-600 font-semibold whitespace-nowrap truncate max-w-[45%]">${b.lastAuditDate || '—'}</span>
                   </div>`).join('')
               : '<p class="text-xs text-slate-500">No completed audits on record</p>';
       }
@@ -13408,9 +13472,21 @@ html.page-fade-ready body {
       };
     }
 
+    // Shared empty-state for the three "Top 10" ranking charts below —
+    // previously these just `return`ed with no message, leaving a blank
+    // box with no explanation of why nothing rendered.
+    function renderChartEmptyState(selector, message) {
+      const el = document.querySelector(selector);
+      if (!el) return;
+      if (charts.lowestEff && selector === '#lowestEfficiencyChart') { charts.lowestEff.destroy(); charts.lowestEff = null; }
+      if (charts.highestRepo && selector === '#highestRepoChart') { charts.highestRepo.destroy(); charts.highestRepo = null; }
+      if (charts.highestNoRepo && selector === '#highestNoRepoChart') { charts.highestNoRepo.destroy(); charts.highestNoRepo = null; }
+      el.innerHTML = `<div class="flex items-center justify-center h-full min-h-[300px] text-xs font-semibold text-slate-400 text-center px-4">${message}</div>`;
+    }
+
     function renderLowestEfficiencyChart() {
       const items = activeData.lowestEfficiency;
-      if (!items || items.length === 0) return;
+      if (!items || items.length === 0) { renderChartEmptyState('#lowestEfficiencyChart', 'No efficiency data available for this month yet.'); return; }
       const options = {
         chart: { 
           type: 'bar', height: 365, background: 'transparent', toolbar: { show: false }, fontFamily: CHART_FONT,
@@ -13438,7 +13514,7 @@ html.page-fade-ready body {
 
     function renderHighestRepoChart() {
       const items = activeData.highestRepo;
-      if (!items || items.length === 0) return;
+      if (!items || items.length === 0) { renderChartEmptyState('#highestRepoChart', 'No repossession-rate data available for this month yet.'); return; }
       const maxRepoRate = Math.max(...items.map(x => x.rate));
       const options = {
         chart: { 
@@ -13467,7 +13543,7 @@ html.page-fade-ready body {
 
     function renderHighestNoRepoChart() {
       const items = activeData.highestNoRepo;
-      if (!items || items.length === 0) return;
+      if (!items || items.length === 0) { renderChartEmptyState('#highestNoRepoChart', 'No repossession data available for this month yet.'); return; }
       const options = {
         chart: { 
           type: 'bar', height: 365, background: 'transparent', toolbar: { show: false }, fontFamily: CHART_FONT,
@@ -13541,23 +13617,45 @@ html.page-fade-ready body {
 
       const workloadContainer = document.getElementById('auditor-workload-list');
       workloadContainer.innerHTML = '';
+
+      // Denominator is the combined total across every auditor listed here
+      // (e.g. Karl 22 + Edison 22 + Laurence 23 + Genesis 15 = 82), so each
+      // auditor's percentage is their own count divided by that shared
+      // total -- the percentages add up to 100% and each one accurately
+      // reflects that auditor's true slice of the whole workload.
       const totalWork = activeData.auditors.reduce((acc, curr) => acc + curr.count, 0);
-      
-      activeData.auditors.forEach(auditor => {
+
+      if (!activeData.auditors.length || totalWork === 0) {
+        workloadContainer.innerHTML = '<p class="text-xs text-slate-400 italic p-1">No active engagements recorded.</p>';
+      }
+
+      // Flags a genuine workload imbalance rather than just listing counts:
+      // an auditor carrying an outsized share of all active engagements is
+      // exactly the kind of thing an "Operations Highpoints" card should
+      // surface at a glance, not something someone has to notice by
+      // comparing bar lengths themselves. Threshold (40% of total work,
+      // and at least 2 auditors sharing the load) is deliberately
+      // conservative so it only fires when it's a real signal.
+      const busiestShare = totalWork > 0 ? Math.round((activeData.auditors[0].count / totalWork) * 100) : 0;
+      const flagOverload = activeData.auditors.length > 1 && busiestShare >= 40;
+
+      activeData.auditors.forEach((auditor, idx) => {
         const percentage = totalWork === 0 ? 0 : Math.round((auditor.count / totalWork) * 100);
+        const isOverloaded = flagOverload && idx === 0;
         const bar = document.createElement('div');
         bar.className = "space-y-1 cursor-pointer active:scale-95 transition-all p-1 -m-1 rounded-lg hover:bg-accentIndigo/5 border border-transparent hover:border-accentIndigo/10";
         bar.setAttribute('onclick', `openModal('Auditor Workload: ${auditor.name}', 'auditor', '${auditor.name}')`);
         bar.innerHTML = `
           <div class="flex items-center justify-between text-xs font-semibold pointer-events-none">
             <span class="text-slate-700 flex items-center gap-1.5">
-              <span class="w-1.5 h-1.5 rounded-full bg-accentIndigo"></span>
+              <span class="w-1.5 h-1.5 rounded-full ${isOverloaded ? 'bg-accentAmber' : 'bg-accentIndigo'}"></span>
               ${auditor.name}
+              ${isOverloaded ? '<span class="text-[9px] font-bold px-1.5 py-0.5 bg-accentAmber/10 text-accentAmber rounded-full uppercase tracking-wide">Heaviest load</span>' : ''}
             </span>
-            <span class="text-slate-500">${auditor.count} engagements (${percentage}%)</span>
+            <span class="text-slate-500" title="${auditor.count} of ${totalWork} total branches across all auditors">${auditor.count} engagements (${percentage}%)</span>
           </div>
           <div class="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden border border-coolBorder pointer-events-none">
-            <div class="bg-gradient-to-r from-accentIndigo to-accentBlue h-full rounded-full transition-all duration-1000" style="width: ${percentage}%"></div>
+            <div class="${isOverloaded ? 'bg-gradient-to-r from-accentAmber to-accentAmber' : 'bg-gradient-to-r from-accentIndigo to-accentBlue'} h-full rounded-full transition-all duration-1000" style="width: ${percentage}%"></div>
           </div>
         `;
         workloadContainer.appendChild(bar);
@@ -14051,6 +14149,19 @@ html.page-fade-ready body {
             let noOfRepoAprParsed = parseInt(row[6]) || 0;   // Column G
             let noOfRepoLatestParsed = parseInt(row[7]) || 0; // Column H
 
+            // Efficiency (Columns L/M/N) is percentage-formatted in Sheets the
+            // same way Repo Rate (Columns I/J/K) is -- stored internally as a
+            // raw fraction (e.g. 0.87 for a cell showing "87%"), not a whole
+            // number. Reading it with plain parseInt() truncated any value
+            // under 1 straight down to 0, which is why Efficiency read as 0%
+            // (or otherwise understated) for branches where the cell held a
+            // fraction. Reuse parseRepoPct()'s ×100-if-under-1 normalization,
+            // then round to a whole number since Efficiency is always shown
+            // and compared (effAccent, sort, etc.) as an integer percentage.
+            let effMarParsed = Math.round(parseRepoPct(row[11]));   // Column L
+            let effAprParsed = Math.round(parseRepoPct(row[12]));   // Column M
+            let effLatestParsed = Math.round(parseRepoPct(row[13])); // Column N
+
             tempBranchesMap[branchName] = {
               name: branchName,
               accountsMar: parseInt(row[2]) || 0,
@@ -14064,9 +14175,9 @@ html.page-fade-ready body {
               noOfRepoMar: noOfRepoMarParsed,
               noOfRepoApr: noOfRepoAprParsed,
               noOfRepoLatest: noOfRepoLatestParsed,
-              effMar: parseInt(row[11]) || 0,
-              effApr: parseInt(row[12]) || 0,
-              effLatest: parseInt(row[13]) || 0, 
+              effMar: effMarParsed,
+              effApr: effAprParsed,
+              effLatest: effLatestParsed, 
               collection: finalColStat,
               sales: finalSaleStat,
               serviceTarget: parseInt(row[28]) || 0,
@@ -14950,7 +15061,7 @@ html.page-fade-ready body {
        appears next time this modal is opened (or Refresh is tapped). */
     window.overallDataPayload = null;
     window.overallDataPayloadFetchedAt = 0;
-    window.overallDataState = { tab: 'collection', search: '', statusFilter: null, sortCol: null, sortDir: 'asc' };
+    window.overallDataState = { tab: 'collection', search: '', statusFilter: null, sortCol: null, sortDir: 'asc', chartMetric: null };
     // SPEED FIX: this used to be 20000 (20s), so almost every single tap
     // of the "Overall Data Snapshot" card triggered a fresh Apps
     // Script call (JSONP round trip + possible cold start = several
@@ -15084,6 +15195,7 @@ html.page-fade-ready body {
       window.overallDataState.statusFilter = null; // categories differ per tab, so a filter doesn't carry over
       window.overallDataState.sortCol = null; // columns differ per tab too
       window.overallDataState.sortDir = 'asc';
+      window.overallDataState.chartMetric = null; // metric choices differ per tab too — reset to that tab's default
       const modalBody = document.getElementById('modalBody');
       if (modalBody) {
         renderOverallDataBody(modalBody);
@@ -15105,6 +15217,15 @@ html.page-fade-ready body {
       const container = document.getElementById('overallDataTableContainer');
       if (container) container.innerHTML = buildOverallDataTable();
       nudgeScrollRepaint(document.getElementById('overallDataScrollBox'));
+      renderOverallDataChart();
+    }
+
+    // Which sub-metric the trend chart plots for the Collection/Sales tabs
+    // (Service has only one value per month, so it never shows this
+    // selector — see buildOverallDataChartControls()).
+    function setOverallDataChartMetric(label) {
+      window.overallDataState.chartMetric = label || null;
+      renderOverallDataChart();
     }
 
     // Sortable column headers. colKey is 'name' for the Branch column, or
@@ -15134,6 +15255,7 @@ html.page-fade-ready body {
         const container = document.getElementById('overallDataTableContainer');
         if (container) container.innerHTML = buildOverallDataTable();
         nudgeScrollRepaint(document.getElementById('overallDataScrollBox'));
+        renderOverallDataChart();
       }, 180);
     }
 
@@ -15201,25 +15323,193 @@ html.page-fade-ready body {
       }).join('');
 
       modalBody.innerHTML = `
-        <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+        <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
           <div class="flex items-center gap-2">${tabsHtml}</div>
-          <button type="button" onclick="refreshOverallData()" title="Refresh Overall Data" class="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-lg text-[11px] font-bold text-slate-600 active:scale-95 transition-all">
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>
-            Refresh
-          </button>
-        </div>
-        ${buildOverallDataStatusFilter(state.tab)}
-        <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
-          <div class="relative flex-1 min-w-[180px]">
-            <span class="absolute inset-y-0 left-0 flex items-center pl-2.5">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-slate-400"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
-            </span>
-            <input type="text" placeholder="Search branch..." value="${escapeFindingHTML(state.search || '')}" oninput="setOverallDataSearch(this.value)" class="w-full pl-8 pr-3 py-1.5 bg-white border border-coolBorder rounded-lg text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all">
+          <div class="flex items-center gap-2">
+            <span class="text-[11px] font-semibold text-slate-400 whitespace-nowrap">${(data && data.totalBranches) || 0} branches tracked \u00b7 ${months.length} month(s) shown</span>
+            <button type="button" onclick="refreshOverallData()" title="Refresh Overall Data" class="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-lg text-[11px] font-bold text-slate-600 active:scale-95 transition-all">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>
+              Refresh
+            </button>
           </div>
-          <span class="text-[11px] font-semibold text-slate-400 whitespace-nowrap sm:ml-auto">${(data && data.totalBranches) || 0} branches tracked \u00b7 ${months.length} month(s) shown</span>
+        </div>
+        <div class="bg-white border border-coolBorder rounded-xl p-2.5 mb-2">
+          <div class="flex items-center justify-between gap-2 mb-1 flex-wrap">
+            <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Trend \u00b7 ${months.length ? months.join(' \u2192 ') : '\u2014'}</span>
+            <div id="overallDataChartControls"></div>
+          </div>
+          <div id="overallDataChartBox" style="min-height: 240px;"></div>
         </div>
         <div id="overallDataTableContainer">${buildOverallDataTable()}</div>
       `;
+      renderOverallDataChart();
+    }
+
+    // Shared by both the table and the trend chart so the two views of
+    // "Overall Data" (rows vs. aggregate) never disagree about which
+    // branches are currently in scope — same search text + same status
+    // filter, sourced the same way buildOverallDataTable() does it.
+    function getFilteredOverallBranches() {
+      const data = window.overallDataPayload;
+      const state = window.overallDataState;
+      if (!data || !data.branches) return [];
+      const query = (state.search || '').trim().toLowerCase();
+      let branches = data.branches;
+      if (query) branches = branches.filter(function (b) { return String(b.name || '').toLowerCase().includes(query); });
+      if (state.statusFilter) {
+        const mainBranches = (typeof activeData !== 'undefined' && activeData.branches) ? activeData.branches : [];
+        const matchNames = new Set(
+          mainBranches.filter(function (b) { return b[state.tab] === state.statusFilter; }).map(function (b) { return b.name; })
+        );
+        branches = branches.filter(function (b) { return matchNames.has(b.name); });
+      }
+      return branches;
+    }
+
+    // The metric-picker dropdown that sits above the trend chart. Only
+    // Collection and Sales need it (each month there breaks down into
+    // several sub-columns, e.g. Collection's "Repo Rate" / "No. of Repo",
+    // or Sales' INS/COD/CA) — Service is a single peso figure per month,
+    // so there's nothing to pick.
+    function buildOverallDataChartControls() {
+      const data = window.overallDataPayload;
+      const state = window.overallDataState;
+      if (!data) return '';
+      let options = [];
+      if (state.tab === 'collection') options = data.collectionMetrics || [];
+      else if (state.tab === 'sales') options = data.salesSubLabels || [];
+      if (!options.length) return '';
+      const current = state.chartMetric || options[0];
+      const selectOptions = options.map(function (label) {
+        return `<option value="${escapeFindingHTML(label)}" ${label === current ? 'selected' : ''}>${escapeFindingHTML(label)}</option>`;
+      }).join('');
+      return `<select onchange="setOverallDataChartMetric(this.value)" class="px-2 py-1 bg-gray-50 border border-coolBorder rounded-md text-[11px] font-semibold text-slate-600 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">${selectOptions}</select>`;
+    }
+
+    // Aggregate trend chart for the "Overall Data" modal: sums the active
+    // tab's metric across every currently-filtered branch, one point per
+    // month, so a reviewer can see the overall direction (up/down) at a
+    // glance instead of scanning every row of the table below it. Uses
+    // the same ApexCharts instance already loaded for the ranking charts
+    // elsewhere on the dashboard, styled to match (CHART_FONT, colors).
+    function renderOverallDataChart() {
+      const controlsEl = document.getElementById('overallDataChartControls');
+      if (controlsEl) controlsEl.innerHTML = buildOverallDataChartControls();
+
+      const el = document.querySelector('#overallDataChartBox');
+      if (!el) return; // modal isn't open / this body isn't mounted
+
+      const data = window.overallDataPayload;
+      const state = window.overallDataState;
+      const months = (data && data.months) || [];
+      const branches = getFilteredOverallBranches();
+
+      if (charts.overallData) { try { charts.overallData.destroy(); } catch (e) {} charts.overallData = null; }
+
+      if (!data || !months.length || !branches.length) {
+        el.innerHTML = `<div class="flex items-center justify-center h-full min-h-[180px] text-xs font-semibold text-slate-400">No data to chart for the current filter.</div>`;
+        return;
+      }
+
+      const tabColor = state.tab === 'collection' ? '#10b981' : (state.tab === 'sales' ? '#4f46e5' : '#0891b2');
+      const isService = state.tab === 'service';
+      const metric = state.chartMetric || (isService ? null
+        : (state.tab === 'collection' ? (data.collectionMetrics || [])[0] : (data.salesSubLabels || [])[0]));
+      // Percentage-style metrics — Repo Rate and Efficiency (Rate) — are
+      // both stored as raw fractions (e.g. 0.78 for "78%"), same as the
+      // table's fmt() below. Matching either one here means the Efficiency
+      // trend line now gets averaged (not summed) and rendered as "%" on
+      // the axis/tooltip/label, the same way Repo Rate already did.
+      const isRepoRate = !isService && ((/repo/i.test(metric || '') && /rate/i.test(metric || '')) || /effic/i.test(metric || ''));
+
+      const values = months.map(function (m) {
+        let total = 0;
+        branches.forEach(function (b) {
+          let raw;
+          if (isService) raw = b.service ? b.service[m] : null;
+          else {
+            const bucket = state.tab === 'collection' ? b.collection : b.sales;
+            const rec = (bucket && bucket[m]) || {};
+            raw = rec[metric];
+          }
+          const n = Number(raw);
+          if (!isNaN(n)) total += n;
+        });
+        // Repo Rate is stored as a fraction (see fmt() in buildOverallDataTable)
+        // and reads as a meaningless huge number if summed as raw fractions
+        // across many branches — average it instead of summing, same as the
+        // table treats each branch's own rate as already a percentage.
+        if (isRepoRate) {
+          const withValue = branches.filter(function (b) {
+            const rec = (b.collection && b.collection[m]) || {};
+            return rec[metric] !== null && rec[metric] !== undefined && rec[metric] !== '';
+          }).length;
+          const avg = withValue ? total / withValue : 0;
+          return Math.round((Math.abs(avg) < 1 ? avg * 100 : avg) * 100) / 100;
+        }
+        return Math.round(total * 100) / 100;
+      });
+
+      const seriesName = isService ? 'Service (\u20b1 total)' : (isRepoRate ? `${metric} (avg %)` : `${metric} (total)`);
+
+      // Lively but still boardroom-appropriate: a bit taller, a deeper
+      // two-stop gradient fill, a soft drop-shadow "glow" on the line, a
+      // gentle draw-in animation each time the tab/metric changes, and a
+      // highlighted vertical guide + bigger marker on hover so trend
+      // direction and the current data point are easy to read at a glance.
+      const glowColor = tabColor;
+      const trendUp = values.length > 1 && values[values.length - 1] >= values[0];
+
+      const options = {
+        chart: {
+          type: 'area', height: 260, background: 'transparent', toolbar: { show: false }, fontFamily: CHART_FONT,
+          animations: { enabled: true, easing: 'easeinout', speed: 550, animateGradually: { enabled: true, delay: 90 }, dynamicAnimation: { enabled: true, speed: 350 } },
+          dropShadow: { enabled: true, top: 6, left: 0, blur: 5, opacity: 0.18, color: glowColor }
+        },
+        series: [{ name: seriesName, data: values }],
+        xaxis: {
+          categories: months,
+          labels: { style: { colors: '#94a3b8', fontSize: '10px', fontWeight: 700 } },
+          axisBorder: { show: false }, axisTicks: { show: false },
+          crosshairs: { show: true, stroke: { color: tabColor, width: 1, dashArray: 4 } }
+        },
+        yaxis: { labels: { style: { colors: '#94a3b8', fontSize: '10px' }, formatter: function (v) { return isRepoRate ? Math.round(v) + '%' : OVERALL_DATA_NUM_FMT.format(Math.round(v)); } } },
+        colors: [tabColor],
+        stroke: { curve: 'smooth', width: 3.5, lineCap: 'round' },
+        fill: {
+          type: 'gradient',
+          gradient: { shade: 'light', type: 'vertical', shadeIntensity: 0.65, opacityFrom: 0.55, opacityTo: 0.04, stops: [0, 95, 100] }
+        },
+        markers: {
+          size: 4.5, colors: [tabColor], strokeColors: '#fff', strokeWidth: 2.5,
+          hover: { size: 7, sizeOffset: 3 },
+          discrete: values.length ? [{ seriesIndex: 0, dataPointIndex: values.length - 1, fillColor: tabColor, strokeColor: '#fff', size: 6 }] : []
+        },
+        grid: { borderColor: '#eef1f5', strokeDashArray: 3, yaxis: { lines: { show: true } }, xaxis: { lines: { show: false } }, padding: { top: 6 } },
+        dataLabels: { enabled: false },
+        legend: { show: false },
+        tooltip: {
+          theme: 'light', followCursor: true,
+          y: { formatter: function (v) { return isRepoRate ? v + '%' : (isService ? '\u20b1' + OVERALL_DATA_NUM_FMT.format(v) : OVERALL_DATA_NUM_FMT.format(v)); } },
+          marker: { show: true }
+        },
+        annotations: values.length ? {
+          points: [{
+            x: months[values.length - 1],
+            y: values[values.length - 1],
+            marker: { size: 0 },
+            label: {
+              text: (trendUp ? '\u25b2 ' : '\u25bc ') + 'latest',
+              borderColor: 'transparent',
+              style: { background: trendUp ? '#059669' : '#e11d48', color: '#fff', fontSize: '10px', fontWeight: 700, padding: { left: 6, right: 6, top: 2, bottom: 2 } },
+              offsetY: -14
+            }
+          }]
+        } : {}
+      };
+      el.innerHTML = '';
+      charts.overallData = new ApexCharts(el, options);
+      charts.overallData.render();
     }
 
     // Shared formatter so we're not constructing a new Intl.NumberFormat
@@ -15300,26 +15590,29 @@ html.page-fade-ready body {
         return (av - bv) * sortDir;
       });
 
-      // `fmt` is label/column-aware now: the Collection "Repo Rate"
-      // sub-column always renders as a percentage with exactly 2
-      // decimals — "0.00%" style. The OVERALL DATA sheet stores this
-      // as a raw fraction (e.g. 0.0038 for a cell showing "0.38%" in
-      // Sheets' own percentage formatting), same as AUDIT DATA (FINAL)'s
-      // repo rate columns — so this normalizes it the same way
-      // parseRepoPct() does elsewhere on this dashboard: anything under 1
-      // is treated as a fraction and scaled ×100 into percentage points
-      // before formatting; anything ≥1 is assumed already-scaled and left
-      // alone. Without this, small rates (well under 1 as a fraction)
-      // were rounding straight down to "0.00%" instead of showing their
-      // real value. Service's single value per month is a peso amount,
-      // so it always gets a "\u20b1" prefix.
+      // `fmt` is label/column-aware now: the Collection "Repo Rate" AND
+      // "Efficiency" sub-columns both always render as a whole-number
+      // percentage — "78%" style — across every branch/month. The
+      // OVERALL DATA sheet stores these as a raw fraction (e.g. 0.78 for
+      // a cell showing "78%" in Sheets' own percentage formatting), same
+      // as AUDIT DATA (FINAL)'s repo rate / efficiency columns — so this
+      // normalizes it the same way parseRepoPct() does elsewhere on this
+      // dashboard: anything under 1 is treated as a fraction and scaled
+      // ×100 into percentage points before formatting; anything ≥1 is
+      // assumed already-scaled and left alone. Without this, small rates
+      // (well under 1 as a fraction) were rounding straight down to "0%"
+      // instead of showing their real value. Service's single value per
+      // month is a peso amount, so it always gets a "\u20b1" prefix.
       const fmt = function (v, kind) {
         if (v === null || v === undefined || v === '') return '<span class="text-slate-300">\u2014</span>';
         const n = Number(v);
         if (isNaN(n)) return String(v);
         if (kind === 'repo') {
           const pct = Math.abs(n) < 1 ? n * 100 : n;
-          return pct.toFixed(2) + '%';
+          // Whole-number percent (e.g. "78%") to match how Efficiency is
+          // shown everywhere else on this dashboard (see effMarParsed/
+          // effAprParsed/effLatestParsed above, all Math.round()'d).
+          return Math.round(pct) + '%';
         }
         if (kind === 'peso') return '\u20b1' + OVERALL_DATA_NUM_FMT.format(n);
         return OVERALL_DATA_NUM_FMT.format(n);
@@ -15335,17 +15628,19 @@ html.page-fade-ready body {
       // A sticky <thead> combined with rowspan cells spanning two rows is
       // what was making the scroll feel laggy (some browsers recompute
       // the sticky offsets on every scroll tick when rowspans are
-      // involved) — a flat single sticky row avoids that entirely. Every
-      // header cell (Branch + each data column) is now a sort trigger.
+      // involved) — a flat single sticky row avoids that entirely.
+      // Data columns (Repo Rate, No. of Repo, Efficiency, Accounts, etc.)
+      // are no longer sort triggers — only the Branch column (see the
+      // header markup further below) still sorts, so this is now a
+      // static label instead of a clickable header.
       const headHtml = months.map(function (m, mi) {
         const borderCls = mi === 0 ? '' : ' border-l border-coolBorder';
         if (isService) {
           const key = m;
-          return `<th class="p-2 bg-gray-50 text-center whitespace-nowrap cursor-pointer select-none hover:text-accentIndigo transition-colors${borderCls}" onclick="setOverallDataSort('${key}')" title="Sort by ${m}">${m} ${sortArrow(key)}</th>`;
+          return `<th class="p-1.5 bg-gray-50 text-center whitespace-nowrap${borderCls}">${m}</th>`;
         }
         return subCols.map(function (label, ci) {
-          const key = `${m}||${label}`;
-          return `<th class="p-2 bg-gray-50 text-center whitespace-nowrap cursor-pointer select-none hover:text-accentIndigo transition-colors${ci === 0 ? borderCls : ''}" onclick="setOverallDataSort('${key}')" title="Sort by ${m} \u00b7 ${label}">${m}<br><span class="normal-case font-semibold text-slate-400">${label} ${sortArrow(key)}</span></th>`;
+          return `<th class="p-1.5 bg-gray-50 text-center whitespace-nowrap${ci === 0 ? borderCls : ''}">${m}<br><span class="normal-case font-semibold text-slate-400">${label}</span></th>`;
         }).join('');
       }).join('');
 
@@ -15355,26 +15650,27 @@ html.page-fade-ready body {
           if (state.tab === 'collection') {
             const rec = (b.collection && b.collection[m]) || {};
             return subCols.map(function (label, ci) {
-              // Only the "Repo Rate" sub-column is a percentage — "No. of
-              // Repo" is a plain count and must stay a plain number, so
-              // this specifically requires "repo" AND "rate" in the
-              // label instead of matching on "repo" alone.
-              const kind = (/repo/i.test(label) && /rate/i.test(label)) ? 'repo' : null;
-              return `<td class="p-2 text-center whitespace-nowrap${ci === 0 ? borderCls : ''}">${fmt(rec[label], kind)}</td>`;
+              // "Repo Rate" and "Efficiency" sub-columns are both
+              // percentages — "No. of Repo" is a plain count and must
+              // stay a plain number, so this specifically requires
+              // "repo" AND "rate" together (not "repo" alone) or an
+              // "Efficiency" label before treating a column as a percent.
+              const kind = ((/repo/i.test(label) && /rate/i.test(label)) || /effic/i.test(label)) ? 'repo' : null;
+              return `<td class="p-1.5 text-center whitespace-nowrap${ci === 0 ? borderCls : ''}">${fmt(rec[label], kind)}</td>`;
             }).join('');
           } else if (state.tab === 'sales') {
             const rec = (b.sales && b.sales[m]) || {};
             return subCols.map(function (label, ci) {
-              return `<td class="p-2 text-center whitespace-nowrap${ci === 0 ? borderCls : ''}">${fmt(rec[label])}</td>`;
+              return `<td class="p-1.5 text-center whitespace-nowrap${ci === 0 ? borderCls : ''}">${fmt(rec[label])}</td>`;
             }).join('');
           } else {
             const val = b.service ? b.service[m] : null;
-            return `<td class="p-2 text-center whitespace-nowrap${borderCls}">${fmt(val, 'peso')}</td>`;
+            return `<td class="p-1.5 text-center whitespace-nowrap${borderCls}">${fmt(val, 'peso')}</td>`;
           }
         }).join('');
         return `<tr class="border-b border-coolBorder hover:bg-gray-50/70">
-          <td class="p-2 text-center w-10 text-slate-400 text-xs sticky left-0 z-[5] bg-white">${idx + 1}</td>
-          <td class="p-2 font-semibold text-slate-700 whitespace-nowrap sticky left-10 z-[5] bg-white border-r border-coolBorder shadow-[3px_0_6px_-3px_rgba(0,0,0,0.08)]">${b.name}</td>
+          <td class="p-1.5 text-center w-10 text-slate-400 text-xs sticky left-0 z-[5] bg-white">${idx + 1}</td>
+          <td class="p-1.5 font-semibold text-slate-700 whitespace-nowrap sticky left-10 z-[5] bg-white border-r border-coolBorder shadow-[3px_0_6px_-3px_rgba(0,0,0,0.08)]">${b.name}</td>
           ${cells}
         </tr>`;
       }).join('');
@@ -15395,13 +15691,13 @@ html.page-fade-ready body {
       // box like this one doesn't always repaint the instant its content
       // changes — see nudgeScrollRepaint(), called after every update.
       return `
-        <div class="mb-1.5 text-[11px] font-semibold text-slate-400">Showing ${branches.length} of ${totalBranchCount} branches</div>
+        <div class="mb-1 text-[11px] font-semibold text-slate-400">Showing ${branches.length} of ${totalBranchCount} branches</div>
         <div id="overallDataScrollBox" class="rounded-xl border border-coolBorder overflow-auto custom-scrollbar custom-scrollbar-x">
           <table class="w-full min-w-[520px] text-left border-collapse bg-white relative">
             <thead class="bg-gray-50 border-b border-coolBorder text-xs text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-20 shadow-sm">
               <tr>
-                <th class="p-2 bg-gray-50 text-center w-10 whitespace-nowrap sticky left-0 z-30">#</th>
-                <th class="p-2 bg-gray-50 text-left whitespace-nowrap cursor-pointer select-none hover:text-accentIndigo transition-colors sticky left-10 z-30 border-r border-coolBorder shadow-[3px_0_6px_-3px_rgba(0,0,0,0.12)]" onclick="setOverallDataSort('name')" title="Sort by Branch">Branch ${sortArrow('name')}</th>
+                <th class="p-1.5 bg-gray-50 text-center w-10 whitespace-nowrap sticky left-0 z-30">#</th>
+                <th class="p-1.5 bg-gray-50 text-left whitespace-nowrap cursor-pointer select-none hover:text-accentIndigo transition-colors sticky left-10 z-30 border-r border-coolBorder shadow-[3px_0_6px_-3px_rgba(0,0,0,0.12)]" onclick="setOverallDataSort('name')" title="Sort by Branch">Branch ${sortArrow('name')}</th>
                 ${headHtml}
               </tr>
             </thead>
