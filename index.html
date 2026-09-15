@@ -383,6 +383,19 @@
     .mv-chip { display: inline-block; vertical-align: 1px; margin-left: 5px; padding: 1px 6px; border-radius: 999px; font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
     .mv-chip-amber { background: rgba(217,122,6,.12); color: #b45309; }
 
+    /* Auditor Workload header — royal blue, white text (matches the
+       modal-header-bar gradient used elsewhere) */
+    .mv-head-auditor {
+      background: linear-gradient(90deg, #0a1a3a 0%, #12295c 30%, #1d3f8f 65%, #2f5fc7 100%);
+      border-bottom: 1px solid rgba(255,255,255,.12);
+    }
+    .mv-head-auditor .mv-title { color: #ffffff; }
+    .mv-head-auditor .mv-sub { color: rgba(255,255,255,.72); }
+    .mv-head-auditor .mv-avatar { background: rgba(255,255,255,.16); color: #ffffff; }
+    .mv-head-auditor .mv-stat { border-left-color: rgba(255,255,255,.22); }
+    .mv-head-auditor .mv-stat b { color: #ffffff; }
+    .mv-head-auditor .mv-stat span { color: rgba(255,255,255,.68); }
+
     /* Emergency status header + rotation queue */
     .mv-head-alert { background: #fff5f8; border-bottom: 1px solid rgba(225,29,95,.16); }
     .mv-alert-icon { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center; background: rgba(225,29,95,.12); color: #e11d5f; }
@@ -6591,7 +6604,7 @@ html.page-fade-ready body {
       modalBody.classList.add('mv-mode');
       modalBody.innerHTML = `
         <div class="mv">
-          <div class="mv-head">
+          <div class="mv-head mv-head-auditor">
             <div class="mv-head-row">
               <div class="mv-avatar ${mvColorClass(auditorObj.name)}">${mvAvatarHtml(auditorObj.name)}</div>
               <div class="mv-head-main">
@@ -6739,13 +6752,13 @@ html.page-fade-ready body {
               window.findingsModalCategories = null; // null = no filter (all categories)
               window._findingsCategoryDraft = null;
               window.findingsModalState = { type, filterValue, allBranches: [...activeData.branches] };
-              modalBody.innerHTML = '<div class="flex flex-nowrap items-center justify-between gap-3 mb-3 pt-2 pl-1 overflow-x-auto custom-scrollbar pb-1">' + renderFindingsYearTabs(filterValue) + renderFindingsToolbar() + '</div>' + '<div id="modalTableContainer"></div>';
+              modalBody.innerHTML = '<div class="flex flex-nowrap items-center justify-between gap-3 mb-3 pt-2 px-2 sm:px-3 overflow-x-auto custom-scrollbar pb-1">' + renderFindingsYearTabs(filterValue) + renderFindingsToolbar() + '</div>' + '<div id="modalTableContainer"></div>';
               renderFindingsModalTable(filterValue);
               if (addFindingBtn) addFindingBtn.classList.remove('hidden');
           } else if (type === 'accounts') {
               window.accountsModalSort = null;
               window.accountsModalSearch = '';
-              modalBody.innerHTML = '<div class="flex flex-nowrap items-center justify-between gap-3 mb-3 pt-2 pl-1 overflow-x-auto custom-scrollbar pb-1">' + renderAccountsTotalsCapsules() + '<div id="accountsSearchBar" class="shrink-0"></div></div><div id="modalTableContainer"></div>';
+              modalBody.innerHTML = '<div class="flex flex-nowrap items-center justify-between gap-3 mb-3 pt-2 px-2 sm:px-3 overflow-x-auto custom-scrollbar pb-1">' + renderAccountsTotalsCapsules() + '<div id="accountsSearchBar" class="shrink-0"></div></div><div id="modalTableContainer"></div>';
               renderAccountsModalTable();
           } else {
               // all, collection, sales, service — use combinable filter state (status + audit status)
@@ -10925,7 +10938,7 @@ html.page-fade-ready body {
       const pillAttrs = (value) => clickable ? `onclick="${filterSetter}('${value}')" role="button" tabindex="0"` : '';
 
       return `
-      <div class="flex flex-nowrap items-center justify-between gap-3 mb-2 pt-2 pl-1 overflow-x-auto custom-scrollbar pb-1">
+      <div class="flex flex-nowrap items-center justify-between gap-3 mb-2 pt-2 px-2 sm:px-3 overflow-x-auto custom-scrollbar pb-1">
         <div class="flex flex-nowrap items-center gap-1.5 shrink-0">
           ${summaryPill(list.length, 'Total Branches', { neutral: true, active: active === 'ALL', onClick: clickable ? `onclick="${filterSetter}('ALL')"` : '' })}
           ${summaryPill(done, 'Done', { tint: 'accentBlue', active: active === 'DONE', onClick: clickable ? `onclick="${filterSetter}('DONE')"` : '' })}
