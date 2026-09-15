@@ -12263,49 +12263,64 @@ html.page-fade-ready body {
     // auto-refresh like "Currently Active" has; this is a look-back list,
     // not a live presence view, so a plain fetch-on-open is enough.
 
-    // Friendly label + one-line summary per audit action, kept in one
-    // place so adding a new logAuditEvent() call on the backend later
-    // only needs a new case here (falls back to the raw action name +
-    // JSON.stringify(details) for anything not listed, so nothing is
-    // ever silently dropped from the list).
-    const AUDIT_ACTION_LABELS = {
-      'saveAssignment': 'Saved assignment',
-      'saveAssignment (POST)': 'Saved assignment',
-      'saveAuditorRemark': 'Saved auditor remark',
-      'deleteAuditorRemark': 'Deleted auditor remark',
-      'saveEmergencyAuditor': 'Set emergency auditor',
-      'blockAccount': 'Blocked account',
-      'unblockAccount': 'Unblocked account',
-      'forceSignOutAccount': 'Forced sign-out',
-      'updateOverallData': 'Updated Overall Data'
+    // Friendly label + category/color per audit action, kept in one place
+    // so adding a new logAuditEvent() call on the backend later only
+    // needs a new entry here (falls back to the raw action name + a
+    // neutral color for anything not listed, so nothing is ever
+    // silently dropped from the list).
+    const AUDIT_ACTION_META = {
+      'saveAssignment':          { label: 'Saved assignment',        category: 'Assignment',        color: '#2563eb' },
+      'saveAssignment (POST)':   { label: 'Saved assignment',        category: 'Assignment',        color: '#2563eb' },
+      'saveAuditorRemark':       { label: 'Saved auditor remark',    category: 'Remark',             color: '#0ea5c9' },
+      'deleteAuditorRemark':     { label: 'Deleted auditor remark',  category: 'Remark deleted',     color: '#e11d48' },
+      'saveEmergencyAuditor':    { label: 'Set emergency auditor',   category: 'Emergency Auditor',  color: '#e11d48' },
+      'blockAccount':            { label: 'Blocked account',         category: 'Account',            color: '#d97706' },
+      'unblockAccount':          { label: 'Unblocked account',       category: 'Account',            color: '#059669' },
+      'forceSignOutAccount':     { label: 'Forced sign-out',         category: 'Account',            color: '#e11d48' },
+      'updateOverallData':       { label: 'Updated Overall Data',    category: 'Sheet Update',        color: '#059669' }
     };
+    const AUDIT_ACTION_META_DEFAULT = { category: 'Action', color: '#64748b' };
 
-    function formatAuditEntryDetails(action, details) {
+    // Returns [label, value] rows for the full details panel -- every
+    // field the backend logged for that action, not a single shortened
+    // line, so opening an entry shows everything logAuditEvent() saved.
+    function auditEntryDetailRows(action, details) {
       const d = details || {};
       switch (action) {
         case 'saveAssignment':
         case 'saveAssignment (POST)':
-          return d.branch ? ('Branch: ' + d.branch) : '';
+          return [['Branch', d.branch]];
         case 'saveAuditorRemark':
-          return d.branch ? ('Branch: ' + d.branch + (d.rowIndex != null ? ' \u2022 Row ' + d.rowIndex : '')) : '';
+          return [['Branch', d.branch], ['Row', d.rowIndex]];
         case 'deleteAuditorRemark':
-          return d.rowIndex != null ? ('Row ' + d.rowIndex) : '';
+          return [['Row', d.rowIndex]];
         case 'saveEmergencyAuditor':
           return [
-            d.auditor ? ('Auditor: ' + d.auditor) : '',
-            d.branch ? ('Branch: ' + d.branch) : '',
-            d.date ? ('Date: ' + d.date) : '',
-            d.override ? 'Override' : ''
-          ].filter(Boolean).join(' \u2022 ');
+            ['Auditor', d.auditor],
+            ['Branch', d.branch],
+            ['Date', d.date],
+            ['Override', d.override ? 'Yes' : 'No']
+          ];
         case 'blockAccount':
         case 'unblockAccount':
         case 'forceSignOutAccount':
-          return d.target ? ('Target: ' + d.target) : '';
+          return [['Target account', d.target]];
         case 'updateOverallData':
-          return d.message ? String(d.message) : '';
+          return [['Result', d.message]];
         default:
-          try { return JSON.stringify(d); } catch (err) { return ''; }
+          // Unknown/future action: show every raw field it logged rather
+          // than a JSON blob, so it's still readable without a code change.
+          return Object.keys(d).map(function (k) { return [k, d[k]]; });
       }
+    }
+
+    // Full date + time (e.g. "Sep 15, 2026, 3:42 PM") to sit alongside the
+    // "X mins ago" relative label, so an entry's exact moment is never
+    // more than a glance away.
+    function formatAuditAbsoluteTime(entry) {
+      const dt = entry.atIso ? new Date(entry.atIso) : (entry.at ? new Date(entry.at) : null);
+      if (!dt || isNaN(dt.getTime())) return '';
+      return dt.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
     }
 
     function renderAuditLogList(json) {
@@ -12320,19 +12335,35 @@ html.page-fade-ready body {
 
       listEl.innerHTML = entries.map(function (entry) {
         const action = String(entry.action || '');
-        const label = AUDIT_ACTION_LABELS[action] || action || 'Action';
-        const detailLine = formatAuditEntryDetails(action, entry.details);
+        const meta = AUDIT_ACTION_META[action] || AUDIT_ACTION_META_DEFAULT;
+        const label = meta.label || action || 'Action';
+        const rows = auditEntryDetailRows(action, entry.details)
+          .filter(function (row) { return row[1] !== undefined && row[1] !== null && row[1] !== ''; });
         const actor = String(entry.actor || 'Unknown');
-        const whenLabel = entry.at ? formatLastSeenRelative(entry.at) : (entry.atIso || '');
+        const relativeWhen = entry.at ? formatLastSeenRelative(entry.at) : '';
+        const absoluteWhen = formatAuditAbsoluteTime(entry);
+
+        const rowsHtml = rows.length
+          ? '<div class="mt-1.5 pt-1.5 border-t border-coolBorder/60 flex flex-col gap-0.5">' +
+              rows.map(function (row) {
+                return '<p class="text-xs text-slate-600 break-words"><span class="text-slate-400">' + escapeForHtml(row[0]) + ':</span> ' + escapeForHtml(String(row[1])) + '</p>';
+              }).join('') +
+            '</div>'
+          : '';
 
         return '' +
-          '<div class="flex items-start gap-3 p-2.5 rounded-xl border border-coolBorder">' +
-            '<div class="min-w-0 flex-1">' +
-              '<p class="text-sm font-semibold text-slate-800 truncate">' + escapeForHtml(label) + '</p>' +
-              '<p class="text-xs text-slate-500 truncate">' + escapeForHtml(actor) + '</p>' +
-              (detailLine ? '<p class="text-xs text-slate-400 truncate">' + escapeForHtml(detailLine) + '</p>' : '') +
-              '<p class="text-[11px] text-slate-400 mt-0.5">' + escapeForHtml(whenLabel) + '</p>' +
+          '<div class="p-3 rounded-xl border border-coolBorder">' +
+            '<div class="flex items-center justify-between gap-2 mb-1">' +
+              '<span class="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide" style="color:' + meta.color + '">' +
+                '<span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:' + meta.color + '"></span>' +
+                escapeForHtml(meta.category || 'Action') +
+              '</span>' +
+              (relativeWhen ? '<span class="text-[11px] text-slate-400 shrink-0">' + escapeForHtml(relativeWhen) + '</span>' : '') +
             '</div>' +
+            '<p class="text-sm font-semibold text-slate-800 break-words">' + escapeForHtml(label) + '</p>' +
+            '<p class="text-xs text-slate-500 break-words">By ' + escapeForHtml(actor) + '</p>' +
+            rowsHtml +
+            (absoluteWhen ? '<p class="text-[11px] text-slate-400 mt-1.5">' + escapeForHtml(absoluteWhen) + '</p>' : '') +
           '</div>';
       }).join('');
     }
