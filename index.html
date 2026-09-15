@@ -380,7 +380,7 @@
     .mv-table th { position: sticky; top: 0; z-index: 1; background: #f8f9fd; text-align: left; padding: 5px 12px; font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #94a3b8; border-bottom: 1px solid #e7e9f2; white-space: nowrap; }
     .mv-table td { padding: 5px 12px; border-bottom: 1px solid #f1f2f8; font-size: 12px; color: #475569; vertical-align: top; }
     .mv-table tbody tr:hover td { background: #fafaff; }
-    .mv-td-strong { font-weight: 700; color: #1e293b; white-space: nowrap; display: flex; align-items: center; }
+    .mv-td-strong { font-weight: 700; color: #1e293b; white-space: nowrap; }
     .mv-td-date { color: #94a3b8; font-size: 11px; white-space: nowrap; }
 
     /* Edit Assignment form */
@@ -6512,9 +6512,7 @@ html.page-fade-ready body {
       const rowsHtml = history.map(h => `
           <tr>
             <td class="mv-td-date">${mvEsc(h.details || '—')}</td>
-            <td class="mv-td-strong">
-              <span class="mv-badge mv-badge-sm ${mvColorClass(h.auditor)}" style="margin-right:7px">${mvEsc(mvInitials(h.auditor))}</span>${mvEsc(h.auditor || '—')}
-            </td>
+            <td class="mv-td-strong">${mvEsc(h.auditor || '—')}</td>
             <td class="mv-td-branch">${mvEsc(h.branch || '—')}</td>
             <td class="mv-td-reason">${h.remark ? `<span class="mv-pill ${mvReasonClass(h.remark)}">${mvEsc(h.remark)}</span>` : '—'}</td>
           </tr>`).join('');
