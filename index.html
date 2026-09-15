@@ -5050,6 +5050,38 @@ html.page-fade-ready body {
     </div>
   </div>
 
+  <!-- ================= RECENT ACTIVITY (quick action) =================
+       Info modal for the "Recent Activity" quick action tile in the side
+       menu: lists the most recent entries from the audit_log Firestore
+       collection (see logAuditEvent()/action=auditLog in Code.gs) --
+       who did what and when, for the sensitive actions that write an
+       audit entry (assignments, remarks, emergency auditor, block/
+       unblock, force sign-out, Update Sheet). Editor-only, same as the
+       backend endpoint. Pure UI -- see openAuditLogModal()/
+       closeAuditLogModal()/loadAuditLogList() further down for the
+       wiring. Follows the exact same modal shape as whoAmIModal above. -->
+  <div id="auditLogModal" class="fixed inset-0 z-[70] hidden">
+    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" onclick="closeAuditLogModal()"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-5">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-11 h-11 rounded-full bg-royalBlue/10 text-royalBlue flex items-center justify-center shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3"></path><path d="M3.05 11a9 9 0 1 1 .5 4"></path><path d="M3 4v5h5"></path></svg>
+          </div>
+          <div class="min-w-0">
+            <h3 class="text-base font-bold text-slate-900">Recent Activity</h3>
+          </div>
+        </div>
+        <div id="auditLogList" class="flex flex-col gap-2 max-h-64 overflow-y-auto custom-scrollbar mb-4">
+          <p class="text-sm text-slate-400 text-center py-4">Loading\u2026</p>
+        </div>
+        <div class="flex flex-col gap-2">
+          <button type="button" onclick="closeAuditLogModal()" class="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition-colors">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ================= ACCOUNT ACTION PASSWORD GATE =================
        Extra password re-check before Block / Unblock / Sign out actions in
        "Currently Active" -- same reauthenticateCurrentUser() pattern Quick
@@ -5193,7 +5225,7 @@ html.page-fade-ready body {
       <details class="side-menu-group-details" open>
         <summary class="side-menu-group-summary">
           <span class="side-menu-group-title">Quick actions</span>
-          <span class="side-menu-group-count">8</span>
+          <span class="side-menu-group-count">9</span>
           <svg class="side-menu-group-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
         </summary>
 
@@ -5259,6 +5291,18 @@ html.page-fade-ready body {
         <div role="button" tabindex="0" onclick="openWhoAmIModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openWhoAmIModal();}" class="menu-tile cursor-pointer select-none">
           <span class="menu-tile-icon" style="background:rgba(79,70,229,0.10);"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentIndigo shrink-0"><path d="M16 21v-2a4 4 0 0 0-3-3.87"></path><path d="M13 3.13a4 4 0 0 1 0 7.75"></path><path d="M8 21v-2a4 4 0 0 0-4-4H2"></path><circle cx="5" cy="7" r="4"></circle></svg></span>
           <span class="menu-tile-label">Who's Logged In</span>
+        </div>
+
+        <!-- "Recent Activity" -- opens the audit log panel fed by
+             action=auditLog (backed by logAuditEvent()/AUDIT_LOG_COLLECTION
+             in Code.gs). Editor-only on the backend -- the tile itself is
+             shown to everyone like the other Quick actions tiles, but a
+             non-editor tapping it just gets the same "Unauthorized" toast
+             the backend already returns, no separate client-side gate
+             needed. See openAuditLogModal() further down. -->
+        <div role="button" tabindex="0" onclick="openAuditLogModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAuditLogModal();}" class="menu-tile cursor-pointer select-none">
+          <span class="menu-tile-icon" style="background:rgba(37,99,235,0.10);"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue shrink-0"><path d="M12 8v4l3 3"></path><path d="M3.05 11a9 9 0 1 1 .5 4"></path><path d="M3 4v5h5"></path></svg></span>
+          <span class="menu-tile-label">Recent Activity</span>
         </div>
       
 
@@ -12215,6 +12259,120 @@ html.page-fade-ready body {
     }
     // ================= END CURRENTLY ACTIVE =================
 
+    // ================= RECENT ACTIVITY =================
+    // Read-only panel over action=auditLog (editor-only on the backend --
+    // see logAuditEvent()/getRecentAuditLog() in Code.gs). No caching or
+    // auto-refresh like "Currently Active" has; this is a look-back list,
+    // not a live presence view, so a plain fetch-on-open is enough.
+
+    // Friendly label + one-line summary per audit action, kept in one
+    // place so adding a new logAuditEvent() call on the backend later
+    // only needs a new case here (falls back to the raw action name +
+    // JSON.stringify(details) for anything not listed, so nothing is
+    // ever silently dropped from the list).
+    const AUDIT_ACTION_LABELS = {
+      'saveAssignment': 'Saved assignment',
+      'saveAssignment (POST)': 'Saved assignment',
+      'saveAuditorRemark': 'Saved auditor remark',
+      'deleteAuditorRemark': 'Deleted auditor remark',
+      'saveEmergencyAuditor': 'Set emergency auditor',
+      'blockAccount': 'Blocked account',
+      'unblockAccount': 'Unblocked account',
+      'forceSignOutAccount': 'Forced sign-out',
+      'updateOverallData': 'Updated Overall Data'
+    };
+
+    function formatAuditEntryDetails(action, details) {
+      const d = details || {};
+      switch (action) {
+        case 'saveAssignment':
+        case 'saveAssignment (POST)':
+          return d.branch ? ('Branch: ' + d.branch) : '';
+        case 'saveAuditorRemark':
+          return d.branch ? ('Branch: ' + d.branch + (d.rowIndex != null ? ' \u2022 Row ' + d.rowIndex : '')) : '';
+        case 'deleteAuditorRemark':
+          return d.rowIndex != null ? ('Row ' + d.rowIndex) : '';
+        case 'saveEmergencyAuditor':
+          return [
+            d.auditor ? ('Auditor: ' + d.auditor) : '',
+            d.branch ? ('Branch: ' + d.branch) : '',
+            d.date ? ('Date: ' + d.date) : '',
+            d.override ? 'Override' : ''
+          ].filter(Boolean).join(' \u2022 ');
+        case 'blockAccount':
+        case 'unblockAccount':
+        case 'forceSignOutAccount':
+          return d.target ? ('Target: ' + d.target) : '';
+        case 'updateOverallData':
+          return d.message ? String(d.message) : '';
+        default:
+          try { return JSON.stringify(d); } catch (err) { return ''; }
+      }
+    }
+
+    function renderAuditLogList(json) {
+      const listEl = document.getElementById('auditLogList');
+      if (!listEl) return;
+      const entries = (json && json.entries) || [];
+
+      if (!entries.length) {
+        listEl.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">No recent activity.</p>';
+        return;
+      }
+
+      listEl.innerHTML = entries.map(function (entry) {
+        const action = String(entry.action || '');
+        const label = AUDIT_ACTION_LABELS[action] || action || 'Action';
+        const detailLine = formatAuditEntryDetails(action, entry.details);
+        const actor = String(entry.actor || 'Unknown');
+        const initial = (actor.charAt(0) || '?').toUpperCase();
+        const whenLabel = entry.at ? formatLastSeenRelative(entry.at) : (entry.atIso || '');
+
+        return '' +
+          '<div class="flex items-start gap-3 p-2.5 rounded-xl border border-coolBorder">' +
+            '<div class="w-8 h-8 rounded-full bg-royalBlue/10 text-royalBlue flex items-center justify-center text-xs font-bold uppercase shrink-0 mt-0.5">' + escapeForHtml(initial) + '</div>' +
+            '<div class="min-w-0 flex-1">' +
+              '<p class="text-sm font-semibold text-slate-800 truncate">' + escapeForHtml(label) + '</p>' +
+              '<p class="text-xs text-slate-500 truncate">' + escapeForHtml(actor) + '</p>' +
+              (detailLine ? '<p class="text-xs text-slate-400 truncate">' + escapeForHtml(detailLine) + '</p>' : '') +
+              '<p class="text-[11px] text-slate-400 mt-0.5">' + escapeForHtml(whenLabel) + '</p>' +
+            '</div>' +
+          '</div>';
+      }).join('');
+    }
+
+    async function loadAuditLogList() {
+      const listEl = document.getElementById('auditLogList');
+      if (!listEl) return;
+      listEl.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">Loading\u2026</p>';
+      try {
+        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+        if (!idToken) {
+          listEl.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">Not signed in.</p>';
+          return;
+        }
+        const params = new URLSearchParams({ action: 'auditLog', secret: appsScriptSecret, idToken: idToken });
+        const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
+        if (!json || json.error) throw new Error((json && json.error) || 'Failed to load');
+        renderAuditLogList(json);
+      } catch (err) {
+        listEl.innerHTML = '<p class="text-sm text-accentRose text-center py-4">' + escapeForHtml((err && err.message) || 'Couldn\u2019t load recent activity.') + '</p>';
+        console.warn('[auditLog] loadAuditLogList failed:', err && err.message ? err.message : err);
+      }
+    }
+
+    function openAuditLogModal() {
+      if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
+      const modal = document.getElementById('auditLogModal');
+      if (modal) modal.classList.remove('hidden');
+      loadAuditLogList();
+    }
+    function closeAuditLogModal() {
+      const modal = document.getElementById('auditLogModal');
+      if (modal) modal.classList.add('hidden');
+    }
+    // ================= END RECENT ACTIVITY =================
+
     function openAddFindingModal() {
       const modal = document.getElementById('findingsEditorModal');
       if (!modal) return;
@@ -16421,7 +16579,7 @@ html.page-fade-ready body {
       'dataModal', 'exportPickerModal', 'exportPasswordModal',
       'quickLinkPasswordModal', 'editAssignPasswordModal',
       'exitConfirmModal', 'menuOverlay', 'miniCalendarPopup',
-      'branchFilterPanel', 'whoAmIModal'
+      'branchFilterPanel', 'whoAmIModal', 'auditLogModal'
     ];
 
     function isVisible(el) {
@@ -16602,6 +16760,7 @@ html.page-fade-ready body {
       { id: 'authGate', z: 200 },
       { id: 'exitConfirmModal', z: 80 },
       { id: 'whoAmIModal', z: 70 },
+      { id: 'auditLogModal', z: 70 },
       { id: 'exportPasswordModal', z: 70 },
       { id: 'quickLinkPasswordModal', z: 70 },
       { id: 'editAssignPasswordModal', z: 70 },
