@@ -346,14 +346,16 @@
     .mv-search::placeholder { color: #b6bdcd; }
     .mv-search:focus { outline: none; border-color: #5b3df0; box-shadow: 0 0 0 3px rgba(91,61,240,.12); }
 
-    /* Hairline-separated list: 1px grid gaps over a tinted background do the
-       dividing, so rows stay dense without a border on every cell. */
-    .mv-grid { background: #fff; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); align-content: start; }
-    .mv-item { display: block; width: 100%; text-align: left; border: 0; border-right: 1px solid #eef0f7; border-bottom: 1px solid #eef0f7; background: #fff; padding: 5px 12px; cursor: pointer; transition: background .12s ease; }
-    .mv-item:hover { background: #f7f6ff; }
-    .mv-item:focus-visible { outline: 2px solid #5b3df0; outline-offset: -2px; }
-    .mv-item-name { display: block; font-size: 12px; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .mv-item-meta { display: block; font-size: 10.5px; color: #94a3b8; margin-top: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Stacked cards: each branch gets its own bordered, gently-shadowed
+       card with real gutters between them, rather than a dense hairline
+       list — reads more like a deck of records than a spreadsheet. */
+    .mv-scroll { padding: 12px; }
+    .mv-grid { background: transparent; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; align-content: start; }
+    .mv-item { display: block; width: 100%; text-align: left; border: 1px solid #e7e9f2; border-radius: 11px; background: #fff; padding: 11px 13px; cursor: pointer; box-shadow: 0 1px 2px rgba(15,23,42,.04); transition: box-shadow .15s ease, transform .15s ease, border-color .15s ease; }
+    .mv-item:hover { border-color: #d7d3fb; box-shadow: 0 6px 16px rgba(91,61,240,.12); transform: translateY(-1px); }
+    .mv-item:focus-visible { outline: 2px solid #5b3df0; outline-offset: 2px; }
+    .mv-item-name { display: block; font-size: 12.5px; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mv-item-meta { display: block; font-size: 11px; color: #94a3b8; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .mv-empty { padding: 22px 14px; text-align: center; font-size: 12.5px; color: #94a3b8; }
 
     .mv-chip { display: inline-block; vertical-align: 1px; margin-left: 5px; padding: 1px 6px; border-radius: 999px; font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
@@ -437,9 +439,6 @@
     .mv-badge { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; font-weight: 800; }
     .mv-badge-sm { width: 22px; height: 22px; font-size: 9.5px; border-radius: 7px; }
     .mv-badge-md { width: 30px; height: 30px; font-size: 11.5px; }
-
-    .mv-item { display: flex !important; align-items: center; gap: 9px; }
-    .mv-item-text { min-width: 0; flex: 1 1 auto; }
 
     .mv-pill { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 999px; font-size: 10.5px; font-weight: 700; white-space: nowrap; }
 
@@ -6476,11 +6475,8 @@ html.page-fade-ready body {
       const itemsHtml = rows.map(row => `
           <button type="button" class="mv-item" data-mv-search="${mvEsc(String(row.branch).toLowerCase())}"
                   onclick="openModalDetail('${mvArg(row.branch)}')">
-            <span class="mv-badge mv-badge-sm ${mvColorClass(row.branch)}">${mvEsc(mvInitials(row.branch))}</span>
-            <span class="mv-item-text">
-              <span class="mv-item-name">${mvEsc(row.branch)}${row.rotated ? '<span class="mv-chip mv-chip-amber">Rotated</span>' : ''}</span>
-              <span class="mv-item-meta">${mvEsc(row.dateLabel)}</span>
-            </span>
+            <span class="mv-item-name">${mvEsc(row.branch)}${row.rotated ? '<span class="mv-chip mv-chip-amber">Rotated</span>' : ''}</span>
+            <span class="mv-item-meta">${mvEsc(row.dateLabel)}</span>
           </button>`).join('');
 
       const listHtml = rows.length
