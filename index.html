@@ -327,7 +327,7 @@
     .mv, .mv *, .mv *::before, .mv *::after { box-sizing: border-box; }
     #modalBody.mv-mode { overflow: hidden !important; display: flex; flex-direction: column; padding: 0 !important; }
     .mv { display: flex; flex-direction: column; height: 100%; min-height: 0; background: #fff; }
-    .mv-head { flex: 0 0 auto; padding: 8px 13px; border-bottom: 1px solid #e7e9f2; background: #fff; }
+    .mv-head { flex: 0 0 auto; padding: 8px 13px; border-bottom: 1px solid #e7e9f2; background: #f1f5f9; }
     .mv-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; background: #fbfcfe; }
     .mv-foot { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 7px 13px; border-top: 1px solid #e7e9f2; background: #fbfbfe; }
     .mv-foot-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
@@ -6554,6 +6554,10 @@ html.page-fade-ready body {
           || { name: auditorName, count: 0, branches: [] };
       const rows = buildAuditorEngagementRows(auditorObj.name, auditorObj.branches || []);
       const rotatedCount = rows.filter(r => r.rotated).length;
+      // Total audit engagements this auditor has logged — every assignment,
+      // including repeat visits to a rotated branch — as opposed to
+      // rows.length, which counts each branch only once.
+      const auditedCount = (auditorObj.branches || []).length;
 
       const itemsHtml = rows.map(row => `
           <button type="button" class="mv-item" data-mv-search="${mvEsc(String(row.branch).toLowerCase())}"
@@ -6580,6 +6584,7 @@ html.page-fade-ready body {
               <div class="mv-stats">
                 <div class="mv-stat"><b>${rows.length}</b><span>Branches</span></div>
                 <div class="mv-stat"><b>${rotatedCount}</b><span>Rotated</span></div>
+                <div class="mv-stat"><b>${auditedCount}</b><span>Audited</span></div>
               </div>
             </div>
           </div>
