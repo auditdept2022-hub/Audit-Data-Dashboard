@@ -3244,7 +3244,61 @@ html.page-fade-ready body {
     .sm\:text-base{font-size:1rem;line-height:1.5rem}
   }
 </style>
+
+<style>
+  /* ================= GLOBAL SMOOTHNESS / HIGH-REFRESH-RATE POLISH =================
+     CSS transitions/animations already run on the compositor at the
+     display's own refresh rate (60Hz, 120Hz, 165Hz, whatever the device
+     supports) via requestAnimationFrame under the hood — the browser
+     doesn't need to be told "run at 165Hz". What actually makes motion
+     feel buttery vs. janky on a high-refresh display is (1) animating
+     GPU-cheap properties (transform/opacity) instead of layout-triggering
+     ones, (2) promoting frequently-animated elements to their own
+     compositor layer ahead of time instead of on the first frame, and
+     (3) consistent, non-jarring easing everywhere. This block is additive
+     and deliberately conservative — it never overrides colors, layout, or
+     any of the app's existing behavior; it only smooths out how things
+     move.
+  */
+  html { scroll-behavior: smooth; }
+  * , *::before, *::after {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  /* Respect the OS-level "reduce motion" setting globally — anyone who has
+     turned this on system-wide gets near-instant transitions everywhere,
+     not just on the loading screen (which already had its own guard). */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+  /* Compositor hints for the elements that animate the most (modals, the
+     side menu, overlays, toasts, hover-lift cards, buttons/tiles that
+     scale on press) — pre-promoting these to their own GPU layer avoids
+     the little stutter that can happen on the very first frame of an
+     animation when the browser has to create that layer on the fly. */
+  #modalDialog, #sideMenu, #menuOverlay, #toast, #exitConfirmCard,
+  #branchFilterModalBox, #findingsEditorDialog,
+  .dash-card-accent, .menu-tile, .mv-item,
+  .hover\:-translate-y-1, .hover\:-translate-y-0\.5,
+  .active\:scale-95, .active\:scale-\[0\.98\], .active\:scale-\[0\.99\] {
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+  }
+  /* Smoother, slightly springier deceleration for the app's biggest,
+     most-noticed movements (modal open/close, side menu slide) — same
+     duration as before, just an ease-out curve tuned to settle without
+     overshoot instead of Tailwind's generic default. */
+  #modalDialog, #sideMenu {
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1) !important;
+  }
+</style>
 </head>
+
 <body class="bg-coolDark text-slate-800 min-h-screen selection:bg-accentCyan/30 selection:text-slate-900 pb-16 relative">
   <script>
     // Fast-return guard: when arriving via ?skipLoading=1 (the Attendance/
