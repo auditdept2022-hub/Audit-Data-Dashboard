@@ -306,6 +306,20 @@
   #modalDialog.modal-fullscreen #overallDataScrollBox {
     max-height: calc(100dvh - 230px) !important;
   }
+  /* Same "big empty gap" problem shows up in the regular windowed popup
+     too, not just fullscreen: the dialog itself is h-[90vh], but these
+     table boxes were hard-capped at a flat 500px/60vh, sized for a small
+     card popup. On a tall browser window that leaves a large blank strip
+     between the last row and the bottom of the dialog. Let the box use
+     the dialog's real available height here as well — same idea as the
+     fullscreen override above, just scaled to the 90vh windowed dialog
+     instead of the full viewport. */
+  #modalDialog:not(.modal-fullscreen) #modalBody [class*="h-[500px]"] {
+    height: max(320px, calc(90dvh - 260px)) !important;
+  }
+  #modalDialog:not(.modal-fullscreen) #modalBody [class*="max-h-"] {
+    max-height: max(320px, calc(90dvh - 260px)) !important;
+  }
     #modalBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
     /* Branch Audit Interval modal: the outer #modalBody must NOT scroll
        itself here — the stack card + search/filter bar stay locked in
@@ -6722,13 +6736,13 @@ html.page-fade-ready body {
               window.findingsModalCategories = null; // null = no filter (all categories)
               window._findingsCategoryDraft = null;
               window.findingsModalState = { type, filterValue, allBranches: [...activeData.branches] };
-              modalBody.innerHTML = renderFindingsYearTabs(filterValue) + renderFindingsToolbar() + '<div id="modalTableContainer"></div>';
+              modalBody.innerHTML = '<div class="flex flex-nowrap items-center gap-3 mb-3 overflow-x-auto custom-scrollbar pb-1">' + renderFindingsYearTabs(filterValue) + renderFindingsToolbar() + '</div>' + '<div id="modalTableContainer"></div>';
               renderFindingsModalTable(filterValue);
               if (addFindingBtn) addFindingBtn.classList.remove('hidden');
           } else if (type === 'accounts') {
               window.accountsModalSort = null;
               window.accountsModalSearch = '';
-              modalBody.innerHTML = renderAccountsTotalsCapsules() + '<div id="accountsSearchBar"></div><div id="modalTableContainer"></div>';
+              modalBody.innerHTML = '<div class="flex flex-nowrap items-center gap-3 mb-3 overflow-x-auto custom-scrollbar pb-1">' + renderAccountsTotalsCapsules() + '<div id="accountsSearchBar" class="shrink-0"></div></div><div id="modalTableContainer"></div>';
               renderAccountsModalTable();
           } else {
               // all, collection, sales, service — use combinable filter state (status + audit status)
@@ -9529,17 +9543,17 @@ html.page-fade-ready body {
       }).join('');
 
       return `
-      <div class="flex flex-col lg:flex-row lg:items-center gap-3 mb-4">
-        <div class="relative flex-1 min-w-[200px]">
+      <div class="flex items-center gap-3 shrink-0">
+        <div class="relative w-[150px] shrink-0">
           <span class="absolute inset-y-0 left-0 flex items-center pl-3">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-slate-400"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
           </span>
           <input type="text" id="assignmentSearchInput" value="${escapeAttr(state.search)}" oninput="setAssignmentSearch(this.value)" placeholder="Search branch..." class="w-full pl-9 pr-4 py-2 bg-white border border-coolBorder rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all">
         </div>
 
-        <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-2">
-          <div class="relative col-span-2 sm:col-span-1">
-            <button type="button" onclick="toggleAssignmentStatusDropdown()" class="w-full sm:w-auto flex items-center justify-between gap-2 px-3 py-2 bg-white border border-coolBorder rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
+        <div class="flex flex-nowrap items-center gap-2">
+          <div class="relative shrink-0">
+            <button type="button" onclick="toggleAssignmentStatusDropdown()" class="w-auto flex items-center justify-between gap-2 px-3 py-2 bg-white border border-coolBorder rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
               <span class="truncate max-w-[160px]" title="${escapeAttr(statusLabel)}">${statusLabel}</span>
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 text-slate-400"><path d="m6 9 6 6 6-6"></path></svg>
             </button>
@@ -9553,12 +9567,12 @@ html.page-fade-ready body {
             </div>` : ''}
           </div>
 
-          <select onchange="setAssignmentFilter('auditor', this.value)" class="w-full sm:w-auto px-3 py-2 bg-white border border-coolBorder rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
+          <select onchange="setAssignmentFilter('auditor', this.value)" class="w-auto shrink-0 px-3 py-2 bg-white border border-coolBorder rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
             ${opt('ALL', 'All Auditors', state.auditor)}
             ${auditorOptions.map(a => opt(a, a, state.auditor)).join('')}
           </select>
 
-          <button type="button" onclick="resetAssignmentFilters()" class="col-span-2 sm:col-span-1 flex items-center justify-center sm:justify-start gap-1.5 px-3 py-2 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-xl text-xs font-semibold text-slate-600 transition-all cursor-pointer active:scale-95">
+          <button type="button" onclick="resetAssignmentFilters()" class="shrink-0 flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-xl text-xs font-semibold text-slate-600 transition-all cursor-pointer active:scale-95">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
             Reset
           </button>
@@ -9729,7 +9743,7 @@ html.page-fade-ready body {
       // exactly one status is selected, highlight its matching pill (same
       // as before), otherwise treat none/multiple as no single pill active.
       const pillActiveValue = selectedStatuses.length === 0 ? 'ALL' : (selectedStatuses.length === 1 ? selectedStatuses[0] : null);
-      const barsHtml = buildAllBranchesSummaryBar(baseList, 'setAssignmentAuditFilter', pillActiveValue, { hidePerformers: true }) + buildAssignmentFilterBar(state);
+      const barsHtml = buildAllBranchesSummaryBar(baseList, 'setAssignmentAuditFilter', pillActiveValue, { hidePerformers: true, inlineBar: buildAssignmentFilterBar(state) });
 
       const modalBody = document.getElementById('modalBody');
       modalBody.innerHTML = `${barsHtml}<div id="modalTableContainer"></div>`;
@@ -9826,7 +9840,10 @@ html.page-fade-ready body {
       } else if (state.type === 'service') {
           barsHtml += buildServiceSummaryBar(baseList);
       } else if (state.type === 'all') {
-          barsHtml += buildAllBranchesSummaryBar(baseList, 'setModalAuditFilter', state.auditStatus);
+          // Search box shares the same line as the Total/Done/For Audit/
+          // Pending pills (via inlineBar) instead of sitting on its own
+          // row underneath — see buildAllBranchesSummaryBar.
+          barsHtml += buildAllBranchesSummaryBar(baseList, 'setModalAuditFilter', state.auditStatus, { inlineBar: renderModalSearchBar(state, baseList.length, list.length) });
       }
       if (state.type === 'collection' || state.type === 'sales' || state.type === 'service') {
           // Search box + monthly capsule strip share a single line here
@@ -9834,7 +9851,7 @@ html.page-fade-ready body {
           // search bar) — the capsule row auto-fits into whatever width is
           // left after the fixed-width search box.
           barsHtml += renderCapsuleAndSearchBar(state.type, baseList, state, baseList.length, list.length);
-      } else {
+      } else if (state.type !== 'all') {
           barsHtml += renderModalSearchBar(state, baseList.length, list.length);
       }
 
@@ -9859,8 +9876,8 @@ html.page-fade-ready body {
     function renderModalSearchBar(state, totalCount, shownCount) {
       const searchVal = escapeFindingHTML(state.search || '');
       return `
-      <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
-        <div class="relative w-full sm:w-[12.5%] min-w-[180px]">
+      <div class="flex flex-nowrap items-center gap-2 shrink-0">
+        <div class="relative w-[150px] shrink-0">
           <span class="absolute inset-y-0 left-0 flex items-center pl-2.5">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-slate-400"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
           </span>
@@ -10635,7 +10652,7 @@ html.page-fade-ready body {
         </div>`;
 
       return `
-      <div class="flex items-center gap-2 flex-wrap mb-3">
+      <div class="flex items-center gap-2 flex-nowrap shrink-0">
         ${pill(trendLbls[0], sumMar, false)}
         ${pill(trendLbls[1], sumApr, false)}
         ${pill(trendLbls[2], sumMay, true)}
@@ -10696,15 +10713,15 @@ html.page-fade-ready body {
     function renderAccountsSearchBar(totalCount, shownCount) {
       const searchVal = escapeFindingHTML(window.accountsModalSearch || '');
       return `
-      <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
-        <div class="relative flex-1 min-w-[180px]">
+      <div class="flex flex-nowrap items-center gap-2">
+        <div class="relative w-[150px] shrink-0">
           <span class="absolute inset-y-0 left-0 flex items-center pl-2.5">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-slate-400"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
           </span>
           <input type="text" id="accountsSearchInput" placeholder="Search branch..." value="${searchVal}" oninput="setAccountsSearch(this.value)" class="w-full pl-8 pr-3 py-1.5 bg-white border border-coolBorder rounded-lg text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all">
         </div>
         ${searchVal ? `<button type="button" onclick="setAccountsSearch('')" class="px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-lg text-xs font-semibold text-slate-600 transition-all active:scale-95 whitespace-nowrap">Clear</button>` : ''}
-        <span class="text-[11px] font-semibold text-slate-400 whitespace-nowrap sm:ml-auto">Showing ${shownCount} of ${totalCount} branches</span>
+        <span class="text-[11px] font-semibold text-slate-400 whitespace-nowrap">Showing ${shownCount} of ${totalCount} branches</span>
       </div>`;
     }
 
@@ -10751,7 +10768,7 @@ html.page-fade-ready body {
           <span class="flex-shrink-0 text-${accentColor} font-bold">${valueFn(b)}</span>
         </div>`).join('');
       return `
-      <div class="mb-2 px-1">
+      <div class="mt-2 mb-2 px-1">
         <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Top 5 ${label || 'Performers'}</div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-1">${rows}</div>
       </div>`;
@@ -10890,6 +10907,10 @@ html.page-fade-ready body {
     // used by the Assignment Branches Overview popup, where the list isn't
     // wanted even on the Total Branches pill (unlike the general All
     // Branches popup, which still shows it there).
+    // opts.inlineBar is an extra chunk of HTML (typically the search box +
+    // filter controls) placed on the SAME line as the pills, so the two
+    // rows a caller used to stack vertically collapse into one — the Top
+    // Performers list (when shown) still renders on its own row underneath.
     function buildAllBranchesSummaryBar(list, filterSetter, activeValue, opts) {
       const done = list.filter(b => (b.auditStatus || '').toUpperCase() === 'DONE').length;
       const pending = list.filter(b => (b.auditStatus || '').toUpperCase() === 'PENDING').length;
@@ -10901,11 +10922,14 @@ html.page-fade-ready body {
       const pillAttrs = (value) => clickable ? `onclick="${filterSetter}('${value}')" role="button" tabindex="0"` : '';
 
       return `
-      <div class="flex flex-wrap items-center gap-1.5 mb-2">
-        ${summaryPill(list.length, 'Total Branches', { neutral: true, active: active === 'ALL', onClick: clickable ? `onclick="${filterSetter}('ALL')"` : '' })}
-        ${summaryPill(done, 'Done', { tint: 'accentBlue', active: active === 'DONE', onClick: clickable ? `onclick="${filterSetter}('DONE')"` : '' })}
-        ${summaryPill(forAudit, 'For Audit', { tint: 'accentAmber', active: active === 'FOR AUDIT', onClick: clickable ? `onclick="${filterSetter}('FOR AUDIT')"` : '' })}
-        ${summaryPill(pending, 'Pending', { neutral: true, active: active === 'PENDING', onClick: clickable ? `onclick="${filterSetter}('PENDING')"` : '' })}
+      <div class="flex flex-nowrap items-center gap-3 mb-2 overflow-x-auto custom-scrollbar pb-1">
+        <div class="flex flex-nowrap items-center gap-1.5 shrink-0">
+          ${summaryPill(list.length, 'Total Branches', { neutral: true, active: active === 'ALL', onClick: clickable ? `onclick="${filterSetter}('ALL')"` : '' })}
+          ${summaryPill(done, 'Done', { tint: 'accentBlue', active: active === 'DONE', onClick: clickable ? `onclick="${filterSetter}('DONE')"` : '' })}
+          ${summaryPill(forAudit, 'For Audit', { tint: 'accentAmber', active: active === 'FOR AUDIT', onClick: clickable ? `onclick="${filterSetter}('FOR AUDIT')"` : '' })}
+          ${summaryPill(pending, 'Pending', { neutral: true, active: active === 'PENDING', onClick: clickable ? `onclick="${filterSetter}('PENDING')"` : '' })}
+        </div>
+        ${opts?.inlineBar || ''}
       </div>
       ${(!opts?.hidePerformers && active === 'ALL') ? buildTopPerformersList([...list].sort((a, b) => (b.effLatest || 0) - (a.effLatest || 0)).slice(0, 5), (b) => `${b.effLatest}%`, 'accentIndigo') : ''}`;
     }
@@ -11301,7 +11325,7 @@ html.page-fade-ready body {
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 8v4l3 3"></path><circle cx="12" cy="12" r="10"></circle></svg>
         Recently Added
       </button>`;
-      return `<div id="findingsYearTabs" class="flex flex-wrap items-center gap-2 mb-2"><span class="text-xs font-semibold text-slate-500 mr-1">Findings Year:</span>${rows}${recentBtn}</div>`;
+      return `<div id="findingsYearTabs" class="flex items-center gap-2 shrink-0"><span class="text-xs font-semibold text-slate-500 mr-1 whitespace-nowrap">Findings Year:</span>${rows}${recentBtn}</div>`;
     }
 
     function switchFindingsYear(filterValue) {
@@ -11557,7 +11581,7 @@ html.page-fade-ready body {
       // Branch is always filterable via this search box (works the same in
       // both modes), so it isn't duplicated as a separate control below.
       const searchBox = `
-        <div class="relative w-[12.5%] min-w-[110px]">
+        <div class="relative w-[130px] shrink-0">
           <span class="absolute inset-y-0 left-0 flex items-center pl-2.5">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-slate-400"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
           </span>
@@ -11598,7 +11622,7 @@ html.page-fade-ready body {
         </div>`;
 
         return `
-        <div id="findingsToolbarWrap" class="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
+        <div id="findingsToolbarWrap" class="flex items-center gap-2 shrink-0">
           ${searchBox}
           ${categoryDropdown}
           ${resetBtn}
@@ -11611,9 +11635,9 @@ html.page-fade-ready body {
         return `<button type="button" onclick="setFindingsStatusFilter('${value}')" class="px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border transition-all active:scale-95 ${active ? 'bg-accentCyan text-white border-accentCyan shadow-sm shadow-accentCyan/25' : 'bg-white text-slate-600 border-coolBorder hover:border-accentCyan/50'}">${label}</button>`;
       };
       return `
-      <div id="findingsToolbarWrap" class="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
+      <div id="findingsToolbarWrap" class="flex items-center gap-2 shrink-0">
         ${searchBox}
-        <div class="flex items-center gap-1.5 flex-wrap">
+        <div class="flex items-center gap-1.5 flex-nowrap">
           ${statusCapsule('ALL', 'All')}
           ${statusCapsule('PENDING', 'Pending')}
           ${statusCapsule('FOR AUDIT', 'For Audit')}
