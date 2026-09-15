@@ -378,7 +378,7 @@
     .mv-table th { position: sticky; top: 0; z-index: 1; background: #f8f9fd; text-align: left; padding: 5px 12px; font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #94a3b8; border-bottom: 1px solid #e7e9f2; white-space: nowrap; }
     .mv-table td { padding: 5px 12px; border-bottom: 1px solid #f1f2f8; font-size: 12px; color: #475569; vertical-align: top; }
     .mv-table tbody tr:hover td { background: #fafaff; }
-    .mv-td-strong { font-weight: 700; color: #1e293b; white-space: nowrap; }
+    .mv-td-strong { font-weight: 700; color: #1e293b; white-space: nowrap; display: flex; align-items: center; }
     .mv-td-date { color: #94a3b8; font-size: 11px; white-space: nowrap; }
 
     /* Edit Assignment form */
@@ -420,6 +420,40 @@
       .mv-table th { position: static !important; }
       .mv-item { break-inside: avoid; }
     }
+
+    /* ---- Colour system for the "lively" pass ----------------------------
+       Five accent pairs (soft tint background + solid text) reused for:
+       auditor/branch initials badges, the emergency reason pills, and the
+       rotation-round numbers. Assigning colour by a stable hash of the name
+       means the same auditor or branch always gets the same colour across
+       every popup, so it reads as identity rather than random decoration. */
+    .mv-c0 { background: rgba(91,61,240,.12); color: #5b3df0; }
+    .mv-c1 { background: rgba(14,165,199,.14); color: #0a7f9c; }
+    .mv-c2 { background: rgba(13,157,110,.14); color: #0a7d58; }
+    .mv-c3 { background: rgba(225,29,95,.12); color: #c81854; }
+    .mv-c4 { background: rgba(217,122,6,.14); color: #a8620a; }
+    .mv-c5 { background: rgba(51,85,224,.13); color: #2a45b8; }
+
+    .mv-badge { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; font-weight: 800; }
+    .mv-badge-sm { width: 22px; height: 22px; font-size: 9.5px; border-radius: 7px; }
+    .mv-badge-md { width: 30px; height: 30px; font-size: 11.5px; }
+
+    .mv-item { display: flex !important; align-items: center; gap: 9px; }
+    .mv-item-text { min-width: 0; flex: 1 1 auto; }
+
+    .mv-pill { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 999px; font-size: 10.5px; font-weight: 700; white-space: nowrap; }
+
+    .mv-round-badge { width: 22px; height: 22px; border-radius: 999px; font-size: 10.5px; flex: 0 0 auto; }
+    .mv-round { grid-template-columns: 104px minmax(0,1fr) 170px; }
+    .mv-round-no { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+
+    .mv-section-head { display: flex; align-items: center; gap: 7px; }
+    .mv-section-icon { flex: 0 0 auto; width: 18px; height: 18px; color: #5b3df0; }
+
+    /* Small motion so the lists feel responsive rather than static print-outs. */
+    .mv-item { transition: background .12s ease, transform .12s ease; }
+    .mv-item:active { transform: scale(.98); }
+    .mv-table tbody tr { transition: background .12s ease; }
 
     @media (max-width: 640px) {
       .mv-head { padding: 8px 11px; }
@@ -6391,6 +6425,25 @@ html.page-fade-ready body {
       if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
       return (parts[0][0] + parts[1][0]).toUpperCase();
     }
+    // Deterministic colour class (mv-c0..mv-c5) from a name, so the same
+    // auditor/branch always lands on the same colour across every popup
+    // instead of the palette reshuffling on each render.
+    function mvColorClass(name) {
+      const str = String(name || '');
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+      return 'mv-c' + (hash % 6);
+    }
+    // Buckets an emergency-history remark into a colour category so the
+    // Reason column reads at a glance (turnover vs. anomaly vs. one-off),
+    // rather than every row looking the same as plain grey text.
+    function mvReasonClass(remark) {
+      const r = String(remark || '').toLowerCase();
+      if (r.indexOf('anomaly') !== -1) return 'mv-c3';
+      if (r.indexOf('turnover') !== -1) return 'mv-c4';
+      if (r.indexOf('spot') !== -1) return 'mv-c1';
+      return 'mv-c0';
+    }
     // Live filter for any .mv-grid / list whose rows carry data-mv-search.
     // Rows are hidden in place (no re-render) so scroll position and any
     // click handlers on them survive typing.
@@ -6423,8 +6476,11 @@ html.page-fade-ready body {
       const itemsHtml = rows.map(row => `
           <button type="button" class="mv-item" data-mv-search="${mvEsc(String(row.branch).toLowerCase())}"
                   onclick="openModalDetail('${mvArg(row.branch)}')">
-            <span class="mv-item-name">${mvEsc(row.branch)}${row.rotated ? '<span class="mv-chip mv-chip-amber">Rotated</span>' : ''}</span>
-            <span class="mv-item-meta">${mvEsc(row.dateLabel)}</span>
+            <span class="mv-badge mv-badge-sm ${mvColorClass(row.branch)}">${mvEsc(mvInitials(row.branch))}</span>
+            <span class="mv-item-text">
+              <span class="mv-item-name">${mvEsc(row.branch)}${row.rotated ? '<span class="mv-chip mv-chip-amber">Rotated</span>' : ''}</span>
+              <span class="mv-item-meta">${mvEsc(row.dateLabel)}</span>
+            </span>
           </button>`).join('');
 
       const listHtml = rows.length
@@ -6437,7 +6493,7 @@ html.page-fade-ready body {
         <div class="mv">
           <div class="mv-head">
             <div class="mv-head-row">
-              <div class="mv-avatar">${mvEsc(mvInitials(auditorObj.name))}</div>
+              <div class="mv-avatar ${mvColorClass(auditorObj.name)}">${mvEsc(mvInitials(auditorObj.name))}</div>
               <div class="mv-head-main">
                 <div class="mv-title">${mvEsc(auditorObj.name)}</div>
                 <div class="mv-sub">Branch audits tracked by this auditor</div>
@@ -6446,8 +6502,6 @@ html.page-fade-ready body {
                 <div class="mv-stat"><b>${rows.length}</b><span>Branches</span></div>
                 <div class="mv-stat"><b>${rotatedCount}</b><span>Rotated</span></div>
               </div>
-              ${rows.length ? `<input type="search" class="mv-search" placeholder="Filter branches"
-                      aria-label="Filter branches" oninput="mvFilterList(this,'auditorEngagements')">` : ''}
             </div>
           </div>
           <div class="mv-scroll custom-scrollbar">${listHtml}</div>
@@ -6462,9 +6516,11 @@ html.page-fade-ready body {
       const rowsHtml = history.map(h => `
           <tr>
             <td class="mv-td-date">${mvEsc(h.details || '—')}</td>
-            <td class="mv-td-strong">${mvEsc(h.auditor || '—')}</td>
+            <td class="mv-td-strong">
+              <span class="mv-badge mv-badge-sm ${mvColorClass(h.auditor)}" style="margin-right:7px">${mvEsc(mvInitials(h.auditor))}</span>${mvEsc(h.auditor || '—')}
+            </td>
             <td class="mv-td-branch">${mvEsc(h.branch || '—')}</td>
-            <td class="mv-td-reason">${mvEsc(h.remark || '—')}</td>
+            <td class="mv-td-reason">${h.remark ? `<span class="mv-pill ${mvReasonClass(h.remark)}">${mvEsc(h.remark)}</span>` : '—'}</td>
           </tr>`).join('');
 
       const historyHtml = history.length
@@ -6778,9 +6834,10 @@ html.page-fade-ready body {
           return blank + extra + opts;
       };
 
+      const roundColors = ['mv-c0', 'mv-c1', 'mv-c4', 'mv-c3'];
       const rotationRowHtml = (roundNum, label) => `
           <div class="mv-round">
-            <div class="mv-round-no">${label}</div>
+            <div class="mv-round-no"><span class="mv-badge mv-round-badge ${roundColors[roundNum - 1]}">${roundNum}</span>${label}</div>
             <div class="mv-field">
               <label class="mv-label" for="editAssign-auditor${roundNum}">Auditor</label>
               <select id="editAssign-auditor${roundNum}" class="mv-input">
@@ -6800,7 +6857,7 @@ html.page-fade-ready body {
           <div class="mv-scroll custom-scrollbar">
             <div class="mv-form">
               <div class="mv-section">
-                <div class="mv-section-head">Next audit</div>
+                <div class="mv-section-head"><svg class="mv-section-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4"></path><path d="M8 2v4"></path><path d="M3 10h18"></path></svg>Next audit</div>
                 <div class="mv-section-body">
                   <div class="mv-cols">
                     <div class="mv-field">
@@ -6825,7 +6882,7 @@ html.page-fade-ready body {
               </div>
 
               <div class="mv-section">
-                <div class="mv-section-head">Rotation schedule</div>
+                <div class="mv-section-head"><svg class="mv-section-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 1 2.6 6.4"></path><path d="M3 21v-5h5"></path></svg>Rotation schedule</div>
                 <div class="mv-round mv-round-head"><div>Round</div><div>Auditor</div><div>Date</div></div>
                 ${rotationRowHtml(1, '1st round')}
                 ${rotationRowHtml(2, '2nd round')}
