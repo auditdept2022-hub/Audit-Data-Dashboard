@@ -11841,7 +11841,6 @@ html.page-fade-ready body {
     // per-branch breakdown table. Mirrors renderRecentFindingsList's
     // scroll/sticky-header styling so switching capsules doesn't visually jar.
     function renderRecentlyAuditedList(container, filterValue) {
-      const year = Number(String(filterValue).replace('findings', '')) || new Date().getFullYear();
       const query = window.findingsModalSearch || '';
       const records = getRecentlyAuditedRecords(query);
 
@@ -11853,15 +11852,14 @@ html.page-fade-ready body {
         return;
       }
 
-      // Branch name opens the same per-branch findings drill-down used by
-      // the regular breakdown table (focusBranchFindings), so a row here
-      // can be clicked straight into that branch's findings for this FY
-      // without leaving the popup.
+      // Branch name opens the full "Detailed Profile" popup (same one the
+      // main branch table opens), so a row here can be clicked straight
+      // into that branch's complete profile without leaving the popup.
       const rows = records.map(r => `
         <tr class="border-t border-coolBorder">
           <td class="p-2 text-[11px] font-semibold text-slate-500 tabular-nums whitespace-nowrap align-top">${escapeFindingHTML(r.lastAuditDate)}</td>
           <td class="p-2 text-[11px] font-semibold whitespace-nowrap align-top">
-            <button type="button" onclick="focusBranchFindings('${escapeFindingHTML(r.name)}', ${year}, 'findings', '${filterValue}')" class="text-accentCyan hover:text-accentCyan/80 hover:underline underline-offset-2 text-left transition-colors">${escapeFindingHTML(r.name)}</button>
+            <button type="button" onclick="openModalDetail('${escapeFindingHTML(r.name)}')" class="text-accentCyan hover:text-accentCyan/80 hover:underline underline-offset-2 text-left transition-colors">${escapeFindingHTML(r.name)}</button>
           </td>
           <td class="p-2 text-[11px] text-slate-500 whitespace-nowrap align-top">${escapeFindingHTML(r.auditor)}</td>
         </tr>`).join('');
