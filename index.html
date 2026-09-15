@@ -11994,7 +11994,6 @@ html.page-fade-ready body {
         const email = String(u.email || '');
         const isYou = email.toLowerCase() === myEmail;
         const blocked = u.blocked === true;
-        const initial = (email.charAt(0) || '?').toUpperCase();
         const neverSignedIn = !u.lastSeenAt;
 
         // Per-account admin controls -- only rendered for managers, and
@@ -12019,7 +12018,6 @@ html.page-fade-ready body {
 
         return '' +
           '<div class="flex items-center gap-3 p-2.5 rounded-xl border ' + (blocked ? 'border-accentRose/30 bg-accentRose/5' : (u.active ? 'border-coolBorder' : 'border-coolBorder/60 opacity-80')) + '">' +
-            '<div class="w-8 h-8 rounded-full bg-royalBlue/10 text-royalBlue flex items-center justify-center text-xs font-bold uppercase shrink-0">' + escapeForHtml(initial) + '</div>' +
             '<div class="min-w-0 flex-1">' +
               '<p class="text-sm font-semibold text-slate-800 truncate">' + escapeForHtml(email) + (isYou ? ' <span class="text-royalBlue font-bold">(You)</span>' : '') + (blocked ? ' <span class="text-accentRose font-bold">(Blocked)</span>' : '') + '</p>' +
               '<p class="text-xs text-slate-400">' + statusLabel + '</p>' +
@@ -12325,12 +12323,10 @@ html.page-fade-ready body {
         const label = AUDIT_ACTION_LABELS[action] || action || 'Action';
         const detailLine = formatAuditEntryDetails(action, entry.details);
         const actor = String(entry.actor || 'Unknown');
-        const initial = (actor.charAt(0) || '?').toUpperCase();
         const whenLabel = entry.at ? formatLastSeenRelative(entry.at) : (entry.atIso || '');
 
         return '' +
           '<div class="flex items-start gap-3 p-2.5 rounded-xl border border-coolBorder">' +
-            '<div class="w-8 h-8 rounded-full bg-royalBlue/10 text-royalBlue flex items-center justify-center text-xs font-bold uppercase shrink-0 mt-0.5">' + escapeForHtml(initial) + '</div>' +
             '<div class="min-w-0 flex-1">' +
               '<p class="text-sm font-semibold text-slate-800 truncate">' + escapeForHtml(label) + '</p>' +
               '<p class="text-xs text-slate-500 truncate">' + escapeForHtml(actor) + '</p>' +
