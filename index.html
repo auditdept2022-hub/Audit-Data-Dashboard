@@ -298,12 +298,14 @@
      inner boxes just as short, so the data area itself never grew and
      fullscreen looked like it did nothing. In fullscreen, let every such
      box grow to use the real available height instead of staying capped. */
-  #modalDialog.modal-fullscreen #modalBody [class*="h-[500px]"],
+  #modalDialog.modal-fullscreen #modalBody [class*="h-[500px]"] {
+    height: calc(100dvh - 100px) !important;
+  }
+  #modalDialog.modal-fullscreen #modalBody [class*="max-h-"] {
+    max-height: calc(100dvh - 100px) !important;
+  }
   #modalDialog.modal-fullscreen #overallDataScrollBox {
     height: calc(100dvh - 230px) !important;
-  }
-  #modalDialog.modal-fullscreen #modalBody [class*="max-h-"],
-  #modalDialog.modal-fullscreen #overallDataScrollBox {
     max-height: calc(100dvh - 230px) !important;
   }
   /* Same "big empty gap" problem shows up in the regular windowed popup
@@ -313,12 +315,13 @@
      between the last row and the bottom of the dialog. Let the box use
      the dialog's real available height here as well — same idea as the
      fullscreen override above, just scaled to the 90vh windowed dialog
-     instead of the full viewport. */
+     instead of the full viewport. Offset trimmed to 100px now that the
+     toolbar above the table is a single line instead of two. */
   #modalDialog:not(.modal-fullscreen) #modalBody [class*="h-[500px]"] {
-    height: max(320px, calc(90dvh - 260px)) !important;
+    height: max(320px, calc(90dvh - 100px)) !important;
   }
   #modalDialog:not(.modal-fullscreen) #modalBody [class*="max-h-"] {
-    max-height: max(320px, calc(90dvh - 260px)) !important;
+    max-height: max(320px, calc(90dvh - 100px)) !important;
   }
     #modalBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
     /* Branch Audit Interval modal: the outer #modalBody must NOT scroll
@@ -6736,13 +6739,13 @@ html.page-fade-ready body {
               window.findingsModalCategories = null; // null = no filter (all categories)
               window._findingsCategoryDraft = null;
               window.findingsModalState = { type, filterValue, allBranches: [...activeData.branches] };
-              modalBody.innerHTML = '<div class="flex flex-nowrap items-center gap-3 mb-3 overflow-x-auto custom-scrollbar pb-1">' + renderFindingsYearTabs(filterValue) + renderFindingsToolbar() + '</div>' + '<div id="modalTableContainer"></div>';
+              modalBody.innerHTML = '<div class="flex flex-nowrap items-center justify-between gap-3 mb-3 overflow-x-auto custom-scrollbar pb-1">' + renderFindingsYearTabs(filterValue) + renderFindingsToolbar() + '</div>' + '<div id="modalTableContainer"></div>';
               renderFindingsModalTable(filterValue);
               if (addFindingBtn) addFindingBtn.classList.remove('hidden');
           } else if (type === 'accounts') {
               window.accountsModalSort = null;
               window.accountsModalSearch = '';
-              modalBody.innerHTML = '<div class="flex flex-nowrap items-center gap-3 mb-3 overflow-x-auto custom-scrollbar pb-1">' + renderAccountsTotalsCapsules() + '<div id="accountsSearchBar" class="shrink-0"></div></div><div id="modalTableContainer"></div>';
+              modalBody.innerHTML = '<div class="flex flex-nowrap items-center justify-between gap-3 mb-3 overflow-x-auto custom-scrollbar pb-1">' + renderAccountsTotalsCapsules() + '<div id="accountsSearchBar" class="shrink-0"></div></div><div id="modalTableContainer"></div>';
               renderAccountsModalTable();
           } else {
               // all, collection, sales, service — use combinable filter state (status + audit status)
@@ -10922,7 +10925,7 @@ html.page-fade-ready body {
       const pillAttrs = (value) => clickable ? `onclick="${filterSetter}('${value}')" role="button" tabindex="0"` : '';
 
       return `
-      <div class="flex flex-nowrap items-center gap-3 mb-2 overflow-x-auto custom-scrollbar pb-1">
+      <div class="flex flex-nowrap items-center justify-between gap-3 mb-2 overflow-x-auto custom-scrollbar pb-1">
         <div class="flex flex-nowrap items-center gap-1.5 shrink-0">
           ${summaryPill(list.length, 'Total Branches', { neutral: true, active: active === 'ALL', onClick: clickable ? `onclick="${filterSetter}('ALL')"` : '' })}
           ${summaryPill(done, 'Done', { tint: 'accentBlue', active: active === 'DONE', onClick: clickable ? `onclick="${filterSetter}('DONE')"` : '' })}
