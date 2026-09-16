@@ -152,6 +152,8 @@
        the arbitrary-value utilities it uses. */
     #branchHighlightPopup { position: fixed; z-index: 300; }
     #branchHighlightPopup.hidden { display: none !important; }
+    #assignmentStatusPanel { position: fixed; z-index: 300; }
+    #assignmentStatusPanel.hidden { display: none !important; }
     #branchHighlightPopup [data-hl-pick] { display: flex; align-items: center; gap: .5rem; width: 100%; }
     .hl-trigger { display: inline-flex; align-items: center; gap: .375rem; }
     .hl-trigger > * { flex-shrink: 0; }
@@ -8679,6 +8681,10 @@ html.page-fade-ready body {
     }
 
     function closeModal() {
+      // Both floating overlays are parented to <body>, not to the modal,
+      // so they'd otherwise linger on screen after the popup is dismissed.
+      if (typeof closeAssignmentStatusDropdown === 'function') closeAssignmentStatusDropdown();
+      if (typeof closeHighlightPopup === 'function') closeHighlightPopup();
       const modal = document.getElementById('dataModal');
       const modalDialog = document.getElementById('modalDialog');
       modal.classList.add('opacity-0');
@@ -9805,7 +9811,7 @@ html.page-fade-ready body {
     // auditStatus is an array of selected statuses; an empty array means
     // "All Audit Status" (no filter applied).
     function defaultAssignmentFilterState() {
-      return { auditStatus: [], auditor: 'ALL', search: '' };
+      return { auditStatus: [], auditor: 'ALL', search: '', highlightOnly: false, highlightColors: [] };
     }
 
     function setAssignmentFilter(key, value) {
@@ -9828,15 +9834,51 @@ html.page-fade-ready body {
       renderAssignmentModalView();
     }
 
+    // ---- Highlight filters (same dropdown, separate section) ----
+    // "Highlighted only" keeps just the rows carrying any highlight color;
+    // ticking individual colors narrows it further to those colors. Colors
+    // take precedence: if any color is ticked, only those colors show,
+    // regardless of the "Highlighted only" box.
+    function toggleAssignmentHighlightOnly() {
+      if (!window.assignmentFilterState) window.assignmentFilterState = defaultAssignmentFilterState();
+      const state = window.assignmentFilterState;
+      state.highlightOnly = !state.highlightOnly;
+      // Turning the master switch off also drops any color narrowing, so
+      // the filter can't stay silently active with the box unticked.
+      if (!state.highlightOnly) state.highlightColors = [];
+      renderAssignmentModalView();
+    }
+
+    function toggleAssignmentHighlightColor(color) {
+      if (!window.assignmentFilterState) window.assignmentFilterState = defaultAssignmentFilterState();
+      const state = window.assignmentFilterState;
+      const arr = Array.isArray(state.highlightColors) ? state.highlightColors.slice() : [];
+      const idx = arr.indexOf(color);
+      if (idx >= 0) { arr.splice(idx, 1); } else { arr.push(color); }
+      state.highlightColors = arr;
+      // Picking a color implies "highlighted only" — otherwise the two
+      // controls could contradict each other.
+      if (arr.length > 0) state.highlightOnly = true;
+      renderAssignmentModalView();
+    }
+
     function clearAssignmentStatusFilter() {
       if (!window.assignmentFilterState) window.assignmentFilterState = defaultAssignmentFilterState();
-      window.assignmentFilterState.auditStatus = [];
+      const state = window.assignmentFilterState;
+      state.auditStatus = [];
+      state.highlightOnly = false;
+      state.highlightColors = [];
       renderAssignmentModalView();
     }
 
     function toggleAssignmentStatusDropdown() {
       window.assignmentStatusDropdownOpen = !window.assignmentStatusDropdownOpen;
-      renderAssignmentModalView();
+      syncAssignmentStatusPanel();
+    }
+
+    function closeAssignmentStatusDropdown() {
+      window.assignmentStatusDropdownOpen = false;
+      syncAssignmentStatusPanel();
     }
 
     // Free-text branch-name search, same debounce-free live-filter as the
@@ -9910,18 +9952,15 @@ html.page-fade-ready body {
           { value: 'DONE', label: 'Done' }
       ];
       const selectedStatuses = Array.isArray(state.auditStatus) ? state.auditStatus : [];
-      const statusLabel = selectedStatuses.length === 0
-          ? 'All Audit Status'
-          : statusChoices.filter(c => selectedStatuses.includes(c.value)).map(c => c.label).join(', ');
-      const isOpen = !!window.assignmentStatusDropdownOpen;
-      const statusCheckboxesHtml = statusChoices.map(c => {
-          const checked = selectedStatuses.includes(c.value);
-          return `
-          <label class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer text-xs text-slate-700 select-none">
-            <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleAssignmentStatusOption('${c.value}')" class="rounded border-coolBorder text-accentCyan focus:ring-accentCyan cursor-pointer">
-            ${c.label}
-          </label>`;
-      }).join('');
+      const selectedColors = Array.isArray(state.highlightColors) ? state.highlightColors : [];
+      const parts = statusChoices.filter(c => selectedStatuses.includes(c.value)).map(c => c.label);
+      if (selectedColors.length > 0) {
+          parts.push('Highlighted: ' + selectedColors.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join('/'));
+      } else if (state.highlightOnly) {
+          parts.push('Highlighted');
+      }
+      const statusLabel = parts.length === 0 ? 'All Audit Status' : parts.join(', ');
+      const activeCount = selectedStatuses.length + (state.highlightOnly ? 1 : 0);
 
       return `
       <div class="flex items-center gap-3 shrink-0">
@@ -9933,19 +9972,13 @@ html.page-fade-ready body {
         </div>
 
         <div class="flex flex-nowrap items-center gap-2">
-          <div class="relative shrink-0">
-            <button type="button" onclick="toggleAssignmentStatusDropdown()" class="w-auto flex items-center justify-between gap-2 px-3 py-2 bg-white border border-coolBorder rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
-              <span class="truncate max-w-[160px]" title="${escapeAttr(statusLabel)}">${statusLabel}</span>
+          <div class="shrink-0">
+            <button type="button" id="assignmentStatusTrigger" data-assign-status-trigger
+                class="w-auto flex items-center justify-between gap-2 px-3 py-2 bg-white border ${activeCount > 0 ? 'border-accentCyan/50' : 'border-coolBorder'} rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
+              <span class="truncate max-w-[180px]" title="${escapeAttr(statusLabel)}">${statusLabel}</span>
+              ${activeCount > 0 ? `<span class="px-1.5 py-0.5 rounded-md bg-accentCyan/10 text-accentCyan text-[10px] font-bold leading-none shrink-0">${activeCount}</span>` : ''}
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 text-slate-400"><path d="m6 9 6 6 6-6"></path></svg>
             </button>
-            ${isOpen ? `
-            <div class="absolute z-20 mt-1 w-48 bg-white border border-coolBorder rounded-xl shadow-lg p-1.5">
-              ${statusCheckboxesHtml}
-              <div class="border-t border-coolBorder mt-1 pt-1 flex items-center justify-between px-1">
-                <button type="button" onclick="clearAssignmentStatusFilter()" class="text-[11px] text-slate-400 hover:text-slate-600 cursor-pointer">Clear</button>
-                <button type="button" onclick="toggleAssignmentStatusDropdown()" class="text-[11px] font-semibold text-accentCyan hover:text-accentCyan/70 cursor-pointer">Done</button>
-              </div>
-            </div>` : ''}
           </div>
 
           <select onchange="setAssignmentFilter('auditor', this.value)" class="w-auto shrink-0 px-3 py-2 bg-white border border-coolBorder rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
@@ -9960,6 +9993,177 @@ html.page-fade-ready body {
         </div>
       </div>`;
     }
+
+
+    // ---- Audit Status / Highlight dropdown, as a floating overlay ----
+    // This panel used to be an `absolute z-20` div sitting inside the
+    // filter bar. That put it inside the modal body's overflow-auto box,
+    // so opening it grew the content and produced a scrollbar, and the
+    // bottom of the list got clipped by the container edge. It now lives
+    // on <body> as a fixed overlay at z-300 — the same treatment as the
+    // highlight picker — so it floats above everything, adds no height to
+    // the modal, and never triggers a scroll.
+    let assignmentStatusPanelEl = null;
+
+    function ensureAssignmentStatusPanel() {
+      if (assignmentStatusPanelEl && document.body.contains(assignmentStatusPanelEl)) return assignmentStatusPanelEl;
+      const el = document.createElement('div');
+      el.id = 'assignmentStatusPanel';
+      el.className = 'fixed z-[300] hidden bg-white border border-coolBorder rounded-xl shadow-2xl p-1.5';
+      el.style.zIndex = '300';
+      document.body.appendChild(el);
+      assignmentStatusPanelEl = el;
+      return el;
+    }
+
+    function buildAssignmentStatusPanelHtml() {
+      const state = window.assignmentFilterState || (window.assignmentFilterState = defaultAssignmentFilterState());
+      const selectedStatuses = Array.isArray(state.auditStatus) ? state.auditStatus : [];
+      const selectedColors = Array.isArray(state.highlightColors) ? state.highlightColors : [];
+
+      const statusChoices = [
+          { value: 'PENDING', label: 'Pending' },
+          { value: 'FOR AUDIT', label: 'For Audit' },
+          { value: 'DONE', label: 'Done' }
+      ];
+
+      const statusRows = statusChoices.map(c => `
+        <label class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer text-xs text-slate-700 select-none">
+          <input type="checkbox" ${selectedStatuses.includes(c.value) ? 'checked' : ''}
+              data-assign-status="${c.value}"
+              class="rounded border-coolBorder text-accentCyan focus:ring-accentCyan cursor-pointer">
+          ${c.label}
+        </label>`).join('');
+
+      // Only offer the colors that are actually in use, so the list never
+      // shows a color that would return an empty table.
+      const inUse = new Set();
+      (activeData.branches || []).forEach(b => { if (b.highlightColor) inUse.add(b.highlightColor); });
+      const colorRows = Object.keys(HIGHLIGHT_COLORS)
+          .filter(c => inUse.has(c) || selectedColors.includes(c))
+          .map(c => {
+              const cfg = HIGHLIGHT_COLORS[c];
+              const name = c.charAt(0).toUpperCase() + c.slice(1);
+              const count = (activeData.branches || []).filter(b => b.highlightColor === c).length;
+              return `
+        <label class="flex items-center gap-2 pl-6 pr-2.5 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer text-xs text-slate-700 select-none">
+          <input type="checkbox" ${selectedColors.includes(c) ? 'checked' : ''}
+              data-assign-hlcolor="${c}"
+              class="rounded border-coolBorder text-accentCyan focus:ring-accentCyan cursor-pointer">
+          <span class="w-3 h-3 rounded-full ${cfg.dot} shrink-0"></span>
+          <span class="flex-1">${name}</span>
+          <span class="text-[10px] font-semibold text-slate-400">${count}</span>
+        </label>`;
+          }).join('');
+
+      const highlightedTotal = (activeData.branches || []).filter(b => b.highlightColor).length;
+
+      return `
+        <div class="w-52 max-h-[60vh] overflow-y-auto custom-scrollbar">
+          <div class="px-2.5 pt-1 pb-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Audit Status</div>
+          ${statusRows}
+          <div class="border-t border-coolBorder mt-1 pt-1">
+            <div class="px-2.5 pt-1 pb-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Highlight</div>
+            <label class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer text-xs text-slate-700 select-none">
+              <input type="checkbox" ${state.highlightOnly ? 'checked' : ''}
+                  data-assign-hlonly
+                  class="rounded border-coolBorder text-accentCyan focus:ring-accentCyan cursor-pointer">
+              <span class="flex-1 font-semibold">Highlighted only</span>
+              <span class="text-[10px] font-semibold text-slate-400">${highlightedTotal}</span>
+            </label>
+            ${colorRows || '<div class="px-2.5 py-1.5 text-[10px] text-slate-400 italic">No highlighted branches yet</div>'}
+          </div>
+        </div>
+        <div class="border-t border-coolBorder mt-1 pt-1 flex items-center justify-between px-1">
+          <button type="button" data-assign-status-clear class="text-[11px] text-slate-400 hover:text-slate-600 cursor-pointer">Clear</button>
+          <button type="button" data-assign-status-done class="text-[11px] font-semibold text-accentCyan hover:text-accentCyan/70 cursor-pointer">Done</button>
+        </div>`;
+    }
+
+    function positionAssignmentStatusPanel() {
+      const trigger = document.getElementById('assignmentStatusTrigger');
+      if (!assignmentStatusPanelEl || !trigger) return;
+      const rect = trigger.getBoundingClientRect();
+      if (rect.bottom < 0 || rect.top > window.innerHeight) { closeAssignmentStatusDropdown(); return; }
+      const pr = assignmentStatusPanelEl.getBoundingClientRect();
+      let top = rect.bottom + 6;
+      let left = rect.left;
+      if (top + pr.height > window.innerHeight - 8) top = Math.max(8, rect.top - pr.height - 6);
+      if (left + pr.width > window.innerWidth - 8) left = window.innerWidth - pr.width - 8;
+      if (left < 8) left = 8;
+      assignmentStatusPanelEl.style.top = top + 'px';
+      assignmentStatusPanelEl.style.left = left + 'px';
+    }
+
+    // Called after every table re-render: keeps the floating panel in sync
+    // with the open flag and re-anchors it, since the trigger button is
+    // replaced wholesale each time modalBody is rebuilt.
+    function syncAssignmentStatusPanel() {
+      const trigger = document.getElementById('assignmentStatusTrigger');
+      const open = !!window.assignmentStatusDropdownOpen && !!trigger;
+      if (!open) {
+          if (assignmentStatusPanelEl) {
+              assignmentStatusPanelEl.classList.add('hidden');
+              assignmentStatusPanelEl.style.display = 'none';
+              assignmentStatusPanelEl.innerHTML = '';
+          }
+          if (trigger) trigger.setAttribute('aria-expanded', 'false');
+          return;
+      }
+      const panel = ensureAssignmentStatusPanel();
+      panel.innerHTML = buildAssignmentStatusPanelHtml();
+      panel.classList.remove('hidden');
+      panel.style.display = 'block';
+      trigger.setAttribute('aria-expanded', 'true');
+      positionAssignmentStatusPanel();
+    }
+
+    // Delegated, capture-phase — same reasoning as the highlight picker:
+    // the filter bar sits inside containers that stop propagation, so a
+    // bubble-phase listener on document would never hear these clicks.
+    function initAssignmentStatusListeners() {
+      if (window.__assignStatusWired) return;
+      window.__assignStatusWired = true;
+
+      document.addEventListener('change', function (evt) {
+          const t = evt.target;
+          if (!t || !assignmentStatusPanelEl || !assignmentStatusPanelEl.contains(t)) return;
+          if (t.hasAttribute('data-assign-status')) {
+              toggleAssignmentStatusOption(t.getAttribute('data-assign-status'));
+          } else if (t.hasAttribute('data-assign-hlcolor')) {
+              toggleAssignmentHighlightColor(t.getAttribute('data-assign-hlcolor'));
+          } else if (t.hasAttribute('data-assign-hlonly')) {
+              toggleAssignmentHighlightOnly();
+          }
+      }, true);
+
+      document.addEventListener('click', function (evt) {
+          const t = evt.target;
+          if (!t || !t.closest) return;
+
+          if (t.closest('[data-assign-status-trigger]')) {
+              evt.preventDefault();
+              evt.stopPropagation();
+              toggleAssignmentStatusDropdown();
+              return;
+          }
+          if (assignmentStatusPanelEl && assignmentStatusPanelEl.contains(t)) {
+              if (t.closest('[data-assign-status-clear]')) { evt.stopPropagation(); clearAssignmentStatusFilter(); return; }
+              if (t.closest('[data-assign-status-done]')) { evt.stopPropagation(); closeAssignmentStatusDropdown(); return; }
+              return; // clicks on the checkboxes/labels are handled by 'change'
+          }
+          if (window.assignmentStatusDropdownOpen) closeAssignmentStatusDropdown();
+      }, true);
+
+      document.addEventListener('keydown', function (evt) {
+          if (evt.key === 'Escape') closeAssignmentStatusDropdown();
+      }, true);
+
+      window.addEventListener('resize', positionAssignmentStatusPanel);
+      window.addEventListener('scroll', positionAssignmentStatusPanel, true);
+    }
+
+    initAssignmentStatusListeners();
 
     // Formats an interval given in days as whole months + leftover days —
     // e.g. 65 days -> "2 months and 5 days" — using a flat 30-day month so
@@ -10321,6 +10525,15 @@ html.page-fade-ready body {
           list = list.filter(b => selectedStatuses.includes((b.auditStatus || '').toUpperCase()));
       }
 
+      // Highlight narrowing. Specific colors win over the plain
+      // "Highlighted only" switch; with neither set nothing is filtered.
+      const selectedColors = Array.isArray(state.highlightColors) ? state.highlightColors : [];
+      if (selectedColors.length > 0) {
+          list = list.filter(b => selectedColors.includes(b.highlightColor || ''));
+      } else if (state.highlightOnly) {
+          list = list.filter(b => !!b.highlightColor);
+      }
+
       const modalTitle = document.getElementById('modalTitle');
       modalTitle.innerHTML = selectedStatuses.length === 0
           ? 'Assignment Branches Overview'
@@ -10342,6 +10555,11 @@ html.page-fade-ready body {
       tableContainer.innerHTML = list.length > 0
           ? buildAssignmentTable(list)
           : '<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No targeted branch parameters found.</div>';
+
+      // modalBody was just rebuilt, so the trigger button is a brand new
+      // element — re-point the floating panel at it (and refresh its
+      // checkbox states) rather than leaving it anchored to a dead node.
+      syncAssignmentStatusPanel();
     }
 
     function renderModalFilteredView() {
