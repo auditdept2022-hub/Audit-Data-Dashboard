@@ -15256,7 +15256,7 @@ html.page-fade-ready body {
        appears next time this modal is opened (or Refresh is tapped). */
     window.overallDataPayload = null;
     window.overallDataPayloadFetchedAt = 0;
-    window.overallDataState = { tab: 'collection', search: '', statusFilter: null, sortCol: null, sortDir: 'asc', chartMetric: null };
+    window.overallDataState = { tab: 'collection', search: '', statusFilter: null, sortCol: null, sortDir: 'asc', chartMetrics: [], chartExpanded: false };
     // SPEED FIX: this used to be 20000 (20s), so almost every single tap
     // of the "Overall Data Snapshot" card triggered a fresh Apps
     // Script call (JSONP round trip + possible cold start = several
@@ -15390,7 +15390,7 @@ html.page-fade-ready body {
       window.overallDataState.statusFilter = null; // categories differ per tab, so a filter doesn't carry over
       window.overallDataState.sortCol = null; // columns differ per tab too
       window.overallDataState.sortDir = 'asc';
-      window.overallDataState.chartMetric = null; // metric choices differ per tab too — reset to that tab's default
+      window.overallDataState.chartMetrics = []; // metric choices differ per tab too — reset to that tab's default
       const modalBody = document.getElementById('modalBody');
       if (modalBody) {
         renderOverallDataBody(modalBody);
@@ -15415,12 +15415,52 @@ html.page-fade-ready body {
       renderOverallDataChart();
     }
 
-    // Which sub-metric the trend chart plots for the Collection/Sales tabs
-    // (Service has only one value per month, so it never shows this
-    // selector — see buildOverallDataChartControls()).
-    function setOverallDataChartMetric(label) {
-      window.overallDataState.chartMetric = label || null;
+    // Which sub-metric(s) the trend chart plots for the Collection/Sales
+    // tabs (Service has only one value per month, so it never shows this
+    // selector — see buildOverallDataChartControls()). Clicking a metric
+    // chip toggles it on/off the chart — more than one can be active at
+    // once so the trend chart can show several lines together (e.g. Repo
+    // Rate next to Efficiency) instead of only ever one metric at a time.
+    // Capped at 4 so the chart doesn't turn into unreadable spaghetti.
+    function toggleOverallDataChartMetric(label) {
+      const state = window.overallDataState;
+      if (!state.chartMetrics) state.chartMetrics = [];
+      const idx = state.chartMetrics.indexOf(label);
+      if (idx >= 0) {
+        // Always keep at least one metric selected — an empty chart isn't useful.
+        if (state.chartMetrics.length > 1) state.chartMetrics.splice(idx, 1);
+      } else {
+        if (state.chartMetrics.length >= 4) state.chartMetrics.shift();
+        state.chartMetrics.push(label);
+      }
       renderOverallDataChart();
+    }
+
+    // The trend chart is collapsed by default so the modal opens compact —
+    // it only renders (and only takes up vertical space) once the person
+    // actually taps to expand it, instead of always being visible and
+    // pushing the table further down.
+    function toggleOverallDataChartExpanded() {
+      const state = window.overallDataState;
+      state.chartExpanded = !state.chartExpanded;
+      const wrap = document.getElementById('overallDataChartWrap');
+      const controls = document.getElementById('overallDataChartControls');
+      const toggleBtn = document.getElementById('overallDataChartToggleBtn');
+      if (wrap) wrap.style.display = state.chartExpanded ? '' : 'none';
+      if (controls) controls.style.display = state.chartExpanded ? '' : 'none';
+      if (toggleBtn) toggleBtn.innerHTML = overallDataChartToggleLabel();
+      renderOverallDataChart();
+    }
+
+    function overallDataChartToggleLabel() {
+      const state = window.overallDataState;
+      const months = (window.overallDataPayload && window.overallDataPayload.months) || [];
+      const trendTxt = months.length ? months.join(' \u2192 ') : '\u2014';
+      const chevron = state.chartExpanded
+        ? '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>'
+        : '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="-rotate-90"><path d="M6 9l6 6 6-6"></path></svg>';
+      const hint = state.chartExpanded ? '' : ' <span class="text-slate-400 font-semibold normal-case">(tap to view)</span>';
+      return `${chevron} Trend \u00b7 ${trendTxt}${hint}`;
     }
 
     // Sortable column headers. colKey is 'name' for the Branch column, or
@@ -15529,11 +15569,13 @@ html.page-fade-ready body {
           </div>
         </div>
         <div class="bg-white border border-coolBorder rounded-xl p-2.5 mb-2">
-          <div class="flex items-center justify-between gap-2 mb-1 flex-wrap">
-            <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Trend \u00b7 ${months.length ? months.join(' \u2192 ') : '\u2014'}</span>
-            <div id="overallDataChartControls"></div>
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <button type="button" id="overallDataChartToggleBtn" onclick="toggleOverallDataChartExpanded()" class="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider hover:text-accentIndigo transition-colors active:scale-95">${overallDataChartToggleLabel()}</button>
+            <div id="overallDataChartControls" style="${state.chartExpanded ? '' : 'display:none;'}"></div>
           </div>
-          <div id="overallDataChartBox" style="min-height: 240px;"></div>
+          <div id="overallDataChartWrap" class="mt-1" style="${state.chartExpanded ? '' : 'display:none;'}">
+            <div id="overallDataChartBox" style="min-height: 260px;"></div>
+          </div>
         </div>
         <div id="overallDataTableContainer">${buildOverallDataTable()}</div>
       `;
@@ -15574,32 +15616,53 @@ html.page-fade-ready body {
       if (state.tab === 'collection') options = data.collectionMetrics || [];
       else if (state.tab === 'sales') options = data.salesSubLabels || [];
       if (!options.length) return '';
-      const current = state.chartMetric || options[0];
-      const selectOptions = options.map(function (label) {
-        return `<option value="${escapeFindingHTML(label)}" ${label === current ? 'selected' : ''}>${escapeFindingHTML(label)}</option>`;
+      if (!state.chartMetrics || !state.chartMetrics.length) state.chartMetrics = [options[0]];
+      const chips = options.map(function (label) {
+        const active = state.chartMetrics.indexOf(label) >= 0;
+        const cls = active
+          ? 'bg-accentIndigo text-white border-accentIndigo shadow-sm'
+          : 'bg-gray-50 text-slate-500 border-coolBorder hover:bg-gray-100';
+        const safeLabel = escapeFindingHTML(label).replace(/'/g, "\\'");
+        return `<button type="button" onclick="toggleOverallDataChartMetric('${safeLabel}')" class="px-2.5 py-1 rounded-full text-[10.5px] font-bold border transition-all active:scale-95 ${cls}">${escapeFindingHTML(label)}</button>`;
       }).join('');
-      return `<select onchange="setOverallDataChartMetric(this.value)" class="px-2 py-1 bg-gray-50 border border-coolBorder rounded-md text-[11px] font-semibold text-slate-600 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">${selectOptions}</select>`;
+      return `<div class="flex items-center gap-1.5 flex-wrap justify-end">${chips}<span class="text-[10px] font-semibold text-slate-400 whitespace-nowrap ml-0.5">tap to compare (up to 4)</span></div>`;
     }
 
-    // Aggregate trend chart for the "Overall Data" modal: sums the active
-    // tab's metric across every currently-filtered branch, one point per
-    // month, so a reviewer can see the overall direction (up/down) at a
-    // glance instead of scanning every row of the table below it. Uses
-    // the same ApexCharts instance already loaded for the ranking charts
-    // elsewhere on the dashboard, styled to match (CHART_FONT, colors).
+    // Percentage-style metrics — Repo Rate and Efficiency (Rate) — are both
+    // stored as raw fractions (e.g. 0.78 for "78%"), same as the table's
+    // fmt() above, so they need averaging (not summing) and a "%" axis.
+    function overallDataMetricIsPercent(metric) {
+      return (/repo/i.test(metric || '') && /rate/i.test(metric || '')) || /effic/i.test(metric || '');
+    }
+
+    const OVERALL_DATA_CHART_PALETTE = ['#10b981', '#4f46e5', '#f59e0b', '#e11d48', '#0891b2', '#8b5cf6'];
+
+    // Aggregate trend chart for the "Overall Data" modal: sums (or, for
+    // percentage metrics, averages) the selected metric(s) across every
+    // currently-filtered branch, one point per month per metric, so a
+    // reviewer can see the overall direction (up/down) at a glance instead
+    // of scanning every row of the table below it. More than one metric can
+    // be plotted together (e.g. Repo Rate alongside Efficiency) — see
+    // toggleOverallDataChartMetric() — which puts count/amount metrics on
+    // their own right-hand axis so a "%" line and a raw-count line never
+    // get squashed onto the same scale. The chart itself only renders while
+    // the panel is expanded (see toggleOverallDataChartExpanded()), so it
+    // doesn't cost anything while collapsed.
     function renderOverallDataChart() {
       const controlsEl = document.getElementById('overallDataChartControls');
       if (controlsEl) controlsEl.innerHTML = buildOverallDataChartControls();
 
+      const state = window.overallDataState;
       const el = document.querySelector('#overallDataChartBox');
       if (!el) return; // modal isn't open / this body isn't mounted
 
+      if (charts.overallData) { try { charts.overallData.destroy(); } catch (e) {} charts.overallData = null; }
+
+      if (!state.chartExpanded) { el.innerHTML = ''; return; } // collapsed — skip the (relatively costly) chart build entirely
+
       const data = window.overallDataPayload;
-      const state = window.overallDataState;
       const months = (data && data.months) || [];
       const branches = getFilteredOverallBranches();
-
-      if (charts.overallData) { try { charts.overallData.destroy(); } catch (e) {} charts.overallData = null; }
 
       if (!data || !months.length || !branches.length) {
         el.innerHTML = `<div class="flex items-center justify-center h-full min-h-[180px] text-xs font-semibold text-slate-400">No data to chart for the current filter.</div>`;
@@ -15608,90 +15671,117 @@ html.page-fade-ready body {
 
       const tabColor = state.tab === 'collection' ? '#10b981' : (state.tab === 'sales' ? '#4f46e5' : '#0891b2');
       const isService = state.tab === 'service';
-      const metric = state.chartMetric || (isService ? null
-        : (state.tab === 'collection' ? (data.collectionMetrics || [])[0] : (data.salesSubLabels || [])[0]));
-      // Percentage-style metrics — Repo Rate and Efficiency (Rate) — are
-      // both stored as raw fractions (e.g. 0.78 for "78%"), same as the
-      // table's fmt() below. Matching either one here means the Efficiency
-      // trend line now gets averaged (not summed) and rendered as "%" on
-      // the axis/tooltip/label, the same way Repo Rate already did.
-      const isRepoRate = !isService && ((/repo/i.test(metric || '') && /rate/i.test(metric || '')) || /effic/i.test(metric || ''));
 
-      const values = months.map(function (m) {
-        let total = 0;
-        branches.forEach(function (b) {
-          let raw;
-          if (isService) raw = b.service ? b.service[m] : null;
-          else {
-            const bucket = state.tab === 'collection' ? b.collection : b.sales;
-            const rec = (bucket && bucket[m]) || {};
-            raw = rec[metric];
+      let metricsToPlot;
+      if (isService) {
+        metricsToPlot = [null]; // single peso total per month, no sub-metric to pick
+      } else {
+        const allOptions = state.tab === 'collection' ? (data.collectionMetrics || []) : (data.salesSubLabels || []);
+        metricsToPlot = (state.chartMetrics && state.chartMetrics.length)
+          ? state.chartMetrics.filter(function (m) { return allOptions.indexOf(m) >= 0; })
+          : (allOptions[0] ? [allOptions[0]] : []);
+      }
+
+      if (!metricsToPlot.length) {
+        el.innerHTML = `<div class="flex items-center justify-center h-full min-h-[180px] text-xs font-semibold text-slate-400">Tap a metric above to see its trend.</div>`;
+        return;
+      }
+
+      const seriesDefs = metricsToPlot.map(function (metric, idx) {
+        const isPct = !isService && overallDataMetricIsPercent(metric);
+        const values = months.map(function (m) {
+          let total = 0;
+          branches.forEach(function (b) {
+            let raw;
+            if (isService) raw = b.service ? b.service[m] : null;
+            else {
+              const bucket = state.tab === 'collection' ? b.collection : b.sales;
+              const rec = (bucket && bucket[m]) || {};
+              raw = rec[metric];
+            }
+            const n = Number(raw);
+            if (!isNaN(n)) total += n;
+          });
+          // Repo Rate / Efficiency are stored as fractions and read as a
+          // meaningless huge number if summed across many branches — average
+          // instead, same as the table treats each branch's own rate.
+          if (isPct) {
+            const withValue = branches.filter(function (b) {
+              const bucket = state.tab === 'collection' ? b.collection : b.sales;
+              const rec = (bucket && bucket[m]) || {};
+              return rec[metric] !== null && rec[metric] !== undefined && rec[metric] !== '';
+            }).length;
+            const avg = withValue ? total / withValue : 0;
+            return Math.round((Math.abs(avg) < 1 ? avg * 100 : avg) * 100) / 100;
           }
-          const n = Number(raw);
-          if (!isNaN(n)) total += n;
+          return Math.round(total * 100) / 100;
         });
-        // Repo Rate is stored as a fraction (see fmt() in buildOverallDataTable)
-        // and reads as a meaningless huge number if summed as raw fractions
-        // across many branches — average it instead of summing, same as the
-        // table treats each branch's own rate as already a percentage.
-        if (isRepoRate) {
-          const withValue = branches.filter(function (b) {
-            const rec = (b.collection && b.collection[m]) || {};
-            return rec[metric] !== null && rec[metric] !== undefined && rec[metric] !== '';
-          }).length;
-          const avg = withValue ? total / withValue : 0;
-          return Math.round((Math.abs(avg) < 1 ? avg * 100 : avg) * 100) / 100;
-        }
-        return Math.round(total * 100) / 100;
+        const name = isService ? 'Service (\u20b1 total)' : (isPct ? `${metric} (avg %)` : `${metric} (total)`);
+        return { metric, isPct, values, name, color: isService ? tabColor : OVERALL_DATA_CHART_PALETTE[idx % OVERALL_DATA_CHART_PALETTE.length] };
       });
 
-      const seriesName = isService ? 'Service (\u20b1 total)' : (isRepoRate ? `${metric} (avg %)` : `${metric} (total)`);
+      const multi = seriesDefs.length > 1;
+      const hasPct = seriesDefs.some(function (s) { return s.isPct; });
+      const hasNonPct = seriesDefs.some(function (s) { return !s.isPct; });
+      const dualAxis = hasPct && hasNonPct;
 
-      // Lively but still boardroom-appropriate: a bit taller, a deeper
-      // two-stop gradient fill, a soft drop-shadow "glow" on the line, a
-      // gentle draw-in animation each time the tab/metric changes, and a
-      // highlighted vertical guide + bigger marker on hover so trend
-      // direction and the current data point are easy to read at a glance.
-      const glowColor = tabColor;
-      const trendUp = values.length > 1 && values[values.length - 1] >= values[0];
+      let yaxisConfig;
+      if (!dualAxis) {
+        const pct = seriesDefs[0].isPct;
+        yaxisConfig = { labels: { style: { colors: '#94a3b8', fontSize: '10px' }, formatter: function (v) { return pct ? Math.round(v) + '%' : OVERALL_DATA_NUM_FMT.format(Math.round(v)); } } };
+      } else {
+        yaxisConfig = seriesDefs.map(function (s, idx) {
+          const isFirstOfType = seriesDefs.findIndex(function (x) { return x.isPct === s.isPct; }) === idx;
+          return {
+            show: isFirstOfType,
+            opposite: !s.isPct,
+            labels: { style: { colors: '#94a3b8', fontSize: '10px' }, formatter: function (v) { return s.isPct ? Math.round(v) + '%' : OVERALL_DATA_NUM_FMT.format(Math.round(v)); } }
+          };
+        });
+      }
+
+      const trendUp = seriesDefs[0].values.length > 1 && seriesDefs[0].values[seriesDefs[0].values.length - 1] >= seriesDefs[0].values[0];
 
       const options = {
         chart: {
-          type: 'area', height: 260, background: 'transparent', toolbar: { show: false }, fontFamily: CHART_FONT,
+          type: multi ? 'line' : 'area', height: 280, background: 'transparent', toolbar: { show: false }, fontFamily: CHART_FONT,
           animations: { enabled: true, easing: 'easeinout', speed: 550, animateGradually: { enabled: true, delay: 90 }, dynamicAnimation: { enabled: true, speed: 350 } },
-          dropShadow: { enabled: true, top: 6, left: 0, blur: 5, opacity: 0.18, color: glowColor }
+          dropShadow: multi ? { enabled: false } : { enabled: true, top: 6, left: 0, blur: 5, opacity: 0.18, color: seriesDefs[0].color }
         },
-        series: [{ name: seriesName, data: values }],
+        series: seriesDefs.map(function (s) { return { name: s.name, data: s.values }; }),
         xaxis: {
           categories: months,
           labels: { style: { colors: '#94a3b8', fontSize: '10px', fontWeight: 700 } },
           axisBorder: { show: false }, axisTicks: { show: false },
           crosshairs: { show: true, stroke: { color: tabColor, width: 1, dashArray: 4 } }
         },
-        yaxis: { labels: { style: { colors: '#94a3b8', fontSize: '10px' }, formatter: function (v) { return isRepoRate ? Math.round(v) + '%' : OVERALL_DATA_NUM_FMT.format(Math.round(v)); } } },
-        colors: [tabColor],
-        stroke: { curve: 'smooth', width: 3.5, lineCap: 'round' },
-        fill: {
-          type: 'gradient',
-          gradient: { shade: 'light', type: 'vertical', shadeIntensity: 0.65, opacityFrom: 0.55, opacityTo: 0.04, stops: [0, 95, 100] }
-        },
+        yaxis: yaxisConfig,
+        colors: seriesDefs.map(function (s) { return s.color; }),
+        stroke: { curve: 'smooth', width: multi ? 3 : 3.5, lineCap: 'round' },
+        fill: multi
+          ? { type: 'solid', opacity: 0.06 }
+          : { type: 'gradient', gradient: { shade: 'light', type: 'vertical', shadeIntensity: 0.65, opacityFrom: 0.55, opacityTo: 0.04, stops: [0, 95, 100] } },
         markers: {
-          size: 4.5, colors: [tabColor], strokeColors: '#fff', strokeWidth: 2.5,
-          hover: { size: 7, sizeOffset: 3 },
-          discrete: values.length ? [{ seriesIndex: 0, dataPointIndex: values.length - 1, fillColor: tabColor, strokeColor: '#fff', size: 6 }] : []
+          size: multi ? 3.5 : 4.5, strokeColors: '#fff', strokeWidth: multi ? 2 : 2.5,
+          hover: { size: multi ? 5.5 : 7, sizeOffset: 2 }
         },
         grid: { borderColor: '#eef1f5', strokeDashArray: 3, yaxis: { lines: { show: true } }, xaxis: { lines: { show: false } }, padding: { top: 6 } },
         dataLabels: { enabled: false },
-        legend: { show: false },
+        legend: { show: multi, position: 'top', fontSize: '10.5px', fontFamily: CHART_FONT, itemMargin: { horizontal: 8, vertical: 2 }, markers: { radius: 12 } },
         tooltip: {
-          theme: 'light', followCursor: true,
-          y: { formatter: function (v) { return isRepoRate ? v + '%' : (isService ? '\u20b1' + OVERALL_DATA_NUM_FMT.format(v) : OVERALL_DATA_NUM_FMT.format(v)); } },
+          theme: 'light', shared: multi, followCursor: !multi, intersect: false,
+          y: { formatter: function (v, opts) {
+            const idx = opts && typeof opts.seriesIndex === 'number' ? opts.seriesIndex : 0;
+            const s = seriesDefs[idx];
+            if (!s) return v;
+            return s.isPct ? v + '%' : (isService ? '\u20b1' + OVERALL_DATA_NUM_FMT.format(v) : OVERALL_DATA_NUM_FMT.format(v));
+          } },
           marker: { show: true }
         },
-        annotations: values.length ? {
+        annotations: (!multi && seriesDefs[0].values.length) ? {
           points: [{
-            x: months[values.length - 1],
-            y: values[values.length - 1],
+            x: months[seriesDefs[0].values.length - 1],
+            y: seriesDefs[0].values[seriesDefs[0].values.length - 1],
             marker: { size: 0 },
             label: {
               text: (trendUp ? '\u25b2 ' : '\u25bc ') + 'latest',
@@ -15809,6 +15899,13 @@ html.page-fade-ready body {
           // effAprParsed/effLatestParsed above, all Math.round()'d).
           return Math.round(pct) + '%';
         }
+        if (kind === 'repoRate') {
+          const pct = Math.abs(n) < 1 ? n * 100 : n;
+          // Repo Rate is left as-is (no rounding) here, unlike Efficiency
+          // above — shown to 2 decimal places, matching how Repo Rate is
+          // formatted everywhere else on this dashboard (toFixed(2)).
+          return pct.toFixed(2) + '%';
+        }
         if (kind === 'peso') return '\u20b1' + OVERALL_DATA_NUM_FMT.format(n);
         return OVERALL_DATA_NUM_FMT.format(n);
       };
@@ -15850,7 +15947,7 @@ html.page-fade-ready body {
               // stay a plain number, so this specifically requires
               // "repo" AND "rate" together (not "repo" alone) or an
               // "Efficiency" label before treating a column as a percent.
-              const kind = ((/repo/i.test(label) && /rate/i.test(label)) || /effic/i.test(label)) ? 'repo' : null;
+              const kind = (/repo/i.test(label) && /rate/i.test(label)) ? 'repoRate' : (/effic/i.test(label) ? 'repo' : null);
               return `<td class="p-1.5 text-center whitespace-nowrap${ci === 0 ? borderCls : ''}">${fmt(rec[label], kind)}</td>`;
             }).join('');
           } else if (state.tab === 'sales') {
