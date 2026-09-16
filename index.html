@@ -961,7 +961,13 @@
         auditors: [],
         dataAudit: {},
         branchAuditSchedule: {},
-        emergencyHistory: []
+        emergencyHistory: [],
+        // Read live from AUDITORS EMERGENCY!A2 downward (see processExcelData) —
+        // whoever is typed into that column becomes part of the standby
+        // rotation automatically. Empty until the first real data load;
+        // getEmergencyRotationCycle() falls back to the fixed 4-name list
+        // below until then.
+        emergencyRotationCycle: []
     };
     let charts = {};
     let currentBranchSort = null;
@@ -6662,7 +6668,7 @@ html.page-fade-ready body {
           : `<div class="mv-empty">No emergency assignments recorded yet.</div>`;
 
       const pendingAuditor = getNextEmergencyRotationAuditor();
-      const queueHtml = EMERGENCY_ROTATION_CYCLE.map(name => {
+      const queueHtml = getEmergencyRotationCycle().map(name => {
           const isPending = name === pendingAuditor;
           return isPending
               ? `<span class="mv-step mv-step-next"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>${mvEsc(name)}</span>`
@@ -7352,7 +7358,25 @@ html.page-fade-ready body {
     // (or after the current standing auditor if there's no history yet).
     // This is computed purely client-side from data already loaded — it
     // does not read or write anything extra on the Sheet.
-    const EMERGENCY_ROTATION_CYCLE = ["GENESIS", "EDISON", "KARL", "LAURENCE"];
+    //
+    // FIX: this used to be the ONLY rotation list, hardcoded to exactly
+    // these 4 names — adding a 5th name to AUDITORS EMERGENCY!A6 (and
+    // beyond) had no effect anywhere in the app. The real list now comes
+    // from activeData.emergencyRotationCycle, read live from column A of
+    // that sheet (see processExcelData) — this array is kept only as the
+    // fallback for the brief window before the first real data load.
+    const EMERGENCY_ROTATION_CYCLE_FALLBACK = ["GENESIS", "EDISON", "KARL", "LAURENCE"];
+
+    // Single source of truth for "who's in the standby rotation" — every
+    // place that used to reference EMERGENCY_ROTATION_CYCLE directly now
+    // calls this instead, so a name added to (or removed from) the sheet's
+    // column A is picked up everywhere at once: the "Next up" queue strip,
+    // the Set Emergency Auditor dropdown, and the auto-advance logic below.
+    function getEmergencyRotationCycle() {
+      return (activeData.emergencyRotationCycle && activeData.emergencyRotationCycle.length)
+        ? activeData.emergencyRotationCycle
+        : EMERGENCY_ROTATION_CYCLE_FALLBACK;
+    }
 
     function getNextEmergencyRotationAuditor() {
       // Always derive "next" from A2 — the actual current standing
@@ -7363,12 +7387,13 @@ html.page-fade-ready body {
       // truth here could compute "next" from a stale name. A2 is what
       // Save actually moves forward every time, so it's the only thing
       // this should ever advance from.
+      const cycle = getEmergencyRotationCycle();
       const currentAuditor = String(activeData.summary.emergencyAuditor || '').trim().toUpperCase();
-      const idx = EMERGENCY_ROTATION_CYCLE.indexOf(currentAuditor);
+      const idx = cycle.indexOf(currentAuditor);
       // Unknown / blank / not in the cycle (e.g. someone outside the
       // rotation was set by hand) -> restart the cycle from the top.
-      if (idx === -1) return EMERGENCY_ROTATION_CYCLE[0];
-      return EMERGENCY_ROTATION_CYCLE[(idx + 1) % EMERGENCY_ROTATION_CYCLE.length];
+      if (idx === -1) return cycle[0];
+      return cycle[(idx + 1) % cycle.length];
     }
 
     // Who the "Set Emergency Auditor" form should default to: the auditor
@@ -7385,7 +7410,7 @@ html.page-fade-ready body {
       if (currentAuditor && currentAuditor !== 'PENDING') return currentAuditor;
       // Nothing set yet — start the cycle from the top rather than
       // leaving the field blank.
-      return EMERGENCY_ROTATION_CYCLE[0];
+      return getEmergencyRotationCycle()[0];
     }
 
     // Given the auditor who just completed an assignment, work out who
@@ -7394,9 +7419,10 @@ html.page-fade-ready body {
     // update never disagrees with what actually got written to the Sheet.
     function computeNextStandingAuditor(justCompletedUpper, isOverride) {
       if (isOverride) return justCompletedUpper;
-      const idx = EMERGENCY_ROTATION_CYCLE.indexOf(justCompletedUpper);
+      const cycle = getEmergencyRotationCycle();
+      const idx = cycle.indexOf(justCompletedUpper);
       if (idx === -1) return justCompletedUpper; // unknown name — can't advance, just set it
-      return EMERGENCY_ROTATION_CYCLE[(idx + 1) % EMERGENCY_ROTATION_CYCLE.length];
+      return cycle[(idx + 1) % cycle.length];
     }
 
     function openEditEmergencyModal() {
@@ -7412,7 +7438,7 @@ html.page-fade-ready body {
 
       const currentAuditor = (activeData.summary.emergencyAuditor && activeData.summary.emergencyAuditor !== 'PENDING') ? activeData.summary.emergencyAuditor : '';
       const currentAuditorUpper = currentAuditor.toUpperCase();
-      const knownUpper = AUDITOR_NAMES.map(n => n.toUpperCase());
+      const knownUpper = getEmergencyRotationCycle().map(n => n.toUpperCase());
       // Default the form to whoever is CURRENTLY standing by — that's the
       // auditor completing this branch/date assignment. Hitting Save
       // automatically advances the standby rotation to the next person
@@ -7425,7 +7451,7 @@ html.page-fade-ready body {
           (currentAuditor && !knownUpper.includes(currentAuditorUpper)
               ? `<option value="${escapeHTML(currentAuditor)}" ${currentAuditorUpper === pendingAuditor ? 'selected' : ''}>${escapeHTML(currentAuditor)}</option>`
               : '') +
-          AUDITOR_NAMES.map(name => `<option value="${name}" ${name.toUpperCase() === pendingAuditor ? 'selected' : ''}>${name}</option>`).join('');
+          getEmergencyRotationCycle().map(name => `<option value="${name}" ${name.toUpperCase() === pendingAuditor ? 'selected' : ''}>${name}</option>`).join('');
 
       const branchOptions =
           `<option value="">—</option>` +
@@ -14741,6 +14767,23 @@ html.page-fade-ready body {
                 if (emerAuditor) {
                     activeData.summary.emergencyAuditor = emerAuditor;
                 }
+
+                // Standby rotation order — read live from column A, row 2
+                // downward, stopping at the first blank cell (the sheet's
+                // "NEXT LINE UP" queue is a contiguous block starting at
+                // A2; further down column A holds unrelated legend text,
+                // e.g. "AUDITOR:", which must NOT be swept into this list).
+                // This is what lets someone add a 5th/6th/etc. standby
+                // auditor just by typing a name into the next empty cell
+                // (A6, A7, ...) — no code change needed, mirrors how new
+                // branches are already picked up automatically.
+                const rotationCycle = [];
+                for (let ri = 1; ri < emRows.length; ri++) {
+                    const cellVal = emRows[ri] ? String(emRows[ri][0] || "").trim() : "";
+                    if (!cellVal) break;
+                    rotationCycle.push(cellVal.toUpperCase());
+                }
+                activeData.emergencyRotationCycle = rotationCycle;
 
                 // Sheet layout (review fix): row 1 is the header row, real
                 // history data starts at row 2 — so this loop starts at
