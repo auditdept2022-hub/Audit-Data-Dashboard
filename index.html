@@ -7349,6 +7349,63 @@ html.page-fade-ready body {
       if (!json || !json.success) throw new Error("Save didn't complete — please try again.");
     }
 
+    // ================= ASSIGNMENT ROW HIGHLIGHT (synced) =================
+    // The 4 highlight dots on the Assignment Branches Overview table used
+    // to be purely local (localStorage, per-browser only). This writes the
+    // chosen color straight into AUDIT DATA (FINAL) column AX instead —
+    // see Code.gs: handleSaveHighlightGet / saveHighlightToSheet — so every
+    // signed-in user sees the same highlighted rows, the same way the rest
+    // of this table (Up Next Auditor, Expected Audit Date, etc.) is shared.
+    //
+    // Same GET + fetchSheetOnce transport as saveAuditorAssignmentRemote
+    // above (JSONP-capable, avoids the Apps Script POST-redirect trap).
+    async function saveHighlightRemote(branchName, color) {
+      const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+      if (!idToken) throw new Error('Not signed in — please sign in again.');
+
+      const params = new URLSearchParams({
+          action: 'saveHighlight',
+          secret: appsScriptSecret,
+          idToken: idToken,
+          branchName: branchName,
+          color: color || ''
+      });
+      const url = defaultAppsScriptUrl + '?' + params.toString();
+
+      const json = await fetchSheetOnce(url);
+      if (json && json.error) throw new Error(json.error);
+      if (!json || !json.success) throw new Error("Save didn't complete — please try again.");
+    }
+
+    // Click handler for a highlight dot. Optimistically flips the row's
+    // color right away (re-rendering the Assignment Branches Overview
+    // table so the tint/ring show instantly), then persists it to the
+    // sheet in the background. Clicking the already-active dot clears the
+    // highlight, same toggle behavior as before. On failure the local
+    // change is rolled back and the table re-rendered again so it never
+    // shows a color that didn't actually save.
+    async function toggleBranchHighlight(event, branchName, color) {
+      if (event) event.stopPropagation();
+
+      const b = (activeData.branches || []).find(x => x.name === branchName);
+      if (!b) return;
+
+      const previousColor = b.highlightColor || '';
+      const newColor = previousColor === color ? '' : color;
+
+      b.highlightColor = newColor;
+      if (typeof renderAssignmentModalView === 'function') renderAssignmentModalView();
+
+      try {
+          await saveHighlightRemote(branchName, newColor);
+      } catch (err) {
+          console.error('Saving highlight failed:', err);
+          b.highlightColor = previousColor;
+          if (typeof renderAssignmentModalView === 'function') renderAssignmentModalView();
+          showToast((err && err.message) ? err.message : "Couldn't save highlight — please try again.", 'error');
+      }
+    }
+
     // ================= SET EMERGENCY AUDITOR =================
     // Mirrors the Edit Assignment flow above (form -> password re-confirm
     // -> write to the Sheet via the Apps Script backend), but for the
@@ -9904,6 +9961,34 @@ html.page-fade-ready body {
       return `${months} month${months === 1 ? '' : 's'} and ${remDays} day${remDays === 1 ? '' : 's'}`;
     }
 
+    // Row-highlight dots (Assignment Branches Overview only). Four colors,
+    // mapped onto the existing accent palette so they match every other
+    // colored pill/ring in the dashboard instead of introducing new colors.
+    // The value saved per branch ('green'|'yellow'|'red'|'blue'|'') is
+    // AUDIT DATA (FINAL) column AX (see saveHighlightRemote /
+    // Code.gs:saveHighlightToSheet) — shared across every user, not just
+    // this browser.
+    const HIGHLIGHT_COLORS = {
+      green:  { dot: 'bg-accentEmerald', ring: 'ring-accentEmerald', row: 'bg-accentEmerald/10' },
+      yellow: { dot: 'bg-accentAmber',   ring: 'ring-accentAmber',   row: 'bg-accentAmber/10' },
+      red:    { dot: 'bg-accentRose',    ring: 'ring-accentRose',    row: 'bg-accentRose/10' },
+      blue:   { dot: 'bg-accentBlue',    ring: 'ring-accentBlue',    row: 'bg-accentBlue/10' }
+    };
+
+    function highlightDotsHtml(branchName, activeColor) {
+      const safeBranch = branchName.replace(/'/g, "\\'");
+      return '<div class="flex items-center justify-center gap-1" onclick="event.stopPropagation()">' +
+        Object.keys(HIGHLIGHT_COLORS).map(color => {
+          const cfg = HIGHLIGHT_COLORS[color];
+          const isActive = activeColor === color;
+          const ringClasses = isActive ? `ring-2 ${cfg.ring} ring-offset-1` : '';
+          return `<button type="button" title="${color.charAt(0).toUpperCase()}${color.slice(1)} highlight"
+              class="w-3 h-3 rounded-full ${cfg.dot} ${ringClasses} hover:scale-110 active:scale-95 transition-transform cursor-pointer"
+              onclick="toggleBranchHighlight(event, '${safeBranch}', '${color}')"></button>`;
+        }).join('') +
+        '</div>';
+    }
+
     function buildAssignmentTable(list) {
       const escapeHTML = str => {
           if (!str) return '';
@@ -9937,6 +10022,7 @@ html.page-fade-ready body {
           <thead class="bg-gray-50 border-b border-coolBorder text-[10px] text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-10 shadow-sm">
             <tr>
               <th class="p-1.5 bg-gray-50 text-center w-8 whitespace-nowrap">#</th>
+              <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Highlight</th>
               ${sortHeader('name', 'Branch', 'left')}
               ${sortHeader('upnext', 'Up Next Auditor', 'center')}
               ${sortHeader('expected', 'Expected Audit Date', 'center')}
@@ -9986,9 +10072,13 @@ html.page-fade-ready body {
               ? `<span class="px-1.5 py-0.5 text-[10px] font-bold bg-accentEmerald/10 text-accentEmerald border border-accentEmerald/20 rounded-lg whitespace-nowrap leading-tight">${intervalLabel}</span>`
               : `<span class="text-[10px] text-slate-400 italic">—</span>`;
 
+          const rowHighlight = HIGHLIGHT_COLORS[b.highlightColor] ? HIGHLIGHT_COLORS[b.highlightColor].row : '';
+          const zebraClass = rowHighlight ? rowHighlight : (index % 2 === 1 ? 'bg-gray-50/50' : '');
+
           html += `
-              <tr class="${index % 2 === 1 ? 'bg-gray-50/50' : ''} hover:bg-accentCyan/10 cursor-pointer active:scale-[0.99] transition-colors" onclick="openModalDetail('${escapeFindingHTML(b.name)}')">
+              <tr class="${zebraClass} hover:bg-accentCyan/10 cursor-pointer active:scale-[0.99] transition-colors" onclick="openModalDetail('${escapeFindingHTML(b.name)}')">
                   <td class="p-1.5 text-center text-[10px] font-bold text-slate-400">${index + 1}</td>
+                  <td class="p-1.5 text-center">${highlightDotsHtml(b.name, b.highlightColor || '')}</td>
                   <td class="p-1.5 font-bold text-slate-800 text-xs break-words leading-tight">${escapeHTML(b.name)}</td>
                   <td class="p-1.5 text-center">${upNextCell}</td>
                   <td class="p-1.5 text-center">${expectedCell}</td>
@@ -14533,6 +14623,14 @@ html.page-fade-ready body {
           // column only if this sheet isn't present at all, e.g. an older
           // export).
           const auditDataFinalExpectedMap = {};
+          // Row-highlight color (Assignment Branches Overview dots), synced
+          // via AUDIT DATA (FINAL) column AX (see saveHighlightRemote /
+          // Code.gs:saveHighlightToSheet). Read straight from that sheet
+          // (like Expected Date above) rather than from DASHBOARDDATA's
+          // mirror, for the same reason: this is the sheet the save writes
+          // into, so reading from it directly can't lag behind a mirror
+          // column that may not carry it reliably.
+          const auditDataFinalHighlightMap = {};
           const auditDataFinalSheetName = workbook.SheetNames.find(n => n.toUpperCase().replace(/[\s_]/g, '').includes("AUDITDATA"));
           if (auditDataFinalSheetName) {
               const auditDataFinalSheet = workbook.Sheets[auditDataFinalSheetName];
@@ -14552,12 +14650,21 @@ html.page-fade-ready body {
                   const idx = findHeaderColIndex(auditDataFinalRows[adfHeaderRowIndex], 'EXPECTED DATE TO AUDIT');
                   return idx !== -1 ? idx : 38;
               })();
+              // "HIGHLIGHT" header preferred if present; otherwise column AX
+              // (0-based index 49), matching Code.gs's fixed
+              // AUDIT_DATA_HIGHLIGHT_COL — keeps the two sides in sync even
+              // if the live sheet doesn't have that header labeled.
+              const adfHighlightColIdx = (() => {
+                  const idx = findHeaderColIndex(auditDataFinalRows[adfHeaderRowIndex], 'HIGHLIGHT');
+                  return idx !== -1 ? idx : 49;
+              })();
               for (let i = adfHeaderRowIndex + 1; i < auditDataFinalRows.length; i++) {
                   const r = auditDataFinalRows[i];
                   if (!r || r.length === 0) continue;
                   const rawBranch = String(r[1] || r[0] || "").trim();
                   if (!rawBranch) continue;
                   auditDataFinalExpectedMap[normalizeName(rawBranch)] = r[adfExpectedDateColIdx];
+                  auditDataFinalHighlightMap[normalizeName(rawBranch)] = String(r[adfHighlightColIdx] || "").trim().toLowerCase();
               }
           }
 
@@ -14581,7 +14688,7 @@ html.page-fade-ready body {
                   effMar: 0, effApr: 0, effLatest: 0, collection: "Stable", sales: "Stable", service: "Target",
                   repoRate: 0, repoRateMar: 0, repoRateApr: 0, repoRateLatest: 0,
                   noOfRepo: 0, noOfRepoMar: 0, noOfRepoApr: 0, noOfRepoLatest: 0,
-                  findings2024: 0, findings2025: 0, findings2026: 0, auditStatus: "PENDING", auditor: "UNASSIGNED", assignedAuditorRaw: "UNASSIGNED",
+                  findings2024: 0, findings2025: 0, findings2026: 0, auditStatus: "PENDING", auditor: "UNASSIGNED", assignedAuditorRaw: "UNASSIGNED", highlightColor: "",
                   salesMar: { ins: 0, cod: 0, ca: 0 }, salesApr: { ins: 0, cod: 0, ca: 0 }, salesMay: { ins: 0, cod: 0, ca: 0 },
                   expectedIns: 0, expectedCod: 0,
                   serviceTarget: 0, serviceMar: 0, serviceApr: 0, serviceMay: 0
@@ -14643,6 +14750,17 @@ html.page-fade-ready body {
                 ? auditDataFinalExpectedMap[normalizedInput]
                 : row[EXPECTED_DATE_COL_IDX];
             const expectedDateParsed = parseSheetDate(expectedDateRawCell);
+
+            // Row-highlight color (see auditDataFinalHighlightMap above) —
+            // '' means no highlight; anything else must be one of the 4
+            // dot colors (green/yellow/red/blue), matched case-insensitively
+            // and defaulting to '' for anything unrecognized so a stray
+            // manual edit in the sheet cell can't paint a row an unstyled
+            // color.
+            const highlightRaw = Object.prototype.hasOwnProperty.call(auditDataFinalHighlightMap, normalizedInput)
+                ? auditDataFinalHighlightMap[normalizedInput]
+                : '';
+            const highlightColor = ['green', 'yellow', 'red', 'blue'].includes(highlightRaw) ? highlightRaw : '';
             const assignmentRoundDefs = [
                 { round: 1, auditor: row[ROTATION_START_COL_IDX], date: row[ROTATION_START_COL_IDX + 1] },
                 { round: 2, auditor: row[ROTATION_START_COL_IDX + 2], date: row[ROTATION_START_COL_IDX + 3] },
@@ -14724,6 +14842,7 @@ html.page-fade-ready body {
               // Assignment form and the Auditor Next Assignment card can
               // rely on it specifically.
               assignedAuditorRaw: upNextAuditor,
+              highlightColor: highlightColor,
               salesMar: { ins: parseInt(row[17])||0, cod: parseInt(row[18])||0, ca: parseInt(row[19])||0 }, 
               salesApr: { ins: parseInt(row[20])||0, cod: parseInt(row[21])||0, ca: parseInt(row[22])||0 }, 
               salesMay: { ins: parseInt(row[23])||0, cod: parseInt(row[24])||0, ca: parseInt(row[25])||0 },
