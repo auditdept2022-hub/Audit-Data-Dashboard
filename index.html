@@ -10121,17 +10121,26 @@ html.page-fade-ready body {
       positionHighlightPopup();
     }
 
-    // One set of delegated listeners, installed once. Everything below
-    // uses mousedown/pointerdown-free plain 'click' in the BUBBLE phase so
-    // it can never pre-empt the trigger's own handling, and the open/close
-    // decision is made from a single place — which is what makes this
-    // reliable where the old capture-phase outside-click listener wasn't.
+    // One set of delegated listeners, installed once.
+    //
+    // IMPORTANT: this runs in the CAPTURE phase, not the bubble phase. The
+    // highlight <td> carries an inline onclick="event.stopPropagation()"
+    // (so that clicking the picker doesn't also open the row's detail
+    // modal via the <tr>'s own onclick). During bubbling that call kills
+    // the event at the cell, long before it reaches document — which is
+    // precisely why a document-level bubble listener saw nothing at all
+    // and the dropdown appeared dead. Capture runs top-down from document
+    // before any of that, so it always fires. We then stopPropagation
+    // ourselves, which keeps the row-detail modal from opening.
     function initHighlightPopupListeners() {
       if (window.__hlPopupWired) return;
       window.__hlPopupWired = true;
 
       document.addEventListener('click', function (evt) {
-          const pick = evt.target.closest ? evt.target.closest('[data-hl-pick]') : null;
+          const t = evt.target;
+          if (!t || !t.closest) return;
+
+          const pick = t.closest('[data-hl-pick]');
           if (pick && highlightPopupEl && highlightPopupEl.contains(pick)) {
               evt.preventDefault();
               evt.stopPropagation();
@@ -10142,7 +10151,7 @@ html.page-fade-ready body {
               return;
           }
 
-          const trigger = evt.target.closest ? evt.target.closest('[data-hl-trigger]') : null;
+          const trigger = t.closest('[data-hl-trigger]');
           if (trigger) {
               evt.preventDefault();
               evt.stopPropagation();
@@ -10151,12 +10160,12 @@ html.page-fade-ready body {
           }
 
           // Any click anywhere else closes it.
-          if (highlightPopupEl && !highlightPopupEl.contains(evt.target)) closeHighlightPopup();
-      });
+          if (highlightPopupEl && !highlightPopupEl.contains(t)) closeHighlightPopup();
+      }, true);
 
       document.addEventListener('keydown', function (evt) {
           if (evt.key === 'Escape') closeHighlightPopup();
-      });
+      }, true);
 
       window.addEventListener('resize', positionHighlightPopup);
       // Capture so it also fires for the modal's inner scroll containers.
