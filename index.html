@@ -15705,8 +15705,46 @@ html.page-fade-ready body {
         const __t0 = performance.now();
         try {
             const res = await fetch(url, { signal: controller.signal });
-            if (!res.ok) throw new Error("Network response was not ok");
-            const json = await res.json();
+            if (!res.ok) {
+              // See note above: this branch means Google's infrastructure
+              // rejected the request before it ever reached doGet (every
+              // real doGet path returns HTTP 200 via respondJson, even for
+              // application-level errors) — almost always a deployment
+              // access-setting problem, not a code bug. Read the body as
+              // text (small either way — Apps Script errors are HTML or
+              // short JSON) so whatever Google actually sent back is
+              // visible, not just the fact that *something* failed.
+              let bodySnippet = '';
+              try {
+                const text = await res.text();
+                bodySnippet = text ? text.slice(0, 200).replace(/\s+/g, ' ').trim() : '';
+              } catch (readErr) { /* body already consumed or unreadable — status alone still helps */ }
+              const looksLikeLogin = /accounts\.google\.com|ServiceLogin|<title>Sign in/i.test(bodySnippet);
+              const hint = looksLikeLogin
+                ? ' — this looks like a Google sign-in page, which usually means the Apps Script deployment\u2019s "Who has access" setting isn\u2019t "Anyone."'
+                : '';
+              console.warn('[dashboard-timing] direct fetch got HTTP ' + res.status + ' ' + res.statusText + (bodySnippet ? ': ' + bodySnippet : ''));
+              throw new Error('Server responded with ' + res.status + ' ' + res.statusText + hint);
+            }
+            // A 200 status doesn't guarantee JSON — the same access-setting
+            // problem above can also surface as a 200 login/consent page
+            // instead of a redirect, which would previously fail res.json()
+            // with a bare "Unexpected token <" SyntaxError. Read as text
+            // first so a non-JSON body gets the same diagnostic treatment
+            // as the !res.ok branch instead of a cryptic parse error.
+            const rawText = await res.text();
+            let json;
+            try {
+              json = JSON.parse(rawText);
+            } catch (parseErr) {
+              const snippet = rawText.slice(0, 200).replace(/\s+/g, ' ').trim();
+              const looksLikeLogin = /accounts\.google\.com|ServiceLogin|<title>Sign in/i.test(snippet);
+              const hint = looksLikeLogin
+                ? 'Got a Google sign-in page instead of data \u2014 the Apps Script deployment\u2019s "Who has access" setting probably isn\u2019t "Anyone."'
+                : ('Server response wasn\u2019t valid JSON' + (snippet ? ': ' + snippet : '.'));
+              console.warn('[dashboard-timing] direct fetch got non-JSON 200 response: ' + snippet);
+              throw new Error(hint);
+            }
             console.log('[dashboard-timing] direct fetch succeeded in ' + Math.round(performance.now() - __t0) + 'ms');
             return json;
         } catch (err) {
