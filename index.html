@@ -145,6 +145,17 @@
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     
+    /* Branch highlight dropdown (Assignment Branches Overview).
+       Pinned explicitly rather than left to Tailwind alone: the picker has
+       to sit above every modal layer in this file (highest is z-200) and
+       must still be laid out correctly if the Tailwind CDN hasn't produced
+       the arbitrary-value utilities it uses. */
+    #branchHighlightPopup { position: fixed; z-index: 300; }
+    #branchHighlightPopup.hidden { display: none !important; }
+    #branchHighlightPopup [data-hl-pick] { display: flex; align-items: center; gap: .5rem; width: 100%; }
+    .hl-trigger { display: inline-flex; align-items: center; gap: .375rem; }
+    .hl-trigger > * { flex-shrink: 0; }
+
     .custom-scrollbar::-webkit-scrollbar { width: 4px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -7384,14 +7395,19 @@ html.page-fade-ready body {
     // highlight, same toggle behavior as before. On failure the local
     // change is rolled back and the table re-rendered again so it never
     // shows a color that didn't actually save.
-    async function toggleBranchHighlight(event, branchName, color) {
-      if (event) event.stopPropagation();
-
+    // Sets an explicit color (or '' to clear) for a branch. The dropdown
+    // offers each color as its own row plus a "Clear highlight" row, so
+    // there is nothing to toggle — picking Red means Red, every time.
+    async function setBranchHighlight(branchName, color) {
       const b = (activeData.branches || []).find(x => x.name === branchName);
-      if (!b) return;
+      if (!b) {
+          showToast("Couldn't find that branch — try reloading the data.", 'error');
+          return;
+      }
 
       const previousColor = b.highlightColor || '';
-      const newColor = previousColor === color ? '' : color;
+      const newColor = color || '';
+      if (previousColor === newColor) return;
 
       b.highlightColor = newColor;
       if (typeof renderAssignmentModalView === 'function') renderAssignmentModalView();
@@ -9979,108 +9995,180 @@ html.page-fade-ready body {
       blue:   { dot: 'bg-accentBlue',    ring: 'ring-accentBlue',    row: 'bg-accentBlue/10' }
     };
 
-    // Renders into the "#" cell: the row number plus one small trigger dot
-    // beneath it. Solid + colored when a highlight is set (so the current
-    // color is visible at a glance without opening anything); a faint
-    // dashed outline when it isn't. Clicking it opens the swatch popup.
-    function highlightCellHtml(branchName, activeColor, index) {
-      const safeBranch = branchName.replace(/'/g, "\\'");
+    // Renders the Highlight cell: a proper dropdown trigger (swatch +
+    // label + chevron) in its own column, instead of the old 10px dot
+    // crammed under the row number. Big enough to hit reliably with a
+    // mouse or a thumb, and obvious that it opens something.
+    //
+    // NOTE: no interpolated branch name inside an inline onclick anymore.
+    // The branch name goes in a data- attribute (HTML-escaped once) and a
+    // single delegated listener on document reads it back. That removes
+    // the whole class of "nothing happens when I click" bugs caused by a
+    // branch name containing a quote/ampersand and silently breaking the
+    // generated onclick string.
+    function highlightCellHtml(branchName, activeColor) {
+      const esc = String(branchName)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
       const cfg = HIGHLIGHT_COLORS[activeColor];
-      const triggerClasses = cfg
-          ? `${cfg.dot} hover:scale-125`
-          : 'bg-white border border-dashed border-slate-300 hover:border-slate-400';
+      const swatch = cfg
+          ? `<span class="w-3 h-3 rounded-full ${cfg.dot} shrink-0"></span>`
+          : `<span class="w-3 h-3 rounded-full border border-dashed border-slate-300 shrink-0"></span>`;
+      const label = cfg
+          ? `${activeColor.charAt(0).toUpperCase()}${activeColor.slice(1)}`
+          : 'None';
       return `
-        <div class="flex flex-col items-center gap-1">
-          <span class="text-[10px] font-bold text-slate-400 leading-none">${index + 1}</span>
-          <button type="button" title="Set row highlight"
-              class="w-2.5 h-2.5 rounded-full ${triggerClasses} active:scale-95 transition-transform cursor-pointer"
-              onclick="event.stopPropagation(); openHighlightPopup(event, '${safeBranch}', '${activeColor || ''}')"></button>
-        </div>`;
+        <button type="button" data-hl-trigger data-branch="${esc}" data-color="${activeColor || ''}"
+            title="Set row highlight"
+            class="hl-trigger inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-coolBorder bg-white hover:bg-gray-50 hover:border-slate-400 active:scale-95 transition-all cursor-pointer whitespace-nowrap">
+          ${swatch}
+          <span class="text-[10px] font-semibold text-slate-600 leading-none">${label}</span>
+          <svg class="w-2.5 h-2.5 text-slate-400 shrink-0" viewBox="0 0 10 6" fill="none" aria-hidden="true">
+            <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>`;
     }
 
-    // ---- Floating popup for the highlight-color picker ----
+    // ---- Floating dropdown for the highlight picker ----
     // Appended once to <body> (outside the modal's own overflow-auto table
     // wrapper) so it can float freely instead of being clipped by the
     // table's scroll container, and repositioned per-click against
-    // whichever trigger dot was pressed.
+    // whichever trigger was pressed. z-[300] puts it above every modal
+    // layer in this file (the highest is z-[200]); the old z-50 tied with
+    // #dataModal and could end up behind it.
     let highlightPopupEl = null;
+    let highlightPopupBranch = null;
+    let highlightPopupTrigger = null;
+
     function ensureHighlightPopup() {
-      if (highlightPopupEl) return highlightPopupEl;
+      if (highlightPopupEl && document.body.contains(highlightPopupEl)) return highlightPopupEl;
       const el = document.createElement('div');
       el.id = 'branchHighlightPopup';
-      el.className = 'fixed z-50 hidden bg-white border border-coolBorder rounded-xl shadow-2xl p-2.5';
+      el.className = 'fixed z-[300] hidden bg-white border border-coolBorder rounded-xl shadow-2xl p-2';
+      el.style.zIndex = '300';
       document.body.appendChild(el);
       highlightPopupEl = el;
       return el;
     }
 
-    function handleHighlightPopupOutsideClick(evt) {
-      if (highlightPopupEl && !highlightPopupEl.contains(evt.target)) closeHighlightPopup();
-    }
-    function handleHighlightPopupEscape(evt) {
-      if (evt.key === 'Escape') closeHighlightPopup();
-    }
-
     function closeHighlightPopup() {
       if (highlightPopupEl) {
           highlightPopupEl.classList.add('hidden');
+          highlightPopupEl.style.display = 'none';
           highlightPopupEl.innerHTML = '';
-          delete highlightPopupEl.dataset.branch;
       }
-      document.removeEventListener('click', handleHighlightPopupOutsideClick, true);
-      document.removeEventListener('keydown', handleHighlightPopupEscape, true);
+      if (highlightPopupTrigger) highlightPopupTrigger.setAttribute('aria-expanded', 'false');
+      highlightPopupBranch = null;
+      highlightPopupTrigger = null;
     }
 
-    function openHighlightPopup(event, branchName, activeColor) {
-      event.stopPropagation();
-      const trigger = event.currentTarget;
-      const popup = ensureHighlightPopup();
+    function positionHighlightPopup() {
+      if (!highlightPopupEl || !highlightPopupTrigger) return;
+      const rect = highlightPopupTrigger.getBoundingClientRect();
+      // Trigger scrolled out of the table's viewport -> just close.
+      if (rect.bottom < 0 || rect.top > window.innerHeight) { closeHighlightPopup(); return; }
+      const pr = highlightPopupEl.getBoundingClientRect();
+      let top = rect.bottom + 6;
+      let left = rect.left + rect.width / 2 - pr.width / 2;
+      if (top + pr.height > window.innerHeight - 8) top = rect.top - pr.height - 6;
+      if (top < 8) top = 8;
+      if (left < 8) left = 8;
+      if (left + pr.width > window.innerWidth - 8) left = window.innerWidth - pr.width - 8;
+      highlightPopupEl.style.top = top + 'px';
+      highlightPopupEl.style.left = left + 'px';
+    }
+
+    function openHighlightPopup(trigger) {
+      const branchName = trigger.dataset.branch || '';
+      const activeColor = trigger.dataset.color || '';
 
       // Clicking the same row's trigger again just closes it (toggle).
-      const wasOpenForThisBranch = popup.dataset.branch === branchName && !popup.classList.contains('hidden');
+      const wasOpenForThisBranch = highlightPopupBranch === branchName;
       closeHighlightPopup();
       if (wasOpenForThisBranch) return;
 
-      const safeBranch = branchName.replace(/'/g, "\\'");
-      popup.dataset.branch = branchName;
+      const popup = ensureHighlightPopup();
+      highlightPopupBranch = branchName;
+      highlightPopupTrigger = trigger;
+      trigger.setAttribute('aria-expanded', 'true');
+
+      const swatches = Object.keys(HIGHLIGHT_COLORS).map(color => {
+          const cfg = HIGHLIGHT_COLORS[color];
+          const isActive = activeColor === color;
+          const name = color.charAt(0).toUpperCase() + color.slice(1);
+          return `<button type="button" data-hl-pick="${color}" title="${name}"
+              class="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-left hover:bg-gray-100 active:scale-95 transition-all cursor-pointer">
+            <span class="w-3.5 h-3.5 rounded-full ${cfg.dot} shrink-0"></span>
+            <span class="text-[11px] font-semibold text-slate-700 leading-none flex-1">${name}</span>
+            ${isActive ? '<span class="text-[11px] font-bold text-slate-400 leading-none">&#10003;</span>' : ''}
+          </button>`;
+      }).join('');
+
       popup.innerHTML = `
-        <div class="flex items-center gap-2">
-          ${Object.keys(HIGHLIGHT_COLORS).map(color => {
-              const cfg = HIGHLIGHT_COLORS[color];
-              const isActive = activeColor === color;
-              const ringClasses = isActive ? `ring-2 ${cfg.ring} ring-offset-1` : '';
-              return `<button type="button" title="${color.charAt(0).toUpperCase()}${color.slice(1)}"
-                  class="w-5 h-5 rounded-full ${cfg.dot} ${ringClasses} hover:scale-110 active:scale-95 transition-transform cursor-pointer"
-                  onclick="event.stopPropagation(); toggleBranchHighlight(event, '${safeBranch}', '${color}'); closeHighlightPopup();"></button>`;
-          }).join('')}
-        </div>
-        ${activeColor ? `<button type="button"
-            class="mt-2 w-full text-[10px] font-semibold text-slate-400 hover:text-accentRose transition-colors"
-            onclick="event.stopPropagation(); toggleBranchHighlight(event, '${safeBranch}', '${activeColor}'); closeHighlightPopup();">Clear highlight</button>` : ''}
-      `;
+        <div class="min-w-[136px] flex flex-col gap-0.5">
+          ${swatches}
+          ${activeColor ? `
+          <div class="border-t border-coolBorder mt-1 pt-1">
+            <button type="button" data-hl-pick=""
+                class="w-full px-2 py-1.5 rounded-lg text-left text-[11px] font-semibold text-slate-500 hover:bg-accentRose/10 hover:text-accentRose active:scale-95 transition-all cursor-pointer">
+              Clear highlight
+            </button>
+          </div>` : ''}
+        </div>`;
 
       popup.classList.remove('hidden');
-
-      // Position just below the trigger, centered on it; flip above and/or
-      // clamp horizontally if that would run off the viewport.
-      const rect = trigger.getBoundingClientRect();
-      const popupRect = popup.getBoundingClientRect();
-      let top = rect.bottom + 6;
-      let left = rect.left + rect.width / 2 - popupRect.width / 2;
-      if (top + popupRect.height > window.innerHeight - 8) top = rect.top - popupRect.height - 6;
-      if (left < 8) left = 8;
-      if (left + popupRect.width > window.innerWidth - 8) left = window.innerWidth - popupRect.width - 8;
-      popup.style.top = top + 'px';
-      popup.style.left = left + 'px';
-
-      // Deferred so this same click doesn't immediately trigger the
-      // outside-click listener and close the popup it just opened.
-      setTimeout(() => {
-          document.addEventListener('click', handleHighlightPopupOutsideClick, true);
-          document.addEventListener('keydown', handleHighlightPopupEscape, true);
-      }, 0);
+      popup.style.display = 'block';
+      positionHighlightPopup();
     }
 
+    // One set of delegated listeners, installed once. Everything below
+    // uses mousedown/pointerdown-free plain 'click' in the BUBBLE phase so
+    // it can never pre-empt the trigger's own handling, and the open/close
+    // decision is made from a single place — which is what makes this
+    // reliable where the old capture-phase outside-click listener wasn't.
+    function initHighlightPopupListeners() {
+      if (window.__hlPopupWired) return;
+      window.__hlPopupWired = true;
+
+      document.addEventListener('click', function (evt) {
+          const pick = evt.target.closest ? evt.target.closest('[data-hl-pick]') : null;
+          if (pick && highlightPopupEl && highlightPopupEl.contains(pick)) {
+              evt.preventDefault();
+              evt.stopPropagation();
+              const branch = highlightPopupBranch;
+              const color = pick.getAttribute('data-hl-pick') || '';
+              closeHighlightPopup();
+              if (branch !== null) setBranchHighlight(branch, color);
+              return;
+          }
+
+          const trigger = evt.target.closest ? evt.target.closest('[data-hl-trigger]') : null;
+          if (trigger) {
+              evt.preventDefault();
+              evt.stopPropagation();
+              openHighlightPopup(trigger);
+              return;
+          }
+
+          // Any click anywhere else closes it.
+          if (highlightPopupEl && !highlightPopupEl.contains(evt.target)) closeHighlightPopup();
+      });
+
+      document.addEventListener('keydown', function (evt) {
+          if (evt.key === 'Escape') closeHighlightPopup();
+      });
+
+      window.addEventListener('resize', positionHighlightPopup);
+      // Capture so it also fires for the modal's inner scroll containers.
+      window.addEventListener('scroll', positionHighlightPopup, true);
+    }
+
+    // Wired straight away rather than on DOMContentLoaded: these listeners
+    // all hang off `document` / `window`, which exist the moment this
+    // script runs, and the triggers themselves are matched by delegation —
+    // so there is nothing to wait for, and no window where the table can
+    // be rendered but the clicks go nowhere.
+    initHighlightPopupListeners();
 
     function buildAssignmentTable(list) {
       const escapeHTML = str => {
@@ -10114,7 +10202,8 @@ html.page-fade-ready body {
         <table class="w-full min-w-[820px] text-left border-collapse bg-white relative">
           <thead class="bg-gray-50 border-b border-coolBorder text-[10px] text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-10 shadow-sm">
             <tr>
-              <th class="p-1.5 bg-gray-50 text-center w-11 whitespace-nowrap">#</th>
+              <th class="p-1.5 bg-gray-50 text-center w-9 whitespace-nowrap">#</th>
+              <th class="p-1.5 bg-gray-50 text-center w-24 whitespace-nowrap">Highlight</th>
               ${sortHeader('name', 'Branch', 'left')}
               ${sortHeader('upnext', 'Up Next Auditor', 'center')}
               ${sortHeader('expected', 'Expected Audit Date', 'center')}
@@ -10171,7 +10260,8 @@ html.page-fade-ready body {
 
           html += `
               <tr class="${zebraClass} hover:bg-accentCyan/10 cursor-pointer active:scale-[0.99] transition-colors" onclick="openModalDetail('${escapeFindingHTML(b.name)}')">
-                  <td class="p-1.5 text-center" onclick="event.stopPropagation()">${highlightCellHtml(b.name, b.highlightColor || '', index)}</td>
+                  <td class="p-1.5 text-center text-[10px] font-bold text-slate-400 leading-none">${index + 1}</td>
+                  <td class="p-1.5 text-center" onclick="event.stopPropagation()">${highlightCellHtml(b.name, b.highlightColor || '')}</td>
                   <td class="p-1.5 font-bold text-slate-800 text-xs break-words leading-tight">${escapeHTML(b.name)}</td>
                   <td class="p-1.5 text-center">${upNextCell}</td>
                   <td class="p-1.5 text-center">${expectedCell}</td>
