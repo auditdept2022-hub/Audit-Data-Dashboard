@@ -7251,17 +7251,19 @@ html.page-fade-ready body {
           }
           if (typeof updateCalculations === 'function') updateCalculations();
           if (typeof initDashboard === 'function') initDashboard();
-          // The write-back on the server now re-syncs the changed sheet to
+          // The write-back on the server re-syncs the changed sheet to
           // Firestore on a short-delay BACKGROUND trigger (~4s) instead of
           // inline before responding — that's what makes the save itself
-          // fast. That also means the data isn't guaranteed to be back on
-          // the fast Firestore-synced path the instant saveAuditorAssignmentRemote()
-          // resolves. Either way this refetch gets fully correct data (the
-          // server falls back to reading the Sheet directly whenever
-          // Firestore isn't caught up yet), so this delay is really just
-          // "give the write a moment to settle" rather than "wait for the
-          // Firestore sync" — a few seconds is plenty either way.
-          if (typeof fetchSheet === 'function') setTimeout(function() { fetchSheet(true).catch(function(e) { console.warn('Post-save refresh failed (will retry next auto-refresh cycle):', e); }); }, 1200);
+          // fast. That means the data isn't guaranteed to be back on the
+          // fast Firestore-synced path yet when this refetch fires, and —
+          // separately — Drive's own file-modified-time metadata (which the
+          // normal cached path uses to decide Sheet-vs-Firestore) can lag a
+          // few seconds behind a write actually landing. Passing
+          // forceHardReset=true makes this refetch bypass both of those and
+          // read the Sheet directly, so it can't lose that race and briefly
+          // show pre-save data again. This setTimeout delay is just "give
+          // the write a moment to settle" — a second or two is plenty.
+          if (typeof fetchSheet === 'function') setTimeout(function() { fetchSheet(true, true).catch(function(e) { console.warn('Post-save refresh failed (will retry next auto-refresh cycle):', e); }); }, 1200);
           // Close the popup now that the save has actually gone through —
           // the toast above confirms it, and the optimistic update already
           // landed, so there's nothing left to wait on here.
@@ -7715,7 +7717,7 @@ html.page-fade-ready body {
 
           if (typeof updateCalculations === 'function') updateCalculations();
           if (typeof initDashboard === 'function') initDashboard();
-          if (typeof fetchSheet === 'function') setTimeout(function() { fetchSheet(true).catch(function(e) { console.warn('Post-save refresh failed (will retry next auto-refresh cycle):', e); }); }, 1200);
+          if (typeof fetchSheet === 'function') setTimeout(function() { fetchSheet(true, true).catch(function(e) { console.warn('Post-save refresh failed (will retry next auto-refresh cycle):', e); }); }, 1200);
           closeModal();
       } catch (err) {
           console.error('Saving emergency auditor failed:', err);
@@ -10519,7 +10521,7 @@ html.page-fade-ready body {
 
             // Re-sync with the authoritative Sheet state shortly after (also
             // fills in the real row number for a brand-new remark).
-            if (typeof fetchSheet === 'function') setTimeout(function() { fetchSheet(true).catch(function(e) { console.warn('Post-save refresh failed (will retry next auto-refresh cycle):', e); }); }, 2000);
+            if (typeof fetchSheet === 'function') setTimeout(function() { fetchSheet(true, true).catch(function(e) { console.warn('Post-save refresh failed (will retry next auto-refresh cycle):', e); }); }, 2000);
         } catch (err) {
             console.error('Saving auditor remark failed:', err);
             auditorRemarkSaving = false;
@@ -10539,7 +10541,7 @@ html.page-fade-ready body {
                 auditorRemarkFormState = { branchName: null, mode: null, editingRowIndex: null };
             }
             refreshAuditorRemarksSection(branchName);
-            if (typeof fetchSheet === 'function') setTimeout(function() { fetchSheet(true).catch(function(e) { console.warn('Post-delete refresh failed (will retry next auto-refresh cycle):', e); }); }, 2000);
+            if (typeof fetchSheet === 'function') setTimeout(function() { fetchSheet(true, true).catch(function(e) { console.warn('Post-delete refresh failed (will retry next auto-refresh cycle):', e); }); }, 2000);
         } catch (err) {
             console.error('Deleting auditor remark failed:', err);
             alert((err && err.message) ? err.message : "Couldn't delete — please try again.");
@@ -16268,7 +16270,16 @@ html.page-fade-ready body {
       setTimeout(function () { mainEl.classList.remove('data-boom-reveal'); }, 650);
     }
 
-    async function fetchSheet(isAutoLoad = false) {
+    // forceHardReset: independent of isAutoLoad (which only controls
+    // whether the walk/ride overlay plays). A post-save/post-delete
+    // refresh needs to stay silent (isAutoLoad=true, no overlay) but MUST
+    // still bypass the cache/Firestore-freshness path — otherwise it can
+    // land on getFreshestDataCached() and lose a race against Drive's
+    // file-modified-time metadata (which can lag a few seconds behind an
+    // edit actually landing) and the ~4s deferred Firestore sync, briefly
+    // re-serving pre-save data and overwriting the optimistic UI update
+    // with it. See doGet()'s hardReset handling in Code.gs.
+    async function fetchSheet(isAutoLoad = false, forceHardReset = false) {
       if (isFetchingSheet) {
         if (!isAutoLoad) showToast("Already updating\u2026 hang tight.");
         return;
@@ -16318,12 +16329,13 @@ html.page-fade-ready body {
             const fetchUrl = baseUrl + '?secret=' + encodeURIComponent(appsScriptSecret) +
               '&idToken=' + encodeURIComponent(idToken) +
               '&nocache=' + Date.now() + '_' + attempt +
-              // Hard reset: only on a manual "Update Data" click, never on
-              // silent auto-refreshes, so this doesn't change the normal
-              // cached-load behavior — it just guarantees this one action
-              // always pulls live data straight off the Sheet instead of
-              // whatever the backend's short-lived cache is holding.
-              (isAutoLoad ? '' : '&hardReset=1');
+              // Hard reset: on a manual "Update Data" click, OR whenever the
+              // caller explicitly asks for one (forceHardReset — used for
+              // the silent post-save/post-delete refreshes, which need a
+              // guaranteed-live read but no visible overlay). Never set on
+              // an ordinary silent auto-refresh, so this doesn't change
+              // that normal cached-load behavior at all.
+              ((!isAutoLoad || forceHardReset) ? '&hardReset=1' : '');
             console.log('[dashboard-timing] fetchSheet attempt ' + attempt + '/' + MAX_ATTEMPTS + ' starting (isAutoLoad=' + isAutoLoad + ')');
             const json = await fetchSheetOnce(fetchUrl);
             console.log('[dashboard-timing] fetchSheet attempt ' + attempt + ' got a response in ' + Math.round(performance.now() - __attemptT0) + 'ms');
