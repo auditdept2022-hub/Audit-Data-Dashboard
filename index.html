@@ -7333,11 +7333,14 @@ html.page-fade-ready body {
     // Mirrors the Edit Assignment flow above (form -> password re-confirm
     // -> write to the Sheet via the Apps Script backend), but for the
     // AUDITORS EMERGENCY sheet instead of AUDIT DATA (FINAL). Saving sets
-    // the standing "current emergency auditor" (cell A8) AND appends a new
+    // the standing "current emergency auditor" (cell A2) AND appends a new
     // row to the Auditor/Branch/Date history log (columns D:F) — the exact
     // two things processExcelData() reads back out of that sheet, so a
     // save here shows up correctly on the very next refresh even without
     // this optimistic local update.
+    // NOTE (review fix): the sheet's layout was compacted — the rotation
+    // column and history log now start at row 2, not row 8. All of the
+    // A8 / row-8 references below were updated to A2 / row 2 to match.
     // Fixed standby rotation order for the Emergency Auditor. "Pending" is
     // whoever comes next after the most recent name in emergencyHistory
     // (or after the current standing auditor if there's no history yet).
@@ -7346,12 +7349,12 @@ html.page-fade-ready body {
     const EMERGENCY_ROTATION_CYCLE = ["GENESIS", "EDISON", "KARL", "LAURENCE"];
 
     function getNextEmergencyRotationAuditor() {
-      // Always derive "next" from A8 — the actual current standing
+      // Always derive "next" from A2 — the actual current standing
       // auditor cell — not from the history log. The history log is a
-      // separate append-only audit trail (AUDITORS EMERGENCY!D8:F...) and
-      // can legitimately fall behind A8 (e.g. someone edits A8 by hand
+      // separate append-only audit trail (AUDITORS EMERGENCY!D2:F...) and
+      // can legitimately fall behind A2 (e.g. someone edits A2 by hand
       // without logging a history row), so treating it as the source of
-      // truth here could compute "next" from a stale name. A8 is what
+      // truth here could compute "next" from a stale name. A2 is what
       // Save actually moves forward every time, so it's the only thing
       // this should ever advance from.
       const currentAuditor = String(activeData.summary.emergencyAuditor || '').trim().toUpperCase();
@@ -7729,7 +7732,7 @@ html.page-fade-ready body {
     }
 
     // Sends the emergency auditor fields to the Apps Script backend
-    // (action=saveEmergencyAuditor), which sets AUDITORS EMERGENCY cell A8
+    // (action=saveEmergencyAuditor), which sets AUDITORS EMERGENCY cell A2
     // to the auditor name and appends a new Auditor/Branch/Date row to the
     // D:F history log.
     //
@@ -14130,6 +14133,35 @@ html.page-fade-ready body {
                  }
              }
           }
+
+          // Resolve the Expected Audit Date / rotation-round / Up Next
+          // Auditor columns from THIS sheet's own header row text, instead
+          // of trusting fixed positions (38, 40-47, 48) that silently break
+          // the moment a column is inserted into AUDIT DATA (FINAL) or
+          // DASHBOARDDATA — one side would write to the wrong cell, the
+          // other would display the wrong value. Falls back to the old
+          // literal positions only if a header can't be found at all (e.g.
+          // a stripped-down export), so a missing header degrades instead
+          // of hard-failing the whole import.
+          function findHeaderColIndex(headerRow, label) {
+              if (!headerRow) return -1;
+              const upper = label.toUpperCase();
+              for (let c = 0; c < headerRow.length; c++) {
+                  if (String(headerRow[c] || '').trim().toUpperCase() === upper) return c;
+              }
+              return -1;
+          }
+          const mainHeaderRow = rawRows[headerRowIndex] || [];
+          const mainRound1DateColIdx = findHeaderColIndex(mainHeaderRow, 'DATE OF 1ST ROTATION');
+          const EXPECTED_DATE_COL_IDX = (() => {
+              const idx = findHeaderColIndex(mainHeaderRow, 'EXPECTED DATE TO AUDIT');
+              return idx !== -1 ? idx : 38;
+          })();
+          const ROTATION_START_COL_IDX = mainRound1DateColIdx !== -1 ? (mainRound1DateColIdx - 1) : 40;
+          const UP_NEXT_AUDITOR_COL_IDX = (() => {
+              const idx = findHeaderColIndex(mainHeaderRow, 'UP NEXT AUDITOR');
+              return idx !== -1 ? idx : 48;
+          })();
           
           let monthLabels = ["MARCH", "APRIL", "LATEST"];
           if (rawRows[headerRowIndex]) {
@@ -14222,8 +14254,9 @@ html.page-fade-ready body {
           // own column AM doesn't reliably carry it even when it's plainly
           // present on AUDIT DATA (FINAL). Built once here as a
           // branch-name -> raw cell lookup, then consulted per-branch
-          // below (falling back to DASHBOARDDATA's row[38] only if this
-          // sheet isn't present at all, e.g. an older export).
+          // below (falling back to DASHBOARDDATA's own Expected Date
+          // column only if this sheet isn't present at all, e.g. an older
+          // export).
           const auditDataFinalExpectedMap = {};
           const auditDataFinalSheetName = workbook.SheetNames.find(n => n.toUpperCase().replace(/[\s_]/g, '').includes("AUDITDATA"));
           if (auditDataFinalSheetName) {
@@ -14236,12 +14269,20 @@ html.page-fade-ready body {
                       break;
                   }
               }
+              // Own header row, own column lookup — this is a different
+              // sheet object than mainSheet, so it isn't safe to reuse
+              // EXPECTED_DATE_COL_IDX above even though it usually resolves
+              // to the same position.
+              const adfExpectedDateColIdx = (() => {
+                  const idx = findHeaderColIndex(auditDataFinalRows[adfHeaderRowIndex], 'EXPECTED DATE TO AUDIT');
+                  return idx !== -1 ? idx : 38;
+              })();
               for (let i = adfHeaderRowIndex + 1; i < auditDataFinalRows.length; i++) {
                   const r = auditDataFinalRows[i];
                   if (!r || r.length === 0) continue;
                   const rawBranch = String(r[1] || r[0] || "").trim();
                   if (!rawBranch) continue;
-                  auditDataFinalExpectedMap[normalizeName(rawBranch)] = r[38];
+                  auditDataFinalExpectedMap[normalizeName(rawBranch)] = r[adfExpectedDateColIdx];
               }
           }
 
@@ -14298,36 +14339,40 @@ html.page-fade-ready body {
             else if(auditStatRaw.includes("FOR AUDIT")) finalAuditStat = "FOR AUDIT";
             
             // "Up Next Auditor" — the Edit Assignment form saves this
-            // straight into AUDIT DATA (FINAL) column AW (see
-            // saveAuditorAssignmentRemote). This sheet (DASHBOARDDATA)
+            // straight into AUDIT DATA (FINAL)'s "Up Next Auditor" column
+            // (see saveAuditorAssignmentRemote). This sheet (DASHBOARDDATA)
             // mirrors AUDIT DATA (FINAL) column-for-column, so its own
-            // column AW (index 48) carries the same value — that's what's
-            // read here.
-            const upNextAuditor = String(row[48] || "UNASSIGNED").trim();
+            // "Up Next Auditor" column (resolved above by header text, not
+            // a fixed index) carries the same value — that's what's read
+            // here.
+            const upNextAuditor = String(row[UP_NEXT_AUDITOR_COL_IDX] || "UNASSIGNED").trim();
 
-            // Expected Audit Date (column AM, index 38) and the 4 rotation
-            // round auditor/date pairs (AO/AP, AQ/AR, AS/AT, AU/AV — indices
-            // 40-47), read directly from THIS row so the Edit Assignment
+            // Expected Audit Date and the 4 rotation round auditor/date
+            // pairs, read directly from THIS row so the Edit Assignment
             // form always shows exactly what's in AUDIT DATA (FINAL) right
             // now — the same sheet+row it saves back into. A round with a
             // truly blank auditor AND blank date is left blank here (not
             // carried over from any other sheet), so clearing a round in
-            // the sheet clears it in the form too.
+            // the sheet clears it in the form too. Both this row's columns
+            // and the AUDIT DATA (FINAL) lookup above are resolved by
+            // header text rather than a fixed position, so inserting a
+            // column in either sheet doesn't silently point these at the
+            // wrong cell.
             //
             // Expected Audit Date specifically prefers the value looked up
             // directly from the AUDIT DATA (FINAL) sheet (built above),
-            // since DASHBOARDDATA's own column AM doesn't reliably carry
-            // it. Falls back to this row's own column AM only if that
-            // sheet wasn't present in the file at all.
+            // since DASHBOARDDATA's own Expected Date column doesn't
+            // reliably carry it. Falls back to this row's own Expected Date
+            // column only if that sheet wasn't present in the file at all.
             const expectedDateRawCell = Object.prototype.hasOwnProperty.call(auditDataFinalExpectedMap, normalizedInput)
                 ? auditDataFinalExpectedMap[normalizedInput]
-                : row[38];
+                : row[EXPECTED_DATE_COL_IDX];
             const expectedDateParsed = parseSheetDate(expectedDateRawCell);
             const assignmentRoundDefs = [
-                { round: 1, auditor: row[40], date: row[41] },
-                { round: 2, auditor: row[42], date: row[43] },
-                { round: 3, auditor: row[44], date: row[45] },
-                { round: 4, auditor: row[46], date: row[47] }
+                { round: 1, auditor: row[ROTATION_START_COL_IDX], date: row[ROTATION_START_COL_IDX + 1] },
+                { round: 2, auditor: row[ROTATION_START_COL_IDX + 2], date: row[ROTATION_START_COL_IDX + 3] },
+                { round: 3, auditor: row[ROTATION_START_COL_IDX + 4], date: row[ROTATION_START_COL_IDX + 5] },
+                { round: 4, auditor: row[ROTATION_START_COL_IDX + 6], date: row[ROTATION_START_COL_IDX + 7] }
             ];
             const assignmentRounds = {};
             assignmentRoundDefs.forEach(rd => {
@@ -14682,16 +14727,22 @@ html.page-fade-ready body {
                 const emRows = sheetRowsOf(emergencySheet);
 
                 let emerAuditor = "";
-                if (emergencySheet['A8'] && emergencySheet['A8'].v) {
-                    emerAuditor = String(emergencySheet['A8'].v).trim().toUpperCase();
-                } else if (emRows.length > 7 && emRows[7][0]) {
-                    emerAuditor = String(emRows[7][0]).trim().toUpperCase();
+                if (emergencySheet['A2'] && emergencySheet['A2'].v) {
+                    emerAuditor = String(emergencySheet['A2'].v).trim().toUpperCase();
+                } else if (emRows.length > 1 && emRows[1][0]) {
+                    emerAuditor = String(emRows[1][0]).trim().toUpperCase();
                 }
                 if (emerAuditor) {
                     activeData.summary.emergencyAuditor = emerAuditor;
                 }
 
-                for (let i = 6; i < emRows.length; i++) {
+                // Sheet layout (review fix): row 1 is the header row, real
+                // history data starts at row 2 — so this loop starts at
+                // index 1 (row 2), not 6. The old index 6 assumed several
+                // rows of legend/spacer content above the header that no
+                // longer exist in the current sheet; leaving it at 6 was
+                // silently skipping every history row before row 8.
+                for (let i = 1; i < emRows.length; i++) {
                     const r = emRows[i];
                     if (!r) continue;
                     
