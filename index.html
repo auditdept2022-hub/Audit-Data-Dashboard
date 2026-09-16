@@ -384,7 +384,11 @@
     .mv-item { display: block; width: 100%; text-align: left; border: 1px solid #e7e9f2; border-radius: 11px; background: #fff; padding: 11px 13px; cursor: pointer; box-shadow: 0 1px 2px rgba(15,23,42,.04); transition: box-shadow .15s ease, transform .15s ease, border-color .15s ease; }
     .mv-item:hover { border-color: #d7d3fb; box-shadow: 0 6px 16px rgba(91,61,240,.12); transform: translateY(-1px); }
     .mv-item:focus-visible { outline: 2px solid #5b3df0; outline-offset: 2px; }
-    .mv-item-name { display: block; font-size: 12.5px; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mv-item-name { display: flex; align-items: center; min-width: 0; gap: 5px; font-size: 12.5px; font-weight: 700; color: #1e293b; }
+    /* Only the text itself truncates — the Rotated badge sits outside the
+       clipped area (flex-shrink:0) so it never gets cut off along with a
+       long branch name (e.g. "... (YAMAHA EXCLUSIVE)"). */
+    .mv-item-name-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     /* Date ranges ("Old: ... -> Latest: ...") were forced onto a single
        nowrap line with an ellipsis, which cut most of the date off on
        anything but a very wide card. Let it wrap onto 2 lines instead so
@@ -392,7 +396,7 @@
     .mv-item-meta { display: block; font-size: 11px; font-weight: 600; color: #475569; margin-top: 3px; white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.45; word-break: break-word; }
     .mv-empty { padding: 22px 14px; text-align: center; font-size: 12.5px; color: #94a3b8; }
 
-    .mv-chip { display: inline-block; vertical-align: 1px; margin-left: 5px; padding: 1px 6px; border-radius: 999px; font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+    .mv-chip { display: inline-block; flex: 0 0 auto; vertical-align: 1px; padding: 1px 6px; border-radius: 999px; font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
     .mv-chip-amber { background: rgba(217,122,6,.12); color: #b45309; }
 
     /* Shared royal-blue header gradient — used by the Auditor Workload
@@ -6606,7 +6610,7 @@ html.page-fade-ready body {
       const itemsHtml = rows.map(row => `
           <button type="button" class="mv-item" data-mv-search="${mvEsc(String(row.branch).toLowerCase())}"
                   onclick="openModalDetail('${mvArg(row.branch)}')">
-            <span class="mv-item-name">${mvEsc(row.branch)}${row.rotated ? '<span class="mv-chip mv-chip-amber">Rotated</span>' : ''}</span>
+            <span class="mv-item-name"><span class="mv-item-name-text">${mvEsc(row.branch)}</span>${row.rotated ? '<span class="mv-chip mv-chip-amber">Rotated</span>' : ''}</span>
             <span class="mv-item-meta">${mvEsc(row.dateLabel)}</span>
           </button>`).join('');
 
