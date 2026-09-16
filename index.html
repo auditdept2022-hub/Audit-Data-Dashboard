@@ -15574,7 +15574,7 @@ html.page-fade-ready body {
             <div id="overallDataChartControls" style="${state.chartExpanded ? '' : 'display:none;'}"></div>
           </div>
           <div id="overallDataChartWrap" class="mt-1" style="${state.chartExpanded ? '' : 'display:none;'}">
-            <div id="overallDataChartBox" style="min-height: 260px;"></div>
+            <div id="overallDataChartBox" style="min-height: 260px; background: #3b4656; border-radius: 0.75rem; padding: 4px;"></div>
           </div>
         </div>
         <div id="overallDataTableContainer">${buildOverallDataTable()}</div>
@@ -15635,7 +15635,7 @@ html.page-fade-ready body {
       return (/repo/i.test(metric || '') && /rate/i.test(metric || '')) || /effic/i.test(metric || '');
     }
 
-    const OVERALL_DATA_CHART_PALETTE = ['#10b981', '#4f46e5', '#f59e0b', '#e11d48', '#0891b2', '#8b5cf6'];
+    const OVERALL_DATA_CHART_PALETTE = ['#34d399', '#818cf8', '#fbbf24', '#fb7185', '#22d3ee', '#c084fc'];
 
     // Aggregate trend chart for the "Overall Data" modal: sums (or, for
     // percentage metrics, averages) the selected metric(s) across every
@@ -15669,7 +15669,7 @@ html.page-fade-ready body {
         return;
       }
 
-      const tabColor = state.tab === 'collection' ? '#10b981' : (state.tab === 'sales' ? '#4f46e5' : '#0891b2');
+      const tabColor = state.tab === 'collection' ? '#34d399' : (state.tab === 'sales' ? '#818cf8' : '#22d3ee');
       const isService = state.tab === 'service';
 
       let metricsToPlot;
@@ -15728,14 +15728,14 @@ html.page-fade-ready body {
       let yaxisConfig;
       if (!dualAxis) {
         const pct = seriesDefs[0].isPct;
-        yaxisConfig = { labels: { style: { colors: '#94a3b8', fontSize: '10px' }, formatter: function (v) { return pct ? Math.round(v) + '%' : OVERALL_DATA_NUM_FMT.format(Math.round(v)); } } };
+        yaxisConfig = { labels: { style: { colors: '#cbd5e1', fontSize: '10px' }, formatter: function (v) { return pct ? Math.round(v) + '%' : OVERALL_DATA_NUM_FMT.format(Math.round(v)); } } };
       } else {
         yaxisConfig = seriesDefs.map(function (s, idx) {
           const isFirstOfType = seriesDefs.findIndex(function (x) { return x.isPct === s.isPct; }) === idx;
           return {
             show: isFirstOfType,
             opposite: !s.isPct,
-            labels: { style: { colors: '#94a3b8', fontSize: '10px' }, formatter: function (v) { return s.isPct ? Math.round(v) + '%' : OVERALL_DATA_NUM_FMT.format(Math.round(v)); } }
+            labels: { style: { colors: '#cbd5e1', fontSize: '10px' }, formatter: function (v) { return s.isPct ? Math.round(v) + '%' : OVERALL_DATA_NUM_FMT.format(Math.round(v)); } }
           };
         });
       }
@@ -15751,7 +15751,7 @@ html.page-fade-ready body {
         series: seriesDefs.map(function (s) { return { name: s.name, data: s.values }; }),
         xaxis: {
           categories: months,
-          labels: { style: { colors: '#94a3b8', fontSize: '10px', fontWeight: 700 } },
+          labels: { style: { colors: '#cbd5e1', fontSize: '10px', fontWeight: 700 } },
           axisBorder: { show: false }, axisTicks: { show: false },
           crosshairs: { show: true, stroke: { color: tabColor, width: 1, dashArray: 4 } }
         },
@@ -15759,17 +15759,17 @@ html.page-fade-ready body {
         colors: seriesDefs.map(function (s) { return s.color; }),
         stroke: { curve: 'smooth', width: multi ? 3 : 3.5, lineCap: 'round' },
         fill: multi
-          ? { type: 'solid', opacity: 0.06 }
-          : { type: 'gradient', gradient: { shade: 'light', type: 'vertical', shadeIntensity: 0.65, opacityFrom: 0.55, opacityTo: 0.04, stops: [0, 95, 100] } },
+          ? { type: 'solid', opacity: 0.14 }
+          : { type: 'gradient', gradient: { shade: 'dark', type: 'vertical', shadeIntensity: 0.55, opacityFrom: 0.5, opacityTo: 0.06, stops: [0, 95, 100] } },
         markers: {
-          size: multi ? 3.5 : 4.5, strokeColors: '#fff', strokeWidth: multi ? 2 : 2.5,
+          size: multi ? 3.5 : 4.5, strokeColors: '#3b4656', strokeWidth: multi ? 2 : 2.5,
           hover: { size: multi ? 5.5 : 7, sizeOffset: 2 }
         },
-        grid: { borderColor: '#eef1f5', strokeDashArray: 3, yaxis: { lines: { show: true } }, xaxis: { lines: { show: false } }, padding: { top: 6 } },
+        grid: { borderColor: 'rgba(255,255,255,0.12)', strokeDashArray: 3, yaxis: { lines: { show: true } }, xaxis: { lines: { show: false } }, padding: { top: 6 } },
         dataLabels: { enabled: false },
-        legend: { show: multi, position: 'top', fontSize: '10.5px', fontFamily: CHART_FONT, itemMargin: { horizontal: 8, vertical: 2 }, markers: { radius: 12 } },
+        legend: { show: multi, position: 'top', fontSize: '10.5px', fontFamily: CHART_FONT, labels: { colors: '#e2e8f0' }, itemMargin: { horizontal: 8, vertical: 2 }, markers: { radius: 12 } },
         tooltip: {
-          theme: 'light', shared: multi, followCursor: !multi, intersect: false,
+          theme: 'dark', shared: multi, followCursor: !multi, intersect: false,
           y: { formatter: function (v, opts) {
             const idx = opts && typeof opts.seriesIndex === 'number' ? opts.seriesIndex : 0;
             const s = seriesDefs[idx];
