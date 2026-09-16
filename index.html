@@ -424,6 +424,8 @@
     .mv-step { padding: 2px 9px; border-radius: 999px; font-size: 10.5px; font-weight: 700; background: #fff; color: #64748b; border: 1px solid #e7e9f2; }
     .mv-step-next { display: inline-flex; align-items: center; gap: 5px; background: #d97a06; color: #fff; border-color: #d97a06; }
     .mv-step-sep { color: #cbd5e1; }
+    .mv-queue-edit { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; padding: 2px 8px; border: 1px dashed rgba(225,29,95,.35); border-radius: 999px; background: transparent; color: #e11d5f; font-size: 10px; font-weight: 700; cursor: pointer; transition: background .12s ease, border-color .12s ease; }
+    .mv-queue-edit:hover { background: rgba(225,29,95,.08); border-color: #e11d5f; }
 
     /* Dense data table (emergency history) */
     .mv-table { width: 100%; border-collapse: collapse; background: #fff; }
@@ -6695,6 +6697,10 @@ html.page-fade-ready body {
             <div class="mv-queue">
               <span class="mv-queue-label">Next up</span>
               ${queueHtml}
+              <button onclick="openManageEmergencyRotationModal()" class="mv-queue-edit" title="Add, remove or reorder standby auditors" aria-label="Edit rotation order">
+                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+                Edit
+              </button>
             </div>
           </div>
           <div class="mv-scroll custom-scrollbar">${historyHtml}</div>
@@ -6763,6 +6769,8 @@ html.page-fade-ready body {
           renderEmergencyStatusModal(modalBody);
       } else if (type === 'editEmergency') {
           renderEditEmergencyModal(modalBody);
+      } else if (type === 'editEmergencyRotation') {
+          renderEditEmergencyRotationModal(modalBody);
       } else if (type === 'overallData') {
           renderOverallDataModal(modalBody);
       } else {
@@ -7693,9 +7701,14 @@ html.page-fade-ready body {
       }
       const modal = document.getElementById('editEmergencyPasswordModal');
       if (modal) modal.classList.add('hidden');
+      const pendingType = pending.type;
       pendingEditEmergency = null;
       setEditEmergencyPasswordSubmitting(false);
-      await performEditEmergencySave(pending.fields);
+      if (pendingType === 'rotation') {
+        await performSaveEmergencyRotation(pending.names);
+      } else {
+        await performEditEmergencySave(pending.fields);
+      }
     };
 
     // Actually writes the emergency auditor to the Sheet — only ever
@@ -7796,6 +7809,236 @@ html.page-fade-ready body {
       if (!json || !json.success) throw new Error("Save didn't complete — please try again.");
     }
     // ================= END SET EMERGENCY AUDITOR =================
+
+    // ================= MANAGE EMERGENCY ROTATION =================
+    // Lets the standby rotation itself (who's in it, and in what order) be
+    // edited from the dashboard instead of hand-editing AUDITORS EMERGENCY
+    // column A. Draft edits (add/remove/reorder) live in
+    // window.emergencyRotationDraft and only reach the Sheet once Save is
+    // confirmed through the same password gate used for Set Emergency
+    // Auditor above (see submitEditEmergencyPassword's type === 'rotation'
+    // branch). Whoever ends up first in the saved list becomes the new
+    // "currently standing by" auditor — that's how AUDITORS EMERGENCY!A2
+    // already works (see saveEmergencyAuditorToSheet in Code.gs), so the
+    // UI makes that explicit rather than surprising anyone.
+    function openManageEmergencyRotationModal() {
+      openModal('Manage Emergency Rotation', 'editEmergencyRotation', null);
+    }
+
+    function renderEditEmergencyRotationModal(modalBody) {
+      const escapeHTML = str => {
+          if (!str) return '';
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+      };
+      // Fresh draft every time the modal is opened, seeded from whatever
+      // is currently live — never carries over an abandoned edit from a
+      // previous open.
+      window.emergencyRotationDraft = getEmergencyRotationCycle().slice();
+
+      modalBody.innerHTML = `
+        <div class="w-full max-w-lg mx-auto">
+          <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-accentRose to-rose-600 p-5 mb-5 shadow-lg shadow-accentRose/20">
+            <div class="absolute -right-6 -top-8 w-32 h-32 rounded-full bg-white/10"></div>
+            <div class="absolute -right-2 bottom-[-1.5rem] w-20 h-20 rounded-full bg-white/10"></div>
+            <div class="relative flex items-center gap-3.5">
+              <div class="shrink-0 w-11 h-11 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center backdrop-blur-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><path d="M16 3.128a4 4 0 0 1 0 7.744"></path><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><circle cx="9" cy="7" r="4"></circle></svg>
+              </div>
+              <div class="min-w-0">
+                <h3 class="font-extrabold text-white text-base leading-tight">Manage Emergency Rotation</h3>
+                <p class="text-[11px] text-white/80 mt-0.5">Add, remove or reorder who's in the standby queue.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white border border-coolBorder rounded-xl p-5 shadow-sm">
+            <div class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 bg-slate-50 border border-coolBorder rounded-lg px-3 py-2 mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 shrink-0"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path></svg>
+              Whoever is first on the list becomes the auditor currently on call.
+            </div>
+
+            <div id="emerRotation-list" class="space-y-1.5"></div>
+
+            <div class="flex items-center gap-2 mt-3 pt-3 border-t border-coolBorder">
+              <input id="emerRotation-newName" type="text" placeholder="Add an auditor's name…"
+                     onkeydown="if(event.key==='Enter'){event.preventDefault();emergencyRotationAdd();}"
+                     class="flex-1 min-w-0 px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-accentRose/40 focus:border-accentRose/50 transition-shadow">
+              <button type="button" onclick="emergencyRotationAdd()" class="shrink-0 px-3 py-2 text-xs font-bold text-accentRose bg-accentRose/10 hover:bg-accentRose/15 rounded-lg transition-colors flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+                Add
+              </button>
+            </div>
+
+            <div id="emerRotation-error" class="hidden mt-3 flex items-start gap-2 text-xs text-accentRose font-semibold bg-accentRose/5 border border-accentRose/20 rounded-lg px-3 py-2"></div>
+
+            <div class="flex justify-end gap-2 mt-5 pt-4 border-t border-coolBorder">
+              <button id="emerRotation-cancelBtn" onclick="closeModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
+              <button id="emerRotation-saveBtn" onclick="submitEmergencyRotation()"
+                      class="px-4 py-2.5 text-xs font-bold text-white bg-accentRose rounded-lg hover:bg-accentRose/90 active:scale-[0.98] shadow-sm shadow-accentRose/30 transition-all flex items-center gap-2 disabled:opacity-70">
+                <span id="emerRotation-saveLabel">Save Rotation</span>
+                <svg id="emerRotation-saveSpinner" class="hidden animate-spin" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+      renderEmergencyRotationDraftList();
+    }
+
+    function renderEmergencyRotationDraftList() {
+      const list = document.getElementById('emerRotation-list');
+      if (!list) return;
+      const draft = window.emergencyRotationDraft || [];
+      const escapeHTML = str => String(str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+
+      if (!draft.length) {
+        list.innerHTML = `<div class="mv-empty">No standby auditors yet — add one below.</div>`;
+        return;
+      }
+
+      list.innerHTML = draft.map((name, i) => `
+        <div class="flex items-center gap-2 bg-gray-50 border border-coolBorder rounded-lg px-2.5 py-2">
+          <span class="w-6 h-6 rounded-full ${i === 0 ? 'bg-accentRose text-white' : 'bg-white text-slate-500 border border-coolBorder'} flex items-center justify-center font-bold text-[10px] shrink-0">${i + 1}</span>
+          <span class="flex-1 min-w-0 truncate text-sm font-bold text-slate-700">${escapeHTML(name)}</span>
+          ${i === 0 ? `<span class="shrink-0 text-[9px] font-bold px-1.5 py-0.5 bg-accentRose/10 text-accentRose rounded-full uppercase tracking-wide">On call</span>` : ''}
+          <div class="flex items-center gap-1 shrink-0">
+            <button type="button" onclick="emergencyRotationMove(${i}, -1)" ${i === 0 ? 'disabled' : ''} title="Move up" aria-label="Move ${escapeHTML(name)} up"
+                    class="w-6 h-6 flex items-center justify-center rounded-md text-slate-500 hover:bg-white hover:text-accentRose disabled:opacity-25 disabled:hover:bg-transparent disabled:hover:text-slate-500 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"></path></svg>
+            </button>
+            <button type="button" onclick="emergencyRotationMove(${i}, 1)" ${i === draft.length - 1 ? 'disabled' : ''} title="Move down" aria-label="Move ${escapeHTML(name)} down"
+                    class="w-6 h-6 flex items-center justify-center rounded-md text-slate-500 hover:bg-white hover:text-accentRose disabled:opacity-25 disabled:hover:bg-transparent disabled:hover:text-slate-500 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+            </button>
+            <button type="button" onclick="emergencyRotationRemove(${i})" title="Remove" aria-label="Remove ${escapeHTML(name)}"
+                    class="w-6 h-6 flex items-center justify-center rounded-md text-slate-400 hover:bg-accentRose/10 hover:text-accentRose transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+            </button>
+          </div>
+        </div>`).join('');
+    }
+
+    function emergencyRotationMove(index, delta) {
+      const draft = window.emergencyRotationDraft;
+      const target = index + delta;
+      if (!draft || target < 0 || target >= draft.length) return;
+      const tmp = draft[index];
+      draft[index] = draft[target];
+      draft[target] = tmp;
+      renderEmergencyRotationDraftList();
+    }
+
+    function emergencyRotationRemove(index) {
+      const draft = window.emergencyRotationDraft;
+      if (!draft) return;
+      draft.splice(index, 1);
+      renderEmergencyRotationDraftList();
+    }
+
+    function emergencyRotationAdd() {
+      const input = document.getElementById('emerRotation-newName');
+      const errEl = document.getElementById('emerRotation-error');
+      if (!input) return;
+      const name = input.value.trim().toUpperCase();
+      if (errEl) errEl.classList.add('hidden');
+      if (!name) return;
+      const draft = window.emergencyRotationDraft || (window.emergencyRotationDraft = []);
+      if (draft.includes(name)) {
+        if (errEl) { errEl.textContent = name + ' is already in the rotation.'; errEl.classList.remove('hidden'); }
+        input.select();
+        return;
+      }
+      draft.push(name);
+      input.value = '';
+      renderEmergencyRotationDraftList();
+      input.focus();
+    }
+
+    // Step 1: validate the draft and open the same password gate Set
+    // Emergency Auditor uses — nothing is written to the Sheet until the
+    // password is confirmed.
+    function submitEmergencyRotation() {
+      const draft = window.emergencyRotationDraft || [];
+      const errEl = document.getElementById('emerRotation-error');
+      if (!draft.length) {
+        if (errEl) { errEl.textContent = 'The rotation needs at least one auditor.'; errEl.classList.remove('hidden'); }
+        return;
+      }
+      if (errEl) errEl.classList.add('hidden');
+      pendingEditEmergency = { type: 'rotation', names: draft.slice() };
+      openEditEmergencyPasswordGate();
+    }
+
+    // Actually writes the new rotation order to the Sheet — only ever
+    // called after the password gate has confirmed it's really the
+    // signed-in user (mirrors performEditEmergencySave above).
+    async function performSaveEmergencyRotation(names) {
+      const btn = document.getElementById('emerRotation-saveBtn');
+      const cancelBtn = document.getElementById('emerRotation-cancelBtn');
+      const label = document.getElementById('emerRotation-saveLabel');
+      const spinner = document.getElementById('emerRotation-saveSpinner');
+      const errEl = document.getElementById('emerRotation-error');
+      if (errEl) errEl.classList.add('hidden');
+      if (btn) btn.disabled = true;
+      if (cancelBtn) cancelBtn.disabled = true;
+      if (label) label.textContent = 'Saving\u2026';
+      if (spinner) spinner.classList.remove('hidden');
+
+      try {
+          await saveEmergencyRotationRemote(names);
+          showToast('Emergency rotation saved.');
+
+          // Optimistic local update: first name in the saved list becomes
+          // the new standing auditor (mirrors AUDITORS EMERGENCY!A2), and
+          // the whole ordered list feeds "Next up" / the picker dropdown
+          // everywhere else in the app.
+          activeData.emergencyRotationCycle = names.slice();
+          activeData.summary.emergencyAuditor = names[0];
+          const nameEl = document.getElementById('emergency-auditor-name');
+          const initialEl = document.getElementById('emergency-auditor-initial');
+          if (nameEl) nameEl.innerText = names[0] || 'PENDING';
+          if (initialEl) initialEl.innerText = names[0] ? names[0][0].toUpperCase() : '?';
+
+          if (typeof updateCalculations === 'function') updateCalculations();
+          if (typeof initDashboard === 'function') initDashboard();
+          if (typeof fetchSheet === 'function') setTimeout(function() { fetchSheet(true, true).catch(function(e) { console.warn('Post-save refresh failed (will retry next auto-refresh cycle):', e); }); }, 1200);
+          closeModal();
+      } catch (err) {
+          console.error('Saving emergency rotation failed:', err);
+          if (errEl) {
+              errEl.textContent = (err && err.message) ? err.message : "Couldn't save — please try again.";
+              errEl.classList.remove('hidden');
+          }
+      } finally {
+          if (btn) btn.disabled = false;
+          if (cancelBtn) cancelBtn.disabled = false;
+          if (label) label.textContent = 'Save Rotation';
+          if (spinner) spinner.classList.add('hidden');
+      }
+    }
+
+    // Sends the new rotation order to the Apps Script backend
+    // (action=saveEmergencyRotation), which rewrites AUDITORS EMERGENCY
+    // column A (row 2 downward) to match — see saveEmergencyRotationCycleToSheet
+    // in Code.gs. Names are pipe-delimited since a comma could plausibly
+    // appear in a typed-in name.
+    async function saveEmergencyRotationRemote(names) {
+      const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+      if (!idToken) throw new Error('Not signed in — please sign in again.');
+
+      const params = new URLSearchParams({
+          action: 'saveEmergencyRotation',
+          secret: appsScriptSecret,
+          idToken: idToken,
+          names: names.join('|')
+      });
+      const url = defaultAppsScriptUrl + '?' + params.toString();
+
+      const json = await fetchSheetOnce(url);
+      if (json && json.error) throw new Error(json.error);
+      if (!json || !json.success) throw new Error("Save didn't complete — please try again.");
+    }
+    // ================= END MANAGE EMERGENCY ROTATION =================
 
     function openModalDetail(branchName) {
       const b = activeData.branches.find(x => x.name === branchName);
