@@ -233,6 +233,14 @@
     height: 500px;
     max-height: max(220px, calc(100dvh - 430px));
   }
+  /* When the trend chart panel is collapsed (see toggleOverallDataChartExpanded())
+     it no longer reserves ~260-280px of vertical space above the table, so the
+     430px allowance above is stale — it leaves a big empty gap under the table.
+     90px covers just the tabs/toolbar/trend-header chrome that's still on
+     screen with the chart hidden, so the table reclaims the rest. */
+  #overallDataScrollBox.chart-collapsed {
+    max-height: max(220px, calc(100dvh - 90px));
+  }
   /* Freeze pane (the sticky "#"/Branch columns + sticky header) is
      desktop/tablet-only now. On phones the table is switched back to a
      plain, fully-scrolling table — same 767px breakpoint used everywhere
@@ -307,6 +315,10 @@
   #modalDialog.modal-fullscreen #overallDataScrollBox {
     height: calc(100dvh - 230px) !important;
     max-height: calc(100dvh - 230px) !important;
+  }
+  #modalDialog.modal-fullscreen #overallDataScrollBox.chart-collapsed {
+    height: calc(100dvh - 90px) !important;
+    max-height: calc(100dvh - 90px) !important;
   }
   /* Same "big empty gap" problem shows up in the regular windowed popup
      too, not just fullscreen: the dialog itself is h-[90vh], but these
@@ -15446,8 +15458,10 @@ html.page-fade-ready body {
       const wrap = document.getElementById('overallDataChartWrap');
       const controls = document.getElementById('overallDataChartControls');
       const toggleBtn = document.getElementById('overallDataChartToggleBtn');
+      const scrollBox = document.getElementById('overallDataScrollBox');
       if (wrap) wrap.style.display = state.chartExpanded ? '' : 'none';
       if (controls) controls.style.display = state.chartExpanded ? '' : 'none';
+      if (scrollBox) scrollBox.classList.toggle('chart-collapsed', !state.chartExpanded);
       if (toggleBtn) toggleBtn.innerHTML = overallDataChartToggleLabel();
       renderOverallDataChart();
     }
@@ -15984,7 +15998,7 @@ html.page-fade-ready body {
       // changes — see nudgeScrollRepaint(), called after every update.
       return `
         <div class="mb-1 text-[11px] font-semibold text-slate-400">Showing ${branches.length} of ${totalBranchCount} branches</div>
-        <div id="overallDataScrollBox" class="rounded-xl border border-coolBorder overflow-auto custom-scrollbar custom-scrollbar-x">
+        <div id="overallDataScrollBox" class="rounded-xl border border-coolBorder overflow-auto custom-scrollbar custom-scrollbar-x${state.chartExpanded ? '' : ' chart-collapsed'}">
           <table class="w-full min-w-[520px] text-left border-collapse bg-white relative">
             <thead class="bg-gray-50 border-b border-coolBorder text-xs text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-20 shadow-sm">
               <tr>
