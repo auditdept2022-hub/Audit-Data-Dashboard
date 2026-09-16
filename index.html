@@ -9961,44 +9961,126 @@ html.page-fade-ready body {
       return `${months} month${months === 1 ? '' : 's'} and ${remDays} day${remDays === 1 ? '' : 's'}`;
     }
 
-    // Row-highlight (Assignment Branches Overview only). Redesigned to sit
-    // inside the existing "#" column instead of its own dedicated column —
-    // a whole extra column plus a tinted row background was competing with
-    // the actual data (Branch/Auditor/Dates) when scanning the table. The
-    // "is this row highlighted" signal now reuses the same colored
-    // left-border-stripe language this dashboard already uses for
-    // Collection status and Risk level (see the `rowBorder` pattern in
-    // renderBranchTable / renderFindingsRiskTable) — glanceable while
-    // reading, and costs 4px instead of a whole column. The value saved
-    // per branch ('green'|'yellow'|'red'|'blue'|'') is AUDIT DATA (FINAL)
-    // column AX (see saveHighlightRemote / Code.gs:saveHighlightToSheet) —
-    // shared across every user, not just this browser.
+    // Row-highlight (Assignment Branches Overview only). The "is this row
+    // highlighted" signal is a tinted row background (back to how this
+    // started) rather than a border stripe. The picker itself lives behind
+    // a single small trigger dot in the existing "#" column (no dedicated
+    // column) that opens a proper floating popup with the 4 swatches —
+    // much easier to hit than 4 tiny always-on dots crammed into a narrow
+    // cell, and it works the same on touch as with a mouse. The value
+    // saved per branch ('green'|'yellow'|'red'|'blue'|'') is AUDIT DATA
+    // (FINAL) column AX (see saveHighlightRemote /
+    // Code.gs:saveHighlightToSheet) — shared across every user, not just
+    // this browser.
     const HIGHLIGHT_COLORS = {
-      green:  { dot: 'bg-accentEmerald', ring: 'ring-accentEmerald', border: 'border-l-accentEmerald' },
-      yellow: { dot: 'bg-accentAmber',   ring: 'ring-accentAmber',   border: 'border-l-accentAmber' },
-      red:    { dot: 'bg-accentRose',    ring: 'ring-accentRose',    border: 'border-l-accentRose' },
-      blue:   { dot: 'bg-accentBlue',    ring: 'ring-accentBlue',    border: 'border-l-accentBlue' }
+      green:  { dot: 'bg-accentEmerald', ring: 'ring-accentEmerald', row: 'bg-accentEmerald/10' },
+      yellow: { dot: 'bg-accentAmber',   ring: 'ring-accentAmber',   row: 'bg-accentAmber/10' },
+      red:    { dot: 'bg-accentRose',    ring: 'ring-accentRose',    row: 'bg-accentRose/10' },
+      blue:   { dot: 'bg-accentBlue',    ring: 'ring-accentBlue',    row: 'bg-accentBlue/10' }
     };
 
-    // Renders into the "#" cell: the row number plus 4 tiny swatches
-    // directly beneath it. Always visible (not hover-only) so it works the
-    // same on touch/tablet as on desktop — this table is viewed on both.
+    // Renders into the "#" cell: the row number plus one small trigger dot
+    // beneath it. Solid + colored when a highlight is set (so the current
+    // color is visible at a glance without opening anything); a faint
+    // dashed outline when it isn't. Clicking it opens the swatch popup.
     function highlightCellHtml(branchName, activeColor, index) {
       const safeBranch = branchName.replace(/'/g, "\\'");
-      const dots = Object.keys(HIGHLIGHT_COLORS).map(color => {
-          const cfg = HIGHLIGHT_COLORS[color];
-          const isActive = activeColor === color;
-          const ringClasses = isActive ? `ring-2 ${cfg.ring} ring-offset-1` : '';
-          return `<button type="button" title="${color.charAt(0).toUpperCase()}${color.slice(1)} highlight"
-              class="w-1.5 h-1.5 rounded-full ${cfg.dot} ${ringClasses} hover:scale-125 active:scale-95 transition-transform cursor-pointer"
-              onclick="event.stopPropagation(); toggleBranchHighlight(event, '${safeBranch}', '${color}')"></button>`;
-      }).join('');
+      const cfg = HIGHLIGHT_COLORS[activeColor];
+      const triggerClasses = cfg
+          ? `${cfg.dot} hover:scale-125`
+          : 'bg-white border border-dashed border-slate-300 hover:border-slate-400';
       return `
         <div class="flex flex-col items-center gap-1">
           <span class="text-[10px] font-bold text-slate-400 leading-none">${index + 1}</span>
-          <div class="flex items-center justify-center gap-0.5">${dots}</div>
+          <button type="button" title="Set row highlight"
+              class="w-2.5 h-2.5 rounded-full ${triggerClasses} active:scale-95 transition-transform cursor-pointer"
+              onclick="event.stopPropagation(); openHighlightPopup(event, '${safeBranch}', '${activeColor || ''}')"></button>
         </div>`;
     }
+
+    // ---- Floating popup for the highlight-color picker ----
+    // Appended once to <body> (outside the modal's own overflow-auto table
+    // wrapper) so it can float freely instead of being clipped by the
+    // table's scroll container, and repositioned per-click against
+    // whichever trigger dot was pressed.
+    let highlightPopupEl = null;
+    function ensureHighlightPopup() {
+      if (highlightPopupEl) return highlightPopupEl;
+      const el = document.createElement('div');
+      el.id = 'branchHighlightPopup';
+      el.className = 'fixed z-50 hidden bg-white border border-coolBorder rounded-xl shadow-2xl p-2.5';
+      document.body.appendChild(el);
+      highlightPopupEl = el;
+      return el;
+    }
+
+    function handleHighlightPopupOutsideClick(evt) {
+      if (highlightPopupEl && !highlightPopupEl.contains(evt.target)) closeHighlightPopup();
+    }
+    function handleHighlightPopupEscape(evt) {
+      if (evt.key === 'Escape') closeHighlightPopup();
+    }
+
+    function closeHighlightPopup() {
+      if (highlightPopupEl) {
+          highlightPopupEl.classList.add('hidden');
+          highlightPopupEl.innerHTML = '';
+          delete highlightPopupEl.dataset.branch;
+      }
+      document.removeEventListener('click', handleHighlightPopupOutsideClick, true);
+      document.removeEventListener('keydown', handleHighlightPopupEscape, true);
+    }
+
+    function openHighlightPopup(event, branchName, activeColor) {
+      event.stopPropagation();
+      const trigger = event.currentTarget;
+      const popup = ensureHighlightPopup();
+
+      // Clicking the same row's trigger again just closes it (toggle).
+      const wasOpenForThisBranch = popup.dataset.branch === branchName && !popup.classList.contains('hidden');
+      closeHighlightPopup();
+      if (wasOpenForThisBranch) return;
+
+      const safeBranch = branchName.replace(/'/g, "\\'");
+      popup.dataset.branch = branchName;
+      popup.innerHTML = `
+        <div class="flex items-center gap-2">
+          ${Object.keys(HIGHLIGHT_COLORS).map(color => {
+              const cfg = HIGHLIGHT_COLORS[color];
+              const isActive = activeColor === color;
+              const ringClasses = isActive ? `ring-2 ${cfg.ring} ring-offset-1` : '';
+              return `<button type="button" title="${color.charAt(0).toUpperCase()}${color.slice(1)}"
+                  class="w-5 h-5 rounded-full ${cfg.dot} ${ringClasses} hover:scale-110 active:scale-95 transition-transform cursor-pointer"
+                  onclick="event.stopPropagation(); toggleBranchHighlight(event, '${safeBranch}', '${color}'); closeHighlightPopup();"></button>`;
+          }).join('')}
+        </div>
+        ${activeColor ? `<button type="button"
+            class="mt-2 w-full text-[10px] font-semibold text-slate-400 hover:text-accentRose transition-colors"
+            onclick="event.stopPropagation(); toggleBranchHighlight(event, '${safeBranch}', '${activeColor}'); closeHighlightPopup();">Clear highlight</button>` : ''}
+      `;
+
+      popup.classList.remove('hidden');
+
+      // Position just below the trigger, centered on it; flip above and/or
+      // clamp horizontally if that would run off the viewport.
+      const rect = trigger.getBoundingClientRect();
+      const popupRect = popup.getBoundingClientRect();
+      let top = rect.bottom + 6;
+      let left = rect.left + rect.width / 2 - popupRect.width / 2;
+      if (top + popupRect.height > window.innerHeight - 8) top = rect.top - popupRect.height - 6;
+      if (left < 8) left = 8;
+      if (left + popupRect.width > window.innerWidth - 8) left = window.innerWidth - popupRect.width - 8;
+      popup.style.top = top + 'px';
+      popup.style.left = left + 'px';
+
+      // Deferred so this same click doesn't immediately trigger the
+      // outside-click listener and close the popup it just opened.
+      setTimeout(() => {
+          document.addEventListener('click', handleHighlightPopupOutsideClick, true);
+          document.addEventListener('keydown', handleHighlightPopupEscape, true);
+      }, 0);
+    }
+
 
     function buildAssignmentTable(list) {
       const escapeHTML = str => {
@@ -10082,16 +10164,13 @@ html.page-fade-ready body {
               ? `<span class="px-1.5 py-0.5 text-[10px] font-bold bg-accentEmerald/10 text-accentEmerald border border-accentEmerald/20 rounded-lg whitespace-nowrap leading-tight">${intervalLabel}</span>`
               : `<span class="text-[10px] text-slate-400 italic">—</span>`;
 
-          // Left-border stripe is the highlight signal (matches the
-          // Collection-status / Risk-level rowBorder pattern used
-          // elsewhere), so the zebra background stays untouched and the
-          // actual data cells keep their normal contrast.
+          // Left-border stripe reverted back to a tinted row background —
+          // the same signal this feature started with.
           const highlightCfg = HIGHLIGHT_COLORS[b.highlightColor];
-          const rowBorder = highlightCfg ? `border-l-4 ${highlightCfg.border}` : 'border-l-4 border-l-transparent';
-          const zebraClass = index % 2 === 1 ? 'bg-gray-50/50' : '';
+          const zebraClass = highlightCfg ? highlightCfg.row : (index % 2 === 1 ? 'bg-gray-50/50' : '');
 
           html += `
-              <tr class="${rowBorder} ${zebraClass} hover:bg-accentCyan/10 cursor-pointer active:scale-[0.99] transition-colors" onclick="openModalDetail('${escapeFindingHTML(b.name)}')">
+              <tr class="${zebraClass} hover:bg-accentCyan/10 cursor-pointer active:scale-[0.99] transition-colors" onclick="openModalDetail('${escapeFindingHTML(b.name)}')">
                   <td class="p-1.5 text-center" onclick="event.stopPropagation()">${highlightCellHtml(b.name, b.highlightColor || '', index)}</td>
                   <td class="p-1.5 font-bold text-slate-800 text-xs break-words leading-tight">${escapeHTML(b.name)}</td>
                   <td class="p-1.5 text-center">${upNextCell}</td>
