@@ -5343,24 +5343,15 @@ html.page-fade-ready body {
   </div>
 
   <!-- ================= MY DEVICES (quick action) =================
-       MERGED PANEL: this used to be two separate side-menu tiles/modals --
-       "My Devices" (self-service, your own devices only, no permission
-       needed) and "Who's Logged In" (every allow-listed ACCOUNT, with
-       Block/Unblock/Sign-out for account managers). They're combined into
-       one modal here, opened from the single "My Devices" side-menu tile:
-         - "Your devices" section (#myDevicesList) -- unchanged, still
-           self-service only, still backed by action=myDevices/
-           signOutDevice/signOutAllOtherDevices.
-         - "Who's logged in" section (#whoAmIList) -- unchanged, still
-           backed by action=activeUsers, still shows Block/Unblock/Sign
-           out buttons only when the backend's canManage flag comes back
-           true for the signed-in account (see renderActiveAccountsList()
-           further down) -- everyone else just sees the read-only list,
-           same as when this had its own tile.
-       Both lists load and auto-refresh together -- see
-       openMyDevicesModal()/closeMyDevicesModal() further down, which now
-       drive both loadMyDevicesList() and loadActiveAccountsList() off one
-       shared timer instead of two separate modals each running their own. -->
+       MERGED PANEL: used to be two separate sections in this modal --
+       "Your devices" (self-service, your own devices only) and "Who's
+       Logged In" (every allow-listed ACCOUNT with Block/Unblock/Sign out
+       for managers). Now ONE list (#presenceList): each row is a device
+       -- label on top ("Chrome on Windows 10"), the account email
+       underneath it, then status ("This device \u00b7 Active now" /
+       "Active now \u00b7 Online 12m" / "Last active 5m ago") -- with Sign
+       out and, for managers, Block right on the row. See
+       renderPresenceList()/refreshMyDevicesModal() further down. -->
   <div id="myDevicesModal" class="fixed inset-0 z-[70] hidden">
     <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" onclick="closeMyDevicesModal()"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4">
@@ -5371,23 +5362,15 @@ html.page-fade-ready body {
           </div>
           <div class="min-w-0">
             <h3 class="text-sm font-bold text-slate-900">My Devices</h3>
-            <p class="text-[10px] text-slate-400">Where you're currently signed in</p>
+            <p id="myDevicesSubtitle" class="text-[10px] text-slate-400">Where you're currently signed in</p>
           </div>
         </div>
 
-        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Your devices</p>
-        <div id="myDevicesList" class="flex flex-col gap-1.5 max-h-64 overflow-y-auto custom-scrollbar mb-1.5">
+        <div id="presenceList" class="flex flex-col gap-1.5 max-h-96 overflow-y-auto custom-scrollbar mb-1.5">
           <p class="text-xs text-slate-400 text-center py-3">Loading\u2026</p>
         </div>
         <p id="myDevicesNote" class="text-[10px] text-slate-400 mb-2 hidden"></p>
         <button id="myDevicesSignOutAllBtn" type="button" onclick="signOutAllOtherDevices()" class="hidden w-full py-2 rounded-xl bg-accentRose/10 hover:bg-accentRose/20 text-accentRose text-xs font-semibold transition-colors mb-3">Sign out all other devices</button>
-
-        <div class="border-t border-coolBorder pt-2.5 mb-3">
-          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Who's logged in</p>
-          <div id="whoAmIList" class="flex flex-col gap-1.5 max-h-64 overflow-y-auto custom-scrollbar">
-            <p class="text-xs text-slate-400 text-center py-3">Loading\u2026</p>
-          </div>
-        </div>
 
         <div class="flex flex-col gap-2">
           <button type="button" onclick="closeMyDevicesModal()" class="w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors">Close</button>
@@ -5395,6 +5378,7 @@ html.page-fade-ready body {
       </div>
     </div>
   </div>
+
 
 
   <!-- ================= ACCOUNT ACTION PASSWORD GATE =================
@@ -13408,181 +13392,283 @@ html.page-fade-ready body {
       return diffHr + (diffHr === 1 ? ' hr ago' : ' hrs ago');
     }
 
-    // SPEED FIX: canManage now comes back as part of the action=activeUsers
-    // response itself (see handleActiveUsersGet in Code.gs) instead of a
-    // second, parallel action=checkAccountManagerAuth round trip. Apps
-    // Script executions are the slow part here, not the client -- cutting
-    // two round trips down to one roughly halves how long the panel takes
-    // to show anything, especially on a cold start.
+    // ================= MERGED PRESENCE LIST ("My Devices") =================
+    // ONE list now, backed by the ONE merged action=myDevicesBundle
+    // response (see buildMergedPresenceRows()/handleMyDevicesBundleGet()
+    // in Code.gs). Each row is already a device -- email + device label +
+    // active/current/blocked all live on the same object -- so there's
+    // only ever one render path instead of two lists that could drift
+    // out of sync ("Your devices" vs "Who's Logged In").
+    //
+    // Non-manager: rows are just your own devices (self-service).
+    // Manager: rows cover every known account, one row per device it's
+    // actually signed in on (or one account-level row if it has no
+    // device data yet) -- see the backend comment for exactly how those
+    // are built.
 
     // SPEED FIX: cache the last successful response and render it
     // immediately (stale-while-revalidate) instead of showing "Loading…"
     // on every open -- the list refreshes in the background right after,
-    // same as before, but re-opening the panel (or its 15s auto-refresh)
-    // now updates in place instead of flashing back to a loading state.
-    let cachedActiveAccountsJson = null;
+    // so re-opening the panel (or its 15s auto-refresh) updates in place
+    // instead of flashing back to a loading state.
+    let cachedPresenceRows = null;
+    let cachedPresenceCanManage = false;
 
     // Fire-and-forget warm-up, called right after sign-in (see
     // startPresenceHeartbeat below) so by the time anyone actually opens
-    // "Currently Active" for the first time, the list is often already
-    // cached and renders instantly instead of waiting on a fresh Apps
-    // Script round trip. Best-effort: any failure here just means the
-    // first real open falls back to fetching live, exactly like before
-    // this existed.
+    // "My Devices" for the first time, the list is often already cached
+    // and renders instantly instead of waiting on a fresh Apps Script
+    // round trip. Best-effort: any failure here just means the first
+    // real open falls back to fetching live, exactly like before.
     window.prewarmActiveAccountsList = async function() {
       try {
-        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
-        if (!idToken) return;
-        const params = new URLSearchParams({ action: 'activeUsers', secret: appsScriptSecret, idToken: idToken });
-        const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
-        if (json && json.success) cachedActiveAccountsJson = json;
+        const bundle = await fetchPresenceBundle(getOrCreateDeviceId());
+        if (bundle) {
+          cachedPresenceRows = Array.isArray(bundle.rows) ? bundle.rows : [];
+          cachedPresenceCanManage = !!bundle.canManage;
+        }
       } catch (err) {
         // silent -- purely a warm-up
       }
     };
 
-    function renderActiveAccountsList(json) {
-      const listEl = document.getElementById('whoAmIList');
-      if (!listEl) return;
-      const canManage = !!json.canManage;
-      const myEmail = (window.getCurrentUserEmail ? window.getCurrentUserEmail() : '').toLowerCase();
-      const accounts = (json.active || []).slice().sort(function (a, b) {
-        // "You" always first, then active-right-now, then most-recently-
-        // seen, so the people you're most likely to act on are up top.
-        const aMe = String(a.email || '').toLowerCase() === myEmail;
-        const bMe = String(b.email || '').toLowerCase() === myEmail;
-        if (aMe !== bMe) return aMe ? -1 : 1;
-        if (a.active !== b.active) return a.active ? -1 : 1;
-        return (b.lastSeenAt || 0) - (a.lastSeenAt || 0);
-      });
+    // Combined endpoint -- one round trip instead of the old two
+    // (action=myDevices + action=activeUsers) that used to run
+    // back-to-back every time the modal opened or auto-refreshed.
+    async function fetchPresenceBundle(myDeviceId) {
+      const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+      if (!idToken) return null;
+      const params = new URLSearchParams({ action: 'myDevicesBundle', secret: appsScriptSecret, idToken: idToken, deviceId: myDeviceId });
+      const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
+      if (!json || !json.success) return null;
+      return json;
+    }
 
-      if (!accounts.length) {
-        listEl.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">No known accounts.</p>';
+    // "min online" -- how long THIS session has been open, separate from
+    // formatLastSeenRelative() below, which answers a different question
+    // ("how long ago was their last heartbeat").
+    function formatMinutesOnline(sessionStartedAt) {
+      if (!sessionStartedAt) return null;
+      const mins = Math.max(0, Math.round((Date.now() - sessionStartedAt) / 60000));
+      return mins < 1 ? 'Online <1m' : ('Online ' + mins + 'm');
+    }
+
+    // Small inline icon per row -- a phone glyph for anything mobile
+    // (matched off the same label getDeviceLabel() produces), a monitor
+    // glyph for everything else, so a person can tell devices apart at a
+    // glance the way Google's own list does.
+    function deviceRowIconSvg(label) {
+      return isMobileDeviceLabel(label)
+        ? '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"></rect><path d="M12 18h.01"></path></svg>'
+        : '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"></rect><line x1="8" x2="16" y1="21" y2="21"></line><line x1="12" x2="12" y1="17" y2="21"></line></svg>';
+    }
+
+    // Renders the ONE merged list into #presenceList: device label on
+    // top ("Chrome on Windows 10"), the account email underneath it,
+    // then a status line ("This device · Active now" / "Active now ·
+    // Online 12m" / "Last active 5m ago" / "Never signed in"), with
+    // Sign out and, for managers, Block/Unblock together on the same
+    // row (a plain status dot when neither applies, e.g. your own
+    // current device or a non-manager viewing someone else's row).
+    function renderPresenceList(rows, canManage) {
+      const listEl = document.getElementById('presenceList');
+      const noteEl = document.getElementById('myDevicesNote');
+      const signOutAllBtn = document.getElementById('myDevicesSignOutAllBtn');
+      const subtitleEl = document.getElementById('myDevicesSubtitle');
+      if (!listEl) return;
+
+      if (subtitleEl) {
+        subtitleEl.textContent = canManage ? 'Every signed-in device on this dashboard' : 'Where you\u2019re currently signed in';
+      }
+
+      const list = Array.isArray(rows) ? rows : [];
+      if (!list.length) {
+        listEl.innerHTML = '<p class="text-xs text-slate-400 text-center py-3">No devices found.</p>';
+        if (signOutAllBtn) signOutAllBtn.classList.add('hidden');
+        if (noteEl) noteEl.classList.add('hidden');
         return;
       }
 
-      listEl.innerHTML = accounts.map(function (u) {
-        const email = String(u.email || '');
-        const isYou = email.toLowerCase() === myEmail;
-        const blocked = u.blocked === true;
-        const neverSignedIn = !u.lastSeenAt;
+      listEl.innerHTML = list.map(function (r) {
+        const email = String(r.email || '');
+        const label = String(r.label || (r.isYou ? 'This device' : 'Unknown device'));
+        const blocked = r.blocked === true;
 
-        // Per-account admin controls -- only rendered for managers, and
-        // never for your own row (use the side menu's own "Log out" to
-        // sign this device out). Data-* attributes (not inline onclick) so
-        // an email containing a quote/apostrophe can never break out of
-        // the attribute -- see the delegated click listener further down.
-        // Available even on an away/never-signed-in row (e.g. blocking
-        // someone pre-emptively before they've ever signed in).
-        const actionsHtml = (!isYou && canManage)
-          ? (
-            '<div class="flex items-center gap-1 shrink-0">' +
-              '<button type="button" data-whoami-action="block" data-email="' + escapeForHtml(email) + '" data-blocked="' + (blocked ? '1' : '0') + '" class="text-[10px] font-semibold px-1.5 py-1 rounded-lg transition-colors ' + (blocked ? 'text-accentEmerald hover:bg-accentEmerald/10' : 'text-accentAmber hover:bg-accentAmber/10') + '">' + (blocked ? 'Unblock' : 'Block') + '</button>' +
-              (u.active ? '<button type="button" data-whoami-action="signout" data-email="' + escapeForHtml(email) + '" class="text-[10px] font-semibold px-1.5 py-1 rounded-lg text-accentRose hover:bg-accentRose/10 transition-colors">Sign out</button>' : '') +
-            '</div>'
-          )
-          : '<span class="w-2 h-2 rounded-full ' + (blocked ? 'bg-accentRose' : (u.active ? 'bg-accentEmerald' : 'bg-slate-300')) + ' shrink-0" title="' + (blocked ? 'Blocked' : (u.active ? 'Active now' : 'Not currently active')) + '"></span>';
+        let statusLabel;
+        if (r.current) {
+          statusLabel = 'This device \u00b7 Active now';
+        } else if (r.active) {
+          const online = formatMinutesOnline(r.sessionStartedAt);
+          statusLabel = online ? ('Active now \u00b7 ' + online) : 'Active now';
+        } else if (r.lastSeenAt) {
+          statusLabel = 'Last active ' + formatLastSeenRelative(r.lastSeenAt);
+        } else {
+          statusLabel = 'Never signed in';
+        }
 
-        const statusLabel = neverSignedIn
-          ? 'Never signed in'
-          : escapeForHtml(formatLastSeenRelative(u.lastSeenAt)) + (u.active ? '' : ' \u2014 away');
+        // ---- Sign out + Block, together on the row ----
+        //   - your own, non-current device -> self-service signOutDevice
+        //   - a manager, on someone else's device row -> signOutAccountDevice
+        //   - a manager, on an account with no device rows yet -> the
+        //     old account-level forceSignOutAccount fallback
+        // Block/Unblock is account-level, managers only, never your own row.
+        let signOutBtn = '';
+        if (!r.current) {
+          if (r.isYou && r.deviceId) {
+            signOutBtn = '<button type="button" data-presence-action="signoutDevice" data-device-id="' + escapeForHtml(r.deviceId) + '" data-label="' + escapeForHtml(label) + '" class="text-[10px] font-semibold px-1.5 py-1 rounded-lg text-accentRose hover:bg-accentRose/10 transition-colors">Sign out</button>';
+          } else if (canManage && !r.isYou) {
+            if (r.deviceId) {
+              signOutBtn = '<button type="button" data-presence-action="signoutAccountDevice" data-email="' + escapeForHtml(email) + '" data-device-id="' + escapeForHtml(r.deviceId) + '" data-label="' + escapeForHtml(label) + '" class="text-[10px] font-semibold px-1.5 py-1 rounded-lg text-accentRose hover:bg-accentRose/10 transition-colors">Sign out</button>';
+            } else if (r.active) {
+              signOutBtn = '<button type="button" data-presence-action="signout" data-email="' + escapeForHtml(email) + '" class="text-[10px] font-semibold px-1.5 py-1 rounded-lg text-accentRose hover:bg-accentRose/10 transition-colors">Sign out</button>';
+            }
+          }
+        }
+
+        const blockBtn = (canManage && !r.isYou)
+          ? '<button type="button" data-presence-action="block" data-email="' + escapeForHtml(email) + '" data-blocked="' + (blocked ? '1' : '0') + '" class="text-[10px] font-semibold px-1.5 py-1 rounded-lg transition-colors ' + (blocked ? 'text-accentEmerald hover:bg-accentEmerald/10' : 'text-accentAmber hover:bg-accentAmber/10') + '">' + (blocked ? 'Unblock' : 'Block') + '</button>'
+          : '';
+
+        const actionsHtml = (signOutBtn || blockBtn)
+          ? ('<div class="flex items-center gap-1 shrink-0">' + blockBtn + signOutBtn + '</div>')
+          : ('<span class="w-2 h-2 rounded-full ' + (blocked ? 'bg-accentRose' : (r.active ? 'bg-accentEmerald' : 'bg-slate-300')) + ' shrink-0" title="' + (blocked ? 'Blocked' : (r.active ? 'Active now' : 'Not currently active')) + '"></span>');
 
         return '' +
-          '<div class="flex items-start gap-2 p-2 rounded-lg border ' + (blocked ? 'border-accentRose/30 bg-accentRose/5' : (u.active ? 'border-coolBorder' : 'border-coolBorder/60 opacity-80')) + '">' +
+          '<div class="flex items-start gap-2 p-2 rounded-lg border ' + (blocked ? 'border-accentRose/30 bg-accentRose/5' : (r.current ? 'border-accentBlue/30 bg-accentBlue/5' : 'border-coolBorder')) + '">' +
+            '<span class="w-7 h-7 rounded-full flex items-center justify-center shrink-0 ' + (r.current ? 'bg-accentBlue/10 text-accentBlue' : 'bg-slate-100 text-slate-500') + '">' + deviceRowIconSvg(label) + '</span>' +
             '<div class="min-w-0 flex-1">' +
-              '<p class="text-xs font-semibold text-slate-800 break-words leading-snug">' + escapeForHtml(email) + (isYou ? ' <span class="text-royalBlue font-bold">(You)</span>' : '') + (blocked ? ' <span class="text-accentRose font-bold">(Blocked)</span>' : '') + '</p>' +
+              // Device label on top, full and never truncated.
+              '<p class="text-xs font-semibold text-slate-800 break-words leading-snug">' + escapeForHtml(label) + '</p>' +
+              // Account email right underneath it.
+              '<p class="text-[10px] text-slate-500 break-words leading-snug">' + escapeForHtml(email) + (r.isYou ? ' <span class="text-royalBlue font-bold">(You)</span>' : '') + (blocked ? ' <span class="text-accentRose font-bold">(Blocked)</span>' : '') + '</p>' +
               '<div class="flex items-center justify-between gap-2 mt-0.5">' +
-                '<span class="text-[10px] text-slate-400">' + statusLabel + '</span>' +
+                '<span class="text-[9px] font-bold uppercase tracking-wide ' + (r.current ? 'text-accentBlue' : 'text-slate-400 normal-case') + '">' + statusLabel + '</span>' +
                 actionsHtml +
               '</div>' +
             '</div>' +
           '</div>';
       }).join('');
+
+      if (noteEl) noteEl.classList.add('hidden');
+      const myDeviceCount = list.filter(function (r) { return r.isYou; }).length;
+      if (signOutAllBtn) signOutAllBtn.classList.toggle('hidden', myDeviceCount < 2);
     }
 
-    async function loadActiveAccountsList() {
-      const listEl = document.getElementById('whoAmIList');
+    async function loadPresenceList() {
+      const listEl = document.getElementById('presenceList');
       if (!listEl) return;
       // Show cached data immediately if we have it (from an earlier open
-      // this session, or the sign-in prewarm), instead of a blank
-      // "Loading…" every single time -- then still fetch fresh below.
-      if (cachedActiveAccountsJson) {
-        renderActiveAccountsList(cachedActiveAccountsJson);
+      // this session, or the sign-in prewarm) instead of a blank
+      // "Loading…" every time -- then still fetch fresh below.
+      if (cachedPresenceRows) {
+        renderPresenceList(cachedPresenceRows, cachedPresenceCanManage);
       } else if (!listEl.children.length) {
-        // No cache yet (very first open this session, before the sign-in
-        // prewarm has landed) -- show an instant placeholder for at least
-        // yourself instead of a bare "Loading…" with nothing to look at,
-        // since we already know who's asking without waiting on the
-        // network at all. Gets fully replaced the moment real data
-        // arrives below.
+        // No cache yet -- show an instant placeholder for at least
+        // yourself instead of a bare "Loading…", since we already know
+        // who's asking without waiting on the network. Fully replaced
+        // the moment real data arrives below.
         const myEmailNow = (window.getCurrentUserEmail && window.getCurrentUserEmail()) || '';
         if (myEmailNow) {
-          renderActiveAccountsList({ active: [{ email: myEmailNow, lastSeenAt: Date.now(), active: true, blocked: false }], canManage: false });
+          renderPresenceList([{ email: myEmailNow, label: 'This device', lastSeenAt: Date.now(), active: true, current: true, isYou: true, blocked: false }], false);
         } else {
-          listEl.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">Loading\u2026</p>';
+          listEl.innerHTML = '<p class="text-xs text-slate-400 text-center py-3">Loading\u2026</p>';
         }
       }
       try {
-        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
-        if (!idToken) {
-          listEl.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">Not signed in.</p>';
-          return;
-        }
-        const params = new URLSearchParams({ action: 'activeUsers', secret: appsScriptSecret, idToken: idToken });
-        const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
-        if (!json || json.error) throw new Error((json && json.error) || 'Failed to load');
-        cachedActiveAccountsJson = json;
-        renderActiveAccountsList(json);
+        const bundle = await fetchPresenceBundle(getOrCreateDeviceId());
+        if (!bundle) throw new Error('Failed to load');
+        cachedPresenceRows = Array.isArray(bundle.rows) ? bundle.rows : [];
+        cachedPresenceCanManage = !!bundle.canManage;
+        renderPresenceList(cachedPresenceRows, cachedPresenceCanManage);
       } catch (err) {
         // If we already showed cached (or optimistic placeholder) data
         // above, leave it up rather than blowing it away with an error on
         // a background refresh failure.
-        if (!cachedActiveAccountsJson) {
-          listEl.innerHTML = '<p class="text-sm text-accentRose text-center py-4">Couldn\u2019t load active accounts.</p>';
+        if (!cachedPresenceRows) {
+          listEl.innerHTML = '<p class="text-xs text-accentRose text-center py-3">Couldn\u2019t load devices.</p>';
         }
-        console.warn('[presence] loadActiveAccountsList failed:', err && err.message ? err.message : err);
+        console.warn('[presence] loadPresenceList failed:', err && err.message ? err.message : err);
       }
     }
 
-    // ================= LIVE SIGN-IN WATCHER =================
+    // Refresh while the modal is actually open (15s timer) -- same fetch
+    // as loadPresenceList's background half, just without the
+    // cached/optimistic first paint since the panel is already showing
+    // something.
+    async function refreshMyDevicesModal() {
+      try {
+        const bundle = await fetchPresenceBundle(getOrCreateDeviceId());
+        if (!bundle) return;
+        cachedPresenceRows = Array.isArray(bundle.rows) ? bundle.rows : [];
+        cachedPresenceCanManage = !!bundle.canManage;
+        renderPresenceList(cachedPresenceRows, cachedPresenceCanManage);
+      } catch (err) {
+        console.warn('[presence] refreshMyDevicesModal failed:', err && err.message ? err.message : err);
+      }
+    }
+
+    const MY_DEVICES_REFRESH_INTERVAL_MS = 15 * 1000;
+    let myDevicesRefreshTimer = null;
+
+    function openMyDevicesModal() {
+      if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
+      const modal = document.getElementById('myDevicesModal');
+      if (modal) modal.classList.remove('hidden');
+      loadPresenceList();
+      // Keep the list current while the modal is actually open, so
+      // someone watching it sees devices/accounts come and go in
+      // near-real-time instead of only on open.
+      if (myDevicesRefreshTimer) clearInterval(myDevicesRefreshTimer);
+      myDevicesRefreshTimer = setInterval(refreshMyDevicesModal, MY_DEVICES_REFRESH_INTERVAL_MS);
+    }
+    function closeMyDevicesModal() {
+      const modal = document.getElementById('myDevicesModal');
+      if (modal) modal.classList.add('hidden');
+      if (myDevicesRefreshTimer) { clearInterval(myDevicesRefreshTimer); myDevicesRefreshTimer = null; }
+    }
+
+    // ================= LIVE PRESENCE WATCHER =================
     // Runs continuously in the background from the moment you're signed
     // in -- NOT just while the "My Devices" panel happens to be open --
-    // so a new sign-in shows up on its own instead of you having to open
-    // the panel and hit refresh to find out. Every ACTIVE_USERS_WATCH_
-    // INTERVAL_MS it re-fetches action=activeUsers, and:
-    //   - if the panel is open, updates it in place with the fresh data
-    //   - if any account other than you just transitioned into "active"
-    //     since the last check, pops a toast right away -- so if it's an
-    //     account you don't recognize being active, or your own account
-    //     showing active from somewhere you didn't just sign in from,
-    //     you find out on the spot instead of stumbling onto it later.
+    // so a new sign-in or a new device shows up on its own instead of
+    // you having to open the panel and hit refresh to find out. One
+    // poller hitting the combined action=myDevicesBundle endpoint.
     const ACTIVE_USERS_WATCH_INTERVAL_MS = 10 * 1000;
-    let activeUsersWatchTimer = null;
+    let presenceWatchTimer = null;
     let previouslyActiveEmails = null; // null = haven't taken a baseline reading yet
+    let previouslyKnownDeviceIds = null; // null = haven't taken a baseline reading yet
 
-    async function pollActiveUsersForAlerts() {
+    async function pollPresenceForAlerts() {
       try {
-        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
-        if (!idToken) return;
-        const params = new URLSearchParams({ action: 'activeUsers', secret: appsScriptSecret, idToken: idToken });
-        const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
-        if (!json || json.error || !Array.isArray(json.active)) return;
+        const myDeviceId = getOrCreateDeviceId();
+        const bundle = await fetchPresenceBundle(myDeviceId);
+        if (!bundle) return;
 
-        cachedActiveAccountsJson = json;
+        const rows = Array.isArray(bundle.rows) ? bundle.rows : [];
+        cachedPresenceRows = rows;
+        cachedPresenceCanManage = !!bundle.canManage;
 
-        // If the "My Devices" panel is currently open, refresh it live so
-        // whoever's watching it sees the new sign-in appear on its own.
         const modal = document.getElementById('myDevicesModal');
-        if (modal && !modal.classList.contains('hidden')) {
-          renderActiveAccountsList(json);
-        }
+        const modalOpen = !!(modal && !modal.classList.contains('hidden'));
+        if (modalOpen) renderPresenceList(rows, cachedPresenceCanManage);
 
+        // ---- alert on an unrecognized device on YOUR account ----
+        const nowDeviceIds = {};
+        rows.forEach(function (r) { if (r.isYou && r.deviceId) nowDeviceIds[r.deviceId] = r.label || 'Unknown device'; });
+        if (previouslyKnownDeviceIds) {
+          Object.keys(nowDeviceIds).forEach(function (deviceId) {
+            if (deviceId === myDeviceId) return; // this browser signing itself in isn't a surprise
+            if (!previouslyKnownDeviceIds[deviceId]) {
+              showToast('New device signed in to your account: ' + nowDeviceIds[deviceId], 'error');
+            }
+          });
+        }
+        previouslyKnownDeviceIds = nowDeviceIds;
+
+        // ---- alert on any allow-listed account newly active ----
         const myEmail = (window.getCurrentUserEmail ? window.getCurrentUserEmail() : '').toLowerCase();
         const nowActiveEmails = {};
-        json.active.forEach(function (u) {
-          if (u && u.active) nowActiveEmails[String(u.email || '').toLowerCase()] = true;
-        });
-
+        rows.forEach(function (r) { if (r.active) nowActiveEmails[String(r.email || '').toLowerCase()] = true; });
         if (previouslyActiveEmails) {
           Object.keys(nowActiveEmails).forEach(function (email) {
             if (email === myEmail) return; // your own sign-in isn't a surprise
@@ -13591,62 +13677,71 @@ html.page-fade-ready body {
             }
           });
         }
-        // First poll after sign-in just takes a baseline -- everyone
-        // already active at that point is expected, not a new event.
         previouslyActiveEmails = nowActiveEmails;
       } catch (err) {
         // Best-effort -- a missed poll just means the next one catches up.
-        console.warn('[presence] pollActiveUsersForAlerts failed:', err && err.message ? err.message : err);
+        console.warn('[presence] pollPresenceForAlerts failed:', err && err.message ? err.message : err);
       }
     }
 
-    function startActiveUsersWatcher() {
-      if (activeUsersWatchTimer) return; // already running
+    function startPresenceWatcher() {
+      if (presenceWatchTimer) return; // already running
       previouslyActiveEmails = null; // fresh baseline for this session
-      pollActiveUsersForAlerts();
-      activeUsersWatchTimer = setInterval(pollActiveUsersForAlerts, ACTIVE_USERS_WATCH_INTERVAL_MS);
+      previouslyKnownDeviceIds = null;
+      pollPresenceForAlerts();
+      presenceWatchTimer = setInterval(pollPresenceForAlerts, ACTIVE_USERS_WATCH_INTERVAL_MS);
     }
-    function stopActiveUsersWatcher() {
-      if (activeUsersWatchTimer) { clearInterval(activeUsersWatchTimer); activeUsersWatchTimer = null; }
+    function stopPresenceWatcher() {
+      if (presenceWatchTimer) { clearInterval(presenceWatchTimer); presenceWatchTimer = null; }
       previouslyActiveEmails = null;
+      previouslyKnownDeviceIds = null;
     }
-    // ================= END LIVE SIGN-IN WATCHER =================
+    // ================= END LIVE PRESENCE WATCHER =================
 
-    // One delegated listener for every Block/Unblock/Sign out button in the
-    // list, instead of re-binding a fresh listener on every re-render.
-    (function setupWhoAmIActionDelegation() {
-      const listEl = document.getElementById('whoAmIList');
+    // One delegated listener for every Sign out / Block / Unblock button
+    // in the merged list, instead of re-binding a fresh listener on
+    // every re-render. Data-* attributes (not inline onclick) so a
+    // device label built from a stray user-agent string, or an email
+    // containing a quote/apostrophe, can never break out of the
+    // attribute.
+    (function setupPresenceActionDelegation() {
+      const listEl = document.getElementById('presenceList');
       if (!listEl) return;
       listEl.addEventListener('click', function (evt) {
-        const btn = evt.target.closest('[data-whoami-action]');
+        const btn = evt.target.closest('[data-presence-action]');
         if (!btn) return;
+        const action = btn.getAttribute('data-presence-action');
         const email = btn.getAttribute('data-email') || '';
-        const action = btn.getAttribute('data-whoami-action');
+        const deviceId = btn.getAttribute('data-device-id') || '';
+        const label = btn.getAttribute('data-label') || 'that device';
         if (action === 'block') {
-          const isCurrentlyBlocked = btn.getAttribute('data-blocked') === '1';
-          toggleBlockActiveAccount(email, !isCurrentlyBlocked);
+          toggleBlockActiveAccount(email, btn.getAttribute('data-blocked') !== '1');
         } else if (action === 'signout') {
           forceSignOutActiveAccount(email);
+        } else if (action === 'signoutDevice') {
+          signOutDevice(deviceId, label);
+        } else if (action === 'signoutAccountDevice') {
+          signOutAccountDevice(email, deviceId, label);
         }
       });
     })();
 
     // ---- Account action password gate ----
-    // Extra client-side lock in front of Block / Unblock / Sign out: even
+    // Extra client-side lock in front of Sign out / Block / Unblock: even
     // though the buttons themselves are already only rendered for, and the
-    // backend already only honors requests from, EDITOR_EMAILS
-    // (karljenard@gmail.com / auditdept2022@gmail.com -- see
-    // isAuthorizedEditor() in Code.gs), this makes the signed-in editor
-    // re-enter their own account password immediately before each action
-    // actually fires -- the same reauthenticateCurrentUser() re-check Quick
-    // Links uses (see submitQuickLinkPassword above). Protects against
-    // someone else using an editor's already-unlocked, signed-in device.
-    let pendingAccountAction = null; // { type: 'block'|'unblock'|'signout'|'signoutDevice'|'signoutAllDevices', email, meta }
+    // backend already only honors requests from, authorized accounts (see
+    // isAuthorizedAccountManager()/isAuthorizedViewer() in Code.gs), this
+    // makes the signed-in editor re-enter their own account password
+    // immediately before each action actually fires -- the same
+    // reauthenticateCurrentUser() re-check Quick Links uses (see
+    // submitQuickLinkPassword above). Protects against someone else using
+    // an already-unlocked, signed-in device.
+    let pendingAccountAction = null; // { type: 'block'|'unblock'|'signout'|'signoutDevice'|'signoutAccountDevice'|'signoutAllDevices', email, meta }
 
     // `meta` carries extra data the block/unblock/signout(account) actions
-    // don't need -- e.g. { deviceId, label } for signoutDevice -- so this
-    // one shared gate can drive both the per-account actions above and the
-    // per-device actions in "My Devices" without two near-duplicate modals.
+    // don't need -- e.g. { deviceId, label } for signoutDevice/
+    // signoutAccountDevice -- so this one shared gate can drive every
+    // action in the merged list without a near-duplicate modal per action.
     function openAccountActionPasswordGate(type, email, meta) {
       pendingAccountAction = { type: type, email: email, meta: meta || {} };
       const modal = document.getElementById('accountActionPasswordModal');
@@ -13663,6 +13758,7 @@ html.page-fade-ready body {
           : type === 'unblock' ? ('unblock ' + email)
           : type === 'signout' ? ('sign out ' + email)
           : type === 'signoutDevice' ? ('sign out \u201c' + ((meta && meta.label) || 'that device') + '\u201d')
+          : type === 'signoutAccountDevice' ? ('sign out ' + email + '\u2019s \u201c' + ((meta && meta.label) || 'that device') + '\u201d')
           : type === 'signoutAllDevices' ? 'sign out all other devices'
           : 'continue';
       }
@@ -13722,6 +13818,8 @@ html.page-fade-ready body {
         executeForceSignOutActiveAccount(pending.email);
       } else if (pending.type === 'signoutDevice') {
         executeSignOutDevice(pending.meta && pending.meta.deviceId);
+      } else if (pending.type === 'signoutAccountDevice') {
+        executeSignOutAccountDevice(pending.email, pending.meta && pending.meta.deviceId);
       } else if (pending.type === 'signoutAllDevices') {
         executeSignOutAllOtherDevices();
       } else {
@@ -13760,7 +13858,7 @@ html.page-fade-ready body {
         const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
         if (!json || json.error) throw new Error((json && json.error) || ('Failed to ' + verb + ' that account.'));
         showToast(block ? (email + ' has been blocked.') : (email + ' has been unblocked.'));
-        loadActiveAccountsList();
+        loadPresenceList();
       } catch (err) {
         showToast((err && err.message) || ('Couldn\u2019t ' + verb + ' that account.'));
       }
@@ -13771,7 +13869,10 @@ html.page-fade-ready body {
     // account's presence doc; their device picks it up on its next
     // heartbeat (~45s) and signs itself out locally. See
     // handleForceSignOutAccountGet() in Code.gs. Same confirm() -> password
-    // gate -> execute flow as block/unblock above.
+    // gate -> execute flow as block/unblock above. Used as the fallback
+    // "Sign out" for an account with no per-device rows yet (see
+    // renderPresenceList) -- once a device row exists, signOutAccountDevice
+    // below targets that ONE device instead of the whole account.
     async function forceSignOutActiveAccount(email) {
       if (!email) return;
       const proceed = window.__confirmAction
@@ -13790,241 +13891,19 @@ html.page-fade-ready body {
         const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
         if (!json || json.error) throw new Error((json && json.error) || 'Failed to sign out that account.');
         showToast(email + ' will be signed out shortly.');
-        loadActiveAccountsList();
+        loadPresenceList();
       } catch (err) {
         showToast((err && err.message) || 'Couldn\u2019t sign out that account.');
       }
     }
 
-    // ================= END CURRENTLY ACTIVE =================
-
-    // ================= MY DEVICES (merged: your devices + who's logged in) ===
-    // This modal used to be two separate tiles/modals -- "My Devices"
-    // (self-service, your own devices only, no permission needed) and
-    // "Who's Logged In" (every allow-listed ACCOUNT, with Block/Unblock/
-    // Sign out for account managers, via the canManage flag on
-    // action=activeUsers -- see renderActiveAccountsList() above). They're
-    // now one modal opened from one "My Devices" tile, so open/close and
-    // the refresh timer drive BOTH loadMyDevicesList() and
-    // loadActiveAccountsList() together instead of each panel running its
-    // own separate modal/timer.
-    //
-    // "Your devices" section: shows every DEVICE currently signed in to
-    // *your own* account, and lets you sign any of them out yourself, no
-    // editor permission needed -- same idea as Google's "Manage your
-    // devices" page. Backed by action=myDevices / action=signOutDevice /
-    // action=signOutAllOtherDevices. Degrades gracefully if the backend
-    // doesn't support these yet: it always shows at least "This device"
-    // (built from the browser you're actually using right now), and
-    // quietly explains that other devices will show up here once sign-in
-    // activity syncs.
-    const MY_DEVICES_REFRESH_INTERVAL_MS = 15 * 1000;
-    let myDevicesRefreshTimer = null;
-    let myDevicesBackendReady = true; // flips to false the first time action=myDevices comes back unsupported, so we stop nagging with repeat errors
-
-    function refreshMyDevicesModal() {
-      loadMyDevicesList();
-      loadActiveAccountsList();
-    }
-
-    function openMyDevicesModal() {
-      if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
-      const modal = document.getElementById('myDevicesModal');
-      if (modal) modal.classList.remove('hidden');
-      refreshMyDevicesModal();
-      // Keep both lists current while the modal is actually open, so
-      // someone watching it sees devices/accounts come and go in
-      // near-real-time instead of only on open.
-      if (myDevicesRefreshTimer) clearInterval(myDevicesRefreshTimer);
-      myDevicesRefreshTimer = setInterval(refreshMyDevicesModal, MY_DEVICES_REFRESH_INTERVAL_MS);
-    }
-    function closeMyDevicesModal() {
-      const modal = document.getElementById('myDevicesModal');
-      if (modal) modal.classList.add('hidden');
-      if (myDevicesRefreshTimer) { clearInterval(myDevicesRefreshTimer); myDevicesRefreshTimer = null; }
-    }
-
-    // Small inline icon per row -- a phone glyph for anything mobile
-    // (matched off the same label getDeviceLabel() produces), a monitor
-    // glyph for everything else, so a person can tell their devices apart
-    // at a glance the way Google's own list does.
-    function deviceRowIconSvg(label) {
-      return isMobileDeviceLabel(label)
-        ? '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"></rect><path d="M12 18h.01"></path></svg>'
-        : '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"></rect><line x1="8" x2="16" y1="21" y2="21"></line><line x1="12" x2="12" y1="17" y2="21"></line></svg>';
-    }
-
-    function renderMyDevicesList(devices, opts) {
-      const listEl = document.getElementById('myDevicesList');
-      const noteEl = document.getElementById('myDevicesNote');
-      const signOutAllBtn = document.getElementById('myDevicesSignOutAllBtn');
-      if (!listEl) return;
-      const options = opts || {};
-
-      if (!devices.length) {
-        listEl.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">No devices found.</p>';
-        if (signOutAllBtn) signOutAllBtn.classList.add('hidden');
-        return;
-      }
-
-      // Current device first, then most-recently-active.
-      const sorted = devices.slice().sort(function (a, b) {
-        if (a.current !== b.current) return a.current ? -1 : 1;
-        return (b.lastSeenAt || 0) - (a.lastSeenAt || 0);
-      });
-
-      listEl.innerHTML = sorted.map(function (d) {
-        const label = String(d.label || 'Unknown device');
-        const lastSeen = d.lastSeenAt ? formatLastSeenRelative(d.lastSeenAt) : 'just now';
-        return (
-          '<div class="flex items-start gap-2 p-2 rounded-lg border ' + (d.current ? 'border-accentBlue/30 bg-accentBlue/5' : 'border-coolBorder') + '">' +
-            '<span class="w-7 h-7 rounded-full flex items-center justify-center shrink-0 ' + (d.current ? 'bg-accentBlue/10 text-accentBlue' : 'bg-slate-100 text-slate-500') + '">' + deviceRowIconSvg(label) + '</span>' +
-            '<div class="min-w-0 flex-1">' +
-              // Full label, never truncated -- wraps onto a second line
-              // instead of being cut off, so every detail (browser + OS)
-              // is always visible without needing to hover for a tooltip.
-              '<p class="text-xs font-semibold text-slate-800 break-words leading-snug">' + escapeForHtml(label) + '</p>' +
-              '<div class="flex items-center justify-between gap-2 mt-0.5">' +
-                (d.current
-                  ? '<span class="text-[9px] font-bold uppercase tracking-wide text-accentBlue">\u00b7 This device \u00b7 Active now</span>'
-                  : '<span class="text-[10px] text-slate-400">Last active ' + lastSeen + '</span>') +
-                (d.current
-                  ? ''
-                  : '<button type="button" data-device-signout="' + escapeForHtml(d.deviceId) + '" data-device-label="' + escapeForHtml(label) + '" class="text-[10px] font-semibold px-2 py-0.5 rounded-lg text-accentRose hover:bg-accentRose/10 transition-colors shrink-0">Sign out</button>') +
-              '</div>' +
-            '</div>' +
-          '</div>'
-        );
-      }).join('');
-
-      if (noteEl) {
-        noteEl.textContent = options.limited
-          ? 'Other devices will appear here once sign-in activity syncs across devices.'
-          : '';
-        noteEl.classList.toggle('hidden', !options.limited);
-      }
-      if (signOutAllBtn) signOutAllBtn.classList.toggle('hidden', sorted.length < 2);
-    }
-
-    async function loadMyDevicesList() {
-      const listEl = document.getElementById('myDevicesList');
-      const myDeviceId = getOrCreateDeviceId();
-      const myLabel = await getDeviceLabel();
-      try {
-        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
-        if (!idToken) { if (listEl) listEl.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">You\u2019re not signed in.</p>'; return; }
-        if (myDevicesBackendReady) {
-          const params = new URLSearchParams({ action: 'myDevices', secret: appsScriptSecret, idToken: idToken, deviceId: myDeviceId });
-          const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
-          if (json && json.success && Array.isArray(json.devices) && json.devices.length) {
-            // Backend may not know which row is "this" device if it's
-            // never seen this deviceId reach action=myDevices before
-            // (e.g. right after a fresh sign-in) -- match on deviceId
-            // client-side too, as a safety net.
-            const devices = json.devices.map(function (d) {
-              return Object.assign({}, d, { current: d.current || d.deviceId === myDeviceId });
-            });
-            renderMyDevicesList(devices, { limited: false });
-            return;
-          }
-        }
-      } catch (err) {
-        console.warn('[my-devices] backend not available yet, showing local fallback:', err && err.message ? err.message : err);
-      }
-      // Backend doesn't support action=myDevices yet (not implemented,
-      // or returned an error/empty list) -- fall back to just showing
-      // this device, built entirely from local browser info, so the
-      // panel is still useful before Code.gs is updated. See the
-      // BACKEND TODO comment above sendPresenceHeartbeat() further up.
-      myDevicesBackendReady = false;
-      renderMyDevicesList([{ deviceId: myDeviceId, label: myLabel, lastSeenAt: Date.now(), current: true }], { limited: true });
-    }
-
-    // ================= LIVE "MY DEVICES" WATCHER =================
-    // Same idea as the LIVE SIGN-IN WATCHER above, but for your OWN
-    // account's devices specifically -- this is the more direct "is
-    // someone else using MY account" signal, since a device you don't
-    // recognize showing up here means someone has your session, not just
-    // that a teammate is using the dashboard. Runs continuously from
-    // sign-in, not just while the "My Devices" panel is open.
-    let myDevicesWatchTimer = null;
-    let previouslyKnownDeviceIds = null; // null = haven't taken a baseline reading yet
-
-    async function pollMyDevicesForAlerts() {
-      // Only meaningful once the backend actually supports action=myDevices
-      // -- before that, loadMyDevicesList() is showing a local-only
-      // fallback with nothing real to compare against.
-      if (!myDevicesBackendReady) return;
-      try {
-        const myDeviceId = getOrCreateDeviceId();
-        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
-        if (!idToken) return;
-        const params = new URLSearchParams({ action: 'myDevices', secret: appsScriptSecret, idToken: idToken, deviceId: myDeviceId });
-        const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
-        if (!json || !json.success || !Array.isArray(json.devices) || !json.devices.length) return;
-
-        const devices = json.devices.map(function (d) {
-          return Object.assign({}, d, { current: d.current || d.deviceId === myDeviceId });
-        });
-
-        // If the panel is currently open, refresh it live.
-        const modal = document.getElementById('myDevicesModal');
-        if (modal && !modal.classList.contains('hidden')) {
-          renderMyDevicesList(devices, { limited: false });
-        }
-
-        const nowDeviceIds = {};
-        devices.forEach(function (d) { if (d && d.deviceId) nowDeviceIds[d.deviceId] = d.label || 'Unknown device'; });
-
-        if (previouslyKnownDeviceIds) {
-          Object.keys(nowDeviceIds).forEach(function (deviceId) {
-            if (deviceId === myDeviceId) return; // this browser signing itself in isn't a surprise
-            if (!previouslyKnownDeviceIds[deviceId]) {
-              showToast('New device signed in to your account: ' + nowDeviceIds[deviceId], 'error');
-            }
-          });
-        }
-        // First poll after sign-in just takes a baseline -- devices
-        // already there at that point are expected, not a new event.
-        previouslyKnownDeviceIds = nowDeviceIds;
-      } catch (err) {
-        // Best-effort -- a missed poll just means the next one catches up.
-        console.warn('[presence] pollMyDevicesForAlerts failed:', err && err.message ? err.message : err);
-      }
-    }
-
-    function startMyDevicesWatcher() {
-      if (myDevicesWatchTimer) return; // already running
-      previouslyKnownDeviceIds = null; // fresh baseline for this session
-      pollMyDevicesForAlerts();
-      myDevicesWatchTimer = setInterval(pollMyDevicesForAlerts, ACTIVE_USERS_WATCH_INTERVAL_MS);
-    }
-    function stopMyDevicesWatcher() {
-      if (myDevicesWatchTimer) { clearInterval(myDevicesWatchTimer); myDevicesWatchTimer = null; }
-      previouslyKnownDeviceIds = null;
-    }
-    // ================= END LIVE "MY DEVICES" WATCHER =================
-
-    // Delegated click handler for the per-row "Sign out" buttons (data-*
-    // attribute, not inline onclick, for the same reason whoAmIList uses
-    // one -- a device label built from a stray user-agent string should
-    // never be able to break out of an inline handler).
-    (function () {
-      const listEl = document.getElementById('myDevicesList');
-      if (!listEl) return;
-      listEl.addEventListener('click', function (e) {
-        const btn = e.target.closest('[data-device-signout]');
-        if (!btn) return;
-        signOutDevice(btn.getAttribute('data-device-signout'), btn.getAttribute('data-device-label') || 'that device');
-      });
-    })();
-
     // Signs one other device out of your OWN account. No editor
-    // permission required (unlike "Who's Logged In" -> block/unblock/
-    // sign-out, which manages OTHER people's accounts) -- this only ever
-    // targets a device signed in as you, so the same password re-check
-    // gate used elsewhere (openAccountActionPasswordGate) is enough of a
-    // guard against someone else using your already-unlocked browser.
+    // permission required (unlike Block/Unblock or signing out someone
+    // ELSE's account, which manage OTHER people's accounts) -- this only
+    // ever targets a device signed in as you, so the same password
+    // re-check gate used elsewhere (openAccountActionPasswordGate) is
+    // enough of a guard against someone else using your already-unlocked
+    // browser.
     async function signOutDevice(deviceId, label) {
       if (!deviceId) return;
       const proceed = window.__confirmAction
@@ -14042,9 +13921,38 @@ html.page-fade-ready body {
         const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
         if (!json || json.error) throw new Error((json && json.error) || 'Failed to sign out that device.');
         showToast('Device will be signed out shortly.');
-        loadMyDevicesList();
+        loadPresenceList();
       } catch (err) {
-        showToast((err && err.message) || 'Couldn\u2019t sign out that device \u2014 this feature needs a small backend update first.');
+        showToast((err && err.message) || 'Couldn\u2019t sign out that device.');
+      }
+    }
+
+    // Manager-only counterpart to signOutDevice above: signs out ONE
+    // specific device belonging to a DIFFERENT account, from a row in the
+    // merged list -- e.g. kicking just their phone while leaving their
+    // laptop signed in. Backed by action=signOutAccountDevice, gated
+    // server-side by isAuthorizedAccountManager (see
+    // handleSignOutAccountDeviceGet() in Code.gs).
+    async function signOutAccountDevice(email, deviceId, label) {
+      if (!email || !deviceId) return;
+      const proceed = window.__confirmAction
+        ? await window.__confirmAction('Sign out \u201c' + label + '\u201d?', email + ' will be signed out of that device the next time it checks in.', 'Yes, sign out', 'danger')
+        : confirm('Sign out ' + email + '\u2019s \u201c' + label + '\u201d?\n\nThat device will be signed out the next time it checks in.');
+      if (!proceed) return;
+      openAccountActionPasswordGate('signoutAccountDevice', email, { deviceId: deviceId, label: label });
+    }
+    async function executeSignOutAccountDevice(email, deviceId) {
+      if (!email || !deviceId) return;
+      try {
+        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+        if (!idToken) { showToast('You\u2019re not signed in.'); return; }
+        const params = new URLSearchParams({ action: 'signOutAccountDevice', secret: appsScriptSecret, idToken: idToken, email: email, deviceId: deviceId });
+        const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
+        if (!json || json.error) throw new Error((json && json.error) || 'Failed to sign out that device.');
+        showToast('Device will be signed out shortly.');
+        loadPresenceList();
+      } catch (err) {
+        showToast((err && err.message) || 'Couldn\u2019t sign out that device.');
       }
     }
 
@@ -14063,12 +13971,12 @@ html.page-fade-ready body {
         const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
         if (!json || json.error) throw new Error((json && json.error) || 'Failed to sign out other devices.');
         showToast('Other devices will be signed out shortly.');
-        loadMyDevicesList();
+        loadPresenceList();
       } catch (err) {
-        showToast((err && err.message) || 'Couldn\u2019t sign out other devices \u2014 this feature needs a small backend update first.');
+        showToast((err && err.message) || 'Couldn\u2019t sign out other devices.');
       }
     }
-    // ================= END MY DEVICES =================
+    // ================= END MERGED PRESENCE LIST ("My Devices") =================
 
     // ================= RECENT ACTIVITY =================
     // Read-only panel over action=auditLog (editor-only on the backend --
@@ -18086,7 +17994,7 @@ html.page-fade-ready body {
       // that signs back in can be caught again if it's ever re-blocked.
       quickLinkAuthCache = { ok: false, at: 0 };
       editAssignAuthCache = { ok: false, at: 0 };
-      cachedActiveAccountsJson = null;
+      cachedPresenceRows = null;
       window.__accountBlockedHandled = false;
     };
 
@@ -18772,8 +18680,7 @@ html.page-fade-ready body {
         startIdleTracking();
         startAutoRefresh();
         startPresenceHeartbeat();
-        startActiveUsersWatcher();
-        startMyDevicesWatcher();
+        startPresenceWatcher();
 
         // Login phase is done — now it's safe to load real data and show
         // the loading screen. Data loading is gated on this sign-in check
@@ -18840,8 +18747,7 @@ html.page-fade-ready body {
         clearStoredActivityAt();
         stopAutoRefresh();
         stopPresenceHeartbeat();
-        stopActiveUsersWatcher();
-        stopMyDevicesWatcher();
+        stopPresenceWatcher();
         authGate.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
         authLogoutBtn.classList.add('hidden');
