@@ -5372,6 +5372,42 @@ html.page-fade-ready body {
     </div>
   </div>
 
+  <!-- ================= MY DEVICES (quick action) =================
+       Google-style "manage your sign-ins" panel for the CURRENT account
+       only -- lists every device signed in as you, with a Sign out
+       shortcut per device (and a "Sign out all other devices" shortcut),
+       no editor permission required since it only ever touches your own
+       sessions. Distinct from "Who's Logged In" above, which is an
+       editor-only view of every ACCOUNT. See openMyDevicesModal()/
+       closeMyDevicesModal()/loadMyDevicesList() further down for the
+       wiring, and the BACKEND TODO comment near sendPresenceHeartbeat()
+       for what Code.gs still needs so this shows more than just "This
+       device". Same modal shape as whoAmIModal/auditLogModal above. -->
+  <div id="myDevicesModal" class="fixed inset-0 z-[70] hidden">
+    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" onclick="closeMyDevicesModal()"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-5">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-11 h-11 rounded-full bg-accentBlue/10 text-accentBlue flex items-center justify-center shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"></rect><line x1="8" x2="16" y1="21" y2="21"></line><line x1="12" x2="12" y1="17" y2="21"></line></svg>
+          </div>
+          <div class="min-w-0">
+            <h3 class="text-base font-bold text-slate-900">My Devices</h3>
+            <p class="text-[11px] text-slate-400">Where you're currently signed in</p>
+          </div>
+        </div>
+        <div id="myDevicesList" class="flex flex-col gap-2 max-h-64 overflow-y-auto custom-scrollbar mb-2">
+          <p class="text-sm text-slate-400 text-center py-4">Loading\u2026</p>
+        </div>
+        <p id="myDevicesNote" class="text-[11px] text-slate-400 mb-3 hidden"></p>
+        <div class="flex flex-col gap-2">
+          <button id="myDevicesSignOutAllBtn" type="button" onclick="signOutAllOtherDevices()" class="hidden w-full py-2.5 rounded-xl bg-accentRose/10 hover:bg-accentRose/20 text-accentRose text-sm font-semibold transition-colors">Sign out all other devices</button>
+          <button type="button" onclick="closeMyDevicesModal()" class="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition-colors">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ================= ACCOUNT ACTION PASSWORD GATE =================
        Extra password re-check before Block / Unblock / Sign out actions in
        "Currently Active" -- same reauthenticateCurrentUser() pattern Quick
@@ -5515,7 +5551,7 @@ html.page-fade-ready body {
       <details class="side-menu-group-details" open>
         <summary class="side-menu-group-summary">
           <span class="side-menu-group-title">Quick actions</span>
-          <span class="side-menu-group-count">9</span>
+          <span class="side-menu-group-count">10</span>
           <svg class="side-menu-group-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
         </summary>
 
@@ -5581,6 +5617,15 @@ html.page-fade-ready body {
         <div role="button" tabindex="0" onclick="openWhoAmIModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openWhoAmIModal();}" class="menu-tile cursor-pointer select-none">
           <span class="menu-tile-icon" style="background:rgba(79,70,229,0.10);"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentIndigo shrink-0"><path d="M16 21v-2a4 4 0 0 0-3-3.87"></path><path d="M13 3.13a4 4 0 0 1 0 7.75"></path><path d="M8 21v-2a4 4 0 0 0-4-4H2"></path><circle cx="5" cy="7" r="4"></circle></svg></span>
           <span class="menu-tile-label">Who's Logged In</span>
+        </div>
+
+        <!-- "My Devices" -- Google-style, self-service panel: shows every
+             device signed in as YOU (not other accounts) and lets you
+             sign any of them out, no editor permission required. See
+             openMyDevicesModal() further down. -->
+        <div role="button" tabindex="0" onclick="openMyDevicesModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openMyDevicesModal();}" class="menu-tile cursor-pointer select-none">
+          <span class="menu-tile-icon" style="background:rgba(37,99,235,0.10);"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentBlue shrink-0"><rect width="20" height="14" x="2" y="3" rx="2"></rect><line x1="8" x2="16" y1="21" y2="21"></line><line x1="12" x2="12" y1="17" y2="21"></line></svg></span>
+          <span class="menu-tile-label">My Devices</span>
         </div>
 
         <!-- "Recent Activity" -- opens the audit log panel fed by
@@ -13089,15 +13134,105 @@ html.page-fade-ready body {
       return Array.from(all).sort((a, b) => a.localeCompare(b));
     }
 
+    // ================= DEVICE IDENTITY (for "My Devices") =================
+    // A small, per-browser identity used ONLY to tell one signed-in device
+    // apart from another on the SAME account -- separate from Firebase's
+    // idToken, which proves WHO you are but not WHICH device "you" means.
+    // Google's own "Manage your devices" page works the same way: one
+    // stable, random ID per browser install, generated once and kept in
+    // localStorage, sent along with every heartbeat so the backend can
+    // keep one presence record per (account, deviceId) pair instead of
+    // just one per account. Nothing here is a security boundary by
+    // itself -- it's a label, not a credential -- so losing/clearing it
+    // just means that browser looks like a "new" device next time.
+    const DEVICE_ID_STORAGE_KEY = 'auditDashboardDeviceId';
+
+    function getOrCreateDeviceId() {
+      try {
+        let id = localStorage.getItem(DEVICE_ID_STORAGE_KEY);
+        if (id) return id;
+        id = (window.crypto && typeof window.crypto.randomUUID === 'function')
+          ? window.crypto.randomUUID()
+          : 'dev-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+        localStorage.setItem(DEVICE_ID_STORAGE_KEY, id);
+        return id;
+      } catch (err) {
+        // Private browsing / storage disabled -- fall back to a
+        // per-pageload id. It won't persist across refreshes, so this
+        // device will just look "new" each time, same as any browser
+        // with storage blocked.
+        return 'dev-session-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+      }
+    }
+
+    // Turns the raw user-agent string into something a person can
+    // actually recognize at a glance -- "Chrome on Windows",
+    // "Safari on iPhone" -- the same style Google's device list uses.
+    // Best-effort only: unrecognized UAs fall back to a generic label
+    // instead of throwing or showing raw UA junk.
+    function getDeviceLabel() {
+      const ua = navigator.userAgent || '';
+      let os = 'Unknown device';
+      if (/iPhone/i.test(ua)) os = 'iPhone';
+      else if (/iPad/i.test(ua)) os = 'iPad';
+      else if (/Android/i.test(ua)) os = /Mobile/i.test(ua) ? 'Android phone' : 'Android tablet';
+      else if (/Macintosh|Mac OS X/i.test(ua)) os = 'Mac';
+      else if (/Windows/i.test(ua)) os = 'Windows';
+      else if (/CrOS/i.test(ua)) os = 'Chromebook';
+      else if (/Linux/i.test(ua)) os = 'Linux';
+
+      let browser = 'Browser';
+      if (/Edg\//i.test(ua)) browser = 'Edge';
+      else if (/OPR\//i.test(ua) || /Opera/i.test(ua)) browser = 'Opera';
+      else if (/CriOS/i.test(ua)) browser = 'Chrome';
+      else if (/FxiOS/i.test(ua)) browser = 'Firefox';
+      else if (/Chrome\//i.test(ua)) browser = 'Chrome';
+      else if (/Firefox\//i.test(ua)) browser = 'Firefox';
+      else if (/Safari\//i.test(ua) && !/Chrome/i.test(ua)) browser = 'Safari';
+
+      return browser + ' on ' + os;
+    }
+
+    function isMobileDeviceLabel(label) {
+      return /iPhone|iPad|Android/i.test(label || '');
+    }
+
     // ================= CURRENTLY ACTIVE (presence + quick action) =====
     // Two halves:
     //  1. A lightweight heartbeat, sent every PRESENCE_HEARTBEAT_INTERVAL_MS
     //     while someone is signed in, that tells the backend "this account
-    //     was just using the app" (action=heartbeat -- see Code.gs).
+    //     was just using the app, from this device" (action=heartbeat --
+    //     see Code.gs). Carries deviceId + a human-readable deviceLabel so
+    //     the backend can track presence per DEVICE, not just per account
+    //     -- see "My Devices" further down, which is what actually reads
+    //     that per-device data back out.
     //  2. The "Who's Logged In" quick action, which asks the backend for
     //     every allow-listed account with a recent-enough heartbeat
     //     (action=activeUsers) and lists them -- not just this device's
     //     own sign-in, but everyone currently using the dashboard.
+    //
+    // BACKEND TODO (Code.gs) -- not implemented yet, front-end only for
+    // now. For the "My Devices" panel below to show real data and for
+    // "Sign out" to actually kick a device, Code.gs's heartbeat handler
+    // needs to start storing one presence doc per (email, deviceId) --
+    // e.g. fields { email, deviceId, deviceLabel, lastSeenAt,
+    // forceSignOutAt } -- instead of (or in addition to) one per email,
+    // and needs two new actions:
+    //   - action=myDevices (GET, idToken, deviceId) -> { success:true,
+    //     devices:[{deviceId, label, lastSeenAt, current}], canManage? }
+    //     "current" (or the client comparing each device's id to its own
+    //     deviceId param) tells the UI which row is "This device".
+    //   - action=signOutDevice (GET, idToken, deviceId) -> stamps
+    //     forceSignOutAt on that ONE device's presence doc (same idea as
+    //     the existing forceSignOutAccount, just scoped to one device
+    //     instead of the whole account).
+    //   - action=signOutAllOtherDevices (GET, idToken, deviceId) -> same,
+    //     but for every device on this account except the given deviceId.
+    // The heartbeat response should then also check
+    // "is THIS device's presence doc force-signed-out" (not just the
+    // account-wide flag) and return e.g. { forceSignOutDevice: true } so
+    // sendPresenceHeartbeat() below can sign this one device out locally
+    // without touching any of the account's other sessions.
     const PRESENCE_HEARTBEAT_INTERVAL_MS = 45 * 1000;
     let presenceHeartbeatTimer = null;
 
@@ -13105,7 +13240,15 @@ html.page-fade-ready body {
       try {
         const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
         if (!idToken) return;
-        const params = new URLSearchParams({ action: 'heartbeat', secret: appsScriptSecret, idToken: idToken });
+        // deviceId + deviceLabel are sent so a backend that's been updated
+        // per the BACKEND TODO above can track this one device's presence
+        // separately from the account's other sessions. A backend that
+        // hasn't been updated yet just ignores the extra params -- this
+        // heartbeat behaves exactly as it did before.
+        const params = new URLSearchParams({
+          action: 'heartbeat', secret: appsScriptSecret, idToken: idToken,
+          deviceId: getOrCreateDeviceId(), deviceLabel: getDeviceLabel()
+        });
         const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
         // An admin used the per-account "Sign out" button on this account
         // (see forceSignOutActiveAccount()/action=forceSignOutAccount in
@@ -13113,6 +13256,15 @@ html.page-fade-ready body {
         // same as if the person had clicked "Log out" themselves.
         if (json && json.forceSignOut) {
           showToast('You\u2019ve been signed out by an admin.');
+          if (typeof window.__dashboardSignOut === 'function') window.__dashboardSignOut();
+          return;
+        }
+        // Same idea, but scoped to just THIS device -- e.g. someone used
+        // "My Devices" to sign this one browser out remotely, or an admin
+        // used a future per-device sign-out, without touching any of this
+        // account's other active sessions. See BACKEND TODO above.
+        if (json && json.forceSignOutDevice) {
+          showToast('This device was signed out remotely.');
           if (typeof window.__dashboardSignOut === 'function') window.__dashboardSignOut();
         }
       } catch (err) {
@@ -13309,10 +13461,14 @@ html.page-fade-ready body {
     // actually fires -- the same reauthenticateCurrentUser() re-check Quick
     // Links uses (see submitQuickLinkPassword above). Protects against
     // someone else using an editor's already-unlocked, signed-in device.
-    let pendingAccountAction = null; // { type: 'block'|'unblock'|'signout', email }
+    let pendingAccountAction = null; // { type: 'block'|'unblock'|'signout'|'signoutDevice'|'signoutAllDevices', email, meta }
 
-    function openAccountActionPasswordGate(type, email) {
-      pendingAccountAction = { type: type, email: email };
+    // `meta` carries extra data the block/unblock/signout(account) actions
+    // don't need -- e.g. { deviceId, label } for signoutDevice -- so this
+    // one shared gate can drive both the per-account actions above and the
+    // per-device actions in "My Devices" without two near-duplicate modals.
+    function openAccountActionPasswordGate(type, email, meta) {
+      pendingAccountAction = { type: type, email: email, meta: meta || {} };
       const modal = document.getElementById('accountActionPasswordModal');
       const input = document.getElementById('accountActionPasswordInput');
       const err = document.getElementById('accountActionPasswordError');
@@ -13325,7 +13481,10 @@ html.page-fade-ready body {
       if (verbLabel) {
         verbLabel.textContent = type === 'block' ? ('block ' + email)
           : type === 'unblock' ? ('unblock ' + email)
-          : ('sign out ' + email);
+          : type === 'signout' ? ('sign out ' + email)
+          : type === 'signoutDevice' ? ('sign out \u201c' + ((meta && meta.label) || 'that device') + '\u201d')
+          : type === 'signoutAllDevices' ? 'sign out all other devices'
+          : 'continue';
       }
       setAccountActionPasswordSubmitting(false);
       modal.classList.remove('hidden');
@@ -13381,6 +13540,10 @@ html.page-fade-ready body {
 
       if (pending.type === 'signout') {
         executeForceSignOutActiveAccount(pending.email);
+      } else if (pending.type === 'signoutDevice') {
+        executeSignOutDevice(pending.meta && pending.meta.deviceId);
+      } else if (pending.type === 'signoutAllDevices') {
+        executeSignOutAllOtherDevices();
       } else {
         executeToggleBlockActiveAccount(pending.email, pending.type === 'block');
       }
@@ -13465,6 +13628,185 @@ html.page-fade-ready body {
       if (whoAmIRefreshTimer) { clearInterval(whoAmIRefreshTimer); whoAmIRefreshTimer = null; }
     }
     // ================= END CURRENTLY ACTIVE =================
+
+    // ================= MY DEVICES (Google-style device manager) =========
+    // Personal, "manage your own sign-ins" panel -- unlike "Who's Logged
+    // In" above (which shows every allow-listed ACCOUNT, editor-only),
+    // this shows every DEVICE currently signed in to *your own* account,
+    // and lets you sign any of them out yourself, no editor permission
+    // needed -- same idea as Google's "Manage your devices" page. Backed
+    // by action=myDevices / action=signOutDevice / action=
+    // signOutAllOtherDevices -- see the BACKEND TODO comment above
+    // sendPresenceHeartbeat() further up for what Code.gs still needs to
+    // implement. Until that backend work lands, this panel degrades
+    // gracefully: it always shows at least "This device" (built from the
+    // browser you're actually using right now), and quietly explains that
+    // other devices will show up here once sign-in activity syncs.
+    const MY_DEVICES_REFRESH_INTERVAL_MS = 15 * 1000;
+    let myDevicesRefreshTimer = null;
+    let myDevicesBackendReady = true; // flips to false the first time action=myDevices comes back unsupported, so we stop nagging with repeat errors
+
+    function openMyDevicesModal() {
+      if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
+      const modal = document.getElementById('myDevicesModal');
+      if (modal) modal.classList.remove('hidden');
+      loadMyDevicesList();
+      if (myDevicesRefreshTimer) clearInterval(myDevicesRefreshTimer);
+      myDevicesRefreshTimer = setInterval(loadMyDevicesList, MY_DEVICES_REFRESH_INTERVAL_MS);
+    }
+    function closeMyDevicesModal() {
+      const modal = document.getElementById('myDevicesModal');
+      if (modal) modal.classList.add('hidden');
+      if (myDevicesRefreshTimer) { clearInterval(myDevicesRefreshTimer); myDevicesRefreshTimer = null; }
+    }
+
+    // Small inline icon per row -- a phone glyph for anything mobile
+    // (matched off the same label getDeviceLabel() produces), a monitor
+    // glyph for everything else, so a person can tell their devices apart
+    // at a glance the way Google's own list does.
+    function deviceRowIconSvg(label) {
+      return isMobileDeviceLabel(label)
+        ? '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"></rect><path d="M12 18h.01"></path></svg>'
+        : '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"></rect><line x1="8" x2="16" y1="21" y2="21"></line><line x1="12" x2="12" y1="17" y2="21"></line></svg>';
+    }
+
+    function renderMyDevicesList(devices, opts) {
+      const listEl = document.getElementById('myDevicesList');
+      const noteEl = document.getElementById('myDevicesNote');
+      const signOutAllBtn = document.getElementById('myDevicesSignOutAllBtn');
+      if (!listEl) return;
+      const options = opts || {};
+
+      if (!devices.length) {
+        listEl.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">No devices found.</p>';
+        if (signOutAllBtn) signOutAllBtn.classList.add('hidden');
+        return;
+      }
+
+      // Current device first, then most-recently-active.
+      const sorted = devices.slice().sort(function (a, b) {
+        if (a.current !== b.current) return a.current ? -1 : 1;
+        return (b.lastSeenAt || 0) - (a.lastSeenAt || 0);
+      });
+
+      listEl.innerHTML = sorted.map(function (d) {
+        const label = String(d.label || 'Unknown device');
+        const lastSeen = d.lastSeenAt ? formatLastSeenRelative(d.lastSeenAt) : 'just now';
+        return (
+          '<div class="flex items-center gap-3 p-3 rounded-xl border ' + (d.current ? 'border-accentBlue/30 bg-accentBlue/5' : 'border-coolBorder') + '">' +
+            '<span class="w-9 h-9 rounded-full flex items-center justify-center shrink-0 ' + (d.current ? 'bg-accentBlue/10 text-accentBlue' : 'bg-slate-100 text-slate-500') + '">' + deviceRowIconSvg(label) + '</span>' +
+            '<div class="min-w-0 flex-1">' +
+              '<p class="text-sm font-semibold text-slate-800 truncate">' + escapeForHtml(label) + (d.current ? ' <span class="text-[10px] font-bold uppercase tracking-wide text-accentBlue align-middle">\u00b7 This device</span>' : '') + '</p>' +
+              '<p class="text-[11px] text-slate-400">' + (d.current ? 'Active now' : ('Last active ' + lastSeen)) + '</p>' +
+            '</div>' +
+            (d.current
+              ? ''
+              : '<button type="button" data-device-signout="' + escapeForHtml(d.deviceId) + '" data-device-label="' + escapeForHtml(label) + '" class="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg text-accentRose hover:bg-accentRose/10 transition-colors shrink-0">Sign out</button>') +
+          '</div>'
+        );
+      }).join('');
+
+      if (noteEl) {
+        noteEl.textContent = options.limited
+          ? 'Other devices will appear here once sign-in activity syncs across devices.'
+          : '';
+        noteEl.classList.toggle('hidden', !options.limited);
+      }
+      if (signOutAllBtn) signOutAllBtn.classList.toggle('hidden', sorted.length < 2);
+    }
+
+    async function loadMyDevicesList() {
+      const listEl = document.getElementById('myDevicesList');
+      const myDeviceId = getOrCreateDeviceId();
+      const myLabel = getDeviceLabel();
+      try {
+        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+        if (!idToken) { if (listEl) listEl.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">You\u2019re not signed in.</p>'; return; }
+        if (myDevicesBackendReady) {
+          const params = new URLSearchParams({ action: 'myDevices', secret: appsScriptSecret, idToken: idToken, deviceId: myDeviceId });
+          const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
+          if (json && json.success && Array.isArray(json.devices) && json.devices.length) {
+            // Backend may not know which row is "this" device if it's
+            // never seen this deviceId reach action=myDevices before
+            // (e.g. right after a fresh sign-in) -- match on deviceId
+            // client-side too, as a safety net.
+            const devices = json.devices.map(function (d) {
+              return Object.assign({}, d, { current: d.current || d.deviceId === myDeviceId });
+            });
+            renderMyDevicesList(devices, { limited: false });
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('[my-devices] backend not available yet, showing local fallback:', err && err.message ? err.message : err);
+      }
+      // Backend doesn't support action=myDevices yet (not implemented,
+      // or returned an error/empty list) -- fall back to just showing
+      // this device, built entirely from local browser info, so the
+      // panel is still useful before Code.gs is updated. See the
+      // BACKEND TODO comment above sendPresenceHeartbeat() further up.
+      myDevicesBackendReady = false;
+      renderMyDevicesList([{ deviceId: myDeviceId, label: myLabel, lastSeenAt: Date.now(), current: true }], { limited: true });
+    }
+
+    // Delegated click handler for the per-row "Sign out" buttons (data-*
+    // attribute, not inline onclick, for the same reason whoAmIList uses
+    // one -- a device label built from a stray user-agent string should
+    // never be able to break out of an inline handler).
+    (function () {
+      const listEl = document.getElementById('myDevicesList');
+      if (!listEl) return;
+      listEl.addEventListener('click', function (e) {
+        const btn = e.target.closest('[data-device-signout]');
+        if (!btn) return;
+        signOutDevice(btn.getAttribute('data-device-signout'), btn.getAttribute('data-device-label') || 'that device');
+      });
+    })();
+
+    // Signs one other device out of your OWN account. No editor
+    // permission required (unlike "Who's Logged In" -> block/unblock/
+    // sign-out, which manages OTHER people's accounts) -- this only ever
+    // targets a device signed in as you, so the same password re-check
+    // gate used elsewhere (openAccountActionPasswordGate) is enough of a
+    // guard against someone else using your already-unlocked browser.
+    function signOutDevice(deviceId, label) {
+      if (!deviceId) return;
+      if (!confirm('Sign out \u201c' + label + '\u201d from your account?\n\nThat device will be signed out the next time it checks in (usually within a minute).')) return;
+      openAccountActionPasswordGate('signoutDevice', null, { deviceId: deviceId, label: label });
+    }
+    async function executeSignOutDevice(deviceId) {
+      if (!deviceId) return;
+      try {
+        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+        if (!idToken) { showToast('You\u2019re not signed in.'); return; }
+        const params = new URLSearchParams({ action: 'signOutDevice', secret: appsScriptSecret, idToken: idToken, deviceId: deviceId });
+        const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
+        if (!json || json.error) throw new Error((json && json.error) || 'Failed to sign out that device.');
+        showToast('Device will be signed out shortly.');
+        loadMyDevicesList();
+      } catch (err) {
+        showToast((err && err.message) || 'Couldn\u2019t sign out that device \u2014 this feature needs a small backend update first.');
+      }
+    }
+
+    function signOutAllOtherDevices() {
+      if (!confirm('Sign out every OTHER device on your account?\n\nThis device stays signed in; every other device will be signed out shortly.')) return;
+      openAccountActionPasswordGate('signoutAllDevices', null, {});
+    }
+    async function executeSignOutAllOtherDevices() {
+      try {
+        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+        if (!idToken) { showToast('You\u2019re not signed in.'); return; }
+        const params = new URLSearchParams({ action: 'signOutAllOtherDevices', secret: appsScriptSecret, idToken: idToken, deviceId: getOrCreateDeviceId() });
+        const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
+        if (!json || json.error) throw new Error((json && json.error) || 'Failed to sign out other devices.');
+        showToast('Other devices will be signed out shortly.');
+        loadMyDevicesList();
+      } catch (err) {
+        showToast((err && err.message) || 'Couldn\u2019t sign out other devices \u2014 this feature needs a small backend update first.');
+      }
+    }
+    // ================= END MY DEVICES =================
 
     // ================= RECENT ACTIVITY =================
     // Read-only panel over action=auditLog (editor-only on the backend --
@@ -18316,7 +18658,7 @@ html.page-fade-ready body {
       'dataModal', 'exportPickerModal', 'exportPasswordModal',
       'quickLinkPasswordModal', 'editAssignPasswordModal',
       'exitConfirmModal', 'menuOverlay', 'miniCalendarPopup',
-      'branchFilterPanel', 'whoAmIModal', 'auditLogModal'
+      'branchFilterPanel', 'whoAmIModal', 'auditLogModal', 'myDevicesModal'
     ];
 
     function isVisible(el) {
@@ -18498,6 +18840,7 @@ html.page-fade-ready body {
       { id: 'exitConfirmModal', z: 80 },
       { id: 'whoAmIModal', z: 70 },
       { id: 'auditLogModal', z: 70 },
+      { id: 'myDevicesModal', z: 70 },
       { id: 'exportPasswordModal', z: 70 },
       { id: 'quickLinkPasswordModal', z: 70 },
       { id: 'editAssignPasswordModal', z: 70 },
