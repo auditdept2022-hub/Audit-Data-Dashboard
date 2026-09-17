@@ -5364,7 +5364,7 @@ html.page-fade-ready body {
   <div id="myDevicesModal" class="fixed inset-0 z-[70] hidden">
     <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" onclick="closeMyDevicesModal()"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-4 max-h-[85vh] overflow-y-auto custom-scrollbar">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-4 max-h-[85vh] overflow-y-auto custom-scrollbar">
         <div class="flex items-center gap-2 mb-3">
           <div class="w-8 h-8 rounded-full bg-accentBlue/10 text-accentBlue flex items-center justify-center shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"></rect><line x1="8" x2="16" y1="21" y2="21"></line><line x1="12" x2="12" y1="17" y2="21"></line></svg>
@@ -5597,6 +5597,18 @@ html.page-fade-ready body {
           <span class="menu-tile-label">Add Findings</span>
         </div>
 
+        <!-- "Recent Activity" -- opens the audit log panel fed by
+             action=auditLog (backed by logAuditEvent()/AUDIT_LOG_COLLECTION
+             in Code.gs). Editor-only on the backend -- the tile itself is
+             shown to everyone like the other Quick actions tiles, but a
+             non-editor tapping it just gets the same "Unauthorized" toast
+             the backend already returns, no separate client-side gate
+             needed. See openAuditLogModal() further down. -->
+        <div role="button" tabindex="0" onclick="openAuditLogModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAuditLogModal();}" class="menu-tile cursor-pointer select-none">
+          <span class="menu-tile-icon" style="background:rgba(37,99,235,0.10);"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue shrink-0"><path d="M12 8v4l3 3"></path><path d="M3.05 11a9 9 0 1 1 .5 4"></path><path d="M3 4v5h5"></path></svg></span>
+          <span class="menu-tile-label">Recent Activity</span>
+        </div>
+
         <!-- "My Devices" -- MERGED tile: opens one modal with two
              sections -- "Your devices" (self-service, shows every device
              signed in as YOU, no editor permission required) and "Who's
@@ -5608,18 +5620,6 @@ html.page-fade-ready body {
         <div role="button" tabindex="0" onclick="openMyDevicesModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openMyDevicesModal();}" class="menu-tile cursor-pointer select-none">
           <span class="menu-tile-icon" style="background:rgba(37,99,235,0.10);"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentBlue shrink-0"><rect width="20" height="14" x="2" y="3" rx="2"></rect><line x1="8" x2="16" y1="21" y2="21"></line><line x1="12" x2="12" y1="17" y2="21"></line></svg></span>
           <span class="menu-tile-label">My Devices</span>
-        </div>
-
-        <!-- "Recent Activity" -- opens the audit log panel fed by
-             action=auditLog (backed by logAuditEvent()/AUDIT_LOG_COLLECTION
-             in Code.gs). Editor-only on the backend -- the tile itself is
-             shown to everyone like the other Quick actions tiles, but a
-             non-editor tapping it just gets the same "Unauthorized" toast
-             the backend already returns, no separate client-side gate
-             needed. See openAuditLogModal() further down. -->
-        <div role="button" tabindex="0" onclick="openAuditLogModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAuditLogModal();}" class="menu-tile cursor-pointer select-none">
-          <span class="menu-tile-icon" style="background:rgba(37,99,235,0.10);"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue shrink-0"><path d="M12 8v4l3 3"></path><path d="M3.05 11a9 9 0 1 1 .5 4"></path><path d="M3 4v5h5"></path></svg></span>
-          <span class="menu-tile-label">Recent Activity</span>
         </div>
       
 
@@ -13485,12 +13485,14 @@ html.page-fade-ready body {
           : escapeForHtml(formatLastSeenRelative(u.lastSeenAt)) + (u.active ? '' : ' \u2014 away');
 
         return '' +
-          '<div class="flex items-center gap-2 p-2 rounded-lg border ' + (blocked ? 'border-accentRose/30 bg-accentRose/5' : (u.active ? 'border-coolBorder' : 'border-coolBorder/60 opacity-80')) + '">' +
+          '<div class="flex items-start gap-2 p-2 rounded-lg border ' + (blocked ? 'border-accentRose/30 bg-accentRose/5' : (u.active ? 'border-coolBorder' : 'border-coolBorder/60 opacity-80')) + '">' +
             '<div class="min-w-0 flex-1">' +
-              '<p class="text-xs font-semibold text-slate-800 truncate">' + escapeForHtml(email) + (isYou ? ' <span class="text-royalBlue font-bold">(You)</span>' : '') + (blocked ? ' <span class="text-accentRose font-bold">(Blocked)</span>' : '') + '</p>' +
-              '<p class="text-[10px] text-slate-400">' + statusLabel + '</p>' +
+              '<p class="text-xs font-semibold text-slate-800 break-words leading-snug">' + escapeForHtml(email) + (isYou ? ' <span class="text-royalBlue font-bold">(You)</span>' : '') + (blocked ? ' <span class="text-accentRose font-bold">(Blocked)</span>' : '') + '</p>' +
+              '<div class="flex items-center justify-between gap-2 mt-0.5">' +
+                '<span class="text-[10px] text-slate-400">' + statusLabel + '</span>' +
+                actionsHtml +
+              '</div>' +
             '</div>' +
-            actionsHtml +
           '</div>';
       }).join('');
     }
@@ -13796,15 +13798,22 @@ html.page-fade-ready body {
         const label = String(d.label || 'Unknown device');
         const lastSeen = d.lastSeenAt ? formatLastSeenRelative(d.lastSeenAt) : 'just now';
         return (
-          '<div class="flex items-center gap-2 p-2 rounded-lg border ' + (d.current ? 'border-accentBlue/30 bg-accentBlue/5' : 'border-coolBorder') + '">' +
+          '<div class="flex items-start gap-2 p-2 rounded-lg border ' + (d.current ? 'border-accentBlue/30 bg-accentBlue/5' : 'border-coolBorder') + '">' +
             '<span class="w-7 h-7 rounded-full flex items-center justify-center shrink-0 ' + (d.current ? 'bg-accentBlue/10 text-accentBlue' : 'bg-slate-100 text-slate-500') + '">' + deviceRowIconSvg(label) + '</span>' +
             '<div class="min-w-0 flex-1">' +
-              '<p class="text-xs font-semibold text-slate-800 truncate" title="' + escapeForHtml(label) + '">' + escapeForHtml(label) + (d.current ? ' <span class="text-[9px] font-bold uppercase tracking-wide text-accentBlue align-middle">\u00b7 This device</span>' : '') + '</p>' +
-              '<p class="text-[10px] text-slate-400">' + (d.current ? 'Active now' : ('Last active ' + lastSeen)) + '</p>' +
+              // Full label, never truncated -- wraps onto a second line
+              // instead of being cut off, so every detail (browser + OS)
+              // is always visible without needing to hover for a tooltip.
+              '<p class="text-xs font-semibold text-slate-800 break-words leading-snug">' + escapeForHtml(label) + '</p>' +
+              '<div class="flex items-center justify-between gap-2 mt-0.5">' +
+                (d.current
+                  ? '<span class="text-[9px] font-bold uppercase tracking-wide text-accentBlue">\u00b7 This device \u00b7 Active now</span>'
+                  : '<span class="text-[10px] text-slate-400">Last active ' + lastSeen + '</span>') +
+                (d.current
+                  ? ''
+                  : '<button type="button" data-device-signout="' + escapeForHtml(d.deviceId) + '" data-device-label="' + escapeForHtml(label) + '" class="text-[10px] font-semibold px-2 py-0.5 rounded-lg text-accentRose hover:bg-accentRose/10 transition-colors shrink-0">Sign out</button>') +
+              '</div>' +
             '</div>' +
-            (d.current
-              ? ''
-              : '<button type="button" data-device-signout="' + escapeForHtml(d.deviceId) + '" data-device-label="' + escapeForHtml(label) + '" class="text-[10px] font-semibold px-2 py-1 rounded-lg text-accentRose hover:bg-accentRose/10 transition-colors shrink-0">Sign out</button>') +
           '</div>'
         );
       }).join('');
