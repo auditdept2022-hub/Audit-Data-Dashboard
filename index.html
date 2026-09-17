@@ -5364,37 +5364,38 @@ html.page-fade-ready body {
   <div id="myDevicesModal" class="fixed inset-0 z-[70] hidden">
     <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" onclick="closeMyDevicesModal()"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-5 max-h-[85vh] overflow-y-auto custom-scrollbar">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="w-11 h-11 rounded-full bg-accentBlue/10 text-accentBlue flex items-center justify-center shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"></rect><line x1="8" x2="16" y1="21" y2="21"></line><line x1="12" x2="12" y1="17" y2="21"></line></svg>
+      <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-4 max-h-[85vh] overflow-y-auto custom-scrollbar">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-8 h-8 rounded-full bg-accentBlue/10 text-accentBlue flex items-center justify-center shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"></rect><line x1="8" x2="16" y1="21" y2="21"></line><line x1="12" x2="12" y1="17" y2="21"></line></svg>
           </div>
           <div class="min-w-0">
-            <h3 class="text-base font-bold text-slate-900">My Devices</h3>
-            <p class="text-[11px] text-slate-400">Where you're currently signed in</p>
+            <h3 class="text-sm font-bold text-slate-900">My Devices</h3>
+            <p class="text-[10px] text-slate-400">Where you're currently signed in</p>
           </div>
         </div>
 
-        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-2">Your devices</p>
-        <div id="myDevicesList" class="flex flex-col gap-2 max-h-64 overflow-y-auto custom-scrollbar mb-2">
-          <p class="text-sm text-slate-400 text-center py-4">Loading\u2026</p>
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Your devices</p>
+        <div id="myDevicesList" class="flex flex-col gap-1.5 max-h-64 overflow-y-auto custom-scrollbar mb-1.5">
+          <p class="text-xs text-slate-400 text-center py-3">Loading\u2026</p>
         </div>
-        <p id="myDevicesNote" class="text-[11px] text-slate-400 mb-3 hidden"></p>
-        <button id="myDevicesSignOutAllBtn" type="button" onclick="signOutAllOtherDevices()" class="hidden w-full py-2.5 rounded-xl bg-accentRose/10 hover:bg-accentRose/20 text-accentRose text-sm font-semibold transition-colors mb-4">Sign out all other devices</button>
+        <p id="myDevicesNote" class="text-[10px] text-slate-400 mb-2 hidden"></p>
+        <button id="myDevicesSignOutAllBtn" type="button" onclick="signOutAllOtherDevices()" class="hidden w-full py-2 rounded-xl bg-accentRose/10 hover:bg-accentRose/20 text-accentRose text-xs font-semibold transition-colors mb-3">Sign out all other devices</button>
 
-        <div class="border-t border-coolBorder pt-3 mb-4">
-          <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-2">Who's logged in</p>
-          <div id="whoAmIList" class="flex flex-col gap-2 max-h-64 overflow-y-auto custom-scrollbar">
-            <p class="text-sm text-slate-400 text-center py-4">Loading\u2026</p>
+        <div class="border-t border-coolBorder pt-2.5 mb-3">
+          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Who's logged in</p>
+          <div id="whoAmIList" class="flex flex-col gap-1.5 max-h-64 overflow-y-auto custom-scrollbar">
+            <p class="text-xs text-slate-400 text-center py-3">Loading\u2026</p>
           </div>
         </div>
 
         <div class="flex flex-col gap-2">
-          <button type="button" onclick="closeMyDevicesModal()" class="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition-colors">Close</button>
+          <button type="button" onclick="closeMyDevicesModal()" class="w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors">Close</button>
         </div>
       </div>
     </div>
   </div>
+
 
   <!-- ================= ACCOUNT ACTION PASSWORD GATE =================
        Extra password re-check before Block / Unblock / Sign out actions in
@@ -13170,18 +13171,38 @@ html.page-fade-ready body {
     //      string embedded in the UA, just without the Windows 10/11 fix.
     // Async because the Client Hints call is async; every caller already
     // awaits this.
+    // HARD TIMEOUT GUARD: navigator.userAgentData.getHighEntropyValues()
+    // can sit forever -- never resolving OR rejecting -- inside a
+    // permissions-policy-restricted iframe, which is exactly the sandbox
+    // Apps Script serves this page in. A try/catch alone does nothing
+    // for a promise that never settles; only a race against a timeout
+    // can unstick it. 800ms is plenty for a normal (non-hung) call,
+    // which typically resolves in a few ms.
+    function withTimeout(promise, ms) {
+      return new Promise(function (resolve, reject) {
+        const timer = setTimeout(function () { reject(new Error('timed out')); }, ms);
+        promise.then(
+          function (v) { clearTimeout(timer); resolve(v); },
+          function (e) { clearTimeout(timer); reject(e); }
+        );
+      });
+    }
+
     async function getDeviceLabel() {
       try {
         if (navigator.userAgentData && typeof navigator.userAgentData.getHighEntropyValues === 'function') {
-          const hints = await navigator.userAgentData.getHighEntropyValues(
-            ['platform', 'platformVersion', 'model', 'mobile', 'fullVersionList']
+          const hints = await withTimeout(
+            navigator.userAgentData.getHighEntropyValues(
+              ['platform', 'platformVersion', 'model', 'mobile', 'fullVersionList', 'formFactor']
+            ),
+            800
           );
           const label = deviceLabelFromClientHints(hints);
           if (label) return label;
         }
       } catch (err) {
-        // Non-fatal (e.g. blocked by permissions policy) -- fall through
-        // to the plain User-Agent parsing below.
+        // Non-fatal (e.g. blocked by permissions policy, or it hung and
+        // hit our timeout above) -- fall through to plain UA parsing.
         console.warn('[device-label] Client Hints unavailable, falling back to User-Agent parsing:', err && err.message ? err.message : err);
       }
       return deviceLabelFromUserAgent();
@@ -13197,22 +13218,24 @@ html.page-fade-ready body {
       return major >= 13 ? 'Windows 11' : 'Windows 10';
     }
 
+    // SHORT labels: "<Browser> on <OS>" -- just enough to tell devices
+    // apart at a glance (which OS, and on Android/iOS which model), with
+    // no version numbers or architecture detail cluttering it up.
     function deviceLabelFromClientHints(hints) {
       if (!hints) return null;
       const platform = String(hints.platform || '');
       const model = String(hints.model || '').trim();
 
       // The plain "brands" list always includes a fake greased entry
-      // (e.g. "Not/A)Brand") on purpose, so the real browser name/version
-      // has to come from fullVersionList instead.
+      // (e.g. "Not/A)Brand") on purpose, so the real browser name has to
+      // come from fullVersionList instead -- we just don't keep the
+      // version number part of it.
       const versionList = Array.isArray(hints.fullVersionList) ? hints.fullVersionList : [];
       let browserName = '';
-      let browserVersion = '';
       ['Microsoft Edge', 'Opera', 'Google Chrome', 'Chromium'].some(function (brand) {
         const entry = versionList.find(function (b) { return b && b.brand === brand; });
         if (!entry) return false;
         browserName = brand === 'Google Chrome' ? 'Chrome' : (brand === 'Microsoft Edge' ? 'Edge' : brand);
-        browserVersion = String(entry.version || '').split('.')[0];
         return true;
       });
       if (!browserName) return null; // Nothing usable -- let the UA fallback handle it.
@@ -13221,55 +13244,48 @@ html.page-fade-ready body {
       if (platform === 'Windows') {
         os = windowsMarketingVersion(hints.platformVersion);
       } else if (platform === 'macOS') {
-        os = 'macOS' + (hints.platformVersion ? ' ' + hints.platformVersion : '');
+        os = 'macOS';
       } else if (platform === 'Chrome OS') {
         os = 'Chromebook';
       } else if (platform === 'Linux') {
         os = 'Linux';
       } else if (platform === 'Android') {
-        const androidVer = hints.platformVersion ? ' (Android ' + hints.platformVersion + ')' : ' (Android)';
-        os = (model || 'Android device') + androidVer;
+        const formFactor = Array.isArray(hints.formFactor) ? hints.formFactor : [];
+        const isTablet = formFactor.indexOf('Tablet') !== -1;
+        os = model || (isTablet ? 'Android tablet' : 'Android phone');
       }
       if (!os) return null; // Unrecognized platform hint (e.g. iOS doesn't expose this API at all) -- fall back.
 
-      const browserPart = browserVersion ? (browserName + ' ' + browserVersion) : browserName;
-      return browserPart + ' on ' + os;
+      return browserName + ' on ' + os;
     }
 
     // Fallback for browsers without User-Agent Client Hints (Firefox,
     // Safari/iOS/iPadOS, older browsers) -- parses navigator.userAgent
-    // directly, still pulling real version numbers and, on Android, the
-    // device model string the UA embeds right next to the OS version.
+    // directly. Same short "<Browser> on <OS>" shape as the Client Hints
+    // path above, no version numbers.
     function deviceLabelFromUserAgent() {
       const ua = navigator.userAgent || '';
       let os = 'Unknown device';
       let m;
 
-      if ((m = ua.match(/iPhone OS (\d+)[_.](\d+)/))) {
-        os = 'iPhone (iOS ' + m[1] + '.' + m[2] + ')';
-      } else if (/iPad/i.test(ua) && (m = ua.match(/(?:CPU OS|OS) (\d+)[_.](\d+)/))) {
-        os = 'iPad (iPadOS ' + m[1] + '.' + m[2] + ')';
-      } else if (/iPhone/i.test(ua)) {
+      if (/iPhone/i.test(ua)) {
         os = 'iPhone';
       } else if (/iPad/i.test(ua)) {
         os = 'iPad';
-      } else if ((m = ua.match(/Android (\d+(?:\.\d+)?)/))) {
+      } else if (/Android/i.test(ua)) {
         // Android UAs look like "...Android 14; SM-G991B) AppleWebKit..."
         // -- the model sits right after the version, before "Build/" or
         // the closing paren.
         const modelMatch = ua.match(/Android [\d.]+;\s*([^;)]+?)\s*(?:Build\/[^;)]*)?\)/);
-        const model = modelMatch ? modelMatch[1].trim() : (/Mobile/i.test(ua) ? 'Android phone' : 'Android tablet');
-        os = model + ' (Android ' + m[1] + ')';
-      } else if ((m = ua.match(/Mac OS X (\d+)[_.](\d+)(?:[_.](\d+))?/))) {
-        os = 'macOS ' + m[1] + '.' + m[2] + (m[3] ? '.' + m[3] : '');
+        os = modelMatch ? modelMatch[1].trim() : (/Mobile/i.test(ua) ? 'Android phone' : 'Android tablet');
       } else if (/Macintosh/i.test(ua)) {
-        os = 'Mac';
+        os = 'macOS';
       } else if ((m = ua.match(/Windows NT (\d+\.\d+)/))) {
         // Chrome/Edge freeze this at "Windows NT 10.0" for BOTH Windows 10
         // and 11 -- the Client Hints path above is what actually tells
         // them apart; this map only covers the older, un-frozen versions.
         const ntMap = { '10.0': 'Windows 10', '6.3': 'Windows 8.1', '6.2': 'Windows 8', '6.1': 'Windows 7' };
-        os = ntMap[m[1]] || ('Windows (NT ' + m[1] + ')');
+        os = ntMap[m[1]] || 'Windows';
       } else if (/CrOS/i.test(ua)) {
         os = 'Chromebook';
       } else if (/Linux/i.test(ua)) {
@@ -13277,19 +13293,13 @@ html.page-fade-ready body {
       }
 
       let browser = 'Browser';
-      let version = '';
-      if ((m = ua.match(/Edg\/([\d.]+)/))) { browser = 'Edge'; version = m[1]; }
-      else if ((m = ua.match(/OPR\/([\d.]+)/))) { browser = 'Opera'; version = m[1]; }
-      else if (/Opera/i.test(ua)) { browser = 'Opera'; }
-      else if ((m = ua.match(/CriOS\/([\d.]+)/))) { browser = 'Chrome'; version = m[1]; }
-      else if ((m = ua.match(/FxiOS\/([\d.]+)/))) { browser = 'Firefox'; version = m[1]; }
-      else if ((m = ua.match(/Chrome\/([\d.]+)/))) { browser = 'Chrome'; version = m[1]; }
-      else if ((m = ua.match(/Firefox\/([\d.]+)/))) { browser = 'Firefox'; version = m[1]; }
-      else if (/Safari\//i.test(ua) && !/Chrome/i.test(ua) && (m = ua.match(/Version\/([\d.]+)/))) { browser = 'Safari'; version = m[1]; }
+      if (/Edg\//i.test(ua)) { browser = 'Edge'; }
+      else if (/OPR\//i.test(ua) || /Opera/i.test(ua)) { browser = 'Opera'; }
+      else if (/CriOS\//i.test(ua) || /Chrome\//i.test(ua)) { browser = 'Chrome'; }
+      else if (/FxiOS\//i.test(ua) || /Firefox\//i.test(ua)) { browser = 'Firefox'; }
+      else if (/Safari\//i.test(ua) && !/Chrome/i.test(ua)) { browser = 'Safari'; }
 
-      const browserMajor = version ? version.split('.')[0] : '';
-      const browserPart = browserMajor ? (browser + ' ' + browserMajor) : browser;
-      return browserPart + ' on ' + os;
+      return browser + ' on ' + os;
     }
 
     function isMobileDeviceLabel(label) {
@@ -13464,8 +13474,8 @@ html.page-fade-ready body {
         const actionsHtml = (!isYou && canManage)
           ? (
             '<div class="flex items-center gap-1 shrink-0">' +
-              '<button type="button" data-whoami-action="block" data-email="' + escapeForHtml(email) + '" data-blocked="' + (blocked ? '1' : '0') + '" class="text-[11px] font-semibold px-2 py-1 rounded-lg transition-colors ' + (blocked ? 'text-accentEmerald hover:bg-accentEmerald/10' : 'text-accentAmber hover:bg-accentAmber/10') + '">' + (blocked ? 'Unblock' : 'Block') + '</button>' +
-              (u.active ? '<button type="button" data-whoami-action="signout" data-email="' + escapeForHtml(email) + '" class="text-[11px] font-semibold px-2 py-1 rounded-lg text-accentRose hover:bg-accentRose/10 transition-colors">Sign out</button>' : '') +
+              '<button type="button" data-whoami-action="block" data-email="' + escapeForHtml(email) + '" data-blocked="' + (blocked ? '1' : '0') + '" class="text-[10px] font-semibold px-1.5 py-1 rounded-lg transition-colors ' + (blocked ? 'text-accentEmerald hover:bg-accentEmerald/10' : 'text-accentAmber hover:bg-accentAmber/10') + '">' + (blocked ? 'Unblock' : 'Block') + '</button>' +
+              (u.active ? '<button type="button" data-whoami-action="signout" data-email="' + escapeForHtml(email) + '" class="text-[10px] font-semibold px-1.5 py-1 rounded-lg text-accentRose hover:bg-accentRose/10 transition-colors">Sign out</button>' : '') +
             '</div>'
           )
           : '<span class="w-2 h-2 rounded-full ' + (blocked ? 'bg-accentRose' : (u.active ? 'bg-accentEmerald' : 'bg-slate-300')) + ' shrink-0" title="' + (blocked ? 'Blocked' : (u.active ? 'Active now' : 'Not currently active')) + '"></span>';
@@ -13475,10 +13485,10 @@ html.page-fade-ready body {
           : escapeForHtml(formatLastSeenRelative(u.lastSeenAt)) + (u.active ? '' : ' \u2014 away');
 
         return '' +
-          '<div class="flex items-center gap-3 p-2.5 rounded-xl border ' + (blocked ? 'border-accentRose/30 bg-accentRose/5' : (u.active ? 'border-coolBorder' : 'border-coolBorder/60 opacity-80')) + '">' +
+          '<div class="flex items-center gap-2 p-2 rounded-lg border ' + (blocked ? 'border-accentRose/30 bg-accentRose/5' : (u.active ? 'border-coolBorder' : 'border-coolBorder/60 opacity-80')) + '">' +
             '<div class="min-w-0 flex-1">' +
-              '<p class="text-sm font-semibold text-slate-800 truncate">' + escapeForHtml(email) + (isYou ? ' <span class="text-royalBlue font-bold">(You)</span>' : '') + (blocked ? ' <span class="text-accentRose font-bold">(Blocked)</span>' : '') + '</p>' +
-              '<p class="text-xs text-slate-400">' + statusLabel + '</p>' +
+              '<p class="text-xs font-semibold text-slate-800 truncate">' + escapeForHtml(email) + (isYou ? ' <span class="text-royalBlue font-bold">(You)</span>' : '') + (blocked ? ' <span class="text-accentRose font-bold">(Blocked)</span>' : '') + '</p>' +
+              '<p class="text-[10px] text-slate-400">' + statusLabel + '</p>' +
             '</div>' +
             actionsHtml +
           '</div>';
@@ -13759,8 +13769,8 @@ html.page-fade-ready body {
     // at a glance the way Google's own list does.
     function deviceRowIconSvg(label) {
       return isMobileDeviceLabel(label)
-        ? '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"></rect><path d="M12 18h.01"></path></svg>'
-        : '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"></rect><line x1="8" x2="16" y1="21" y2="21"></line><line x1="12" x2="12" y1="17" y2="21"></line></svg>';
+        ? '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"></rect><path d="M12 18h.01"></path></svg>'
+        : '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"></rect><line x1="8" x2="16" y1="21" y2="21"></line><line x1="12" x2="12" y1="17" y2="21"></line></svg>';
     }
 
     function renderMyDevicesList(devices, opts) {
@@ -13786,15 +13796,15 @@ html.page-fade-ready body {
         const label = String(d.label || 'Unknown device');
         const lastSeen = d.lastSeenAt ? formatLastSeenRelative(d.lastSeenAt) : 'just now';
         return (
-          '<div class="flex items-center gap-3 p-3 rounded-xl border ' + (d.current ? 'border-accentBlue/30 bg-accentBlue/5' : 'border-coolBorder') + '">' +
-            '<span class="w-9 h-9 rounded-full flex items-center justify-center shrink-0 ' + (d.current ? 'bg-accentBlue/10 text-accentBlue' : 'bg-slate-100 text-slate-500') + '">' + deviceRowIconSvg(label) + '</span>' +
+          '<div class="flex items-center gap-2 p-2 rounded-lg border ' + (d.current ? 'border-accentBlue/30 bg-accentBlue/5' : 'border-coolBorder') + '">' +
+            '<span class="w-7 h-7 rounded-full flex items-center justify-center shrink-0 ' + (d.current ? 'bg-accentBlue/10 text-accentBlue' : 'bg-slate-100 text-slate-500') + '">' + deviceRowIconSvg(label) + '</span>' +
             '<div class="min-w-0 flex-1">' +
-              '<p class="text-sm font-semibold text-slate-800 truncate">' + escapeForHtml(label) + (d.current ? ' <span class="text-[10px] font-bold uppercase tracking-wide text-accentBlue align-middle">\u00b7 This device</span>' : '') + '</p>' +
-              '<p class="text-[11px] text-slate-400">' + (d.current ? 'Active now' : ('Last active ' + lastSeen)) + '</p>' +
+              '<p class="text-xs font-semibold text-slate-800 truncate" title="' + escapeForHtml(label) + '">' + escapeForHtml(label) + (d.current ? ' <span class="text-[9px] font-bold uppercase tracking-wide text-accentBlue align-middle">\u00b7 This device</span>' : '') + '</p>' +
+              '<p class="text-[10px] text-slate-400">' + (d.current ? 'Active now' : ('Last active ' + lastSeen)) + '</p>' +
             '</div>' +
             (d.current
               ? ''
-              : '<button type="button" data-device-signout="' + escapeForHtml(d.deviceId) + '" data-device-label="' + escapeForHtml(label) + '" class="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg text-accentRose hover:bg-accentRose/10 transition-colors shrink-0">Sign out</button>') +
+              : '<button type="button" data-device-signout="' + escapeForHtml(d.deviceId) + '" data-device-label="' + escapeForHtml(label) + '" class="text-[10px] font-semibold px-2 py-1 rounded-lg text-accentRose hover:bg-accentRose/10 transition-colors shrink-0">Sign out</button>') +
           '</div>'
         );
       }).join('');
