@@ -13660,7 +13660,19 @@ html.page-fade-ready body {
     // so a new sign-in or a new device shows up on its own instead of
     // you having to open the panel and hit refresh to find out. One
     // poller hitting the combined action=myDevicesBundle endpoint.
-    const ACTIVE_USERS_WATCH_INTERVAL_MS = 10 * 1000;
+    //
+    // QUOTA FIX (REVIEW PATCH #3, code.gs): this was 10s. code.gs's own
+    // patch notes flagged this exact interval as the single biggest
+    // remaining contributor to exhausting Apps Script's daily urlfetch
+    // quota ("Service invoked too many times for one day: urlfetch"),
+    // since it runs continuously for every signed-in user all day, every
+    // day -- but the change was only ever applied on the backend (cache
+    // TTLs, memoized getFirestoreClient()), never here. Raising it to 30s
+    // cuts this poller's request volume 3x with barely any difference in
+    // how "live" the presence list feels, and comfortably exceeds the
+    // backend caches' TTLs (20-30s) so most polls are still served
+    // straight from CacheService instead of a live Firestore round trip.
+    const ACTIVE_USERS_WATCH_INTERVAL_MS = 30 * 1000;
     let presenceWatchTimer = null;
     let previouslyActiveEmails = null; // null = haven't taken a baseline reading yet
     let previouslyKnownDeviceIds = null; // null = haven't taken a baseline reading yet
