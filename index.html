@@ -11330,7 +11330,10 @@ html.page-fade-ready body {
     }
 
     async function deleteAuditorRemark(branchName, rowIndex) {
-        if (!confirm('Delete this auditor remark? This cannot be undone.')) return;
+        const proceed = window.__confirmAction
+          ? await window.__confirmAction('Delete this remark?', 'This cannot be undone.', 'Yes, delete', 'danger')
+          : confirm('Delete this auditor remark? This cannot be undone.');
+        if (!proceed) return;
 
         try {
             await deleteAuditorRemarkRemote(rowIndex);
@@ -13541,6 +13544,74 @@ html.page-fade-ready body {
       }
     }
 
+    // ================= LIVE SIGN-IN WATCHER =================
+    // Runs continuously in the background from the moment you're signed
+    // in -- NOT just while the "My Devices" panel happens to be open --
+    // so a new sign-in shows up on its own instead of you having to open
+    // the panel and hit refresh to find out. Every ACTIVE_USERS_WATCH_
+    // INTERVAL_MS it re-fetches action=activeUsers, and:
+    //   - if the panel is open, updates it in place with the fresh data
+    //   - if any account other than you just transitioned into "active"
+    //     since the last check, pops a toast right away -- so if it's an
+    //     account you don't recognize being active, or your own account
+    //     showing active from somewhere you didn't just sign in from,
+    //     you find out on the spot instead of stumbling onto it later.
+    const ACTIVE_USERS_WATCH_INTERVAL_MS = 10 * 1000;
+    let activeUsersWatchTimer = null;
+    let previouslyActiveEmails = null; // null = haven't taken a baseline reading yet
+
+    async function pollActiveUsersForAlerts() {
+      try {
+        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+        if (!idToken) return;
+        const params = new URLSearchParams({ action: 'activeUsers', secret: appsScriptSecret, idToken: idToken });
+        const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
+        if (!json || json.error || !Array.isArray(json.active)) return;
+
+        cachedActiveAccountsJson = json;
+
+        // If the "My Devices" panel is currently open, refresh it live so
+        // whoever's watching it sees the new sign-in appear on its own.
+        const modal = document.getElementById('myDevicesModal');
+        if (modal && !modal.classList.contains('hidden')) {
+          renderActiveAccountsList(json);
+        }
+
+        const myEmail = (window.getCurrentUserEmail ? window.getCurrentUserEmail() : '').toLowerCase();
+        const nowActiveEmails = {};
+        json.active.forEach(function (u) {
+          if (u && u.active) nowActiveEmails[String(u.email || '').toLowerCase()] = true;
+        });
+
+        if (previouslyActiveEmails) {
+          Object.keys(nowActiveEmails).forEach(function (email) {
+            if (email === myEmail) return; // your own sign-in isn't a surprise
+            if (!previouslyActiveEmails[email]) {
+              showToast(email + ' just signed in.', 'info');
+            }
+          });
+        }
+        // First poll after sign-in just takes a baseline -- everyone
+        // already active at that point is expected, not a new event.
+        previouslyActiveEmails = nowActiveEmails;
+      } catch (err) {
+        // Best-effort -- a missed poll just means the next one catches up.
+        console.warn('[presence] pollActiveUsersForAlerts failed:', err && err.message ? err.message : err);
+      }
+    }
+
+    function startActiveUsersWatcher() {
+      if (activeUsersWatchTimer) return; // already running
+      previouslyActiveEmails = null; // fresh baseline for this session
+      pollActiveUsersForAlerts();
+      activeUsersWatchTimer = setInterval(pollActiveUsersForAlerts, ACTIVE_USERS_WATCH_INTERVAL_MS);
+    }
+    function stopActiveUsersWatcher() {
+      if (activeUsersWatchTimer) { clearInterval(activeUsersWatchTimer); activeUsersWatchTimer = null; }
+      previouslyActiveEmails = null;
+    }
+    // ================= END LIVE SIGN-IN WATCHER =================
+
     // One delegated listener for every Block/Unblock/Sign out button in the
     // list, instead of re-binding a fresh listener on every re-render.
     (function setupWhoAmIActionDelegation() {
@@ -13670,7 +13741,12 @@ html.page-fade-ready body {
     // executeToggleBlockActiveAccount() below.
     async function toggleBlockActiveAccount(email, block) {
       if (!email) return;
-      if (block && !confirm('Block ' + email + ' from the dashboard?\n\nThey\u2019ll be signed out and locked out until you unblock them.')) return;
+      if (block) {
+        const proceed = window.__confirmAction
+          ? await window.__confirmAction('Block ' + email + '?', 'They\u2019ll be signed out and locked out until you unblock them.', 'Yes, block', 'danger')
+          : confirm('Block ' + email + ' from the dashboard?\n\nThey\u2019ll be signed out and locked out until you unblock them.');
+        if (!proceed) return;
+      }
       openAccountActionPasswordGate(block ? 'block' : 'unblock', email);
     }
 
@@ -13698,7 +13774,10 @@ html.page-fade-ready body {
     // gate -> execute flow as block/unblock above.
     async function forceSignOutActiveAccount(email) {
       if (!email) return;
-      if (!confirm('Sign out ' + email + ' from their current device right now?')) return;
+      const proceed = window.__confirmAction
+        ? await window.__confirmAction('Sign out ' + email + '?', 'They\u2019ll be signed out of their current device right now.', 'Yes, sign out', 'danger')
+        : confirm('Sign out ' + email + ' from their current device right now?');
+      if (!proceed) return;
       openAccountActionPasswordGate('signout', email);
     }
 
@@ -13861,6 +13940,71 @@ html.page-fade-ready body {
       renderMyDevicesList([{ deviceId: myDeviceId, label: myLabel, lastSeenAt: Date.now(), current: true }], { limited: true });
     }
 
+    // ================= LIVE "MY DEVICES" WATCHER =================
+    // Same idea as the LIVE SIGN-IN WATCHER above, but for your OWN
+    // account's devices specifically -- this is the more direct "is
+    // someone else using MY account" signal, since a device you don't
+    // recognize showing up here means someone has your session, not just
+    // that a teammate is using the dashboard. Runs continuously from
+    // sign-in, not just while the "My Devices" panel is open.
+    let myDevicesWatchTimer = null;
+    let previouslyKnownDeviceIds = null; // null = haven't taken a baseline reading yet
+
+    async function pollMyDevicesForAlerts() {
+      // Only meaningful once the backend actually supports action=myDevices
+      // -- before that, loadMyDevicesList() is showing a local-only
+      // fallback with nothing real to compare against.
+      if (!myDevicesBackendReady) return;
+      try {
+        const myDeviceId = getOrCreateDeviceId();
+        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+        if (!idToken) return;
+        const params = new URLSearchParams({ action: 'myDevices', secret: appsScriptSecret, idToken: idToken, deviceId: myDeviceId });
+        const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
+        if (!json || !json.success || !Array.isArray(json.devices) || !json.devices.length) return;
+
+        const devices = json.devices.map(function (d) {
+          return Object.assign({}, d, { current: d.current || d.deviceId === myDeviceId });
+        });
+
+        // If the panel is currently open, refresh it live.
+        const modal = document.getElementById('myDevicesModal');
+        if (modal && !modal.classList.contains('hidden')) {
+          renderMyDevicesList(devices, { limited: false });
+        }
+
+        const nowDeviceIds = {};
+        devices.forEach(function (d) { if (d && d.deviceId) nowDeviceIds[d.deviceId] = d.label || 'Unknown device'; });
+
+        if (previouslyKnownDeviceIds) {
+          Object.keys(nowDeviceIds).forEach(function (deviceId) {
+            if (deviceId === myDeviceId) return; // this browser signing itself in isn't a surprise
+            if (!previouslyKnownDeviceIds[deviceId]) {
+              showToast('New device signed in to your account: ' + nowDeviceIds[deviceId], 'error');
+            }
+          });
+        }
+        // First poll after sign-in just takes a baseline -- devices
+        // already there at that point are expected, not a new event.
+        previouslyKnownDeviceIds = nowDeviceIds;
+      } catch (err) {
+        // Best-effort -- a missed poll just means the next one catches up.
+        console.warn('[presence] pollMyDevicesForAlerts failed:', err && err.message ? err.message : err);
+      }
+    }
+
+    function startMyDevicesWatcher() {
+      if (myDevicesWatchTimer) return; // already running
+      previouslyKnownDeviceIds = null; // fresh baseline for this session
+      pollMyDevicesForAlerts();
+      myDevicesWatchTimer = setInterval(pollMyDevicesForAlerts, ACTIVE_USERS_WATCH_INTERVAL_MS);
+    }
+    function stopMyDevicesWatcher() {
+      if (myDevicesWatchTimer) { clearInterval(myDevicesWatchTimer); myDevicesWatchTimer = null; }
+      previouslyKnownDeviceIds = null;
+    }
+    // ================= END LIVE "MY DEVICES" WATCHER =================
+
     // Delegated click handler for the per-row "Sign out" buttons (data-*
     // attribute, not inline onclick, for the same reason whoAmIList uses
     // one -- a device label built from a stray user-agent string should
@@ -13881,9 +14025,12 @@ html.page-fade-ready body {
     // targets a device signed in as you, so the same password re-check
     // gate used elsewhere (openAccountActionPasswordGate) is enough of a
     // guard against someone else using your already-unlocked browser.
-    function signOutDevice(deviceId, label) {
+    async function signOutDevice(deviceId, label) {
       if (!deviceId) return;
-      if (!confirm('Sign out \u201c' + label + '\u201d from your account?\n\nThat device will be signed out the next time it checks in (usually within a minute).')) return;
+      const proceed = window.__confirmAction
+        ? await window.__confirmAction('Sign out \u201c' + label + '\u201d?', 'That device will be signed out the next time it checks in (usually within a minute).', 'Yes, sign out', 'danger')
+        : confirm('Sign out \u201c' + label + '\u201d from your account?\n\nThat device will be signed out the next time it checks in (usually within a minute).');
+      if (!proceed) return;
       openAccountActionPasswordGate('signoutDevice', null, { deviceId: deviceId, label: label });
     }
     async function executeSignOutDevice(deviceId) {
@@ -13901,8 +14048,11 @@ html.page-fade-ready body {
       }
     }
 
-    function signOutAllOtherDevices() {
-      if (!confirm('Sign out every OTHER device on your account?\n\nThis device stays signed in; every other device will be signed out shortly.')) return;
+    async function signOutAllOtherDevices() {
+      const proceed = window.__confirmAction
+        ? await window.__confirmAction('Sign out all other devices?', 'This device stays signed in; every other device will be signed out shortly.', 'Yes, sign out all', 'danger')
+        : confirm('Sign out every OTHER device on your account?\n\nThis device stays signed in; every other device will be signed out shortly.');
+      if (!proceed) return;
       openAccountActionPasswordGate('signoutAllDevices', null, {});
     }
     async function executeSignOutAllOtherDevices() {
@@ -18622,6 +18772,8 @@ html.page-fade-ready body {
         startIdleTracking();
         startAutoRefresh();
         startPresenceHeartbeat();
+        startActiveUsersWatcher();
+        startMyDevicesWatcher();
 
         // Login phase is done — now it's safe to load real data and show
         // the loading screen. Data loading is gated on this sign-in check
@@ -18688,6 +18840,8 @@ html.page-fade-ready body {
         clearStoredActivityAt();
         stopAutoRefresh();
         stopPresenceHeartbeat();
+        stopActiveUsersWatcher();
+        stopMyDevicesWatcher();
         authGate.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
         authLogoutBtn.classList.add('hidden');
