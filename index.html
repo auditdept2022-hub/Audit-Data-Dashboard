@@ -5323,8 +5323,8 @@ html.page-fade-ready body {
   <div id="auditLogModal" class="fixed inset-0 z-[70] hidden">
     <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" onclick="closeAuditLogModal()"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-5">
-        <div class="flex items-center gap-3 mb-4">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-5 max-h-[85vh] flex flex-col">
+        <div class="flex items-center gap-3 mb-4 shrink-0">
           <div class="w-11 h-11 rounded-full bg-royalBlue/10 text-royalBlue flex items-center justify-center shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3"></path><path d="M3.05 11a9 9 0 1 1 .5 4"></path><path d="M3 4v5h5"></path></svg>
           </div>
@@ -5332,10 +5332,17 @@ html.page-fade-ready body {
             <h3 class="text-base font-bold text-slate-900">Recent Activity</h3>
           </div>
         </div>
-        <div id="auditLogList" class="flex flex-col gap-2 max-h-64 overflow-y-auto custom-scrollbar mb-4">
+        <!-- Was max-h-64 (a fixed ~16rem peek showing only 2-3 entries no
+             matter how tall the screen was). Now grows with the viewport
+             (via the modal's own max-h-[85vh] + flex-1 here) so on most
+             screens well over a dozen entries are visible before you ever
+             need to scroll, and the fetch below now asks for up to 150
+             entries instead of the default 50 so scrolling actually has
+             more to show. -->
+        <div id="auditLogList" class="flex flex-col gap-2 flex-1 min-h-[16rem] overflow-y-auto custom-scrollbar mb-4">
           <p class="text-sm text-slate-400 text-center py-4">Loading\u2026</p>
         </div>
-        <div class="flex flex-col gap-2">
+        <div class="flex flex-col gap-2 shrink-0">
           <button type="button" onclick="closeAuditLogModal()" class="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition-colors">Close</button>
         </div>
       </div>
@@ -13375,6 +13382,18 @@ html.page-fade-ready body {
     function stopPresenceHeartbeat() {
       if (presenceHeartbeatTimer) { clearInterval(presenceHeartbeatTimer); presenceHeartbeatTimer = null; }
     }
+    // BUG FIX ("Sign out all other devices" looked like it did nothing):
+    // this device only ever found out it had been remotely signed out on
+    // its own next 45s heartbeat tick -- and most browsers throttle or
+    // fully suspend setInterval while a tab is backgrounded/minimized, so
+    // a phone with the dashboard open but the screen off, or a laptop
+    // with the tab in a background window, could sit signed in for a very
+    // long time (sometimes indefinitely) after being "signed out". Expose
+    // this on window so the visibilitychange handler in the module
+    // <script> below (a separate scope) can trigger an immediate
+    // catch-up heartbeat the moment the device is actually looked at
+    // again, instead of waiting out the interval.
+    window.sendPresenceHeartbeat = sendPresenceHeartbeat;
 
     function escapeForHtml(s) {
       return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -13506,19 +13525,27 @@ html.page-fade-ready body {
           statusLabel = 'Never signed in';
         }
 
-        // ---- Sign out + Block, together on the row ----
+        // ---- Sign out + Remove + Block, together on the row ----
         //   - your own, non-current device -> self-service signOutDevice
         //   - a manager, on someone else's device row -> signOutAccountDevice
         //   - a manager, on an account with no device rows yet -> the
         //     old account-level forceSignOutAccount fallback
-        // Block/Unblock is account-level, managers only, never your own row.
+        // Remove permanently deletes that device's row instead of just
+        // signing it out -- for clearing stale/offline devices out of the
+        // list for good. Shown next to Sign out for any row with a real
+        // deviceId (self-service for your own rows, manager-only for
+        // other accounts' rows). Block/Unblock is account-level, managers
+        // only, never your own row.
         let signOutBtn = '';
+        let removeBtn = '';
         if (!r.current) {
           if (r.isYou && r.deviceId) {
             signOutBtn = '<button type="button" data-presence-action="signoutDevice" data-device-id="' + escapeForHtml(r.deviceId) + '" data-label="' + escapeForHtml(label) + '" class="text-[10px] font-semibold px-1.5 py-1 rounded-lg text-accentRose hover:bg-accentRose/10 transition-colors">Sign out</button>';
+            removeBtn = '<button type="button" data-presence-action="removeDevice" data-device-id="' + escapeForHtml(r.deviceId) + '" data-label="' + escapeForHtml(label) + '" class="text-[10px] font-semibold px-1.5 py-1 rounded-lg text-slate-500 hover:bg-slate-200 transition-colors">Remove</button>';
           } else if (canManage && !r.isYou) {
             if (r.deviceId) {
               signOutBtn = '<button type="button" data-presence-action="signoutAccountDevice" data-email="' + escapeForHtml(email) + '" data-device-id="' + escapeForHtml(r.deviceId) + '" data-label="' + escapeForHtml(label) + '" class="text-[10px] font-semibold px-1.5 py-1 rounded-lg text-accentRose hover:bg-accentRose/10 transition-colors">Sign out</button>';
+              removeBtn = '<button type="button" data-presence-action="removeAccountDevice" data-email="' + escapeForHtml(email) + '" data-device-id="' + escapeForHtml(r.deviceId) + '" data-label="' + escapeForHtml(label) + '" class="text-[10px] font-semibold px-1.5 py-1 rounded-lg text-slate-500 hover:bg-slate-200 transition-colors">Remove</button>';
             } else if (r.active) {
               signOutBtn = '<button type="button" data-presence-action="signout" data-email="' + escapeForHtml(email) + '" class="text-[10px] font-semibold px-1.5 py-1 rounded-lg text-accentRose hover:bg-accentRose/10 transition-colors">Sign out</button>';
             }
@@ -13529,8 +13556,8 @@ html.page-fade-ready body {
           ? '<button type="button" data-presence-action="block" data-email="' + escapeForHtml(email) + '" data-blocked="' + (blocked ? '1' : '0') + '" class="text-[10px] font-semibold px-1.5 py-1 rounded-lg transition-colors ' + (blocked ? 'text-accentEmerald hover:bg-accentEmerald/10' : 'text-accentAmber hover:bg-accentAmber/10') + '">' + (blocked ? 'Unblock' : 'Block') + '</button>'
           : '';
 
-        const actionsHtml = (signOutBtn || blockBtn)
-          ? ('<div class="flex items-center gap-1 shrink-0">' + blockBtn + signOutBtn + '</div>')
+        const actionsHtml = (signOutBtn || removeBtn || blockBtn)
+          ? ('<div class="flex items-center gap-1 shrink-0 flex-wrap justify-end">' + blockBtn + signOutBtn + removeBtn + '</div>')
           : ('<span class="w-2 h-2 rounded-full ' + (blocked ? 'bg-accentRose' : (r.active ? 'bg-accentEmerald' : 'bg-slate-300')) + ' shrink-0" title="' + (blocked ? 'Blocked' : (r.active ? 'Active now' : 'Not currently active')) + '"></span>');
 
         return '' +
@@ -13722,6 +13749,10 @@ html.page-fade-ready body {
           signOutDevice(deviceId, label);
         } else if (action === 'signoutAccountDevice') {
           signOutAccountDevice(email, deviceId, label);
+        } else if (action === 'removeDevice') {
+          removeDevice(deviceId, label);
+        } else if (action === 'removeAccountDevice') {
+          removeAccountDevice(email, deviceId, label);
         }
       });
     })();
@@ -13736,7 +13767,7 @@ html.page-fade-ready body {
     // reauthenticateCurrentUser() re-check Quick Links uses (see
     // submitQuickLinkPassword above). Protects against someone else using
     // an already-unlocked, signed-in device.
-    let pendingAccountAction = null; // { type: 'block'|'unblock'|'signout'|'signoutDevice'|'signoutAccountDevice'|'signoutAllDevices', email, meta }
+    let pendingAccountAction = null; // { type: 'block'|'unblock'|'signout'|'signoutDevice'|'signoutAccountDevice'|'signoutAllDevices'|'removeDevice'|'removeAccountDevice', email, meta }
 
     // `meta` carries extra data the block/unblock/signout(account) actions
     // don't need -- e.g. { deviceId, label } for signoutDevice/
@@ -13760,6 +13791,8 @@ html.page-fade-ready body {
           : type === 'signoutDevice' ? ('sign out \u201c' + ((meta && meta.label) || 'that device') + '\u201d')
           : type === 'signoutAccountDevice' ? ('sign out ' + email + '\u2019s \u201c' + ((meta && meta.label) || 'that device') + '\u201d')
           : type === 'signoutAllDevices' ? 'sign out all other devices'
+          : type === 'removeDevice' ? ('remove \u201c' + ((meta && meta.label) || 'that device') + '\u201d')
+          : type === 'removeAccountDevice' ? ('remove ' + email + '\u2019s \u201c' + ((meta && meta.label) || 'that device') + '\u201d')
           : 'continue';
       }
       setAccountActionPasswordSubmitting(false);
@@ -13822,6 +13855,10 @@ html.page-fade-ready body {
         executeSignOutAccountDevice(pending.email, pending.meta && pending.meta.deviceId);
       } else if (pending.type === 'signoutAllDevices') {
         executeSignOutAllOtherDevices();
+      } else if (pending.type === 'removeDevice') {
+        executeRemoveDevice(pending.meta && pending.meta.deviceId);
+      } else if (pending.type === 'removeAccountDevice') {
+        executeRemoveAccountDevice(pending.email, pending.meta && pending.meta.deviceId);
       } else {
         executeToggleBlockActiveAccount(pending.email, pending.type === 'block');
       }
@@ -13976,6 +14013,61 @@ html.page-fade-ready body {
         showToast((err && err.message) || 'Couldn\u2019t sign out other devices.');
       }
     }
+    // Permanently deletes one of YOUR OWN device rows (self-service),
+    // instead of just signing it out -- for clearing a stale/offline
+    // device out of the list for good. If that device is ever used again
+    // it just recreates its own row on its next heartbeat, same as a
+    // brand-new device would. Backed by action=removeDevice.
+    async function removeDevice(deviceId, label) {
+      if (!deviceId) return;
+      const proceed = window.__confirmAction
+        ? await window.__confirmAction('Remove \u201c' + label + '\u201d?', 'This just clears it from your list \u2014 it can sign back in normally.', 'Yes, remove', 'danger')
+        : confirm('Remove \u201c' + label + '\u201d from your devices?\n\nThis just clears it from your list \u2014 it can sign back in normally.');
+      if (!proceed) return;
+      openAccountActionPasswordGate('removeDevice', null, { deviceId: deviceId, label: label });
+    }
+    async function executeRemoveDevice(deviceId) {
+      if (!deviceId) return;
+      try {
+        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+        if (!idToken) { showToast('You\u2019re not signed in.'); return; }
+        const params = new URLSearchParams({ action: 'removeDevice', secret: appsScriptSecret, idToken: idToken, deviceId: deviceId });
+        const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
+        if (!json || json.error) throw new Error((json && json.error) || 'Failed to remove that device.');
+        showToast('Device removed.');
+        loadPresenceList();
+      } catch (err) {
+        showToast((err && err.message) || 'Couldn\u2019t remove that device.');
+      }
+    }
+
+    // Manager-only counterpart to removeDevice above: permanently deletes
+    // one device row belonging to a DIFFERENT account. Backed by
+    // action=removeAccountDevice, gated server-side by
+    // isAuthorizedAccountManager (see handleRemoveAccountDeviceGet() in
+    // Code.gs).
+    async function removeAccountDevice(email, deviceId, label) {
+      if (!email || !deviceId) return;
+      const proceed = window.__confirmAction
+        ? await window.__confirmAction('Remove \u201c' + label + '\u201d?', email + '\u2019s device will be cleared from the list \u2014 it can sign back in normally.', 'Yes, remove', 'danger')
+        : confirm('Remove ' + email + '\u2019s \u201c' + label + '\u201d?\n\nIt will be cleared from the list \u2014 it can sign back in normally.');
+      if (!proceed) return;
+      openAccountActionPasswordGate('removeAccountDevice', email, { deviceId: deviceId, label: label });
+    }
+    async function executeRemoveAccountDevice(email, deviceId) {
+      if (!email || !deviceId) return;
+      try {
+        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+        if (!idToken) { showToast('You\u2019re not signed in.'); return; }
+        const params = new URLSearchParams({ action: 'removeAccountDevice', secret: appsScriptSecret, idToken: idToken, email: email, deviceId: deviceId });
+        const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
+        if (!json || json.error) throw new Error((json && json.error) || 'Failed to remove that device.');
+        showToast('Device removed.');
+        loadPresenceList();
+      } catch (err) {
+        showToast((err && err.message) || 'Couldn\u2019t remove that device.');
+      }
+    }
     // ================= END MERGED PRESENCE LIST ("My Devices") =================
 
     // ================= RECENT ACTIVITY =================
@@ -13998,6 +14090,11 @@ html.page-fade-ready body {
       'blockAccount':            { label: 'Blocked account',         category: 'Account',            color: '#d97706' },
       'unblockAccount':          { label: 'Unblocked account',       category: 'Account',            color: '#059669' },
       'forceSignOutAccount':     { label: 'Forced sign-out',         category: 'Account',            color: '#e11d48' },
+      'signOutDevice':           { label: 'Signed out a device',     category: 'Device',              color: '#e11d48' },
+      'signOutAllOtherDevices':  { label: 'Signed out other devices', category: 'Device',             color: '#e11d48' },
+      'signOutAccountDevice':    { label: 'Signed out a device',     category: 'Device',              color: '#e11d48' },
+      'removeDevice':            { label: 'Removed a device',        category: 'Device',              color: '#64748b' },
+      'removeAccountDevice':     { label: 'Removed a device',        category: 'Device',              color: '#64748b' },
       'updateOverallData':       { label: 'Updated Overall Data',    category: 'Sheet Update',        color: '#059669' }
     };
     const AUDIT_ACTION_META_DEFAULT = { category: 'Action', color: '#64748b' };
@@ -14099,7 +14196,11 @@ html.page-fade-ready body {
           listEl.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">Not signed in.</p>';
           return;
         }
-        const params = new URLSearchParams({ action: 'auditLog', secret: appsScriptSecret, idToken: idToken });
+        // Ask for more than the backend's default of 50 (see
+        // getRecentAuditLog() in Code.gs, capped server-side at 200) now
+        // that the modal itself can actually show more than a couple of
+        // entries at a time.
+        const params = new URLSearchParams({ action: 'auditLog', secret: appsScriptSecret, idToken: idToken, limit: '150' });
         const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
         if (!json || json.error) throw new Error((json && json.error) || 'Failed to load');
         renderAuditLogList(json);
@@ -18645,7 +18746,15 @@ html.page-fade-ready body {
 
     function handleVisibilityChange() {
       if (!autoRefreshTimer) return; // not signed in / not tracking
-      if (!document.hidden) silentRefreshTick(); // catch up immediately on return
+      if (!document.hidden) {
+        silentRefreshTick(); // catch up immediately on return
+        // Also re-check presence right away (see the note on
+        // window.sendPresenceHeartbeat above) instead of waiting for the
+        // next 45s heartbeat tick -- this is what makes "Sign out this
+        // device" / "Sign out all other devices" actually take effect
+        // promptly rather than only eventually.
+        if (window.sendPresenceHeartbeat) window.sendPresenceHeartbeat();
+      }
     }
 
     function startAutoRefresh() {
