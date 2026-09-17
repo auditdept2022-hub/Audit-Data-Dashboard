@@ -5310,36 +5310,6 @@ html.page-fade-ready body {
     <div class="toast-progress"><div class="toast-progress-bar" id="toastProgressBar"></div></div>
   </div>
 
-  <!-- ================= CURRENTLY ACTIVE (quick action) =================
-       Info modal for the "Who's Logged In" quick action tile in the side
-       menu: lists every allow-listed account that's had a recent
-       heartbeat (see sendPresenceHeartbeat()/action=heartbeat), not just
-       the current device's own sign-in -- so this shows who else is
-       actually using the dashboard right now. Refreshes while open. Pure
-       UI -- see openWhoAmIModal()/closeWhoAmIModal()/
-       loadActiveAccountsList() further down for the wiring. -->
-  <div id="whoAmIModal" class="fixed inset-0 z-[70] hidden">
-    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" onclick="closeWhoAmIModal()"></div>
-    <div class="absolute inset-0 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-5">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="w-11 h-11 rounded-full bg-royalBlue/10 text-royalBlue flex items-center justify-center shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-          </div>
-          <div class="min-w-0">
-            <h3 class="text-base font-bold text-slate-900">Currently Active</h3>
-          </div>
-        </div>
-        <div id="whoAmIList" class="flex flex-col gap-2 max-h-64 overflow-y-auto custom-scrollbar mb-4">
-          <p class="text-sm text-slate-400 text-center py-4">Loading\u2026</p>
-        </div>
-        <div class="flex flex-col gap-2">
-          <button type="button" onclick="closeWhoAmIModal()" class="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition-colors">Close</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- ================= RECENT ACTIVITY (quick action) =================
        Info modal for the "Recent Activity" quick action tile in the side
        menu: lists the most recent entries from the audit_log Firestore
@@ -5349,7 +5319,7 @@ html.page-fade-ready body {
        unblock, force sign-out, Update Sheet). Editor-only, same as the
        backend endpoint. Pure UI -- see openAuditLogModal()/
        closeAuditLogModal()/loadAuditLogList() further down for the
-       wiring. Follows the exact same modal shape as whoAmIModal above. -->
+       wiring. Follows the exact same modal shape as myDevicesModal above. -->
   <div id="auditLogModal" class="fixed inset-0 z-[70] hidden">
     <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" onclick="closeAuditLogModal()"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4">
@@ -5373,20 +5343,28 @@ html.page-fade-ready body {
   </div>
 
   <!-- ================= MY DEVICES (quick action) =================
-       Google-style "manage your sign-ins" panel for the CURRENT account
-       only -- lists every device signed in as you, with a Sign out
-       shortcut per device (and a "Sign out all other devices" shortcut),
-       no editor permission required since it only ever touches your own
-       sessions. Distinct from "Who's Logged In" above, which is an
-       editor-only view of every ACCOUNT. See openMyDevicesModal()/
-       closeMyDevicesModal()/loadMyDevicesList() further down for the
-       wiring, and the BACKEND TODO comment near sendPresenceHeartbeat()
-       for what Code.gs still needs so this shows more than just "This
-       device". Same modal shape as whoAmIModal/auditLogModal above. -->
+       MERGED PANEL: this used to be two separate side-menu tiles/modals --
+       "My Devices" (self-service, your own devices only, no permission
+       needed) and "Who's Logged In" (every allow-listed ACCOUNT, with
+       Block/Unblock/Sign-out for account managers). They're combined into
+       one modal here, opened from the single "My Devices" side-menu tile:
+         - "Your devices" section (#myDevicesList) -- unchanged, still
+           self-service only, still backed by action=myDevices/
+           signOutDevice/signOutAllOtherDevices.
+         - "Who's logged in" section (#whoAmIList) -- unchanged, still
+           backed by action=activeUsers, still shows Block/Unblock/Sign
+           out buttons only when the backend's canManage flag comes back
+           true for the signed-in account (see renderActiveAccountsList()
+           further down) -- everyone else just sees the read-only list,
+           same as when this had its own tile.
+       Both lists load and auto-refresh together -- see
+       openMyDevicesModal()/closeMyDevicesModal() further down, which now
+       drive both loadMyDevicesList() and loadActiveAccountsList() off one
+       shared timer instead of two separate modals each running their own. -->
   <div id="myDevicesModal" class="fixed inset-0 z-[70] hidden">
     <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" onclick="closeMyDevicesModal()"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-5">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-5 max-h-[85vh] overflow-y-auto custom-scrollbar">
         <div class="flex items-center gap-3 mb-4">
           <div class="w-11 h-11 rounded-full bg-accentBlue/10 text-accentBlue flex items-center justify-center shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"></rect><line x1="8" x2="16" y1="21" y2="21"></line><line x1="12" x2="12" y1="17" y2="21"></line></svg>
@@ -5396,12 +5374,22 @@ html.page-fade-ready body {
             <p class="text-[11px] text-slate-400">Where you're currently signed in</p>
           </div>
         </div>
+
+        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-2">Your devices</p>
         <div id="myDevicesList" class="flex flex-col gap-2 max-h-64 overflow-y-auto custom-scrollbar mb-2">
           <p class="text-sm text-slate-400 text-center py-4">Loading\u2026</p>
         </div>
         <p id="myDevicesNote" class="text-[11px] text-slate-400 mb-3 hidden"></p>
+        <button id="myDevicesSignOutAllBtn" type="button" onclick="signOutAllOtherDevices()" class="hidden w-full py-2.5 rounded-xl bg-accentRose/10 hover:bg-accentRose/20 text-accentRose text-sm font-semibold transition-colors mb-4">Sign out all other devices</button>
+
+        <div class="border-t border-coolBorder pt-3 mb-4">
+          <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-2">Who's logged in</p>
+          <div id="whoAmIList" class="flex flex-col gap-2 max-h-64 overflow-y-auto custom-scrollbar">
+            <p class="text-sm text-slate-400 text-center py-4">Loading\u2026</p>
+          </div>
+        </div>
+
         <div class="flex flex-col gap-2">
-          <button id="myDevicesSignOutAllBtn" type="button" onclick="signOutAllOtherDevices()" class="hidden w-full py-2.5 rounded-xl bg-accentRose/10 hover:bg-accentRose/20 text-accentRose text-sm font-semibold transition-colors">Sign out all other devices</button>
           <button type="button" onclick="closeMyDevicesModal()" class="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition-colors">Close</button>
         </div>
       </div>
@@ -5416,7 +5404,7 @@ html.page-fade-ready body {
        around on an already-unlocked device; the signed-in editor has to
        re-prove their own password, right now, for each one. See
        openAccountActionPasswordGate()/submitAccountActionPassword()
-       further down this file. z-[80] (above whoAmIModal's z-[70]) since
+       further down this file. z-[80] (above myDevicesModal's z-[70]) since
        it opens on top of that modal. -->
   <div id="accountActionPasswordModal" class="fixed inset-0 z-[80] hidden">
     <div class="absolute inset-0 bg-slate-900/70"></div>
@@ -5551,7 +5539,7 @@ html.page-fade-ready body {
       <details class="side-menu-group-details" open>
         <summary class="side-menu-group-summary">
           <span class="side-menu-group-title">Quick actions</span>
-          <span class="side-menu-group-count">10</span>
+          <span class="side-menu-group-count">9</span>
           <svg class="side-menu-group-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
         </summary>
 
@@ -5608,20 +5596,13 @@ html.page-fade-ready body {
           <span class="menu-tile-label">Add Findings</span>
         </div>
 
-        <!-- "Who's Logged In" -- quick action that lists every allow-listed
-             account with a recent presence heartbeat (action=activeUsers,
-             fed by sendPresenceHeartbeat()), not just this device's own
-             sign-in -- so it shows everyone currently active in the app,
-             with a Sign Out shortcut for this device too. See
-             openWhoAmIModal() further down. -->
-        <div role="button" tabindex="0" onclick="openWhoAmIModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openWhoAmIModal();}" class="menu-tile cursor-pointer select-none">
-          <span class="menu-tile-icon" style="background:rgba(79,70,229,0.10);"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentIndigo shrink-0"><path d="M16 21v-2a4 4 0 0 0-3-3.87"></path><path d="M13 3.13a4 4 0 0 1 0 7.75"></path><path d="M8 21v-2a4 4 0 0 0-4-4H2"></path><circle cx="5" cy="7" r="4"></circle></svg></span>
-          <span class="menu-tile-label">Who's Logged In</span>
-        </div>
-
-        <!-- "My Devices" -- Google-style, self-service panel: shows every
-             device signed in as YOU (not other accounts) and lets you
-             sign any of them out, no editor permission required. See
+        <!-- "My Devices" -- MERGED tile: opens one modal with two
+             sections -- "Your devices" (self-service, shows every device
+             signed in as YOU, no editor permission required) and "Who's
+             logged in" (every allow-listed account, with Block/Unblock/
+             Sign out shown only to account managers). This used to be two
+             separate tiles ("My Devices" + "Who's Logged In"); they're one
+             tile now since they open the same modal. See
              openMyDevicesModal() further down. -->
         <div role="button" tabindex="0" onclick="openMyDevicesModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openMyDevicesModal();}" class="menu-tile cursor-pointer select-none">
           <span class="menu-tile-icon" style="background:rgba(37,99,235,0.10);"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentBlue shrink-0"><rect width="20" height="14" x="2" y="3" rx="2"></rect><line x1="8" x2="16" y1="21" y2="21"></line><line x1="12" x2="12" y1="17" y2="21"></line></svg></span>
@@ -13165,32 +13146,150 @@ html.page-fade-ready body {
       }
     }
 
-    // Turns the raw user-agent string into something a person can
-    // actually recognize at a glance -- "Chrome on Windows",
-    // "Safari on iPhone" -- the same style Google's device list uses.
-    // Best-effort only: unrecognized UAs fall back to a generic label
-    // instead of throwing or showing raw UA junk.
-    function getDeviceLabel() {
+    // Turns raw browser info into something a person can actually
+    // recognize at a glance in "My Devices" -- not just "Chrome on
+    // Windows" or "Safari on iPhone", but the real OS version and, on
+    // Android, the actual device model (e.g. "Chrome 121 on Samsung
+    // SM-G991B (Android 14)", "Edge 121 on Windows 11", "Safari 17 on
+    // iPhone (iOS 17.5)") -- the same level of detail Google's own device
+    // manager shows.
+    //
+    // Two sources, tried in order:
+    //   1. User-Agent Client Hints (navigator.userAgentData), when the
+    //      browser supports it (Chrome, Edge, Opera, Android WebView,
+    //      Samsung Internet). This is the ONLY reliable way to tell
+    //      Windows 10 from 11 or get a real device model -- Chromium
+    //      deliberately freezes the classic navigator.userAgent string
+    //      (it always claims "Windows NT 10.0" and a fixed old Android
+    //      model list) specifically to stop UA sniffing, so parsing that
+    //      string alone can't recover this detail on those browsers.
+    //   2. Falls back to parsing navigator.userAgent directly for
+    //      everything else (Firefox, Safari, older/other browsers, or if
+    //      the hints call fails for any reason) -- still pulls out real
+    //      OS/browser version numbers and, on Android, the device model
+    //      string embedded in the UA, just without the Windows 10/11 fix.
+    // Async because the Client Hints call is async; every caller already
+    // awaits this.
+    async function getDeviceLabel() {
+      try {
+        if (navigator.userAgentData && typeof navigator.userAgentData.getHighEntropyValues === 'function') {
+          const hints = await navigator.userAgentData.getHighEntropyValues(
+            ['platform', 'platformVersion', 'model', 'mobile', 'fullVersionList']
+          );
+          const label = deviceLabelFromClientHints(hints);
+          if (label) return label;
+        }
+      } catch (err) {
+        // Non-fatal (e.g. blocked by permissions policy) -- fall through
+        // to the plain User-Agent parsing below.
+        console.warn('[device-label] Client Hints unavailable, falling back to User-Agent parsing:', err && err.message ? err.message : err);
+      }
+      return deviceLabelFromUserAgent();
+    }
+
+    // Chromium reports Windows' real version as a "platformVersion" whose
+    // FIRST number maps to the marketing name, not the NT version the
+    // classic UA string still claims -- 13+ means Windows 11, 1-12 means
+    // Windows 10. See: web.dev's guidance on userAgentData.platformVersion.
+    function windowsMarketingVersion(platformVersion) {
+      const major = parseInt(String(platformVersion || '').split('.')[0], 10);
+      if (isNaN(major)) return 'Windows';
+      return major >= 13 ? 'Windows 11' : 'Windows 10';
+    }
+
+    function deviceLabelFromClientHints(hints) {
+      if (!hints) return null;
+      const platform = String(hints.platform || '');
+      const model = String(hints.model || '').trim();
+
+      // The plain "brands" list always includes a fake greased entry
+      // (e.g. "Not/A)Brand") on purpose, so the real browser name/version
+      // has to come from fullVersionList instead.
+      const versionList = Array.isArray(hints.fullVersionList) ? hints.fullVersionList : [];
+      let browserName = '';
+      let browserVersion = '';
+      ['Microsoft Edge', 'Opera', 'Google Chrome', 'Chromium'].some(function (brand) {
+        const entry = versionList.find(function (b) { return b && b.brand === brand; });
+        if (!entry) return false;
+        browserName = brand === 'Google Chrome' ? 'Chrome' : (brand === 'Microsoft Edge' ? 'Edge' : brand);
+        browserVersion = String(entry.version || '').split('.')[0];
+        return true;
+      });
+      if (!browserName) return null; // Nothing usable -- let the UA fallback handle it.
+
+      let os = null;
+      if (platform === 'Windows') {
+        os = windowsMarketingVersion(hints.platformVersion);
+      } else if (platform === 'macOS') {
+        os = 'macOS' + (hints.platformVersion ? ' ' + hints.platformVersion : '');
+      } else if (platform === 'Chrome OS') {
+        os = 'Chromebook';
+      } else if (platform === 'Linux') {
+        os = 'Linux';
+      } else if (platform === 'Android') {
+        const androidVer = hints.platformVersion ? ' (Android ' + hints.platformVersion + ')' : ' (Android)';
+        os = (model || 'Android device') + androidVer;
+      }
+      if (!os) return null; // Unrecognized platform hint (e.g. iOS doesn't expose this API at all) -- fall back.
+
+      const browserPart = browserVersion ? (browserName + ' ' + browserVersion) : browserName;
+      return browserPart + ' on ' + os;
+    }
+
+    // Fallback for browsers without User-Agent Client Hints (Firefox,
+    // Safari/iOS/iPadOS, older browsers) -- parses navigator.userAgent
+    // directly, still pulling real version numbers and, on Android, the
+    // device model string the UA embeds right next to the OS version.
+    function deviceLabelFromUserAgent() {
       const ua = navigator.userAgent || '';
       let os = 'Unknown device';
-      if (/iPhone/i.test(ua)) os = 'iPhone';
-      else if (/iPad/i.test(ua)) os = 'iPad';
-      else if (/Android/i.test(ua)) os = /Mobile/i.test(ua) ? 'Android phone' : 'Android tablet';
-      else if (/Macintosh|Mac OS X/i.test(ua)) os = 'Mac';
-      else if (/Windows/i.test(ua)) os = 'Windows';
-      else if (/CrOS/i.test(ua)) os = 'Chromebook';
-      else if (/Linux/i.test(ua)) os = 'Linux';
+      let m;
+
+      if ((m = ua.match(/iPhone OS (\d+)[_.](\d+)/))) {
+        os = 'iPhone (iOS ' + m[1] + '.' + m[2] + ')';
+      } else if (/iPad/i.test(ua) && (m = ua.match(/(?:CPU OS|OS) (\d+)[_.](\d+)/))) {
+        os = 'iPad (iPadOS ' + m[1] + '.' + m[2] + ')';
+      } else if (/iPhone/i.test(ua)) {
+        os = 'iPhone';
+      } else if (/iPad/i.test(ua)) {
+        os = 'iPad';
+      } else if ((m = ua.match(/Android (\d+(?:\.\d+)?)/))) {
+        // Android UAs look like "...Android 14; SM-G991B) AppleWebKit..."
+        // -- the model sits right after the version, before "Build/" or
+        // the closing paren.
+        const modelMatch = ua.match(/Android [\d.]+;\s*([^;)]+?)\s*(?:Build\/[^;)]*)?\)/);
+        const model = modelMatch ? modelMatch[1].trim() : (/Mobile/i.test(ua) ? 'Android phone' : 'Android tablet');
+        os = model + ' (Android ' + m[1] + ')';
+      } else if ((m = ua.match(/Mac OS X (\d+)[_.](\d+)(?:[_.](\d+))?/))) {
+        os = 'macOS ' + m[1] + '.' + m[2] + (m[3] ? '.' + m[3] : '');
+      } else if (/Macintosh/i.test(ua)) {
+        os = 'Mac';
+      } else if ((m = ua.match(/Windows NT (\d+\.\d+)/))) {
+        // Chrome/Edge freeze this at "Windows NT 10.0" for BOTH Windows 10
+        // and 11 -- the Client Hints path above is what actually tells
+        // them apart; this map only covers the older, un-frozen versions.
+        const ntMap = { '10.0': 'Windows 10', '6.3': 'Windows 8.1', '6.2': 'Windows 8', '6.1': 'Windows 7' };
+        os = ntMap[m[1]] || ('Windows (NT ' + m[1] + ')');
+      } else if (/CrOS/i.test(ua)) {
+        os = 'Chromebook';
+      } else if (/Linux/i.test(ua)) {
+        os = 'Linux';
+      }
 
       let browser = 'Browser';
-      if (/Edg\//i.test(ua)) browser = 'Edge';
-      else if (/OPR\//i.test(ua) || /Opera/i.test(ua)) browser = 'Opera';
-      else if (/CriOS/i.test(ua)) browser = 'Chrome';
-      else if (/FxiOS/i.test(ua)) browser = 'Firefox';
-      else if (/Chrome\//i.test(ua)) browser = 'Chrome';
-      else if (/Firefox\//i.test(ua)) browser = 'Firefox';
-      else if (/Safari\//i.test(ua) && !/Chrome/i.test(ua)) browser = 'Safari';
+      let version = '';
+      if ((m = ua.match(/Edg\/([\d.]+)/))) { browser = 'Edge'; version = m[1]; }
+      else if ((m = ua.match(/OPR\/([\d.]+)/))) { browser = 'Opera'; version = m[1]; }
+      else if (/Opera/i.test(ua)) { browser = 'Opera'; }
+      else if ((m = ua.match(/CriOS\/([\d.]+)/))) { browser = 'Chrome'; version = m[1]; }
+      else if ((m = ua.match(/FxiOS\/([\d.]+)/))) { browser = 'Firefox'; version = m[1]; }
+      else if ((m = ua.match(/Chrome\/([\d.]+)/))) { browser = 'Chrome'; version = m[1]; }
+      else if ((m = ua.match(/Firefox\/([\d.]+)/))) { browser = 'Firefox'; version = m[1]; }
+      else if (/Safari\//i.test(ua) && !/Chrome/i.test(ua) && (m = ua.match(/Version\/([\d.]+)/))) { browser = 'Safari'; version = m[1]; }
 
-      return browser + ' on ' + os;
+      const browserMajor = version ? version.split('.')[0] : '';
+      const browserPart = browserMajor ? (browser + ' ' + browserMajor) : browser;
+      return browserPart + ' on ' + os;
     }
 
     function isMobileDeviceLabel(label) {
@@ -13240,14 +13339,12 @@ html.page-fade-ready body {
       try {
         const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
         if (!idToken) return;
-        // deviceId + deviceLabel are sent so a backend that's been updated
-        // per the BACKEND TODO above can track this one device's presence
-        // separately from the account's other sessions. A backend that
-        // hasn't been updated yet just ignores the extra params -- this
-        // heartbeat behaves exactly as it did before.
+        // deviceId + deviceLabel let the backend track this one device's
+        // presence separately from the account's other sessions -- see
+        // handleHeartbeatGet()/device_presence in Code.gs.
         const params = new URLSearchParams({
           action: 'heartbeat', secret: appsScriptSecret, idToken: idToken,
-          deviceId: getOrCreateDeviceId(), deviceLabel: getDeviceLabel()
+          deviceId: getOrCreateDeviceId(), deviceLabel: await getDeviceLabel()
         });
         const json = await fetchSheetOnce(defaultAppsScriptUrl + '?' + params.toString());
         // An admin used the per-account "Sign out" button on this account
@@ -13608,51 +13705,47 @@ html.page-fade-ready body {
       }
     }
 
-    const WHOAMI_REFRESH_INTERVAL_MS = 15 * 1000;
-    let whoAmIRefreshTimer = null;
-
-    function openWhoAmIModal() {
-      if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
-      const modal = document.getElementById('whoAmIModal');
-      if (modal) modal.classList.remove('hidden');
-      loadActiveAccountsList();
-      // Keep the list current while the modal is actually open, so
-      // someone watching it see accounts come/go in near-real-time
-      // instead of only on open.
-      if (whoAmIRefreshTimer) clearInterval(whoAmIRefreshTimer);
-      whoAmIRefreshTimer = setInterval(loadActiveAccountsList, WHOAMI_REFRESH_INTERVAL_MS);
-    }
-    function closeWhoAmIModal() {
-      const modal = document.getElementById('whoAmIModal');
-      if (modal) modal.classList.add('hidden');
-      if (whoAmIRefreshTimer) { clearInterval(whoAmIRefreshTimer); whoAmIRefreshTimer = null; }
-    }
     // ================= END CURRENTLY ACTIVE =================
 
-    // ================= MY DEVICES (Google-style device manager) =========
-    // Personal, "manage your own sign-ins" panel -- unlike "Who's Logged
-    // In" above (which shows every allow-listed ACCOUNT, editor-only),
-    // this shows every DEVICE currently signed in to *your own* account,
-    // and lets you sign any of them out yourself, no editor permission
-    // needed -- same idea as Google's "Manage your devices" page. Backed
-    // by action=myDevices / action=signOutDevice / action=
-    // signOutAllOtherDevices -- see the BACKEND TODO comment above
-    // sendPresenceHeartbeat() further up for what Code.gs still needs to
-    // implement. Until that backend work lands, this panel degrades
-    // gracefully: it always shows at least "This device" (built from the
-    // browser you're actually using right now), and quietly explains that
-    // other devices will show up here once sign-in activity syncs.
+    // ================= MY DEVICES (merged: your devices + who's logged in) ===
+    // This modal used to be two separate tiles/modals -- "My Devices"
+    // (self-service, your own devices only, no permission needed) and
+    // "Who's Logged In" (every allow-listed ACCOUNT, with Block/Unblock/
+    // Sign out for account managers, via the canManage flag on
+    // action=activeUsers -- see renderActiveAccountsList() above). They're
+    // now one modal opened from one "My Devices" tile, so open/close and
+    // the refresh timer drive BOTH loadMyDevicesList() and
+    // loadActiveAccountsList() together instead of each panel running its
+    // own separate modal/timer.
+    //
+    // "Your devices" section: shows every DEVICE currently signed in to
+    // *your own* account, and lets you sign any of them out yourself, no
+    // editor permission needed -- same idea as Google's "Manage your
+    // devices" page. Backed by action=myDevices / action=signOutDevice /
+    // action=signOutAllOtherDevices. Degrades gracefully if the backend
+    // doesn't support these yet: it always shows at least "This device"
+    // (built from the browser you're actually using right now), and
+    // quietly explains that other devices will show up here once sign-in
+    // activity syncs.
     const MY_DEVICES_REFRESH_INTERVAL_MS = 15 * 1000;
     let myDevicesRefreshTimer = null;
     let myDevicesBackendReady = true; // flips to false the first time action=myDevices comes back unsupported, so we stop nagging with repeat errors
+
+    function refreshMyDevicesModal() {
+      loadMyDevicesList();
+      loadActiveAccountsList();
+    }
 
     function openMyDevicesModal() {
       if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
       const modal = document.getElementById('myDevicesModal');
       if (modal) modal.classList.remove('hidden');
-      loadMyDevicesList();
+      refreshMyDevicesModal();
+      // Keep both lists current while the modal is actually open, so
+      // someone watching it sees devices/accounts come and go in
+      // near-real-time instead of only on open.
       if (myDevicesRefreshTimer) clearInterval(myDevicesRefreshTimer);
-      myDevicesRefreshTimer = setInterval(loadMyDevicesList, MY_DEVICES_REFRESH_INTERVAL_MS);
+      myDevicesRefreshTimer = setInterval(refreshMyDevicesModal, MY_DEVICES_REFRESH_INTERVAL_MS);
     }
     function closeMyDevicesModal() {
       const modal = document.getElementById('myDevicesModal');
@@ -13718,7 +13811,7 @@ html.page-fade-ready body {
     async function loadMyDevicesList() {
       const listEl = document.getElementById('myDevicesList');
       const myDeviceId = getOrCreateDeviceId();
-      const myLabel = getDeviceLabel();
+      const myLabel = await getDeviceLabel();
       try {
         const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
         if (!idToken) { if (listEl) listEl.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">You\u2019re not signed in.</p>'; return; }
@@ -18658,7 +18751,7 @@ html.page-fade-ready body {
       'dataModal', 'exportPickerModal', 'exportPasswordModal',
       'quickLinkPasswordModal', 'editAssignPasswordModal',
       'exitConfirmModal', 'menuOverlay', 'miniCalendarPopup',
-      'branchFilterPanel', 'whoAmIModal', 'auditLogModal', 'myDevicesModal'
+      'branchFilterPanel', 'auditLogModal', 'myDevicesModal'
     ];
 
     function isVisible(el) {
@@ -18838,7 +18931,6 @@ html.page-fade-ready body {
     var OVERLAY_SCOPES = [
       { id: 'authGate', z: 200 },
       { id: 'exitConfirmModal', z: 80 },
-      { id: 'whoAmIModal', z: 70 },
       { id: 'auditLogModal', z: 70 },
       { id: 'myDevicesModal', z: 70 },
       { id: 'exportPasswordModal', z: 70 },
