@@ -13367,10 +13367,25 @@ html.page-fade-ready body {
     // account-wide flag) and return e.g. { forceSignOutDevice: true } so
     // sendPresenceHeartbeat() below can sign this one device out locally
     // without touching any of the account's other sessions.
-    const PRESENCE_HEARTBEAT_INTERVAL_MS = 45 * 1000;
+    // QUOTA FIX: was 45s, and fired unconditionally even while the tab
+    // sat backgrounded/minimized all day -- see the "SILENT BACKGROUND
+    // AUTO-REFRESH" section further down, which already skips its own
+    // tick while document.hidden. This timer now does the same (skip the
+    // request entirely while hidden) instead of burning a heartbeat --
+    // and therefore an Apps Script urlfetch call -- every 45s for every
+    // signed-in tab nobody is even looking at. handleVisibilityChange()
+    // below still fires an immediate catch-up heartbeat the moment the
+    // tab becomes visible again, so "Currently Active" / forced sign-out
+    // still take effect promptly -- this only skips the *background*
+    // polling, not the responsiveness. Interval also raised 45s -> 90s:
+    // PRESENCE_ACTIVE_WINDOW_MS (2 min, Code.gs) comfortably tolerates a
+    // couple of missed beats, so this halves steady-state volume with no
+    // visible difference in the "Currently Active" list.
+    const PRESENCE_HEARTBEAT_INTERVAL_MS = 90 * 1000;
     let presenceHeartbeatTimer = null;
 
     async function sendPresenceHeartbeat() {
+      if (document.hidden) return; // don't burn a urlfetch call while backgrounded
       try {
         const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
         if (!idToken) return;
@@ -13692,23 +13707,30 @@ html.page-fade-ready body {
     // you having to open the panel and hit refresh to find out. One
     // poller hitting the combined action=myDevicesBundle endpoint.
     //
-    // QUOTA FIX (REVIEW PATCH #3, code.gs): this was 10s. code.gs's own
-    // patch notes flagged this exact interval as the single biggest
-    // remaining contributor to exhausting Apps Script's daily urlfetch
-    // quota ("Service invoked too many times for one day: urlfetch"),
-    // since it runs continuously for every signed-in user all day, every
-    // day -- but the change was only ever applied on the backend (cache
-    // TTLs, memoized getFirestoreClient()), never here. Raising it to 30s
-    // cuts this poller's request volume 3x with barely any difference in
-    // how "live" the presence list feels, and comfortably exceeds the
-    // backend caches' TTLs (20-30s) so most polls are still served
-    // straight from CacheService instead of a live Firestore round trip.
-    const ACTIVE_USERS_WATCH_INTERVAL_MS = 30 * 1000;
+    // QUOTA FIX (REVIEW PATCH #3, code.gs): this was 10s, then raised to
+    // 30s. code.gs's own patch notes flagged this exact interval as the
+    // single biggest remaining contributor to exhausting Apps Script's
+    // daily urlfetch quota ("Service invoked too many times for one day:
+    // urlfetch"), since it runs continuously for every signed-in user all
+    // day, every day, whether or not the "My Devices" panel is ever
+    // opened. Two more changes on top of the earlier 30s bump:
+    //   - raised again to 60s (still comfortably above the backend
+    //     caches' 20-30s TTLs, so most polls still hit CacheService
+    //     instead of a live Firestore round trip)
+    //   - skips the request entirely while document.hidden, same as
+    //     sendPresenceHeartbeat() above and silentRefreshTick() further
+    //     down -- a background tab nobody is looking at was previously
+    //     the single biggest source of wasted urlfetch calls, since
+    //     neither timer paused for it. handleVisibilityChange() below
+    //     fires an immediate catch-up poll on return so "new device
+    //     signed in" / "X just signed in" alerts don't lag noticeably.
+    const ACTIVE_USERS_WATCH_INTERVAL_MS = 60 * 1000;
     let presenceWatchTimer = null;
     let previouslyActiveEmails = null; // null = haven't taken a baseline reading yet
     let previouslyKnownDeviceIds = null; // null = haven't taken a baseline reading yet
 
     async function pollPresenceForAlerts() {
+      if (document.hidden) return; // don't burn a urlfetch call while backgrounded
       try {
         const myDeviceId = getOrCreateDeviceId();
         const bundle = await fetchPresenceBundle(myDeviceId);
@@ -13766,6 +13788,12 @@ html.page-fade-ready body {
       previouslyActiveEmails = null;
       previouslyKnownDeviceIds = null;
     }
+    // Exposed on window (same pattern as window.sendPresenceHeartbeat
+    // above) so the visibilitychange handler in the separate <script
+    // type="module"> block below -- a different scope -- can trigger an
+    // immediate catch-up poll the moment the tab becomes visible again,
+    // now that pollPresenceForAlerts() skips its own tick while hidden.
+    window.pollPresenceForAlerts = pollPresenceForAlerts;
     // ================= END LIVE PRESENCE WATCHER =================
 
     // One delegated listener for every Sign out / Block / Unblock button
@@ -18797,6 +18825,12 @@ html.page-fade-ready body {
         // device" / "Sign out all other devices" actually take effect
         // promptly rather than only eventually.
         if (window.sendPresenceHeartbeat) window.sendPresenceHeartbeat();
+        // Same catch-up idea for the "who's logged in / new device"
+        // watcher (see ACTIVE_USERS_WATCH_INTERVAL_MS above) -- it also
+        // now skips its own tick while hidden, so without this it would
+        // otherwise wait up to a full 60s after the tab becomes visible
+        // again before noticing anything changed while it was backgrounded.
+        if (window.pollPresenceForAlerts) window.pollPresenceForAlerts();
       }
     }
 
