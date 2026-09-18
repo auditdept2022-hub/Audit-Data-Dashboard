@@ -4907,7 +4907,38 @@ html.page-fade-ready body {
               lines.push('Backend replied with an error: "' + json.error + '"');
               lines.push('');
               if (/unauthorized/i.test(json.error)) {
-                lines.push('Result: The server IS reachable and fast — this is an authorization problem, not a speed problem. Check that: (1) the shared secret in this page matches API_SHARED_SECRET in Script Properties, and (2) this signed-in email is on the correct allowlist in Code.gs.');
+                lines.push('This generic "Unauthorized" can mean either the shared secret is wrong OR the ID token failed server-side verification — both fail the same way on purpose. Running a follow-up check that tells them apart\u2026');
+                loadingDiagResult.textContent = lines.join('\n');
+                try {
+                  let diagUrl = defaultAppsScriptUrl + '?action=diagnoseAuth&idToken=' + encodeURIComponent(idToken);
+                  if (typeof appsScriptSecret !== 'undefined' && appsScriptSecret) {
+                    diagUrl += '&secret=' + encodeURIComponent(appsScriptSecret);
+                  }
+                  const diagRes = await fetch(diagUrl);
+                  const diagJson = await diagRes.json();
+                  const d = diagJson && diagJson.diagnosis;
+                  if (d) {
+                    lines.push('');
+                    lines.push('Secret configured on server: ' + (d.secretConfigured ? 'yes' : 'NO — API_SHARED_SECRET is not set in Script Properties'));
+                    lines.push('Secret matches this page\u2019s value: ' + (d.secretMatches ? 'YES' : 'NO — the value in index.html does not match API_SHARED_SECRET in Script Properties'));
+                    lines.push('FIREBASE_WEB_API_KEY configured on server: ' + (d.firebaseWebApiKeyConfigured ? 'yes' : 'NO — set it in Script Properties'));
+                    lines.push('Token verification: ' + d.tokenVerification + (d.tokenVerificationDetail ? ' — ' + d.tokenVerificationDetail : ''));
+                    if (d.verifiedEmail) lines.push('Token verified for: ' + d.verifiedEmail);
+                    lines.push('');
+                    if (!d.secretMatches) {
+                      lines.push('Result: THE SECRET IS THE PROBLEM. Update either index.html\u2019s appsScriptSecret or the API_SHARED_SECRET Script Property so they match exactly (no extra spaces/quotes).');
+                    } else if (d.tokenVerification !== 'OK') {
+                      lines.push('Result: THE ID TOKEN IS THE PROBLEM. See the token verification detail above — a mismatched FIREBASE_WEB_API_KEY (wrong Firebase project) or an invalid/expired token are the usual causes.');
+                    } else {
+                      lines.push('Result: Secret and token both check out here, so the original failure was likely transient (e.g. a stale token at that exact moment). Try the test again.');
+                    }
+                  } else {
+                    lines.push('Follow-up diagnostic check itself failed — add the diagnoseAuth action to Code.gs (see chat) and redeploy, then re-run this test.');
+                  }
+                } catch (diagErr) {
+                  lines.push('');
+                  lines.push('Follow-up diagnostic check failed to run: ' + (diagErr && diagErr.message ? diagErr.message : diagErr) + ' — add the diagnoseAuth action to Code.gs (see chat) and redeploy, then re-run this test.');
+                }
               } else {
                 lines.push('Result: The server is reachable but rejected the request. See the message above.');
               }
