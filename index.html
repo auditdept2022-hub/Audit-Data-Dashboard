@@ -7204,9 +7204,22 @@ html.page-fade-ready body {
       return false;
     }
 
-    // Authorization check happens first (see checkEditAssignAuthorization
-    // above) — only once that clears does the password gate open, same
-    // order as the Add Audit Finding flow.
+    // SPEED FIX: this used to await checkEditAssignAuthorization() -- a
+    // network round trip (fetchSheetOnce -> Apps Script -> Firebase token
+    // check) -- BEFORE opening the password gate. That made "Save
+    // Assignment" look frozen for a second or more on every click that
+    // missed the 4-minute editAssignAuthCache (the first save after
+    // opening the dashboard, or any save more than 4 minutes after the
+    // last one). The check has no security value of its own -- Code.gs
+    // re-checks isAuthorizedEditor on every saveAssignment call
+    // regardless, so an unauthorized person's save is rejected server-side
+    // either way -- it's purely a "don't make someone type their password
+    // just to be told no afterward" convenience. So the gate now opens
+    // immediately and the check runs in parallel: if it comes back
+    // unauthorized while the gate is still open and untouched, the gate is
+    // closed for them with the same toast checkEditAssignAuthorization()
+    // already shows; if they already passed the password step and the
+    // save is underway, there's nothing left for this to do.
     async function submitEditAssignment(branchName) {
       const val = id => (document.getElementById(id) || {}).value || '';
       const upNextAuditorVal = val('editAssign-upNextAuditor');
@@ -7219,10 +7232,14 @@ html.page-fade-ready body {
               date: val(`editAssign-date${n}`)
           }))
       };
-      const authorized = await checkEditAssignAuthorization();
-      if (!authorized) return;
-      pendingEditAssignment = { branchName: branchName, fields: fields };
+      const myPending = { branchName: branchName, fields: fields };
+      pendingEditAssignment = myPending;
       openEditAssignPasswordGate(branchName);
+
+      const authorized = await checkEditAssignAuthorization();
+      if (!authorized && pendingEditAssignment === myPending) {
+        window.cancelEditAssignPassword();
+      }
     }
 
     function openEditAssignPasswordGate(branchName) {
@@ -16944,21 +16961,27 @@ html.page-fade-ready body {
     window.overallDataPayload = null;
     window.overallDataPayloadFetchedAt = 0;
     window.overallDataState = { tab: 'collection', search: '', statusFilter: null, sortCol: null, sortDir: 'asc', chartMetrics: [], chartExpanded: false };
-    // SPEED FIX: this used to be 20000 (20s), so almost every single tap
-    // of the "Overall Data Snapshot" card triggered a fresh Apps
-    // Script call (JSONP round trip + possible cold start = several
+    // SPEED FIX (original): this used to be 20000 (20s), so almost every
+    // single tap of the "Overall Data Snapshot" card triggered a fresh
+    // Apps Script call (JSONP round trip + possible cold start = several
     // seconds), which is what "super slow to load" was actually caused
-    // by. OVERALL DATA only ever changes when someone runs "Update
-    // Sheet" (updateOverallDataFromMenu), and that flow explicitly wipes
-    // BOTH this in-memory copy (see its success handler below) and the
-    // Apps Script-side cache (clearOverallDataCache() in Code.gs) the
-    // moment it finishes — so there is no real staleness risk in keeping
-    // this around far longer. Matches the backend's own cache ceiling
-    // (Apps Script's CacheService max TTL is 21600s / 6h) so client and
-    // server agree on "how long is this safely reusable" instead of the
-    // client re-fetching a value the server would have served from cache
-    // anyway.
-    const OVERALL_DATA_CLIENT_CACHE_MS = 21600000; // 6 hours
+    // by. It was then raised all the way to 6 hours on the theory that
+    // OVERALL DATA only ever changes via "Update Sheet"
+    // (updateOverallDataFromMenu), which explicitly wipes this in-memory
+    // copy the moment it finishes.
+    //
+    // LIVE-SYNC FIX: that theory missed direct edits made straight in
+    // Google Sheets (bypassing the app), which never wipe this in-memory
+    // copy — so an already-open tab could keep showing numbers up to 6
+    // hours old. Code.gs's getOverallDataStructuredCached() now checks the
+    // sheet's real modified time on every request, so a re-fetch is cheap
+    // (served from the backend's own cache) whenever nothing has actually
+    // changed. That makes it safe to shrink this back down — 5 minutes,
+    // matching the main dashboard's AUTO_REFRESH_INTERVAL_MS — so an
+    // open "Overall Data Snapshot" modal or card catches up to someone
+    // else's edit within a few minutes instead of hours, without paying
+    // for a fresh Apps Script round trip on every single tap.
+    const OVERALL_DATA_CLIENT_CACHE_MS = 5 * 60 * 1000; // 5 minutes
 
     // SPEED FIX: warm the in-memory cache in the background shortly after
     // the main dashboard finishes its first load, so by the time someone
