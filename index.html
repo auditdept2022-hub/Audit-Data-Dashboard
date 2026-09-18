@@ -18030,10 +18030,51 @@ html.page-fade-ready body {
       }
     }
 
+    // SPEED FIX (this review) — "every logout/login takes longer to load":
+    // the cache used to live under one single, shared key. Combined with
+    // clearDashboardDataOnSignOut() wiping that key on every sign-out (see
+    // below), that meant the loading screen's fast path
+    // (loadInitialDashboardData: "show cached data instantly, refresh
+    // quietly in the background" — see that function above) NEVER had
+    // anything to work with right after a sign-out, even for the exact
+    // same person logging straight back in a moment later. Every single
+    // logout->login cycle was forced into the slow, nothing-cached branch:
+    // a blocking loading screen sitting through a full Apps Script round
+    // trip (and its retry/backoff ladder if that round trip is slow or
+    // flaky), instead of the instant reveal a plain page refresh already
+    // gets.
+    //
+    // Fix: scope the cache PER SIGNED-IN EMAIL (dashCacheKeyFor below)
+    // instead of one shared key, and (see PERSIST_DASHBOARD_CACHE_ACROSS_SIGNOUT
+    // further down) stop deleting it on sign-out by default. That means:
+    //   - The SAME person signing back in — by far the common case — finds
+    //     their own cached data waiting and gets the fast, instant-reveal
+    //     path every time, exactly like a plain reload.
+    //   - A DIFFERENT person signing in on that same browser gets their
+    //     OWN separately-scoped cache (empty the first time), and can
+    //     never be shown the previous person's cached data, because the
+    //     storage key simply doesn't match their email.
+    function dashCacheKeyFor(email) {
+      const key = String(email || '').toLowerCase().trim();
+      return key ? (DASH_CACHE_KEY + ':' + key) : DASH_CACHE_KEY;
+    }
+    function dashCacheTsKeyFor(email) {
+      const key = String(email || '').toLowerCase().trim();
+      return key ? (DASH_CACHE_TS_KEY + ':' + key) : DASH_CACHE_TS_KEY;
+    }
+    function currentCacheOwnerEmail() {
+      try {
+        return (window.getCurrentUserEmail && window.getCurrentUserEmail()) || '';
+      } catch (e) {
+        return '';
+      }
+    }
+
     function saveDashboardDataToCache() {
         try {
-            localStorage.setItem(DASH_CACHE_KEY, JSON.stringify(activeData));
-            localStorage.setItem(DASH_CACHE_TS_KEY, new Date().toISOString());
+            const email = currentCacheOwnerEmail();
+            localStorage.setItem(dashCacheKeyFor(email), JSON.stringify(activeData));
+            localStorage.setItem(dashCacheTsKeyFor(email), new Date().toISOString());
             updateLastSyncedLabel();
         } catch (e) {
             console.warn('Could not save dashboard data to local cache:', e);
@@ -18042,7 +18083,8 @@ html.page-fade-ready body {
 
     function loadDashboardDataFromCache() {
         try {
-            const cached = localStorage.getItem(DASH_CACHE_KEY);
+            const email = currentCacheOwnerEmail();
+            const cached = localStorage.getItem(dashCacheKeyFor(email));
             if (!cached) return null;
             const parsed = JSON.parse(cached);
             if (parsed && Array.isArray(parsed.branches) && parsed.branches.length > 0) return parsed;
@@ -18055,7 +18097,7 @@ html.page-fade-ready body {
     function updateLastSyncedLabel() {
         const el = document.getElementById('lastSyncedLabel');
         if (!el) return;
-        const ts = localStorage.getItem(DASH_CACHE_TS_KEY);
+        const ts = localStorage.getItem(dashCacheTsKeyFor(currentCacheOwnerEmail()));
         if (!ts) { el.textContent = ''; return; }
         const d = new Date(ts);
         el.textContent = 'Last synced ' + d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
@@ -18253,14 +18295,38 @@ html.page-fade-ready body {
       }
     };
 
+    // SPEED vs SECURITY — see the big comment above dashCacheKeyFor().
+    // Set this to `false` if this dashboard is ever used on a genuinely
+    // shared/public computer and every sign-out should fully erase the
+    // local cache (the old, always-wipe behavior) rather than keep it
+    // around, scoped per email, so the SAME person's next login is fast.
+    // With this left `true` (the default): a person's cached dashboard
+    // JSON does still sit in this specific browser's localStorage after
+    // they sign out (it's just never shown to anyone signing in with a
+    // different email) — fine for a personal or shared-among-trusted-
+    // coworkers device, not for a walk-up public kiosk.
+    const PERSIST_DASHBOARD_CACHE_ACROSS_SIGNOUT = true;
+
     // SECURITY: called from the Firebase auth logic right after sign-out.
-    // Clears the in-memory data and the localStorage cache so a signed-out
-    // session (or the next person on a shared computer) can't read the
-    // previous user's audit data back out of devtools/localStorage.
+    // Clears the in-memory data always. Whether it also clears the
+    // localStorage cache depends on PERSIST_DASHBOARD_CACHE_ACROSS_SIGNOUT
+    // above.
     window.clearDashboardDataOnSignOut = function() {
       try {
-        localStorage.removeItem(DASH_CACHE_KEY);
-        localStorage.removeItem(DASH_CACHE_TS_KEY);
+        if (!PERSIST_DASHBOARD_CACHE_ACROSS_SIGNOUT) {
+          // Sweep every dashboard cache entry this browser has ever
+          // written (there can be more than one email's worth, on a
+          // machine several people have signed into over time) rather
+          // than just the just-signed-out user's — by the time this runs,
+          // auth.currentUser is already null, so there's no single
+          // "current" email left to target anyway.
+          const toRemove = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && (k.indexOf(DASH_CACHE_KEY) === 0 || k.indexOf(DASH_CACHE_TS_KEY) === 0)) toRemove.push(k);
+          }
+          toRemove.forEach(function(k) { localStorage.removeItem(k); });
+        }
       } catch (e) {
         console.warn('Could not clear cached dashboard data:', e);
       }
