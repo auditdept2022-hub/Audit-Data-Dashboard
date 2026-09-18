@@ -11657,9 +11657,9 @@ html.page-fade-ready body {
     function buildTopPerformersList(top5, valueFn, accentColor, label) {
       if (!top5 || top5.length === 0) return '';
       const rows = top5.map((b, i) => `
-        <div onclick="openModalDetail('${String(b.name).replace(/'/g, "\\'")}')" role="button" tabindex="0" title="View ${b.name}'s detailed profile" class="flex-shrink-0 flex items-center gap-1.5 text-[11px] bg-slate-200 border border-slate-300 rounded-lg px-2 py-1 cursor-pointer active:scale-95 transition-all hover:bg-white hover:border-${accentColor}/50 hover:shadow-sm max-w-[170px]">
+        <div onclick="openModalDetail('${String(b.name).replace(/'/g, "\\'")}')" role="button" tabindex="0" title="View ${b.name}'s detailed profile" class="flex-shrink-0 flex items-center gap-1.5 text-[11px] bg-slate-200 border border-slate-300 rounded-lg px-2 py-1 cursor-pointer active:scale-95 transition-all hover:bg-white hover:border-${accentColor}/50 hover:shadow-sm">
           <span class="flex-shrink-0 w-4 h-4 rounded-full bg-${accentColor}/20 text-${accentColor} font-bold text-[9px] flex items-center justify-center">${i + 1}</span>
-          <span class="truncate font-semibold text-slate-700">${b.name}</span>
+          <span class="whitespace-nowrap font-semibold text-slate-700">${b.name}</span>
           <span class="flex-shrink-0 text-${accentColor} font-bold">${valueFn(b)}</span>
         </div>`).join('');
       return `
