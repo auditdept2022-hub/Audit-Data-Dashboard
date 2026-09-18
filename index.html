@@ -4533,13 +4533,33 @@ html.page-fade-ready body {
       // loading screen spinning "Still working on it..." forever with no
       // way out. Called from the data layer (loadInitialDashboardData's
       // retry loop giving up, or the retry button failing again).
+      // FIX (quota-vs-auth mixup): Apps Script's daily urlfetch quota is a
+      // SHARED, project-wide budget. When it's exhausted, the backend's own
+      // call to verify the Firebase ID token can't reach Google (that check
+      // itself uses urlfetch) and quietly reports the exact same generic
+      // "Unauthorized" text as a genuinely bad/expired sign-in -- there was
+      // no way to tell them apart here. That's what produced the
+      // "sometimes, on a random device, looks like a sign-in problem"
+      // pattern: whichever device happened to be polling when the shared
+      // quota ran out got misdiagnosed as unauthorized, even though its
+      // account and token were completely fine. window.__isQuotaLikeError
+      // below also matches the raw "Service invoked too many times for one
+      // day: urlfetch" text that other endpoints (heartbeat, activeUsers,
+      // etc.) pass straight through from Code.gs's own catch blocks.
+      window.__isQuotaLikeError = function(msg) {
+        return /too many times|urlfetch|quota exceeded|temporarily at capacity/i.test(String(msg || ''));
+      };
+
       window.__showDashboardLoadError = function(err) {
         stopProgress();
         clearStuckTimer();
         const msg = (err && err.message) ? String(err.message) : '';
-        const isAuthIssue = /unauthorized/i.test(msg) || /not signed in/i.test(msg);
+        const isQuotaIssue = window.__isQuotaLikeError(msg);
+        const isAuthIssue = !isQuotaIssue && (/unauthorized/i.test(msg) || /not signed in/i.test(msg));
         if (loadingErrorMessageEl) {
-          loadingErrorMessageEl.textContent = isAuthIssue
+          loadingErrorMessageEl.textContent = isQuotaIssue
+            ? "The dashboard is temporarily at capacity (a shared daily request limit was reached) -- this isn't a problem with your account. It usually clears up on its own within a few minutes; please try again shortly."
+            : isAuthIssue
             ? "Your account isn't authorized to view this dashboard, or your sign-in expired. Try signing in again, or contact whoever manages access."
             : "We couldn't reach the data source after several tries. Check your connection and try again.";
         }
@@ -18113,6 +18133,28 @@ html.page-fade-ready body {
 
         function scheduleInitialRetry(err) {
           if (mySession !== initialLoadGeneration) return;
+          const msg = (err && err.message) ? String(err.message) : '';
+          // FIX (quota-vs-auth mixup): a "quota-like" error (Apps Script's
+          // shared daily urlfetch budget exhausted -- see
+          // window.__isQuotaLikeError above) can come back looking exactly
+          // like "Unauthorized" once it's passed through the backend's
+          // token-verification catch block, even though nothing is wrong
+          // with this account or its sign-in. The old 3-quick-retries-then-
+          // terminal path below was tuned for a one-off network hiccup
+          // (clears in a second or two), not a shared quota outage (can
+          // take longer to clear, and hammering it faster doesn't help).
+          // Route anything quota-shaped into the SAME patient backoff loop
+          // used for ordinary retryable failures instead of the short
+          // terminal-check window, so a device isn't falsely told "you're
+          // not authorized" a few seconds into what's actually a
+          // project-wide, temporary capacity issue.
+          if (window.__isQuotaLikeError(msg)) {
+            if (attemptCount >= MAX_INITIAL_ATTEMPTS) { giveUp(err); return; }
+            console.log('[dashboard-timing] quota-like error on attempt ' + attemptCount + ' -- retrying with normal backoff (' + Math.round(retryDelay) + 'ms), not treating as an auth failure');
+            setTimeout(attemptInitialLoad, retryDelay);
+            retryDelay = Math.min(retryDelay * 1.5, MAX_RETRY_DELAY_MS);
+            return;
+          }
           if (isTerminalDashboardError(err)) {
             // FIX: the backend replies with the exact same "Unauthorized"
             // text whether the signed-in account is genuinely not
@@ -18124,12 +18166,16 @@ html.page-fade-ready body {
             // the loading screen from a single transient glitch -- the
             // only way out was a manual page refresh, which simply reset
             // this retry budget and let a fresh attempt succeed. Retrying
-            // a couple of times first (quickly, not the full backoff)
-            // lets a real glitch clear on its own; a genuinely unauthorized
+            // a few times first (quickly, not the full backoff) lets a
+            // real glitch clear on its own; a genuinely unauthorized
             // account will just fail the same way again and still end up
-            // at the real error screen a couple seconds later.
-            if (attemptCount < 3) {
-              console.log('[dashboard-timing] got "' + (err && err.message) + '" on attempt ' + attemptCount + ' -- retrying a couple times before treating it as terminal');
+            // at the real error screen shortly after.
+            // Widened from 3 to 5 quick attempts (~9s instead of ~4.5s) --
+            // long enough to ride out a slightly slower transient hiccup
+            // without meaningfully lengthening how fast a genuinely bad
+            // sign-in is reported.
+            if (attemptCount < 5) {
+              console.log('[dashboard-timing] got "' + msg + '" on attempt ' + attemptCount + ' -- retrying a few times before treating it as terminal');
               setTimeout(attemptInitialLoad, 1500);
               return;
             }
