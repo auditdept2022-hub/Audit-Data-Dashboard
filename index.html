@@ -16753,18 +16753,60 @@ html.page-fade-ready body {
     // pays that cost; every visit after that goes straight to the
     // transport that's already known to work, with no probing/racing at
     // all. Still just 'direct' | 'jsonp' | null.
+    // BUG FIX (desktop-only "very slow" loads): this used to store just a
+    // bare 'direct' | 'jsonp' string with NO expiry, forever. On a network
+    // where a plain fetch() to the Apps Script domain doesn't fail fast
+    // (no immediate CORS rejection) but instead hangs silently -- common
+    // behind corporate/desktop firewalls, proxies, or SSL-inspecting
+    // security software that a phone's cellular/personal-wifi connection
+    // never goes through -- 'direct' could get learned once (e.g. it
+    // happened to work at that moment) and then stay stuck forever on
+    // that one desktop browser. Every subsequent load then tried the
+    // (now-hanging) direct fetch FIRST and had to sit through its full
+    // DIRECT_FETCH_TIMEOUT_MS before falling back to JSONP -- the working
+    // transport -- which is exactly a "slow on this desktop, fine on
+    // phone" symptom, since the two devices independently learn and cache
+    // their own answer.
+    //
+    // Two changes:
+    //   1. The stored value now carries a timestamp and expires after
+    //      LEARNED_TRANSPORT_TTL_MS, so a bad "learned" answer can only
+    //      ever cost extra time for a bounded window before it's
+    //      re-probed (and JSONP-first, see below) instead of forever.
+    //   2. See FAST_PATH_DIRECT_TIMEOUT_MS below: a *previously learned*
+    //      'direct' is now given a much shorter leash than a first-ever,
+    //      never-tried-before direct call -- if it was really going to
+    //      work it will answer quickly, and if it hangs we fail over to
+    //      JSONP far sooner instead of waiting out the full cold-start
+    //      budget every single time.
     const LEARNED_TRANSPORT_KEY = 'auditDashboard_learnedTransport';
+    const LEARNED_TRANSPORT_TTL_MS = 60 * 60 * 1000; // re-probe at most hourly
     let learnedTransport = (function() {
       try {
-        const v = localStorage.getItem(LEARNED_TRANSPORT_KEY);
-        return (v === 'direct' || v === 'jsonp') ? v : null;
+        const raw = localStorage.getItem(LEARNED_TRANSPORT_KEY);
+        if (!raw) return null;
+        // Back-compat: earlier versions stored the bare string with no
+        // timestamp/expiry -- treat that as "expired immediately" so it
+        // gets re-probed once under the new logic instead of trusting an
+        // answer of unknown age forever.
+        if (raw === 'direct' || raw === 'jsonp') return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || (parsed.v !== 'direct' && parsed.v !== 'jsonp')) return null;
+        if (!parsed.ts || (Date.now() - parsed.ts) > LEARNED_TRANSPORT_TTL_MS) return null;
+        return parsed.v;
       } catch (e) {
         return null;
       }
     })();
     function setLearnedTransport(v) {
       learnedTransport = v;
-      try { localStorage.setItem(LEARNED_TRANSPORT_KEY, v || ''); } catch (e) { /* ignore */ }
+      try {
+        if (v) {
+          localStorage.setItem(LEARNED_TRANSPORT_KEY, JSON.stringify({ v: v, ts: Date.now() }));
+        } else {
+          localStorage.removeItem(LEARNED_TRANSPORT_KEY);
+        }
+      } catch (e) { /* ignore */ }
     }
 
     // Timeouts were previously 6s (direct) / 7s (JSONP), which is too
@@ -16784,6 +16826,19 @@ html.page-fade-ready body {
     // backend would have answered a few seconds later.
     const DIRECT_FETCH_TIMEOUT_MS = 25000;
     const JSONP_FETCH_TIMEOUT_MS = 28000;
+
+    // BUG FIX: a previously-LEARNED 'direct' transport (see
+    // LEARNED_TRANSPORT_TTL_MS above) used to reuse the full, cold-start-
+    // sized DIRECT_FETCH_TIMEOUT_MS (25s) on every single load. If direct
+    // fetches to this Apps Script deployment hang on a given desktop's
+    // network (rather than failing fast) instead of genuinely needing 25s
+    // to answer, that meant EVERY load on that machine silently ate a
+    // 25-second stall before falling back to JSONP -- the "very slow on
+    // desktop" symptom. A connection that's already proven itself once
+    // should answer quickly on a repeat call; if it doesn't, that's a
+    // strong signal something's wrong with it right now, so fail over to
+    // JSONP much sooner instead of waiting out the full budget again.
+    const FAST_PATH_DIRECT_TIMEOUT_MS = 8000;
 
     // Heavier write actions (currently: Update Sheet / updateOverallData)
     // aren't a simple data read — they can insert columns and backfill
@@ -16837,8 +16892,14 @@ html.page-fade-ready body {
         }
       }
       if (learnedTransport === 'direct') {
+        // Only apply the shortened fast-path budget to the DEFAULT
+        // (read) timeout -- a caller that explicitly asked for the heavy
+        // write budget (timeouts.directMs, e.g. Update Sheet) still gets
+        // the full time it asked for, since that one genuinely can take
+        // longer than a normal load.
+        const fastDirectMs = (timeouts && timeouts.directMs) ? directMs : Math.min(directMs, FAST_PATH_DIRECT_TIMEOUT_MS);
         try {
-          return handleBlockedAccountResponse(await fetchDirect(url, directMs));
+          return handleBlockedAccountResponse(await fetchDirect(url, fastDirectMs));
         } catch (err) {
           setLearnedTransport(null);
           return await fetchJSONP(url, jsonpMs).then(function(d) { setLearnedTransport('jsonp'); return handleBlockedAccountResponse(d); });
