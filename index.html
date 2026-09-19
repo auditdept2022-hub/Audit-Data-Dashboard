@@ -3931,7 +3931,7 @@ html.page-fade-ready body {
     }
   </style>
 
-  <div id="loadingScreen" class="fixed inset-0 z-[9999] hidden flex-col items-center justify-end" style="display:none; opacity:1; transition: opacity .2s ease;">
+  <div id="loadingScreen" class="fixed inset-0 z-[9999] hidden flex-col items-center justify-end" style="display:none; opacity:1; transition: opacity .15s ease;">
 
     <div id="loadingCore" class="absolute inset-0 flex flex-col items-center justify-end">
       <!-- Animated sunset -> night -> sunrise sky -->
@@ -4438,7 +4438,16 @@ html.page-fade-ready body {
       // story rather than a flash, so every loading screen — first sign-in
       // or a manual retry — stays up for at least this long even if the
       // data itself is ready sooner.
-      const MIN_LOADING_MS = 900; // SPEED FIX: was 1800 -- see comment above the #loadingScreen CSS block
+      // SPEED FIX (this review): was 900 (already cut down once before from
+      // 1800). Still a real, user-reported "every single login feels slow"
+      // complaint even with cached data ready instantly -- this floor was
+      // the single biggest fixed cost on EVERY login regardless of device
+      // or network. Cut further to 400ms: still reads as a deliberate
+      // "ready" beat for the storm/rider scene above, not a jump-cut, but
+      // no longer adds most of a second of dead time to every sign-in.
+      // If you'd rather keep the fuller story-length scene, raise this
+      // back up -- it's purely a UX/speed trade-off, not a bug fix.
+      const MIN_LOADING_MS = 400;
       const STATUS_MESSAGES = [
         'Connecting to secure server\u2026',
         'Fetching latest audit records\u2026',
@@ -4577,13 +4586,12 @@ html.page-fade-ready body {
         stopProgress();
         clearStuckTimer();
         loadingStatusEl.textContent = readyText || 'Dashboard ready!';
-        // SPEED FIX: this "ready" hold + the opacity fade were both fixed
-        // at 350ms (700ms total dead time on every single reveal, even
-        // when data was already sitting in cache and ready instantly).
-        // Shortened to a snappier 220ms hold + a 200ms fade (matching the
-        // #loadingScreen CSS transition duration below) — still reads as
-        // a deliberate "ready" beat, not a jump-cut, just without padding
-        // out every load by an extra third of a second for no reason.
+        // SPEED FIX (this review): was 220ms hold + 200ms fade (420ms total
+        // dead time on every single reveal, on top of MIN_LOADING_MS
+        // above) — cut to 100ms + 150ms. IMPORTANT: the CSS transition
+        // duration on #loadingScreen must match the fade value here (150ms)
+        // or the fade will look like a jump-cut instead of a smooth
+        // dissolve — check the #loadingScreen CSS block if you change this.
         setTimeout(function() {
           if (token !== undefined && token !== generation) return;
           loadingScreen.style.opacity = '0';
@@ -4597,8 +4605,8 @@ html.page-fade-ready body {
               dashEl.classList.add('dash-reveal');
               setTimeout(function() { dashEl.classList.remove('dash-reveal'); }, 1300);
             }
-          }, 200);
-        }, 220);
+          }, 150);
+        }, 100);
       }
 
       // Closes the loading screen immediately without the "ready" success
@@ -4613,7 +4621,7 @@ html.page-fade-ready body {
           loadingScreen.style.display = 'none';
           loadingScreen.classList.add('hidden');
           document.body.style.overflow = '';
-        }, 200);
+        }, 150);
       }
 
       // Plain, non-animated cover used only for the fast-return flow
@@ -4645,7 +4653,7 @@ html.page-fade-ready body {
           loadingScreen.classList.add('hidden');
           document.body.style.overflow = '';
           loadingCore.classList.remove('hidden'); // restore scene for any later, non-fast-return load
-        }, 200);
+        }, 150);
       }
 
       // Rather than giving up and showing a scary "Couldn't load the
@@ -13417,7 +13425,23 @@ html.page-fade-ready body {
     // couple of missed beats, so this halves steady-state volume with no
     // visible difference in the "Currently Active" list.
     const PRESENCE_HEARTBEAT_INTERVAL_MS = 90 * 1000;
+    // JITTER FIX: with N signed-in tabs all started via setInterval(fn, 90000),
+    // every tab that signed in around the same moment (e.g. everyone opening
+    // the dashboard at 9:00am) keeps beating in lockstep on that same 90s
+    // wall-clock cadence indefinitely -- so at scale (50-100 users) the
+    // heartbeat requests arrive at the backend in synchronized bursts every
+    // 90s instead of being spread out, which is worse for Apps Script
+    // concurrent-execution limits than the same total request volume spread
+    // evenly. Added +/-15s (~17%) random jitter per tick, recomputed each
+    // time via setTimeout (not setInterval, so jitter doesn't fight a fixed
+    // period) so 100 tabs converge on a smear instead of a spike. Purely a
+    // scheduling change -- does not alter what a heartbeat does or how often
+    // it happens on average.
+    const PRESENCE_HEARTBEAT_JITTER_MS = 15 * 1000;
     let presenceHeartbeatTimer = null;
+    function nextHeartbeatDelay() {
+      return PRESENCE_HEARTBEAT_INTERVAL_MS + (Math.random() * 2 - 1) * PRESENCE_HEARTBEAT_JITTER_MS;
+    }
 
     async function sendPresenceHeartbeat() {
       if (document.hidden) return; // don't burn a urlfetch call while backgrounded
@@ -13455,13 +13479,22 @@ html.page-fade-ready body {
         console.warn('[presence] heartbeat failed:', err && err.message ? err.message : err);
       }
     }
+    function scheduleNextHeartbeat() {
+      presenceHeartbeatTimer = setTimeout(async function () {
+        await sendPresenceHeartbeat();
+        // Re-check: sendPresenceHeartbeat can trigger __dashboardSignOut(),
+        // which calls stopPresenceHeartbeat() and nulls the timer -- don't
+        // resurrect the loop after a sign-out that happened mid-tick.
+        if (presenceHeartbeatTimer !== null) scheduleNextHeartbeat();
+      }, nextHeartbeatDelay());
+    }
     function startPresenceHeartbeat() {
       if (presenceHeartbeatTimer) return; // already running
       sendPresenceHeartbeat(); // send one immediately on sign-in, don't wait a full interval
-      presenceHeartbeatTimer = setInterval(sendPresenceHeartbeat, PRESENCE_HEARTBEAT_INTERVAL_MS);
+      scheduleNextHeartbeat();
     }
     function stopPresenceHeartbeat() {
-      if (presenceHeartbeatTimer) { clearInterval(presenceHeartbeatTimer); presenceHeartbeatTimer = null; }
+      if (presenceHeartbeatTimer) { clearTimeout(presenceHeartbeatTimer); presenceHeartbeatTimer = null; }
     }
     // BUG FIX ("Sign out all other devices" looked like it did nothing):
     // this device only ever found out it had been remotely signed out on
