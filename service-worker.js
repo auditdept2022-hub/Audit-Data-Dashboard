@@ -1,10 +1,16 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached, so old
 // clients pick up the new files instead of serving stale ones forever.
-const CACHE_VERSION = 'audit-dashboard-v3'; // bumped: navigation handling
-                                             // changed (network-first ->
-                                             // stale-while-revalidate) --
-                                             // see the fetch handler below.
+const CACHE_VERSION = 'audit-dashboard-v4'; // bumped: install is now
+                                             // resilient to a single failed
+                                             // asset (see the 'install'
+                                             // handler below) instead of
+                                             // failing the whole precache --
+                                             // this matters most on mobile,
+                                             // where a flaky connection is
+                                             // far more likely to drop one
+                                             // request out of five than on
+                                             // a stable desktop connection.
                                              // Not strictly required for
                                              // the browser to notice this
                                              // file changed (it diffs the
@@ -28,19 +34,52 @@ const APP_SHELL = [
 ];
 
 // ---- Install: precache the app shell ----
+//
+// FIX (mobile reliability): this used to be a single Promise.all() over
+// every APP_SHELL entry via cache.addAll()-style behavior -- if ANY one
+// request failed (a dropped packet on a cellular connection, a slow icon
+// fetch that timed out, a transient 5xx), the whole Promise.all() rejected,
+// which failed the 'install' event outright. A failed install means the
+// new service worker is discarded entirely: it never reaches 'activate',
+// self.skipWaiting() never runs, and the OLD (possibly buggy/stale) worker
+// stays in control indefinitely -- the browser will keep retrying the
+// install in the background, but on a flaky mobile network that can fail
+// the same way every time. This is a textbook cause of "phone is stuck /
+// needs a bunch of refreshes to catch up" that doesn't show up on a
+// stable desktop connection, since desktop rarely drops any of these five
+// small requests.
+//
+// FIX: cache each APP_SHELL url independently and never let one failure
+// sink the others. index.html is the one file the app cannot run without,
+// so its failure DOES still fail the install (there's nothing useful to
+// serve offline without it). Everything else (manifest, icons) is
+// best-effort -- losing them only means a missing icon or a slightly
+// broken "Add to Home Screen" prompt until the next successful install,
+// never a stuck/broken dashboard.
+const APP_SHELL_CRITICAL = ['./', './index.html'];
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) =>
-        // FIX: cache.addAll(APP_SHELL) previously let the browser's own
-        // HTTP cache answer these fetches, so a freshly-installed service
-        // worker could still precache an OLD copy of index.html if the
-        // browser had one cached. { cache: 'reload' } forces each of
-        // these requests to actually hit the network, bypassing HTTP
-        // cache, so the app shell we precache is always the real current
-        // version.
         Promise.all(
-          APP_SHELL.map((url) => cache.add(new Request(url, { cache: 'reload' })))
+          APP_SHELL.map((url) => {
+            // { cache: 'reload' } forces each of these requests to
+            // actually hit the network, bypassing the browser's own HTTP
+            // cache, so the app shell we precache is always the real
+            // current version (not a stale one the browser happened to
+            // have cached already).
+            const req = new Request(url, { cache: 'reload' });
+            const isCritical = APP_SHELL_CRITICAL.indexOf(url) !== -1;
+            return cache.add(req).catch((err) => {
+              if (isCritical) throw err; // still fails the install -- nothing to serve without this
+              // Non-critical (manifest/icons): log and move on. A later
+              // install attempt (next deploy, or the browser's own retry)
+              // will pick it up; it never blocks the shell from working.
+              console.warn('[service-worker] install: could not precache ' + url + ' (non-fatal):', err);
+              return null;
+            });
+          })
         )
       )
       .then(() => self.skipWaiting())

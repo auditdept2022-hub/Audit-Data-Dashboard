@@ -19081,13 +19081,49 @@ html.page-fade-ready body {
         });
     }
 
+    // MOBILE QUOTA FIX: this used to fire an immediate, uncapped
+    // heartbeat + presence poll on EVERY visibilitychange-to-visible
+    // event, with no minimum gap between them. That's fine on a desktop,
+    // where a tab is rarely backgrounded and re-foregrounded more than a
+    // few times an hour. On a phone it's a very different usage pattern:
+    // glancing at a notification, switching to another app for a few
+    // seconds and back, locking/unlocking the screen -- each one of
+    // those fires this handler, and each firing was two extra requests
+    // straight to Apps Script (a heartbeat, which always does two live
+    // Firestore WRITES, never cached -- plus a presence-bundle poll).
+    // A phone that's picked up and glanced at a dozen times in an hour
+    // was burning many multiples of the requests a desktop session with
+    // the same "online time" would ever generate, hitting the SAME
+    // shared, project-wide daily urlfetch quota all signed-in users draw
+    // from (see the REVIEW PATCH #3-#6 notes in Code.gs). Once that
+    // quota is exhausted for the day, every request -- from every
+    // device, phone or desktop -- starts failing, and a transient
+    // failure verifying the ID token against Identity Toolkit currently
+    // reports back as a flat "Unauthorized", which is exactly what
+    // produces "stuck loading, then told to sign in again" on whichever
+    // device happens to be active when the shared budget runs out.
+    //
+    // FIX: only actually fire the catch-up heartbeat/poll if it's been at
+    // least VISIBILITY_CATCHUP_MIN_GAP_MS since the last one fired. A
+    // rapid string of app-switches within that window collapses to a
+    // single catch-up (still fresh enough to feel instant), instead of
+    // one full round of requests per switch. A genuine "was away for a
+    // while" return (the case this was built for -- noticing a remote
+    // sign-out promptly) is completely unaffected, since that gap will
+    // always have passed.
+    const VISIBILITY_CATCHUP_MIN_GAP_MS = 20 * 1000;
+    let lastVisibilityCatchupAt = 0;
+
     function handleVisibilityChange() {
       if (!autoRefreshTimer) return; // not signed in / not tracking
       if (!document.hidden) {
-        silentRefreshTick(); // catch up immediately on return
-        // Also re-check presence right away (see the note on
+        silentRefreshTick(); // catch up immediately on return -- cheap, and already dedupes via dataVersion
+        const now = Date.now();
+        if (now - lastVisibilityCatchupAt < VISIBILITY_CATCHUP_MIN_GAP_MS) return;
+        lastVisibilityCatchupAt = now;
+        // Re-check presence right away (see the note on
         // window.sendPresenceHeartbeat above) instead of waiting for the
-        // next 45s heartbeat tick -- this is what makes "Sign out this
+        // next heartbeat tick -- this is what makes "Sign out this
         // device" / "Sign out all other devices" actually take effect
         // promptly rather than only eventually.
         if (window.sendPresenceHeartbeat) window.sendPresenceHeartbeat();
@@ -19119,6 +19155,36 @@ html.page-fade-ready body {
     // before, so it can't interrupt/cover the login screen.
     let dashboardLoadingStarted = false;
 
+    // MOBILE RELIABILITY: ask the browser not to evict this origin's
+    // storage (localStorage, IndexedDB — which is what Firebase Auth's
+    // browserLocalPersistence actually uses to keep someone signed in
+    // across app opens) under storage pressure. By default storage is
+    // "best-effort", meaning the browser is free to clear it whenever it
+    // wants more space back — and phones run this eviction far more
+    // aggressively than desktops, simply because they have far less
+    // storage to begin with and juggle many more installed apps
+    // competing for it. A cleared IndexedDB origin is indistinguishable
+    // from a real sign-out to Firebase, which matches the "phone keeps
+    // asking me to log in again" symptom in a way nothing server-side
+    // can fix. navigator.storage.persist() asks Chrome/Android and
+    // Safari/iOS to exempt this origin from that automatic eviction; the
+    // browser may still say no (e.g. if the person never really
+    // interacts with the installed app), but asking costs nothing and
+    // meaningfully improves the odds on the devices that do grant it.
+    // Best-effort and silent either way — never blocks sign-in.
+    let storagePersistRequested = false;
+    function requestPersistentStorageOnce() {
+      if (storagePersistRequested) return;
+      storagePersistRequested = true;
+      try {
+        if (navigator.storage && navigator.storage.persist) {
+          navigator.storage.persist().then(function(granted) {
+            console.log('[storage] persistent storage ' + (granted ? 'granted' : 'not granted'));
+          }).catch(function() { /* non-fatal */ });
+        }
+      } catch (err) { /* non-fatal */ }
+    }
+
     onAuthStateChanged(auth, (user) => {
       if (user) {
         authGate.classList.add('hidden');
@@ -19133,6 +19199,7 @@ html.page-fade-ready body {
         startAutoRefresh();
         startPresenceHeartbeat();
         startPresenceWatcher();
+        requestPersistentStorageOnce();
 
         // Login phase is done — now it's safe to load real data and show
         // the loading screen. Data loading is gated on this sign-in check
