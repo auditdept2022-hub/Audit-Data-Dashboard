@@ -1,9 +1,19 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached, so old
 // clients pick up the new files instead of serving stale ones forever.
-const CACHE_VERSION = 'audit-dashboard-v2'; // bumped: forces every existing
-                                             // client to install this fixed
-                                             // worker instead of reusing v1
+const CACHE_VERSION = 'audit-dashboard-v3'; // bumped: navigation handling
+                                             // changed (network-first ->
+                                             // stale-while-revalidate) --
+                                             // see the fetch handler below.
+                                             // Not strictly required for
+                                             // the browser to notice this
+                                             // file changed (it diffs the
+                                             // script bytes on its own),
+                                             // but keeping this in sync
+                                             // with what actually changed
+                                             // is the whole point of the
+                                             // convention -- see the note
+                                             // at the top of this file.
 const CACHE_NAME = CACHE_VERSION;
 
 // The app shell: the minimum set of files needed to render the dashboard
@@ -89,29 +99,54 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Same-origin navigation (loading the dashboard page itself):
-  // network-first, so users get the latest deployed version when
-  // online, with an offline fallback to the last cached shell.
+  // SPEED FIX (phone): this used to be network-first with { cache:
+  // 'no-store' } -- meaning EVERY navigation, not just the first, forced
+  // a full network round trip for the entire index.html (1.3MB) before
+  // showing anything, with the cached copy only used if that request
+  // failed outright. On a fast, low-latency connection that's mostly
+  // hidden; on mobile data it's a real, direct, every-single-visit delay.
+  //
+  // Now: stale-while-revalidate. If we already have a cached shell,
+  // serve it INSTANTLY (no network wait at all) and refresh the cache in
+  // the background for next time. A brand-new visitor with nothing
+  // cached yet still falls through to a real network fetch (nothing to
+  // serve instantly), so first-ever load behaves the same as before.
+  //
+  // This does NOT reintroduce a "stuck on an old version" risk: real
+  // dashboard data was never served from this cache to begin with (see
+  // the script.google.com branch above -- always live), and code/shell
+  // updates are already handled by the reg.update() check + the
+  // controllerchange -> window.location.reload() in index.html, which
+  // force a refresh onto the new version as soon as it's actually ready
+  // -- independently of whether this fetch handler is network-first or
+  // cache-first for any single request.
   if (request.mode === 'navigate') {
     event.respondWith(
-      // FIX: plain fetch(request) could still be quietly answered by the
-      // browser's own HTTP cache (separate from this Cache Storage API),
-      // which defeats "network-first" — a login could run on a stale
-      // cached build of index.html even though this code correctly asked
-      // for the network. { cache: 'no-store' } forces a real round trip
-      // to the server every time this branch runs.
-      fetch(request, { cache: 'no-store' })
-        .then((response) => {
-          // FIX: only cache genuinely good responses. Previously any
-          // response (including a transient 404/500 from the host) got
-          // written over the last good cached copy, so a brief server
-          // hiccup could permanently poison the offline fallback.
-          if (response && response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+      caches.open(CACHE_NAME).then((cache) =>
+        cache.match('./index.html').then((cached) => {
+          const updateCache = fetch(request, { cache: 'no-store' })
+            .then((response) => {
+              if (response && response.ok) {
+                cache.put('./index.html', response.clone());
+              }
+              return response;
+            });
+
+          if (cached) {
+            // Don't make this navigation wait on the network at all --
+            // just keep the service worker alive long enough for the
+            // background refresh to finish and land in the cache.
+            event.waitUntil(updateCache.catch(() => {}));
+            return cached;
           }
-          return response;
+
+          // Nothing cached yet (first visit, or the cache was cleared) --
+          // there's nothing to serve instantly, so this one request still
+          // has to wait on the network, same as before, with the same
+          // offline fallback if that fails outright.
+          return updateCache.catch(() => caches.match('./index.html'));
         })
-        .catch(() => caches.match('./index.html'))
+      )
     );
     return;
   }
