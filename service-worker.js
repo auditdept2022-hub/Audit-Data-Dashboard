@@ -1,81 +1,53 @@
 // service-worker.js — Audit Data Dashboard
-// Bump CACHE_VERSION any time you change what gets precached, so old
-// clients pick up the new files instead of serving stale ones forever.
-const CACHE_VERSION = 'audit-dashboard-v4'; // bumped: install is now
-                                             // resilient to a single failed
-                                             // asset (see the 'install'
-                                             // handler below) instead of
-                                             // failing the whole precache --
-                                             // this matters most on mobile,
-                                             // where a flaky connection is
-                                             // far more likely to drop one
-                                             // request out of five than on
-                                             // a stable desktop connection.
-                                             // Not strictly required for
-                                             // the browser to notice this
-                                             // file changed (it diffs the
-                                             // script bytes on its own),
-                                             // but keeping this in sync
-                                             // with what actually changed
-                                             // is the whole point of the
-                                             // convention -- see the note
-                                             // at the top of this file.
+// Bump CACHE_VERSION any time you change what gets precached.
+const CACHE_VERSION = 'audit-dashboard-v6';
+// v6 (this file): FIXED a navigation bug. The old handler treated EVERY
+//  same-origin page navigation as "the dashboard": it answered with the
+//  cached ./index.html and, on refresh, overwrote that cache entry with
+//  whatever page was requested. index.html links to sibling pages
+//  (attendance_dashboard_v35.html, Parts_Request.html, Opex.html, and the
+//  manifest shortcuts point at them too), so those pages could show the
+//  dashboard instead, and could even replace the cached dashboard with
+//  themselves. Only the scope root / index.html use the app-shell logic now;
+//  every other page is network-first with its own cache entry as fallback.
+//  Also: manifest.json is now stale-while-revalidate (it used to be
+//  cache-first, so manifest edits never reached installed users unless
+//  CACHE_VERSION was bumped).
+// v5 changes (see review):
+//  - Navigation refresh now revalidates with ETag ('no-cache') instead of
+//    re-downloading the full 1.3MB index.html ('no-store') on every open.
+//  - When the background refresh finds a NEWER index.html, every open tab is
+//    told via postMessage({type:'APP_UPDATE_AVAILABLE'}) so the page can show
+//    a "New version - tap to refresh" prompt. Before this, an index.html-only
+//    deploy (this file unchanged) silently showed the old version for one
+//    extra visit, because the browser only re-installs the worker when THIS
+//    file's bytes change.
+//  - Background cache refreshes are kept alive with event.waitUntil() so the
+//    browser can't kill the worker before cache.put() lands.
 const CACHE_NAME = CACHE_VERSION;
 
-// The app shell: the minimum set of files needed to render the dashboard
-// UI while offline or on a flaky connection. Keep this list in sync with
-// whatever static files index.html actually references.
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
   './icons/icon-192.png',
-  './icons/icon-512.png'
+  './icons/icon-512.png',
+  './icons/apple-touch-icon.png'
 ];
-
-// ---- Install: precache the app shell ----
-//
-// FIX (mobile reliability): this used to be a single Promise.all() over
-// every APP_SHELL entry via cache.addAll()-style behavior -- if ANY one
-// request failed (a dropped packet on a cellular connection, a slow icon
-// fetch that timed out, a transient 5xx), the whole Promise.all() rejected,
-// which failed the 'install' event outright. A failed install means the
-// new service worker is discarded entirely: it never reaches 'activate',
-// self.skipWaiting() never runs, and the OLD (possibly buggy/stale) worker
-// stays in control indefinitely -- the browser will keep retrying the
-// install in the background, but on a flaky mobile network that can fail
-// the same way every time. This is a textbook cause of "phone is stuck /
-// needs a bunch of refreshes to catch up" that doesn't show up on a
-// stable desktop connection, since desktop rarely drops any of these five
-// small requests.
-//
-// FIX: cache each APP_SHELL url independently and never let one failure
-// sink the others. index.html is the one file the app cannot run without,
-// so its failure DOES still fail the install (there's nothing useful to
-// serve offline without it). Everything else (manifest, icons) is
-// best-effort -- losing them only means a missing icon or a slightly
-// broken "Add to Home Screen" prompt until the next successful install,
-// never a stuck/broken dashboard.
+// index.html is the only file the app cannot run without.
 const APP_SHELL_CRITICAL = ['./', './index.html'];
 
+// ---- Install ----
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) =>
         Promise.all(
           APP_SHELL.map((url) => {
-            // { cache: 'reload' } forces each of these requests to
-            // actually hit the network, bypassing the browser's own HTTP
-            // cache, so the app shell we precache is always the real
-            // current version (not a stale one the browser happened to
-            // have cached already).
             const req = new Request(url, { cache: 'reload' });
             const isCritical = APP_SHELL_CRITICAL.indexOf(url) !== -1;
             return cache.add(req).catch((err) => {
-              if (isCritical) throw err; // still fails the install -- nothing to serve without this
-              // Non-critical (manifest/icons): log and move on. A later
-              // install attempt (next deploy, or the browser's own retry)
-              // will pick it up; it never blocks the shell from working.
+              if (isCritical) throw err;
               console.warn('[service-worker] install: could not precache ' + url + ' (non-fatal):', err);
               return null;
             });
@@ -86,40 +58,52 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// ---- Activate: clean up old cache versions ----
+// ---- Activate ----
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
-      )
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
     ).then(() => self.clients.claim())
   );
 });
 
-// ---- Fetch: serve smartly depending on what's being requested ----
+// True only for the dashboard itself: the SW scope root or index.html
+// (query strings / hashes ignored). Everything else is a different page.
+function isDashboardShellUrl(url) {
+  const scopePath = new URL(self.registration.scope).pathname; // e.g. "/repo/" or "/"
+  return url.pathname === scopePath || url.pathname === scopePath + 'index.html';
+}
+
+// A cheap "version" fingerprint for a response, without reading the body.
+function versionOf(res) {
+  if (!res) return '';
+  return res.headers.get('etag') || res.headers.get('last-modified') || res.headers.get('content-length') || '';
+}
+
+function notifyClientsOfUpdate() {
+  return self.clients.matchAll({ type: 'window' }).then((clients) => {
+    clients.forEach((c) => c.postMessage({ type: 'APP_UPDATE_AVAILABLE' }));
+  });
+}
+
+// ---- Fetch ----
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-
-  // Only handle GET requests; let POST/PUT/etc. (e.g. Apps Script writes)
-  // go straight to the network untouched.
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
 
-  // Live dashboard data and Quick Link calls go through Google Apps
-  // Script. Never cache these — always hit the network so the numbers
-  // on screen are current. If it fails, there's nothing sane to fall
-  // back to, so just let the request fail normally.
+  // Live data: never cache.
   if (url.hostname === 'script.google.com' || url.hostname === 'script.googleusercontent.com') {
     return;
   }
 
-  // Cross-origin CDN assets (Tailwind, fonts, icon libraries, etc.):
-  // stale-while-revalidate. Serve the cached version instantly if we
-  // have one, and refresh the cache in the background for next time.
+  // Cross-origin CDN assets: stale-while-revalidate.
+  // NOTE: only responses with response.ok are cached. A <script>/<link> tag
+  // WITHOUT a crossorigin attribute makes a no-cors request whose response is
+  // "opaque" (ok === false), so it is never stored here. index.html must add
+  // crossorigin="anonymous" to the Tailwind / ApexCharts / Lucide <script>
+  // tags and the Google Fonts <link> for offline caching to actually work.
   if (url.origin !== self.location.origin) {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) =>
@@ -130,59 +114,67 @@ self.addEventListener('fetch', (event) => {
               return response;
             })
             .catch(() => cached);
-          return cached || network;
+          if (cached) {
+            event.waitUntil(network.catch(() => {})); // keep worker alive for the refresh
+            return cached;
+          }
+          return network;
         })
       )
     );
     return;
   }
 
-  // Same-origin navigation (loading the dashboard page itself):
-  // SPEED FIX (phone): this used to be network-first with { cache:
-  // 'no-store' } -- meaning EVERY navigation, not just the first, forced
-  // a full network round trip for the entire index.html (1.3MB) before
-  // showing anything, with the cached copy only used if that request
-  // failed outright. On a fast, low-latency connection that's mostly
-  // hidden; on mobile data it's a real, direct, every-single-visit delay.
-  //
-  // Now: stale-while-revalidate. If we already have a cached shell,
-  // serve it INSTANTLY (no network wait at all) and refresh the cache in
-  // the background for next time. A brand-new visitor with nothing
-  // cached yet still falls through to a real network fetch (nothing to
-  // serve instantly), so first-ever load behaves the same as before.
-  //
-  // This does NOT reintroduce a "stuck on an old version" risk: real
-  // dashboard data was never served from this cache to begin with (see
-  // the script.google.com branch above -- always live), and code/shell
-  // updates are already handled by the reg.update() check + the
-  // controllerchange -> window.location.reload() in index.html, which
-  // force a refresh onto the new version as soon as it's actually ready
-  // -- independently of whether this fetch handler is network-first or
-  // cache-first for any single request.
+  // Same-origin navigation to a page OTHER than the dashboard (sibling pages
+  // such as Opex.html / Parts_Request.html / attendance_dashboard_*.html):
+  // network-first, cache that page under its OWN key, never touch index.html.
+  if (request.mode === 'navigate' && !isDashboardShellUrl(url)) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(() =>
+          caches.match(request).then((cached) =>
+            cached || new Response(
+              '<!DOCTYPE html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+              '<body style="font-family:system-ui;padding:2rem"><h2>You\'re offline</h2>' +
+              '<p>This page hasn\'t been opened online yet, so it isn\'t available offline.</p>' +
+              '<p><a href="./">Back to the dashboard</a></p></body>',
+              { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+            )
+          )
+        )
+    );
+    return;
+  }
+
+  // Dashboard shell: serve cached shell instantly, revalidate in background.
   if (request.mode === 'navigate') {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) =>
         cache.match('./index.html').then((cached) => {
-          const updateCache = fetch(request, { cache: 'no-store' })
+          // 'no-cache' = revalidate with ETag/Last-Modified. A 304 costs a few
+          // hundred bytes instead of re-downloading the whole file.
+          const updateCache = fetch(request, { cache: 'no-cache' })
             .then((response) => {
               if (response && response.ok) {
-                cache.put('./index.html', response.clone());
+                const changed = cached && versionOf(cached) !== versionOf(response);
+                return cache.put('./index.html', response.clone()).then(() => {
+                  if (changed) return notifyClientsOfUpdate();
+                }).then(() => response);
               }
               return response;
             });
 
           if (cached) {
-            // Don't make this navigation wait on the network at all --
-            // just keep the service worker alive long enough for the
-            // background refresh to finish and land in the cache.
             event.waitUntil(updateCache.catch(() => {}));
             return cached;
           }
-
-          // Nothing cached yet (first visit, or the cache was cleared) --
-          // there's nothing to serve instantly, so this one request still
-          // has to wait on the network, same as before, with the same
-          // offline fallback if that fails outright.
           return updateCache.catch(() => caches.match('./index.html'));
         })
       )
@@ -190,8 +182,27 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Same-origin static assets (icons, manifest, etc.): cache-first,
-  // since these rarely change and don't need a network round trip.
+  // manifest.json: stale-while-revalidate so edits reach installed users
+  // without needing a CACHE_VERSION bump.
+  if (url.pathname.endsWith('/manifest.json')) {
+    event.respondWith(
+      caches.open(CACHE_NAME).then((cache) =>
+        cache.match(request).then((cached) => {
+          const network = fetch(request, { cache: 'no-cache' })
+            .then((response) => {
+              if (response && response.ok) cache.put(request, response.clone());
+              return response;
+            })
+            .catch(() => cached);
+          if (cached) { event.waitUntil(network.catch(() => {})); return cached; }
+          return network;
+        })
+      )
+    );
+    return;
+  }
+
+  // Same-origin static assets: cache-first.
   event.respondWith(
     caches.match(request).then((cached) =>
       cached ||

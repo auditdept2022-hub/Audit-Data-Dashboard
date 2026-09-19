@@ -70,8 +70,11 @@
        `defer` lets the browser keep parsing/painting the page instead of
        stalling on these downloads, with zero behavior change: deferred
        scripts still finish executing, in order, before DOMContentLoaded. -->
-  <script src="https://cdn.jsdelivr.net/npm/apexcharts" defer></script>
-  <script src="https://unpkg.com/lucide@latest" defer></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" crossorigin="anonymous">
+  <!-- crossorigin="anonymous" makes these CORS requests, so the service worker can actually cache them
+       (plain no-cors script responses are opaque and never stored -> no charts/icons offline). -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts" crossorigin="anonymous" defer></script>
+  <script src="https://unpkg.com/lucide@latest" crossorigin="anonymous" defer></script>
   <!-- PERF: xlsx, docx, and jsPDF (+autotable) are now ALL lazy-loaded on
        demand instead of shipped on every page load. xlsx used to be loaded
        eagerly here because the main dashboard sync (buildWorkbookFromAppsScript
@@ -138,7 +141,6 @@
     }
   </script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
     body, button, input, select, textarea { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #f3f4f6; }
@@ -3444,10 +3446,43 @@ html.page-fade-ready body {
       // normally happen more than once in a session, but this makes sure
       // a stray second event can never trigger a reload loop.
       let __swControllerRefreshed = false;
+      // Only reload when an EXISTING worker is being replaced. On a brand-new
+      // device the very first install also fires 'controllerchange' (via
+      // clients.claim()); reloading then just throws away a half-loaded
+      // page / in-progress sign-in for nothing.
+      const __swHadController = !!navigator.serviceWorker.controller;
       navigator.serviceWorker.addEventListener('controllerchange', function () {
-        if (__swControllerRefreshed) return;
+        if (!__swHadController || __swControllerRefreshed) return;
         __swControllerRefreshed = true;
         window.location.reload();
+      });
+
+      // service-worker.js v5 posts APP_UPDATE_AVAILABLE when its background
+      // check finds a newer index.html. Show a small, non-blocking prompt
+      // instead of silently serving the old version for one more visit (or
+      // force-reloading someone mid-edit).
+      navigator.serviceWorker.addEventListener('message', function (ev) {
+        if (!ev.data || ev.data.type !== 'APP_UPDATE_AVAILABLE') return;
+        if (document.getElementById('appUpdateBanner')) return;
+        var bar = document.createElement('div');
+        bar.id = 'appUpdateBanner';
+        bar.setAttribute('role', 'status');
+        bar.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(1rem + env(safe-area-inset-bottom,0px));' +
+          'z-index:2147483000;display:flex;align-items:center;gap:.75rem;padding:.65rem .9rem;border-radius:.85rem;' +
+          'background:#0f2547;color:#fff;font:600 .8rem/1.2 system-ui,sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.35);max-width:calc(100vw - 1.5rem)';
+        var msg = document.createElement('span');
+        msg.textContent = 'A new version of the dashboard is available.';
+        var go = document.createElement('button');
+        go.textContent = 'Refresh';
+        go.style.cssText = 'background:#fff;color:#0f2547;border:0;border-radius:.6rem;padding:.4rem .8rem;font-weight:700;cursor:pointer';
+        go.onclick = function () { window.location.reload(); };
+        var later = document.createElement('button');
+        later.textContent = '\u2715';
+        later.setAttribute('aria-label', 'Dismiss');
+        later.style.cssText = 'background:transparent;color:#cbd5e1;border:0;cursor:pointer;font-size:1rem';
+        later.onclick = function () { bar.remove(); };
+        bar.appendChild(msg); bar.appendChild(go); bar.appendChild(later);
+        document.body.appendChild(bar);
       });
     }
   </script>
@@ -11262,7 +11297,18 @@ html.page-fade-ready body {
           auditor: auditor || '',
           remark: remark || ''
       });
-      if (rowIndex) params.set('rowIndex', String(rowIndex));
+      if (rowIndex) {
+        params.set('rowIndex', String(rowIndex));
+        // Stale-row guard: tell the server which remark we believe lives at
+        // this row. If someone added/removed rows since our data was loaded,
+        // the server refuses instead of overwriting the wrong remark.
+        const seen = ((activeData.dataAudit && activeData.dataAudit[branchName]) || [])
+          .find(function (r) { return String(r.rowIndex) === String(rowIndex); });
+        if (seen) {
+          params.set('expectedBranch', branchName);
+          params.set('expectedRemark', String(seen.remark || ''));
+        }
+      }
       const url = defaultAppsScriptUrl + '?' + params.toString();
 
       const json = await fetchSheetOnce(url);
@@ -11272,7 +11318,7 @@ html.page-fade-ready body {
     }
 
     // Removes a row from AUDIT REPORT via the Apps Script backend.
-    async function deleteAuditorRemarkRemote(rowIndex) {
+    async function deleteAuditorRemarkRemote(rowIndex, branchName) {
       const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
       if (!idToken) throw new Error('Not signed in — please sign in again.');
 
@@ -11282,6 +11328,13 @@ html.page-fade-ready body {
           idToken: idToken,
           rowIndex: String(rowIndex)
       });
+      // Stale-row guard (see saveAuditorRemarkRemote).
+      const seen = ((activeData.dataAudit && activeData.dataAudit[branchName]) || [])
+        .find(function (r) { return String(r.rowIndex) === String(rowIndex); });
+      if (seen) {
+        params.set('expectedBranch', branchName);
+        params.set('expectedRemark', String(seen.remark || ''));
+      }
       const url = defaultAppsScriptUrl + '?' + params.toString();
 
       const json = await fetchSheetOnce(url);
@@ -11454,7 +11507,7 @@ html.page-fade-ready body {
         if (!proceed) return;
 
         try {
-            await deleteAuditorRemarkRemote(rowIndex);
+            await deleteAuditorRemarkRemote(rowIndex, branchName);
             if (activeData.dataAudit[branchName]) {
                 activeData.dataAudit[branchName] = activeData.dataAudit[branchName].filter(r => String(r.rowIndex) !== String(rowIndex));
             }
@@ -18591,10 +18644,10 @@ html.page-fade-ready body {
       sendPasswordResetEmail
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-    // TODO: paste your full config from Firebase Console →
-    // Project settings → General → Your apps → SDK setup and configuration.
-    // projectId is filled in from what you sent me; the rest are placeholders
-    // and auth will NOT work until you replace them.
+    // Firebase web config (public by design). Security comes from Firebase
+    // Auth + the backend allowlist, NOT from hiding this. Do restrict the
+    // API key by HTTP referrer in Google Cloud Console -> APIs & Services
+    // -> Credentials, so it can't be reused from other websites.
     const firebaseConfig = {
       apiKey: "AIzaSyCuntpbNHmez53kWE9nyORhNC62W_FvrTU",
       authDomain: "audit-dashboard-4ca4a.firebaseapp.com",
