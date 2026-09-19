@@ -5176,16 +5176,12 @@ html.page-fade-ready body {
             <h2 class="text-sm sm:text-base font-bold text-white truncate">Add Audit Finding</h2>
           </div>
           <div class="flex items-center gap-2 shrink-0">
-            <!-- Brand logo, sat immediately beside the Close (X) button per
-                 request — same icon used on the boot splash (#bootSplash),
-                 just small and rounded to sit comfortably in the header bar. -->
-            <img src="icons/icon-512.png" alt="" aria-hidden="true" class="w-6 h-6 rounded-md shadow-sm ring-1 ring-white/20 object-contain bg-white/90 p-0.5">
             <button onclick="closeAddFindingModal()" title="Close" aria-label="Close" class="p-2 modal-header-icon-btn modal-header-icon-btn-close active:scale-95 rounded-xl transition-all cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
             </button>
           </div>
         </div>
-        <div id="findingsEditorBody" class="p-4 overflow-y-auto custom-scrollbar flex-1 min-h-0"></div>
+        <div id="findingsEditorBody" class="p-3 sm:p-4 overflow-y-auto custom-scrollbar flex-1 min-h-0"></div>
       </div>
     </div>
   </div>
@@ -13245,11 +13241,11 @@ html.page-fade-ready body {
       }
 
       el.innerHTML =
-        '<div class="flex items-start gap-3 rounded-xl border ' + theme.wrap + ' px-3.5 py-3">' +
-          '<div class="shrink-0 w-7 h-7 rounded-full flex items-center justify-center ' + theme.iconWrap + '">' + icon + '</div>' +
-          '<div class="min-w-0">' +
-            '<p class="text-[12.5px] font-bold ' + theme.title + ' leading-tight">' + title + '</p>' +
-            '<p class="mt-0.5 text-[11.5px] text-slate-500 leading-snug">' + body + '</p>' +
+        '<div class="flex items-center gap-2.5 rounded-xl border ' + theme.wrap + ' px-3 py-2">' +
+          '<div class="shrink-0 w-6 h-6 rounded-full flex items-center justify-center ' + theme.iconWrap + '">' + icon + '</div>' +
+          '<div class="min-w-0 flex items-baseline gap-1.5 flex-wrap">' +
+            '<p class="text-[12px] font-bold ' + theme.title + ' leading-tight">' + title + '</p>' +
+            '<p class="text-[11px] text-slate-500 leading-tight truncate">' + body + '</p>' +
           '</div>' +
         '</div>';
 
@@ -13369,6 +13365,7 @@ html.page-fade-ready body {
         saveFindingsEditorStore(fresh);
         renderStagedFindingsTable();
         showToast('Sent to sheet: ' + row.branch + ' — ' + row.category);
+        loadRecentFindingsFromSheet(true);
       } catch (err) {
         const msg = (err && err.message) || 'unknown error';
         showToast("Couldn't send: " + findingsSendErrorMessage_(msg));
@@ -13412,6 +13409,8 @@ html.page-fade-ready body {
 
       if (failed === 0) showToast('Sent ' + sent + ' row(s) to the sheet.');
       else showToast('Sent ' + sent + ', ' + failed + ' failed (' + lastError + '). Failed rows are still staged.');
+
+      if (sent > 0) loadRecentFindingsFromSheet(true);
     }
 
     function getFindingsEditorBranchOptions() {
@@ -14818,20 +14817,20 @@ html.page-fade-ready body {
 
       body.innerHTML = `
         <input id="findingsEditor-secret" type="hidden" value="${secretVal}">
-        <div id="findingsEditor-authStatus" class="mb-4"></div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+        <div id="findingsEditor-authStatus" class="mb-3"></div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
           <div>
-            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Date</label>
-            <input id="findingsEditor-date" type="date" value="${isoToday}" onchange="syncFindingsEditorYear()" onkeydown="if(event.key==='Enter'){event.preventDefault();addStagedFindingEntry();}" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Date</label>
+            <input id="findingsEditor-date" type="date" value="${isoToday}" onchange="syncFindingsEditorYear()" onkeydown="if(event.key==='Enter'){event.preventDefault();addStagedFindingEntry();}" class="w-full px-2.5 py-1.5 bg-gray-50 border border-coolBorder rounded-lg text-[13px] focus:outline-none focus:ring-1 focus:ring-accentCyan">
           </div>
           <div>
-            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Year</label>
-            <input id="findingsEditor-year" type="number" value="${today.getFullYear()}" onkeydown="if(event.key==='Enter'){event.preventDefault();addStagedFindingEntry();}" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Year</label>
+            <input id="findingsEditor-year" type="number" value="${today.getFullYear()}" onkeydown="if(event.key==='Enter'){event.preventDefault();addStagedFindingEntry();}" class="w-full px-2.5 py-1.5 bg-gray-50 border border-coolBorder rounded-lg text-[13px] focus:outline-none focus:ring-1 focus:ring-accentCyan">
           </div>
-          <div class="relative">
-            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Branch</label>
-            <button type="button" id="findingsEditor-branchTrigger" onclick="toggleFindingsEditorDropdown('branch')" class="w-full flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm text-left focus:outline-none focus:ring-1 focus:ring-accentCyan">
-              <span id="findingsEditor-branchLabel" class="truncate">${preserveBranch ? escapeFindingHTML(preserveBranch) : '— Select branch —'}</span>
+          <div class="relative col-span-1">
+            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Branch</label>
+            <button type="button" id="findingsEditor-branchTrigger" onclick="toggleFindingsEditorDropdown('branch')" class="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 bg-gray-50 border border-coolBorder rounded-lg text-[13px] text-left focus:outline-none focus:ring-1 focus:ring-accentCyan">
+              <span id="findingsEditor-branchLabel" class="truncate">${preserveBranch ? escapeFindingHTML(preserveBranch) : '— Select —'}</span>
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 text-slate-400"><path d="m6 9 6 6 6-6"></path></svg>
             </button>
             <input type="hidden" id="findingsEditor-branchSelect" value="${escapeFindingHTML(preserveBranch || '')}">
@@ -14839,12 +14838,12 @@ html.page-fade-ready body {
               <input type="text" id="findingsEditor-branchSearch" placeholder="Type to search…" oninput="filterFindingsEditorDropdown('branch')" class="w-full px-3 py-2 text-sm border-b border-coolBorder focus:outline-none">
               <div id="findingsEditor-branchOptions" class="max-h-48 overflow-y-auto custom-scrollbar overscroll-contain"></div>
             </div>
-            <input id="findingsEditor-branchNew" type="text" placeholder="New branch name" onkeydown="if(event.key==='Enter'){event.preventDefault();addStagedFindingEntry();}" class="hidden mt-2 w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
+            <input id="findingsEditor-branchNew" type="text" placeholder="New branch name" onkeydown="if(event.key==='Enter'){event.preventDefault();addStagedFindingEntry();}" class="hidden mt-1.5 w-full px-2.5 py-1.5 bg-gray-50 border border-coolBorder rounded-lg text-[13px] focus:outline-none focus:ring-1 focus:ring-accentCyan">
           </div>
-          <div class="relative">
-            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Category</label>
-            <button type="button" id="findingsEditor-categoryTrigger" onclick="toggleFindingsEditorDropdown('category')" class="w-full flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm text-left focus:outline-none focus:ring-1 focus:ring-accentCyan">
-              <span id="findingsEditor-categoryLabel" class="truncate">${preserveCategory ? escapeFindingHTML(preserveCategory) : '— Select category —'}</span>
+          <div class="relative col-span-1">
+            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Category</label>
+            <button type="button" id="findingsEditor-categoryTrigger" onclick="toggleFindingsEditorDropdown('category')" class="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 bg-gray-50 border border-coolBorder rounded-lg text-[13px] text-left focus:outline-none focus:ring-1 focus:ring-accentCyan">
+              <span id="findingsEditor-categoryLabel" class="truncate">${preserveCategory ? escapeFindingHTML(preserveCategory) : '— Select —'}</span>
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 text-slate-400"><path d="m6 9 6 6 6-6"></path></svg>
             </button>
             <input type="hidden" id="findingsEditor-categorySelect" value="${escapeFindingHTML(preserveCategory || '')}">
@@ -14852,56 +14851,42 @@ html.page-fade-ready body {
               <input type="text" id="findingsEditor-categorySearch" placeholder="Type to search…" oninput="filterFindingsEditorDropdown('category')" class="w-full px-3 py-2 text-sm border-b border-coolBorder focus:outline-none">
               <div id="findingsEditor-categoryOptions" class="max-h-48 overflow-y-auto custom-scrollbar overscroll-contain"></div>
             </div>
-            <input id="findingsEditor-categoryNew" type="text" placeholder="New category name" onkeydown="if(event.key==='Enter'){event.preventDefault();addStagedFindingEntry();}" class="hidden mt-2 w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan">
-          </div>
-          <div class="sm:col-span-2">
-            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Findings / Remarks</label>
-            <textarea id="findingsEditor-findings" rows="3" placeholder="Describe the finding…" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();addStagedFindingEntry();}" class="w-full px-3 py-2 bg-gray-50 border border-coolBorder rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accentCyan"></textarea>
+            <input id="findingsEditor-categoryNew" type="text" placeholder="New category name" onkeydown="if(event.key==='Enter'){event.preventDefault();addStagedFindingEntry();}" class="hidden mt-1.5 w-full px-2.5 py-1.5 bg-gray-50 border border-coolBorder rounded-lg text-[13px] focus:outline-none focus:ring-1 focus:ring-accentCyan">
           </div>
         </div>
-        <div id="findingsEditor-error" class="hidden text-xs text-accentRose font-semibold mb-3"></div>
-        <div class="flex items-center justify-end gap-3 mb-5">
+        <div class="mb-2">
+          <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Findings / Remarks</label>
+          <textarea id="findingsEditor-findings" rows="2" placeholder="Describe the finding…" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();addStagedFindingEntry();}" class="w-full px-2.5 py-1.5 bg-gray-50 border border-coolBorder rounded-lg text-[13px] focus:outline-none focus:ring-1 focus:ring-accentCyan"></textarea>
+        </div>
+        <div id="findingsEditor-error" class="hidden text-xs text-accentRose font-semibold mb-2"></div>
+        <div class="flex items-center justify-end gap-3 mb-3">
           <span id="findingsEditor-editCancelWrap" class="hidden mr-auto text-[11px] text-slate-400">
             Editing an existing sheet entry — <button type="button" onclick="cancelEditRecentFinding()" class="underline hover:text-slate-600">cancel</button>
           </span>
-          <button id="findingsEditor-addBtn" onclick="addStagedFindingEntry()" class="px-4 py-2 text-xs font-bold text-white bg-accentIndigo rounded-lg hover:bg-accentIndigo/90 active:scale-95 transition-all">+ Add Entry</button>
+          <button id="findingsEditor-addBtn" onclick="addStagedFindingEntry()" class="px-3.5 py-1.5 text-xs font-bold text-white bg-accentIndigo rounded-lg hover:bg-accentIndigo/90 active:scale-95 transition-all">+ Add Entry</button>
         </div>
-        <div class="border-t border-coolBorder pt-4">
-          <div class="mb-2 flex items-center justify-between gap-2">
-            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Staged Entries (<span id="findingsEditor-count">0</span>)</h4>
-            <div class="flex items-center gap-2">
-              <button onclick="clearStagedFindingEntries()" title="Delete all staged entries" aria-label="Delete all staged entries" class="flex items-center gap-1.5 px-3 py-2 bg-accentRose text-white hover:bg-accentRose/90 rounded-lg transition-all active:scale-95">
+
+        <div class="border-t border-coolBorder pt-2.5">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <div class="inline-flex items-center gap-0.5 p-0.5 bg-slate-100 rounded-lg text-[11px] font-bold overflow-x-auto">
+              <button type="button" id="findingsEditor-tabBtn-staged" onclick="switchFindingsEditorTab('staged')" class="px-2.5 py-1.5 rounded-md whitespace-nowrap transition-all">Staged (<span id="findingsEditor-count">0</span>)</button>
+              <button type="button" id="findingsEditor-tabBtn-recent" onclick="switchFindingsEditorTab('recent')" class="px-2.5 py-1.5 rounded-md whitespace-nowrap transition-all">Recently Added <span id="findingsEditor-recentCount"></span></button>
+              <button type="button" id="findingsEditor-tabBtn-history" onclick="switchFindingsEditorTab('history')" class="px-2.5 py-1.5 rounded-md whitespace-nowrap transition-all">History <span id="findingsEditor-historyCount"></span></button>
+            </div>
+            <div id="findingsEditor-tabActions" class="flex items-center gap-1.5 shrink-0">
+              <button onclick="clearStagedFindingEntries()" title="Delete all staged entries" aria-label="Delete all staged entries" class="p-1.5 text-slate-400 hover:text-accentRose hover:bg-accentRose/10 rounded-lg transition-all active:scale-95">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
-                <span class="text-[11px] font-bold">Delete</span>
               </button>
-              <button id="findingsEditor-sendAllBtn" onclick="sendAllStagedFindingsToSheet()" title="Send all staged entries to the sheet" aria-label="Send all staged entries to the sheet" class="flex items-center gap-1.5 px-3 py-2 bg-accentEmerald text-white hover:bg-accentEmerald/90 rounded-lg transition-all active:scale-95">
+              <button id="findingsEditor-sendAllBtn" onclick="sendAllStagedFindingsToSheet()" title="Send all staged entries to the sheet" aria-label="Send all staged entries to the sheet" class="flex items-center gap-1.5 px-2.5 py-1.5 bg-accentEmerald text-white hover:bg-accentEmerald/90 rounded-lg transition-all active:scale-95">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"></path><path d="M22 2 11 13"></path></svg>
                 <span class="text-[11px] font-bold">Send</span>
               </button>
             </div>
           </div>
-          <div id="findingsEditor-table" class="max-h-56 overflow-y-auto overflow-x-hidden custom-scrollbar border border-coolBorder rounded-lg"></div>
-        </div>
-        <div class="border-t border-coolBorder pt-4 mt-4">
-          <div class="mb-2 flex items-center justify-between gap-2">
-            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Recently Added</h4>
-            <button onclick="loadRecentFindingsFromSheet(true)" title="Refresh from sheet" aria-label="Refresh recently added list" class="p-1.5 text-slate-400 hover:text-royalBlue hover:bg-royalBlue/10 rounded-lg transition-all active:scale-95">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"></path><path d="M21 3v6h-6"></path></svg>
-            </button>
-          </div>
-          <div id="findingsEditor-recentTable" class="max-h-56 overflow-y-auto overflow-x-hidden custom-scrollbar border border-coolBorder rounded-lg">
-            <div class="p-4 text-center text-xs text-slate-400 italic">Loading recent entries…</div>
-          </div>
-        </div>
-        <div class="border-t border-coolBorder pt-4 mt-4">
-          <div class="mb-2 flex items-center justify-between gap-2">
-            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">History <span class="normal-case font-medium text-slate-400/80">— deleted entries, auto-removed after 30 days</span></h4>
-            <button onclick="loadFindingsHistoryFromSheet(true)" title="Refresh history" aria-label="Refresh history" class="p-1.5 text-slate-400 hover:text-royalBlue hover:bg-royalBlue/10 rounded-lg transition-all active:scale-95">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"></path><path d="M21 3v6h-6"></path></svg>
-            </button>
-          </div>
-          <div id="findingsEditor-historyTable" class="max-h-56 overflow-y-auto overflow-x-hidden custom-scrollbar border border-coolBorder rounded-lg">
-            <div class="p-4 text-center text-xs text-slate-400 italic">Loading history…</div>
+          <div class="relative">
+            <div id="findingsEditor-table" class="max-h-72 overflow-y-auto overflow-x-hidden custom-scrollbar border border-coolBorder rounded-lg"></div>
+            <div id="findingsEditor-recentTable" class="hidden max-h-72 overflow-y-auto overflow-x-hidden custom-scrollbar border border-coolBorder rounded-lg"></div>
+            <div id="findingsEditor-historyTable" class="hidden max-h-72 overflow-y-auto overflow-x-hidden custom-scrollbar border border-coolBorder rounded-lg"></div>
           </div>
         </div>`;
 
@@ -14910,6 +14895,41 @@ html.page-fade-ready body {
       renderRecentFindingsTable();
       renderFindingsHistoryTable();
       updateFindingsEntryButtonMode_();
+      applyFindingsEditorActiveTab_();
+    }
+
+    // Which of the three lists below the form (Staged / Recently Added /
+    // History) is currently visible. A full re-render of the form (e.g.
+    // after staging or editing an entry) rebuilds this DOM from scratch, so
+    // this module-level flag — restored by applyFindingsEditorActiveTab_()
+    // at the end of every renderFindingsEditorForm() call — is what makes
+    // the tab you were looking at stay selected across those rebuilds,
+    // instead of always snapping back to "Staged".
+    let _findingsEditorActiveTab = 'staged';
+
+    function switchFindingsEditorTab(tab) {
+      _findingsEditorActiveTab = tab;
+      applyFindingsEditorActiveTab_();
+    }
+
+    function applyFindingsEditorActiveTab_() {
+      const tab = _findingsEditorActiveTab || 'staged';
+      const panels = { staged: 'findingsEditor-table', recent: 'findingsEditor-recentTable', history: 'findingsEditor-historyTable' };
+      Object.keys(panels).forEach(function(t) {
+        const panel = document.getElementById(panels[t]);
+        if (panel) panel.classList.toggle('hidden', t !== tab);
+        const btn = document.getElementById('findingsEditor-tabBtn-' + t);
+        if (!btn) return;
+        btn.classList.toggle('bg-white', t === tab);
+        btn.classList.toggle('shadow-sm', t === tab);
+        btn.classList.toggle('text-slate-800', t === tab);
+        btn.classList.toggle('text-slate-400', t !== tab);
+      });
+      // The bulk Delete-all/Send-all controls only make sense for the
+      // locally-staged rows — they'd be misleading floating over Recently
+      // Added or History, whose rows are edited/deleted one at a time.
+      const actions = document.getElementById('findingsEditor-tabActions');
+      if (actions) actions.classList.toggle('hidden', tab !== 'staged');
     }
 
     function addStagedFindingEntry() {
@@ -14999,11 +15019,11 @@ html.page-fade-ready body {
       // so table-fixed hands it whatever's left over.
       const rows = store.staged.map(r => `
         <tr class="border-t border-coolBorder">
-          <td class="p-2 text-[11px] font-semibold text-slate-500 break-words align-top">${escapeFindingHTML(r.date)}</td>
-          <td class="p-2 text-[11px] font-semibold text-slate-700 break-words align-top">${escapeFindingHTML(r.branch)}</td>
-          <td class="p-2 align-top">${getFindingCategoryBadge(r.category)}</td>
-          <td class="p-2 text-xs text-slate-800 break-words align-top">${escapeFindingHTML(r.finding)}</td>
-          <td class="p-2 align-top text-right whitespace-nowrap">
+          <td class="p-1.5 text-[11px] font-semibold text-slate-500 break-words align-top">${escapeFindingHTML(r.date)}</td>
+          <td class="p-1.5 text-[11px] font-semibold text-slate-700 break-words align-top">${escapeFindingHTML(r.branch)}</td>
+          <td class="p-1.5 align-top">${getFindingCategoryBadge(r.category)}</td>
+          <td class="p-1.5 text-xs text-slate-800 break-words align-top">${escapeFindingHTML(r.finding)}</td>
+          <td class="p-1.5 align-top text-right whitespace-nowrap">
             <button onclick="removeStagedFindingEntry('${r.id}')" title="Remove" aria-label="Remove entry" class="p-1 text-slate-400 hover:text-accentRose hover:bg-accentRose/10 rounded-lg transition-all active:scale-95">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
             </button>
@@ -15013,7 +15033,7 @@ html.page-fade-ready body {
       container.innerHTML = `
         <table class="w-full table-fixed text-left border-collapse">
           <thead class="bg-slate-50 text-[9px] uppercase tracking-wider text-slate-400 font-bold sticky top-0">
-            <tr><th class="p-2 w-[15%]">Date</th><th class="p-2 w-[18%]">Branch</th><th class="p-2 w-[20%]">Category</th><th class="p-2">Findings</th><th class="p-2 w-11"></th></tr>
+            <tr><th class="p-1.5 w-[15%]">Date</th><th class="p-1.5 w-[18%]">Branch</th><th class="p-1.5 w-[20%]">Category</th><th class="p-1.5">Findings</th><th class="p-1.5 w-9"></th></tr>
           </thead>
           <tbody>${rows}</tbody>
         </table>`;
@@ -15137,15 +15157,19 @@ html.page-fade-ready body {
       const container = document.getElementById('findingsEditor-recentTable');
       if (!container) return;
       const cache = _findingsRecentCache;
+      const countEl = document.getElementById('findingsEditor-recentCount');
 
       if (cache.loading) {
+        if (countEl) countEl.textContent = '';
         container.innerHTML = `<div class="p-4 text-center text-xs text-slate-400 italic">Loading recent entries…</div>`;
         return;
       }
       if (cache.error) {
+        if (countEl) countEl.textContent = '';
         container.innerHTML = `<div class="p-4 text-center text-xs text-accentRose">Couldn\u2019t load recent entries (${escapeFindingHTML(findingsSendErrorMessage_(cache.error))}).</div>`;
         return;
       }
+      if (countEl) countEl.textContent = '(' + (cache.rows ? cache.rows.length : 0) + ')';
       if (!cache.rows || cache.rows.length === 0) {
         container.innerHTML = `<div class="p-4 text-center text-xs text-slate-400 italic">No entries in the sheet yet.</div>`;
         return;
@@ -15157,11 +15181,11 @@ html.page-fade-ready body {
       const editingRow = _findingsEditingRow;
       const rows = cache.rows.map(r => `
         <tr class="border-t border-coolBorder${r.row === editingRow ? ' bg-accentIndigo/5' : ''}">
-          <td class="p-2 text-[11px] font-semibold text-slate-500 break-words align-top">${escapeFindingHTML(r.date)}</td>
-          <td class="p-2 text-[11px] font-semibold text-slate-700 break-words align-top">${escapeFindingHTML(r.branch)}</td>
-          <td class="p-2 align-top">${getFindingCategoryBadge(r.category)}</td>
-          <td class="p-2 text-xs text-slate-800 break-words align-top">${escapeFindingHTML(r.finding)}</td>
-          <td class="p-2 align-top text-right whitespace-nowrap">
+          <td class="p-1.5 text-[11px] font-semibold text-slate-500 break-words align-top">${escapeFindingHTML(r.date)}</td>
+          <td class="p-1.5 text-[11px] font-semibold text-slate-700 break-words align-top">${escapeFindingHTML(r.branch)}</td>
+          <td class="p-1.5 align-top">${getFindingCategoryBadge(r.category)}</td>
+          <td class="p-1.5 text-xs text-slate-800 break-words align-top">${escapeFindingHTML(r.finding)}</td>
+          <td class="p-1.5 align-top text-right whitespace-nowrap">
             <span class="inline-flex items-center gap-0.5">
               <button onclick="startEditRecentFinding(${r.row})" title="Edit" aria-label="Edit entry" class="p-1 text-slate-400 hover:text-royalBlue hover:bg-royalBlue/10 rounded-lg transition-all active:scale-95">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
@@ -15176,7 +15200,7 @@ html.page-fade-ready body {
       container.innerHTML = `
         <table class="w-full table-fixed text-left border-collapse">
           <thead class="bg-slate-50 text-[9px] uppercase tracking-wider text-slate-400 font-bold sticky top-0">
-            <tr><th class="p-2 w-[14%]">Date</th><th class="p-2 w-[16%]">Branch</th><th class="p-2 w-[18%]">Category</th><th class="p-2">Findings</th><th class="p-2 w-[4.5rem]"></th></tr>
+            <tr><th class="p-1.5 w-[14%]">Date</th><th class="p-1.5 w-[16%]">Branch</th><th class="p-1.5 w-[18%]">Category</th><th class="p-1.5">Findings</th><th class="p-1.5 w-[4.5rem]"></th></tr>
           </thead>
           <tbody>${rows}</tbody>
         </table>`;
@@ -15361,15 +15385,19 @@ html.page-fade-ready body {
       const container = document.getElementById('findingsEditor-historyTable');
       if (!container) return;
       const cache = _findingsHistoryCache;
+      const countEl = document.getElementById('findingsEditor-historyCount');
 
       if (cache.loading) {
+        if (countEl) countEl.textContent = '';
         container.innerHTML = `<div class="p-4 text-center text-xs text-slate-400 italic">Loading history…</div>`;
         return;
       }
       if (cache.error) {
+        if (countEl) countEl.textContent = '';
         container.innerHTML = `<div class="p-4 text-center text-xs text-accentRose">Couldn\u2019t load history (${escapeFindingHTML(findingsSendErrorMessage_(cache.error))}).</div>`;
         return;
       }
+      if (countEl) countEl.textContent = '(' + (cache.rows ? cache.rows.length : 0) + ')';
       if (!cache.rows || cache.rows.length === 0) {
         container.innerHTML = `<div class="p-4 text-center text-xs text-slate-400 italic">No deleted entries in the last 30 days.</div>`;
         return;
@@ -15381,14 +15409,14 @@ html.page-fade-ready body {
         const leftLabel = daysLeft === null ? '' : (daysLeft <= 0 ? 'removes soon' : `${daysLeft}d left`);
         return `
         <tr class="border-t border-coolBorder opacity-90">
-          <td class="p-2 text-[11px] font-semibold text-slate-500 break-words align-top">${escapeFindingHTML(r.date)}</td>
-          <td class="p-2 text-[11px] font-semibold text-slate-700 break-words align-top">${escapeFindingHTML(r.branch)}</td>
-          <td class="p-2 align-top">${getFindingCategoryBadge(r.category)}</td>
-          <td class="p-2 text-xs text-slate-800 break-words align-top">
+          <td class="p-1.5 text-[11px] font-semibold text-slate-500 break-words align-top">${escapeFindingHTML(r.date)}</td>
+          <td class="p-1.5 text-[11px] font-semibold text-slate-700 break-words align-top">${escapeFindingHTML(r.branch)}</td>
+          <td class="p-1.5 align-top">${getFindingCategoryBadge(r.category)}</td>
+          <td class="p-1.5 text-xs text-slate-800 break-words align-top">
             ${escapeFindingHTML(r.finding)}
             <div class="mt-1 text-[10px] text-slate-400">Deleted ${agoLabel}${r.deletedBy ? ' by ' + escapeFindingHTML(r.deletedBy) : ''}${leftLabel ? ' \u2022 ' + leftLabel : ''}</div>
           </td>
-          <td class="p-2 align-top text-right whitespace-nowrap">
+          <td class="p-1.5 align-top text-right whitespace-nowrap">
             <button onclick="restoreFindingEntry(${r.row})" title="Restore" aria-label="Restore entry" class="p-1 text-slate-400 hover:text-accentEmerald hover:bg-accentEmerald/10 rounded-lg transition-all active:scale-95">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36"></path><path d="M3 3v6h6"></path></svg>
             </button>
@@ -15399,7 +15427,7 @@ html.page-fade-ready body {
       container.innerHTML = `
         <table class="w-full table-fixed text-left border-collapse">
           <thead class="bg-slate-50 text-[9px] uppercase tracking-wider text-slate-400 font-bold sticky top-0">
-            <tr><th class="p-2 w-[14%]">Date</th><th class="p-2 w-[16%]">Branch</th><th class="p-2 w-[18%]">Category</th><th class="p-2">Findings</th><th class="p-2 w-[4.5rem]"></th></tr>
+            <tr><th class="p-1.5 w-[14%]">Date</th><th class="p-1.5 w-[16%]">Branch</th><th class="p-1.5 w-[18%]">Category</th><th class="p-1.5">Findings <span class="normal-case font-medium text-slate-400/70">(auto-removed after 30d)</span></th><th class="p-1.5 w-[4.5rem]"></th></tr>
           </thead>
           <tbody>${rows}</tbody>
         </table>`;
