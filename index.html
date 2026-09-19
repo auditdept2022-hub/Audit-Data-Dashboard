@@ -5161,9 +5161,20 @@ html.page-fade-ready body {
   <div id="findingsEditorModal" class="fixed inset-0 z-[65] hidden">
     <div class="absolute inset-0 bg-slate-900/70"></div>
     <div class="absolute inset-0 flex items-start sm:items-center justify-center overflow-y-auto p-3 sm:p-4">
-      <div id="findingsEditorDialog" class="bg-coolCard w-[95vw] sm:w-[40rem] md:w-[52rem] lg:w-[62rem] xl:w-[70rem] max-w-[80rem] max-h-[92vh] my-auto rounded-2xl shadow-2xl flex flex-col border border-coolBorder" onclick="event.stopPropagation()">
+      <div id="findingsEditorDialog" class="bg-coolCard w-[95vw] sm:w-[80vw] max-w-[80rem] h-[80vh] h-[80dvh] max-h-[92vh] my-auto rounded-2xl shadow-2xl flex flex-col border border-coolBorder" onclick="event.stopPropagation()">
         <div class="modal-header-bar px-4 py-2.5 flex justify-between items-center rounded-t-2xl shrink-0">
-          <h2 class="text-sm sm:text-base font-bold text-white truncate">Add Audit Finding</h2>
+          <div class="flex items-center gap-2 min-w-0">
+            <!-- Back to the Audit Findings Breakdown popup underneath (#dataModal),
+                 which stays open the whole time this editor is stacked on top of
+                 it (z-[65] > z-50) — see openAddFindingModal(). Functionally the
+                 same as the X button; styled/labeled like modalBackBtn elsewhere
+                 in the dashboard so returning to the findings overview reads the
+                 same way everywhere. -->
+            <button onclick="closeAddFindingModal()" title="Back" aria-label="Back to findings overview" class="p-2 -ml-1 modal-header-icon-btn active:scale-95 rounded-xl transition-all cursor-pointer flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>
+            </button>
+            <h2 class="text-sm sm:text-base font-bold text-white truncate">Add Audit Finding</h2>
+          </div>
           <button onclick="closeAddFindingModal()" title="Close" aria-label="Close" class="p-2 modal-header-icon-btn modal-header-icon-btn-close active:scale-95 rounded-xl transition-all cursor-pointer">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
           </button>
@@ -14887,18 +14898,21 @@ html.page-fade-ready body {
       return true;
     }
 
-    // True if the form currently has branch/category/remarks typed in that
-    // haven't been turned into a staged row yet (via "+ Add Entry"). Used
-    // by Send so it doesn't silently skip whatever you just filled in.
+    // True if the form currently has an unstaged finding typed in — i.e.
+    // the Findings textarea has text that hasn't been turned into a staged
+    // row yet (via "+ Add Entry"). Used by Send so it doesn't silently skip
+    // whatever you just filled in.
+    //
+    // Only the Findings text is checked here, NOT Branch/Category: after
+    // "+ Add Entry" those two are deliberately left filled in (so you can
+    // log several findings for the same branch in a row — see
+    // addStagedFindingEntry) while only the Findings box is cleared. If we
+    // also flagged a non-empty Branch/Category, this would report "unstaged
+    // input" after every single staged entry even with an empty Findings
+    // box, permanently blocking Send.
     function hasUnstagedFindingsEditorInput() {
-      const branchSelect = (document.getElementById('findingsEditor-branchSelect') || {}).value || '';
-      const branchNew = (document.getElementById('findingsEditor-branchNew') || {}).value || '';
-      const categorySelect = (document.getElementById('findingsEditor-categorySelect') || {}).value || '';
-      const categoryNew = (document.getElementById('findingsEditor-categoryNew') || {}).value || '';
       const findingVal = ((document.getElementById('findingsEditor-findings') || {}).value || '').trim();
-      const branchTyped = (branchSelect === '__new__' ? branchNew : branchSelect).trim();
-      const categoryTyped = (categorySelect === '__new__' ? categoryNew : categorySelect).trim();
-      return !!(branchTyped || categoryTyped || findingVal);
+      return !!findingVal;
     }
 
     function renderStagedFindingsTable() {
