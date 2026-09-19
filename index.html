@@ -5175,9 +5175,15 @@ html.page-fade-ready body {
             </button>
             <h2 class="text-sm sm:text-base font-bold text-white truncate">Add Audit Finding</h2>
           </div>
-          <button onclick="closeAddFindingModal()" title="Close" aria-label="Close" class="p-2 modal-header-icon-btn modal-header-icon-btn-close active:scale-95 rounded-xl transition-all cursor-pointer">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
-          </button>
+          <div class="flex items-center gap-2 shrink-0">
+            <!-- Brand logo, sat immediately beside the Close (X) button per
+                 request — same icon used on the boot splash (#bootSplash),
+                 just small and rounded to sit comfortably in the header bar. -->
+            <img src="icons/icon-512.png" alt="" aria-hidden="true" class="w-6 h-6 rounded-md shadow-sm ring-1 ring-white/20 object-contain bg-white/90 p-0.5">
+            <button onclick="closeAddFindingModal()" title="Close" aria-label="Close" class="p-2 modal-header-icon-btn modal-header-icon-btn-close active:scale-95 rounded-xl transition-all cursor-pointer">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+            </button>
+          </div>
         </div>
         <div id="findingsEditorBody" class="p-4 overflow-y-auto custom-scrollbar flex-1 min-h-0"></div>
       </div>
@@ -13076,8 +13082,10 @@ html.page-fade-ready body {
     }
 
     // Clears one EXISTING sheet row (by row number) via the Code.gs
-    // deleteFinding endpoint. See Code.gs's handleDeleteFinding_ for why
-    // this clears the row's cells rather than physically removing it.
+    // deleteFinding endpoint. See Code.gs's handleDeleteFinding_ — the row
+    // is archived to the HISTORY sheet (with who/when) before it's cleared
+    // from RAW DATA, so this is a "soft" delete: recoverable from the
+    // History list below for 30 days, then auto-purged server-side.
     async function deleteFindingRowInSheet(rowNum) {
       const secret = loadFindingsEditorSecret();
       const idToken = await findingsGetAuthToken_();
@@ -13093,6 +13101,48 @@ html.page-fade-ready body {
       if (!json) throw new Error('No response from the sheet — please try again.');
       if (json.error) throw new Error(/unauthorized/i.test(json.error) ? 'not-authorized' : json.error);
       if (!json.success) throw new Error("Delete didn't complete — please try again.");
+      return json;
+    }
+
+    // Fetches the HISTORY sheet's rows (deleted findings still inside the
+    // 30-day recovery window) via Code.gs action=history. Same GET+JSONP
+    // transport as everything else here.
+    async function fetchFindingsHistoryFromSheet_(count) {
+      const secret = loadFindingsEditorSecret();
+      const idToken = await findingsGetAuthToken_();
+      if (!idToken) throw new Error('not-signed-in');
+      const params = new URLSearchParams({
+        action: 'history',
+        secret: secret,
+        idToken: idToken,
+        count: String(count || 15)
+      });
+      const url = FINDINGS_APPS_SCRIPT_URL + '?' + params.toString();
+      const json = await fetchSheetOnce(url);
+      if (!json) throw new Error('No response from the sheet — please try again.');
+      if (json.error) throw new Error(/unauthorized/i.test(json.error) ? 'not-authorized' : json.error);
+      if (!json.success) throw new Error("Couldn't load history — please try again.");
+      return json;
+    }
+
+    // Moves one HISTORY row (by its row number on the HISTORY sheet) back
+    // into RAW DATA via Code.gs action=restoreFinding, and clears it out of
+    // HISTORY. See Code.gs's handleRestoreFinding_.
+    async function restoreFindingRowInSheet(historyRowNum) {
+      const secret = loadFindingsEditorSecret();
+      const idToken = await findingsGetAuthToken_();
+      if (!idToken) throw new Error('not-signed-in');
+      const params = new URLSearchParams({
+        action: 'restoreFinding',
+        secret: secret,
+        idToken: idToken,
+        row: String(historyRowNum)
+      });
+      const url = FINDINGS_APPS_SCRIPT_URL + '?' + params.toString();
+      const json = await fetchSheetOnce(url);
+      if (!json) throw new Error('No response from the sheet — please try again.');
+      if (json.error) throw new Error(/unauthorized/i.test(json.error) ? 'not-authorized' : json.error);
+      if (!json.success) throw new Error("Restore didn't complete — please try again.");
       return json;
     }
 
@@ -14573,6 +14623,9 @@ html.page-fade-ready body {
       // it reflects anything anyone else has added/edited/deleted since
       // this browser last had it open.
       loadRecentFindingsFromSheet(true);
+      // Same for the "History" (deleted-entries) list, so a restore/purge
+      // done elsewhere shows up here too.
+      loadFindingsHistoryFromSheet(true);
     }
 
     function closeAddFindingModal() {
@@ -14839,11 +14892,23 @@ html.page-fade-ready body {
           <div id="findingsEditor-recentTable" class="max-h-56 overflow-y-auto overflow-x-hidden custom-scrollbar border border-coolBorder rounded-lg">
             <div class="p-4 text-center text-xs text-slate-400 italic">Loading recent entries…</div>
           </div>
+        </div>
+        <div class="border-t border-coolBorder pt-4 mt-4">
+          <div class="mb-2 flex items-center justify-between gap-2">
+            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">History <span class="normal-case font-medium text-slate-400/80">— deleted entries, auto-removed after 30 days</span></h4>
+            <button onclick="loadFindingsHistoryFromSheet(true)" title="Refresh history" aria-label="Refresh history" class="p-1.5 text-slate-400 hover:text-royalBlue hover:bg-royalBlue/10 rounded-lg transition-all active:scale-95">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"></path><path d="M21 3v6h-6"></path></svg>
+            </button>
+          </div>
+          <div id="findingsEditor-historyTable" class="max-h-56 overflow-y-auto overflow-x-hidden custom-scrollbar border border-coolBorder rounded-lg">
+            <div class="p-4 text-center text-xs text-slate-400 italic">Loading history…</div>
+          </div>
         </div>`;
 
       renderStagedFindingsTable();
       renderFindingsAuthStatus();
       renderRecentFindingsTable();
+      renderFindingsHistoryTable();
       updateFindingsEntryButtonMode_();
     }
 
@@ -15255,10 +15320,106 @@ html.page-fade-ready body {
       try {
         await deleteFindingRowInSheet(rowNum);
         if (_findingsEditingRow === rowNum) { _findingsEditingRow = null; renderFindingsEditorForm(); }
-        showToast('Entry deleted from the sheet.');
+        // Notification: the entry isn't gone for good — it's been archived
+        // to History and can be restored from there for the next 30 days.
+        showToast('Entry deleted — moved to History (restorable for 30 days).', 'info');
         loadRecentFindingsFromSheet(true);
+        loadFindingsHistoryFromSheet(true);
       } catch (err) {
         showToast("Couldn't delete: " + findingsSendErrorMessage_(err && err.message));
+      }
+    }
+
+    // =========================================================================
+    // "History" — deleted findings, still recoverable. Every deleteFinding
+    // call on the server first archives the row here (see Code.gs's
+    // appendToHistory_/handleDeleteFinding_) instead of just wiping it, and
+    // anything sitting here longer than 30 days is auto-purged server-side
+    // (purgeExpiredHistory_, run lazily whenever this list is fetched).
+    // Restoring a row moves it back into RAW DATA and clears it from here.
+    // =========================================================================
+
+    // { loading, loaded, rows, error }. Same shape/pattern as
+    // _findingsRecentCache above.
+    let _findingsHistoryCache = { loading: false, loaded: false, rows: [], error: null };
+
+    async function loadFindingsHistoryFromSheet(force) {
+      if (_findingsHistoryCache.loading) return;
+      if (_findingsHistoryCache.loaded && !force) { renderFindingsHistoryTable(); return; }
+      _findingsHistoryCache = Object.assign({}, _findingsHistoryCache, { loading: true });
+      renderFindingsHistoryTable();
+      try {
+        const json = await fetchFindingsHistoryFromSheet_(15);
+        _findingsHistoryCache = { loading: false, loaded: true, rows: Array.isArray(json.rows) ? json.rows : [], error: null };
+      } catch (e) {
+        _findingsHistoryCache = { loading: false, loaded: true, rows: [], error: (e && e.message) || 'error' };
+      }
+      renderFindingsHistoryTable();
+    }
+
+    function renderFindingsHistoryTable() {
+      const container = document.getElementById('findingsEditor-historyTable');
+      if (!container) return;
+      const cache = _findingsHistoryCache;
+
+      if (cache.loading) {
+        container.innerHTML = `<div class="p-4 text-center text-xs text-slate-400 italic">Loading history…</div>`;
+        return;
+      }
+      if (cache.error) {
+        container.innerHTML = `<div class="p-4 text-center text-xs text-accentRose">Couldn\u2019t load history (${escapeFindingHTML(findingsSendErrorMessage_(cache.error))}).</div>`;
+        return;
+      }
+      if (!cache.rows || cache.rows.length === 0) {
+        container.innerHTML = `<div class="p-4 text-center text-xs text-slate-400 italic">No deleted entries in the last 30 days.</div>`;
+        return;
+      }
+
+      const rows = cache.rows.map(r => {
+        const daysLeft = Number.isFinite(r.daysLeft) ? r.daysLeft : null;
+        const agoLabel = r.deletedAt ? escapeFindingHTML(r.deletedAt) : '';
+        const leftLabel = daysLeft === null ? '' : (daysLeft <= 0 ? 'removes soon' : `${daysLeft}d left`);
+        return `
+        <tr class="border-t border-coolBorder opacity-90">
+          <td class="p-2 text-[11px] font-semibold text-slate-500 break-words align-top">${escapeFindingHTML(r.date)}</td>
+          <td class="p-2 text-[11px] font-semibold text-slate-700 break-words align-top">${escapeFindingHTML(r.branch)}</td>
+          <td class="p-2 align-top">${getFindingCategoryBadge(r.category)}</td>
+          <td class="p-2 text-xs text-slate-800 break-words align-top">
+            ${escapeFindingHTML(r.finding)}
+            <div class="mt-1 text-[10px] text-slate-400">Deleted ${agoLabel}${r.deletedBy ? ' by ' + escapeFindingHTML(r.deletedBy) : ''}${leftLabel ? ' \u2022 ' + leftLabel : ''}</div>
+          </td>
+          <td class="p-2 align-top text-right whitespace-nowrap">
+            <button onclick="restoreFindingEntry(${r.row})" title="Restore" aria-label="Restore entry" class="p-1 text-slate-400 hover:text-accentEmerald hover:bg-accentEmerald/10 rounded-lg transition-all active:scale-95">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36"></path><path d="M3 3v6h6"></path></svg>
+            </button>
+          </td>
+        </tr>`;
+      }).join('');
+
+      container.innerHTML = `
+        <table class="w-full table-fixed text-left border-collapse">
+          <thead class="bg-slate-50 text-[9px] uppercase tracking-wider text-slate-400 font-bold sticky top-0">
+            <tr><th class="p-2 w-[14%]">Date</th><th class="p-2 w-[16%]">Branch</th><th class="p-2 w-[18%]">Category</th><th class="p-2">Findings</th><th class="p-2 w-[4.5rem]"></th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    // Restores one History row straight back to RAW DATA — no confirmation
+    // modal, since undoing an accidental delete should be as frictionless
+    // as the delete itself was easy to trigger, and restoring is itself
+    // reversible (delete it again).
+    async function restoreFindingEntry(historyRowNum) {
+      const row = (_findingsHistoryCache.rows || []).find(r => r.row === historyRowNum);
+      if (!row) { showToast('That entry is no longer in History — refreshing…'); loadFindingsHistoryFromSheet(true); return; }
+      if (!_findingsAuthStatus.authorized) { showToast('Only an allowed Audit Findings account can restore entries.'); return; }
+      try {
+        await restoreFindingRowInSheet(historyRowNum);
+        showToast('Entry restored to RAW DATA.', 'success');
+        loadFindingsHistoryFromSheet(true);
+        loadRecentFindingsFromSheet(true);
+      } catch (err) {
+        showToast("Couldn't restore: " + findingsSendErrorMessage_(err && err.message));
       }
     }
 
