@@ -3996,7 +3996,8 @@ html.page-fade-ready body {
          STUCK_LOADING_MS with no result, so it never flashes on a normal
          fast load. -->
     <div id="loadingStuckBox" class="hidden relative z-10 mt-3 bg-coolCard/95 backdrop-blur border border-coolBorder rounded-2xl shadow-2xl px-4 py-3 w-full max-w-xs mx-4 text-center">
-      <p class="text-xs text-slate-500 mb-2">This is taking longer than usual.</p>
+      <p class="text-xs text-slate-500 mb-2">This is taking longer than usual — still trying in the background, this isn't a problem with your sign-in.</p>
+      <button id="loadingStuckWaitBtn" type="button" class="w-full py-2 mb-1.5 bg-accentIndigo text-white text-xs font-semibold rounded-xl hover:bg-accentIndigo/90 active:scale-[0.98] transition-all">Keep waiting</button>
       <button id="loadingStuckLogoutBtn" type="button" class="w-full py-2 bg-transparent text-slate-500 text-xs font-semibold rounded-xl border border-coolBorder hover:bg-slate-100 active:scale-[0.98] transition-all">Log out</button>
     </div>
 
@@ -4408,6 +4409,7 @@ html.page-fade-ready body {
       const loadingTitleEl = document.getElementById('loadingTitleText');
       const loadingStuckBox = document.getElementById('loadingStuckBox');
       const loadingStuckLogoutBtn = document.getElementById('loadingStuckLogoutBtn');
+      const loadingStuckWaitBtn = document.getElementById('loadingStuckWaitBtn');
 
       // Coming back from a linked page (Opex / Attendance "Dashboard" button)
       // via ?skipLoading=1 means someone is already signed in and just wants
@@ -4486,15 +4488,41 @@ html.page-fade-ready body {
         clearInterval(statusTimer);
       }
 
-      // Shows a small "Log out" box if the loading screen has been up for
-      // STUCK_LOADING_MS with no result yet (no success, no error box) --
-      // a genuine hang, not just a slow-but-progressing load -- so someone
-      // isn't ever trapped behind the loading screen with no way out.
-      const STUCK_LOADING_MS = 10000;
+      // Shows a small "Keep waiting / Log out" box if the loading screen
+      // has been up for STUCK_LOADING_MS with no result yet (no success,
+      // no error box) -- a genuine hang, not just a slow-but-progressing
+      // load -- so someone isn't ever trapped behind the loading screen
+      // with no way out.
+      //
+      // FIX: this used to fire after just 10 SECONDS with "Log out" as
+      // the ONLY option. That's shorter than a single normal fetch
+      // attempt can legitimately take (the direct-fetch fast path alone
+      // times out at 8s before even falling back to JSONP -- see
+      // FAST_PATH_DIRECT_TIMEOUT_MS), so on anything but a fast, low-
+      // latency connection this box was popping up on completely ordinary
+      // loads, not just genuinely stuck ones. With logging out as the
+      // only button, that trained people (mobile users especially, who
+      // hit slower/less stable connections far more often) to sign out
+      // and back in as a reflex for what was usually just an in-progress
+      // retry that would have succeeded on its own a few seconds later --
+      // exactly the "stuck on phone, keeps needing to relogin" pattern.
+      // Two changes:
+      //   1) Threshold raised 10s -> 25s, past what a single normal retry
+      //      attempt (including its own internal timeouts) should ever
+      //      take, so this now only shows for an actually-unusual wait.
+      //   2) Added a "Keep waiting" button, so the default action isn't
+      //      logging out -- the retry loop (see attemptInitialLoad/
+      //      scheduleInitialRetry) is already patiently working in the
+      //      background this whole time regardless of whether this box is
+      //      visible; "Keep waiting" just hides the box and re-arms this
+      //      same timer, in case it's still going after another 25s.
+      const STUCK_LOADING_MS = 25000;
       let stuckTimer = null;
+      let lastStuckToken = null;
 
       function armStuckTimer(token) {
         clearStuckTimer();
+        lastStuckToken = token;
         stuckTimer = setTimeout(function() {
           if (token !== generation) return; // superseded by a newer operation
           if (loadingStuckBox) loadingStuckBox.classList.remove('hidden');
@@ -4512,6 +4540,17 @@ html.page-fade-ready body {
       if (loadingStuckLogoutBtn) {
         loadingStuckLogoutBtn.addEventListener('click', function() {
           if (typeof window.__dashboardSignOut === 'function') window.__dashboardSignOut();
+        });
+      }
+
+      if (loadingStuckWaitBtn) {
+        loadingStuckWaitBtn.addEventListener('click', function() {
+          if (loadingStuckBox) loadingStuckBox.classList.add('hidden');
+          // Re-arm against the same in-flight load (not a fresh one) --
+          // this doesn't restart or interrupt anything, the background
+          // retry loop was never paused. If it's still going in another
+          // 25s, the box (with both options) simply reappears.
+          if (lastStuckToken === generation) armStuckTimer(lastStuckToken);
         });
       }
 
