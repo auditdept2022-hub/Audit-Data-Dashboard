@@ -5525,6 +5525,18 @@ html.page-fade-ready body {
             <div class="leading-tight">
               <h1 class="text-base sm:text-xl font-bold tracking-tight text-white whitespace-nowrap">Audit Data Dashboard</h1>
               <p class="block text-[9px] sm:text-[11px] text-white/60 font-medium tracking-wide whitespace-nowrap">Branch performance &amp; compliance monitoring</p>
+              <!-- MOBILE ONLY: the "Last synced" time/date lives inside the
+                   "Update data" button on larger screens (see
+                   #lastSyncedLabel below), but that whole label is hidden
+                   on mobile (class="hidden sm:flex" on its wrapper) since
+                   there's no room next to the icon-only button there. This
+                   mirrors the same text, right under the "Branch
+                   performance & compliance monitoring" subtitle, so it's
+                   still visible on phones -- sm:hidden means it disappears
+                   again once the full label re-appears at the sm breakpoint,
+                   so the sync time is never shown twice. Kept in sync with
+                   #lastSyncedLabel by updateLastSyncedLabel() below. -->
+              <span id="lastSyncedLabelMobile" class="sm:hidden block text-[9px] font-medium normal-case text-white/50 whitespace-nowrap"></span>
             </div>
           </div>
         </div>
@@ -18188,12 +18200,18 @@ html.page-fade-ready body {
     }
 
     function updateLastSyncedLabel() {
-        const el = document.getElementById('lastSyncedLabel');
-        if (!el) return;
         const ts = localStorage.getItem(dashCacheTsKeyFor(currentCacheOwnerEmail()));
-        if (!ts) { el.textContent = ''; return; }
-        const d = new Date(ts);
-        el.textContent = 'Last synced ' + d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+        const text = ts ? ('Last synced ' + new Date(ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })) : '';
+        // Two elements share this same text: #lastSyncedLabel (desktop/
+        // tablet, inside the "Update data" button) and #lastSyncedLabelMobile
+        // (phones only, under the "Branch performance & compliance
+        // monitoring" subtitle — see the header markup). Only one is ever
+        // visible at a time (Tailwind breakpoint classes handle that), so
+        // both are just kept up to date unconditionally here.
+        const el = document.getElementById('lastSyncedLabel');
+        if (el) el.textContent = text;
+        const elMobile = document.getElementById('lastSyncedLabelMobile');
+        if (elMobile) elMobile.textContent = text;
     }
 
     function emptyDashboardData() {
