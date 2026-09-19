@@ -5161,7 +5161,7 @@ html.page-fade-ready body {
   <div id="findingsEditorModal" class="fixed inset-0 z-[65] hidden">
     <div class="absolute inset-0 bg-slate-900/70"></div>
     <div class="absolute inset-0 flex items-start sm:items-center justify-center overflow-y-auto p-3 sm:p-4">
-      <div id="findingsEditorDialog" class="bg-coolCard w-[92vw] sm:w-[36rem] md:w-[42rem] lg:w-[48rem] max-w-full max-h-[90vh] my-auto rounded-2xl shadow-2xl flex flex-col border border-coolBorder" onclick="event.stopPropagation()">
+      <div id="findingsEditorDialog" class="bg-coolCard w-[95vw] sm:w-[40rem] md:w-[52rem] lg:w-[62rem] xl:w-[70rem] max-w-[80rem] max-h-[92vh] my-auto rounded-2xl shadow-2xl flex flex-col border border-coolBorder" onclick="event.stopPropagation()">
         <div class="modal-header-bar px-4 py-2.5 flex justify-between items-center rounded-t-2xl shrink-0">
           <h2 class="text-sm sm:text-base font-bold text-white truncate">Add Audit Finding</h2>
           <button onclick="closeAddFindingModal()" title="Close" aria-label="Close" class="p-2 modal-header-icon-btn modal-header-icon-btn-close active:scale-95 rounded-xl transition-all cursor-pointer">
@@ -5240,6 +5240,37 @@ html.page-fade-ready body {
           <button onclick="cancelFindingsDeleteConfirm()" class="flex-1 text-xs font-semibold text-slate-500 hover:text-slate-700 py-2 rounded-xl border border-coolBorder cursor-pointer">Cancel</button>
           <button id="findingsDeleteConfirmSubmitBtn" onclick="confirmFindingsDeleteConfirm()" class="flex-1 text-xs font-semibold text-white bg-accentRose hover:bg-accentRose/90 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-60">
             <span id="findingsDeleteConfirmSubmitLabel">Yes, Delete</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit-save confirmation for the "Recently Added" list (#findingsEditConfirmModal).
+       Editing a row there overwrites something ALREADY live in RAW DATA
+       (unlike staging a new entry), so — same reasoning as the Send and
+       Delete confirmations above — it gets its own "are you sure?" pause
+       instead of saving on the first click. Blue/royalBlue theme to read
+       as a save step, not a destructive one. -->
+  <div id="findingsEditConfirmModal" class="fixed inset-0 z-[70] hidden">
+    <div class="absolute inset-0 bg-slate-900/70"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+      <div class="bg-coolCard w-full max-w-xs rounded-2xl shadow-2xl p-5 pointer-events-auto border border-coolBorder">
+        <div class="flex items-start justify-between gap-3 mb-1">
+          <div class="flex items-center gap-2 min-w-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue flex-shrink-0"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+            <h3 class="text-sm font-bold text-slate-800 truncate">Save Changes</h3>
+          </div>
+          <button onclick="cancelFindingsEditConfirm()" title="Close" aria-label="Close" class="p-2 -mr-2 text-slate-400 hover:text-accentRose hover:bg-accentRose/10 active:scale-95 rounded-xl transition-all cursor-pointer flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+          </button>
+        </div>
+        <p class="text-xs text-slate-500 mb-1">Save these changes to this entry in RAW DATA? This overwrites the existing row and can't be undone.</p>
+        <p id="findingsEditConfirmError" class="text-[11px] text-accentRose mb-1 hidden"></p>
+        <div class="flex gap-2 mt-3">
+          <button onclick="cancelFindingsEditConfirm()" class="flex-1 text-xs font-semibold text-slate-500 hover:text-slate-700 py-2 rounded-xl border border-coolBorder cursor-pointer">Cancel</button>
+          <button id="findingsEditConfirmSubmitBtn" onclick="confirmFindingsEditSave()" class="flex-1 text-xs font-semibold text-white bg-royalBlue hover:bg-blue-700 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-60">
+            <span id="findingsEditConfirmSubmitLabel">Save Changes</span>
           </button>
         </div>
       </div>
@@ -14785,7 +14816,7 @@ html.page-fade-ready body {
               </button>
             </div>
           </div>
-          <div id="findingsEditor-table" class="max-h-56 overflow-y-auto custom-scrollbar border border-coolBorder rounded-lg"></div>
+          <div id="findingsEditor-table" class="max-h-56 overflow-y-auto overflow-x-hidden custom-scrollbar border border-coolBorder rounded-lg"></div>
         </div>
         <div class="border-t border-coolBorder pt-4 mt-4">
           <div class="mb-2 flex items-center justify-between gap-2">
@@ -14794,7 +14825,7 @@ html.page-fade-ready body {
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"></path><path d="M21 3v6h-6"></path></svg>
             </button>
           </div>
-          <div id="findingsEditor-recentTable" class="max-h-56 overflow-y-auto custom-scrollbar border border-coolBorder rounded-lg">
+          <div id="findingsEditor-recentTable" class="max-h-56 overflow-y-auto overflow-x-hidden custom-scrollbar border border-coolBorder rounded-lg">
             <div class="p-4 text-center text-xs text-slate-400 italic">Loading recent entries…</div>
           </div>
         </div>`;
@@ -14903,7 +14934,7 @@ html.page-fade-ready body {
       container.innerHTML = `
         <table class="w-full table-fixed text-left border-collapse">
           <thead class="bg-slate-50 text-[9px] uppercase tracking-wider text-slate-400 font-bold sticky top-0">
-            <tr><th class="p-2 w-[15%]">Date</th><th class="p-2 w-[18%]">Branch</th><th class="p-2 w-[20%]">Category</th><th class="p-2">Findings</th><th class="p-2 w-9"></th></tr>
+            <tr><th class="p-2 w-[15%]">Date</th><th class="p-2 w-[18%]">Branch</th><th class="p-2 w-[20%]">Category</th><th class="p-2">Findings</th><th class="p-2 w-11"></th></tr>
           </thead>
           <tbody>${rows}</tbody>
         </table>`;
@@ -15052,19 +15083,21 @@ html.page-fade-ready body {
           <td class="p-2 align-top">${getFindingCategoryBadge(r.category)}</td>
           <td class="p-2 text-xs text-slate-800 break-words align-top">${escapeFindingHTML(r.finding)}</td>
           <td class="p-2 align-top text-right whitespace-nowrap">
-            <button onclick="startEditRecentFinding(${r.row})" title="Edit" aria-label="Edit entry" class="p-1 text-slate-400 hover:text-royalBlue hover:bg-royalBlue/10 rounded-lg transition-all active:scale-95 mr-1">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
-            </button>
-            <button onclick="deleteRecentFindingEntry(${r.row})" title="Delete" aria-label="Delete entry" class="p-1 text-slate-400 hover:text-accentRose hover:bg-accentRose/10 rounded-lg transition-all active:scale-95">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
-            </button>
+            <span class="inline-flex items-center gap-0.5">
+              <button onclick="startEditRecentFinding(${r.row})" title="Edit" aria-label="Edit entry" class="p-1 text-slate-400 hover:text-royalBlue hover:bg-royalBlue/10 rounded-lg transition-all active:scale-95">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+              </button>
+              <button onclick="deleteRecentFindingEntry(${r.row})" title="Delete" aria-label="Delete entry" class="p-1 text-slate-400 hover:text-accentRose hover:bg-accentRose/10 rounded-lg transition-all active:scale-95">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
+              </button>
+            </span>
           </td>
         </tr>`).join('');
 
       container.innerHTML = `
         <table class="w-full table-fixed text-left border-collapse">
           <thead class="bg-slate-50 text-[9px] uppercase tracking-wider text-slate-400 font-bold sticky top-0">
-            <tr><th class="p-2 w-[14%]">Date</th><th class="p-2 w-[16%]">Branch</th><th class="p-2 w-[18%]">Category</th><th class="p-2">Findings</th><th class="p-2 w-14"></th></tr>
+            <tr><th class="p-2 w-[14%]">Date</th><th class="p-2 w-[16%]">Branch</th><th class="p-2 w-[18%]">Category</th><th class="p-2">Findings</th><th class="p-2 w-[4.5rem]"></th></tr>
           </thead>
           <tbody>${rows}</tbody>
         </table>`;
@@ -15116,11 +15149,13 @@ html.page-fade-ready body {
       }
     }
 
-    // Writes the form's current values directly to the sheet row being
-    // edited (action=updateFinding) — unlike addStagedFindingEntry(), this
-    // is an edit of something ALREADY in RAW DATA, so there's nothing to
-    // stage locally first; it goes straight to the sheet.
-    async function saveEditedFindingEntry() {
+    // Validates the form, then opens a "Save changes?" confirmation
+    // (openFindingsEditConfirm) before anything is actually written —
+    // unlike addStagedFindingEntry() (which only ever touches this
+    // browser's local staging list), this overwrites a row that's
+    // ALREADY live in RAW DATA, so it gets the same "are you sure" pause
+    // as Send and Delete rather than saving on the first click.
+    function saveEditedFindingEntry() {
       const errEl = document.getElementById('findingsEditor-error');
       if (errEl) errEl.classList.add('hidden');
       const rowNum = _findingsEditingRow;
@@ -15143,20 +15178,54 @@ html.page-fade-ready body {
       if (!category) return showError('Category is required (pick one, or add a new one).');
       if (!findingVal) return showError('Findings / remarks text is required.');
 
-      const btn = document.getElementById('findingsEditor-addBtn');
-      if (btn) { btn.disabled = true; btn.classList.add('opacity-60'); }
+      openFindingsEditConfirm({ row: rowNum, date: dateVal, branch: branch, category: category, finding: findingVal, year: yearVal });
+    }
+
+    // Pending edit awaiting confirmation in #findingsEditConfirmModal — the
+    // validated field values from saveEditedFindingEntry(), not yet sent.
+    let _pendingFindingsEdit = null;
+
+    function openFindingsEditConfirm(pending) {
+      _pendingFindingsEdit = pending;
+      const modal = document.getElementById('findingsEditConfirmModal');
+      const err = document.getElementById('findingsEditConfirmError');
+      if (err) err.classList.add('hidden');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    window.cancelFindingsEditConfirm = function() {
+      const modal = document.getElementById('findingsEditConfirmModal');
+      if (modal) modal.classList.add('hidden');
+      _pendingFindingsEdit = null;
+    };
+
+    function setFindingsEditConfirmSubmitting_(isSubmitting) {
+      const btn = document.getElementById('findingsEditConfirmSubmitBtn');
+      const label = document.getElementById('findingsEditConfirmSubmitLabel');
+      if (btn) btn.disabled = isSubmitting;
+      if (label) label.textContent = isSubmitting ? 'Saving\u2026' : 'Save Changes';
+    }
+
+    window.confirmFindingsEditSave = async function() {
+      const pending = _pendingFindingsEdit;
+      const err = document.getElementById('findingsEditConfirmError');
+      if (!pending) { window.cancelFindingsEditConfirm(); return; }
+      setFindingsEditConfirmSubmitting_(true);
       try {
-        await updateFindingRowInSheet(rowNum, { date: dateVal, branch: branch, category: category, finding: findingVal, year: yearVal });
+        await updateFindingRowInSheet(pending.row, pending);
         _findingsEditingRow = null;
+        _pendingFindingsEdit = null;
+        const modal = document.getElementById('findingsEditConfirmModal');
+        if (modal) modal.classList.add('hidden');
         showToast('Entry updated in the sheet.');
         renderFindingsEditorForm();
         loadRecentFindingsFromSheet(true);
-      } catch (err) {
-        showError(findingsSendErrorMessage_(err && err.message));
+      } catch (e) {
+        if (err) { err.textContent = findingsSendErrorMessage_(e && e.message); err.classList.remove('hidden'); }
       } finally {
-        if (btn) { btn.disabled = false; btn.classList.remove('opacity-60'); }
+        setFindingsEditConfirmSubmitting_(false);
       }
-    }
+    };
 
     function deleteRecentFindingEntry(rowNum) {
       const row = (_findingsRecentCache.rows || []).find(r => r.row === rowNum);
