@@ -13005,6 +13005,54 @@ html.page-fade-ready body {
       return json;
     }
 
+    // Sends an edit for one EXISTING sheet row to the Code.gs
+    // updateFinding endpoint (by row number — see action=recentFindings,
+    // which is what tells the dashboard which row number a given entry
+    // actually lives at). Same GET+JSONP transport as sendFindingRowToSheet.
+    async function updateFindingRowInSheet(rowNum, row) {
+      const secret = loadFindingsEditorSecret();
+      const idToken = await findingsGetAuthToken_();
+      if (!idToken) throw new Error('not-signed-in');
+      const params = new URLSearchParams({
+        action: 'updateFinding',
+        secret: secret,
+        idToken: idToken,
+        row: String(rowNum),
+        date: row.date || '',
+        branch: row.branch || '',
+        category: row.category || '',
+        finding: row.finding || '',
+        year: row.year || ''
+      });
+      const url = FINDINGS_APPS_SCRIPT_URL + '?' + params.toString();
+      const json = await fetchSheetOnce(url);
+      if (!json) throw new Error('No response from the sheet — please try again.');
+      if (json.error) throw new Error(/unauthorized/i.test(json.error) ? 'not-authorized' : json.error);
+      if (!json.success) throw new Error("Update didn't complete — please try again.");
+      return json;
+    }
+
+    // Clears one EXISTING sheet row (by row number) via the Code.gs
+    // deleteFinding endpoint. See Code.gs's handleDeleteFinding_ for why
+    // this clears the row's cells rather than physically removing it.
+    async function deleteFindingRowInSheet(rowNum) {
+      const secret = loadFindingsEditorSecret();
+      const idToken = await findingsGetAuthToken_();
+      if (!idToken) throw new Error('not-signed-in');
+      const params = new URLSearchParams({
+        action: 'deleteFinding',
+        secret: secret,
+        idToken: idToken,
+        row: String(rowNum)
+      });
+      const url = FINDINGS_APPS_SCRIPT_URL + '?' + params.toString();
+      const json = await fetchSheetOnce(url);
+      if (!json) throw new Error('No response from the sheet — please try again.');
+      if (json.error) throw new Error(/unauthorized/i.test(json.error) ? 'not-authorized' : json.error);
+      if (!json.success) throw new Error("Delete didn't complete — please try again.");
+      return json;
+    }
+
     // Cached result of the last authorization check (action=list), so the
     // "Signed in as…" status line and the Send button's enabled state don't
     // need a fresh round trip on every keystroke — only when the modal is
@@ -14468,6 +14516,7 @@ html.page-fade-ready body {
     function openAddFindingModal() {
       const modal = document.getElementById('findingsEditorModal');
       if (!modal) return;
+      _findingsEditingRow = null;
       renderFindingsEditorForm();
       modal.classList.remove('hidden');
       // Kick off the up-front authorization check (and pull the sheet's
@@ -14477,6 +14526,10 @@ html.page-fade-ready body {
       // button update; the select lists refresh next time the form is
       // rebuilt (e.g. after "+ Add Entry").
       checkFindingsAuthorization().then(renderFindingsAuthStatus);
+      // Pull the "Recently Added" list fresh every time the modal opens, so
+      // it reflects anything anyone else has added/edited/deleted since
+      // this browser last had it open.
+      loadRecentFindingsFromSheet(true);
     }
 
     function closeAddFindingModal() {
@@ -14711,8 +14764,11 @@ html.page-fade-ready body {
           </div>
         </div>
         <div id="findingsEditor-error" class="hidden text-xs text-accentRose font-semibold mb-3"></div>
-        <div class="flex justify-end mb-5">
-          <button onclick="addStagedFindingEntry()" class="px-4 py-2 text-xs font-bold text-white bg-accentIndigo rounded-lg hover:bg-accentIndigo/90 active:scale-95 transition-all">+ Add Entry</button>
+        <div class="flex items-center justify-end gap-3 mb-5">
+          <span id="findingsEditor-editCancelWrap" class="hidden mr-auto text-[11px] text-slate-400">
+            Editing an existing sheet entry — <button type="button" onclick="cancelEditRecentFinding()" class="underline hover:text-slate-600">cancel</button>
+          </span>
+          <button id="findingsEditor-addBtn" onclick="addStagedFindingEntry()" class="px-4 py-2 text-xs font-bold text-white bg-accentIndigo rounded-lg hover:bg-accentIndigo/90 active:scale-95 transition-all">+ Add Entry</button>
         </div>
         <div class="border-t border-coolBorder pt-4">
           <div class="mb-2 flex items-center justify-between gap-2">
@@ -14729,10 +14785,23 @@ html.page-fade-ready body {
             </div>
           </div>
           <div id="findingsEditor-table" class="max-h-56 overflow-y-auto custom-scrollbar border border-coolBorder rounded-lg"></div>
+        </div>
+        <div class="border-t border-coolBorder pt-4 mt-4">
+          <div class="mb-2 flex items-center justify-between gap-2">
+            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Recently Added</h4>
+            <button onclick="loadRecentFindingsFromSheet(true)" title="Refresh from sheet" aria-label="Refresh recently added list" class="p-1.5 text-slate-400 hover:text-royalBlue hover:bg-royalBlue/10 rounded-lg transition-all active:scale-95">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"></path><path d="M21 3v6h-6"></path></svg>
+            </button>
+          </div>
+          <div id="findingsEditor-recentTable" class="max-h-56 overflow-y-auto custom-scrollbar border border-coolBorder rounded-lg">
+            <div class="p-4 text-center text-xs text-slate-400 italic">Loading recent entries…</div>
+          </div>
         </div>`;
 
       renderStagedFindingsTable();
       renderFindingsAuthStatus();
+      renderRecentFindingsTable();
+      updateFindingsEntryButtonMode_();
     }
 
     function addStagedFindingEntry() {
@@ -14864,6 +14933,7 @@ html.page-fade-ready body {
       if (!pending) return;
       if (pending.type === 'row') doRemoveStagedFindingEntry(pending.id);
       else if (pending.type === 'all') doClearStagedFindingEntries();
+      else if (pending.type === 'sheetRow') doDeleteRecentFindingEntry(pending.row);
     }
 
     function removeStagedFindingEntry(id) {
@@ -14899,6 +14969,205 @@ html.page-fade-ready body {
       saveFindingsEditorStore(store);
       renderStagedFindingsTable();
       showToast('All staged entries deleted.');
+    }
+
+    // =========================================================================
+    // "Recently Added" — a live, read/edit/delete view straight onto the
+    // RAW DATA sheet's most recent rows (via Code.gs action=recentFindings /
+    // updateFinding / deleteFinding), so a mistake can be fixed from the
+    // dashboard instead of opening the spreadsheet. Distinct from the
+    // "Staged Entries" table above it, which only holds rows NOT YET sent
+    // to the sheet.
+    // =========================================================================
+
+    // { loading, loaded, rows, error }. Populated by loadRecentFindingsFromSheet()
+    // and re-rendered (from cache, no network) by renderRecentFindingsTable()
+    // whenever the form is otherwise rebuilt (e.g. after staging an entry).
+    let _findingsRecentCache = { loading: false, loaded: false, rows: [], error: null };
+
+    // Sheet row number currently loaded into the form for editing, or null
+    // when the form is in normal "add a new entry" mode. Drives which
+    // function the "+ Add Entry"/"Save Changes" button calls — see
+    // updateFindingsEntryButtonMode_().
+    let _findingsEditingRow = null;
+
+    async function loadRecentFindingsFromSheet(force) {
+      if (_findingsRecentCache.loading) return;
+      if (_findingsRecentCache.loaded && !force) { renderRecentFindingsTable(); return; }
+      _findingsRecentCache = Object.assign({}, _findingsRecentCache, { loading: true });
+      renderRecentFindingsTable();
+      try {
+        const secret = loadFindingsEditorSecret();
+        const idToken = await findingsGetAuthToken_();
+        if (!idToken) {
+          _findingsRecentCache = { loading: false, loaded: true, rows: [], error: 'not-signed-in' };
+          renderRecentFindingsTable();
+          return;
+        }
+        const params = new URLSearchParams({ action: 'recentFindings', secret: secret, idToken: idToken, count: '15' });
+        const json = await fetchSheetOnce(FINDINGS_APPS_SCRIPT_URL + '?' + params.toString());
+        if (json && json.success) {
+          _findingsRecentCache = { loading: false, loaded: true, rows: Array.isArray(json.rows) ? json.rows : [], error: null };
+        } else {
+          _findingsRecentCache = { loading: false, loaded: true, rows: [], error: (json && json.error) || 'error' };
+        }
+      } catch (e) {
+        _findingsRecentCache = { loading: false, loaded: true, rows: [], error: 'network' };
+      }
+      renderRecentFindingsTable();
+    }
+
+    function renderRecentFindingsTable() {
+      const container = document.getElementById('findingsEditor-recentTable');
+      if (!container) return;
+      const cache = _findingsRecentCache;
+
+      if (cache.loading) {
+        container.innerHTML = `<div class="p-4 text-center text-xs text-slate-400 italic">Loading recent entries…</div>`;
+        return;
+      }
+      if (cache.error) {
+        container.innerHTML = `<div class="p-4 text-center text-xs text-accentRose">Couldn\u2019t load recent entries (${escapeFindingHTML(findingsSendErrorMessage_(cache.error))}).</div>`;
+        return;
+      }
+      if (!cache.rows || cache.rows.length === 0) {
+        container.innerHTML = `<div class="p-4 text-center text-xs text-slate-400 italic">No entries in the sheet yet.</div>`;
+        return;
+      }
+
+      const editingRow = _findingsEditingRow;
+      const rows = cache.rows.map(r => `
+        <tr class="border-t border-coolBorder${r.row === editingRow ? ' bg-accentIndigo/5' : ''}">
+          <td class="p-2 text-[11px] font-semibold text-slate-500 whitespace-nowrap align-top">${escapeFindingHTML(r.date)}</td>
+          <td class="p-2 text-[11px] font-semibold text-slate-700 whitespace-nowrap align-top">${escapeFindingHTML(r.branch)}</td>
+          <td class="p-2 align-top whitespace-nowrap">${getFindingCategoryBadge(r.category)}</td>
+          <td class="p-2 text-xs text-slate-800 align-top">${escapeFindingHTML(r.finding)}</td>
+          <td class="p-2 align-top text-right whitespace-nowrap">
+            <button onclick="startEditRecentFinding(${r.row})" title="Edit" aria-label="Edit entry" class="p-1 text-slate-400 hover:text-royalBlue hover:bg-royalBlue/10 rounded-lg transition-all active:scale-95 mr-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+            </button>
+            <button onclick="deleteRecentFindingEntry(${r.row})" title="Delete" aria-label="Delete entry" class="p-1 text-slate-400 hover:text-accentRose hover:bg-accentRose/10 rounded-lg transition-all active:scale-95">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
+            </button>
+          </td>
+        </tr>`).join('');
+
+      container.innerHTML = `
+        <table class="w-full text-left border-collapse">
+          <thead class="bg-slate-50 text-[9px] uppercase tracking-wider text-slate-400 font-bold sticky top-0">
+            <tr><th class="p-2 w-20">Date</th><th class="p-2 w-28">Branch</th><th class="p-2 w-32">Category</th><th class="p-2">Findings</th><th class="p-2 w-16"></th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    // Loads one row from the "Recently Added" list back into the form
+    // fields above (Date/Year/Branch/Category/Findings) and switches the
+    // form into edit mode — see updateFindingsEntryButtonMode_() and
+    // saveEditedFindingEntry().
+    function startEditRecentFinding(rowNum) {
+      const row = (_findingsRecentCache.rows || []).find(r => r.row === rowNum);
+      if (!row) { showToast('That entry is no longer available — refreshing…'); loadRecentFindingsFromSheet(true); return; }
+      if (!_findingsAuthStatus.authorized) { showToast('Only an allowed Audit Findings account can edit sheet entries.'); return; }
+
+      _findingsEditingRow = rowNum;
+      renderFindingsEditorForm(row.branch, row.category);
+
+      const dateEl = document.getElementById('findingsEditor-date');
+      const yearEl = document.getElementById('findingsEditor-year');
+      const findingsEl = document.getElementById('findingsEditor-findings');
+      if (dateEl && row.isoDate) dateEl.value = row.isoDate;
+      if (yearEl && row.year) yearEl.value = row.year;
+      if (findingsEl) findingsEl.value = row.finding || '';
+
+      const bodyEl = document.getElementById('findingsEditorBody');
+      if (bodyEl) bodyEl.scrollTop = 0;
+    }
+
+    function cancelEditRecentFinding() {
+      _findingsEditingRow = null;
+      renderFindingsEditorForm();
+    }
+
+    // Swaps the "+ Add Entry" button between its normal (stage a new row
+    // locally) behavior and "Save Changes" (write directly to the sheet)
+    // depending on whether _findingsEditingRow is set.
+    function updateFindingsEntryButtonMode_() {
+      const btn = document.getElementById('findingsEditor-addBtn');
+      const cancelWrap = document.getElementById('findingsEditor-editCancelWrap');
+      if (!btn) return;
+      if (_findingsEditingRow) {
+        btn.textContent = 'Save Changes';
+        btn.setAttribute('onclick', 'saveEditedFindingEntry()');
+        if (cancelWrap) cancelWrap.classList.remove('hidden');
+      } else {
+        btn.textContent = '+ Add Entry';
+        btn.setAttribute('onclick', 'addStagedFindingEntry()');
+        if (cancelWrap) cancelWrap.classList.add('hidden');
+      }
+    }
+
+    // Writes the form's current values directly to the sheet row being
+    // edited (action=updateFinding) — unlike addStagedFindingEntry(), this
+    // is an edit of something ALREADY in RAW DATA, so there's nothing to
+    // stage locally first; it goes straight to the sheet.
+    async function saveEditedFindingEntry() {
+      const errEl = document.getElementById('findingsEditor-error');
+      if (errEl) errEl.classList.add('hidden');
+      const rowNum = _findingsEditingRow;
+      if (!rowNum) return;
+
+      const dateVal = (document.getElementById('findingsEditor-date') || {}).value || '';
+      const yearVal = (document.getElementById('findingsEditor-year') || {}).value || '';
+      const branchSelect = (document.getElementById('findingsEditor-branchSelect') || {}).value || '';
+      const branchNew = (document.getElementById('findingsEditor-branchNew') || {}).value || '';
+      const categorySelect = (document.getElementById('findingsEditor-categorySelect') || {}).value || '';
+      const categoryNew = (document.getElementById('findingsEditor-categoryNew') || {}).value || '';
+      const findingVal = ((document.getElementById('findingsEditor-findings') || {}).value || '').trim();
+
+      const branch = (branchSelect === '__new__' ? branchNew : branchSelect).trim().toUpperCase();
+      const category = (categorySelect === '__new__' ? categoryNew : categorySelect).trim().toUpperCase();
+
+      const showError = msg => { if (errEl) { errEl.textContent = msg; errEl.classList.remove('hidden'); } };
+      if (!dateVal) return showError('Date is required.');
+      if (!branch) return showError('Branch is required (pick one, or add a new one).');
+      if (!category) return showError('Category is required (pick one, or add a new one).');
+      if (!findingVal) return showError('Findings / remarks text is required.');
+
+      const btn = document.getElementById('findingsEditor-addBtn');
+      if (btn) { btn.disabled = true; btn.classList.add('opacity-60'); }
+      try {
+        await updateFindingRowInSheet(rowNum, { date: dateVal, branch: branch, category: category, finding: findingVal, year: yearVal });
+        _findingsEditingRow = null;
+        showToast('Entry updated in the sheet.');
+        renderFindingsEditorForm();
+        loadRecentFindingsFromSheet(true);
+      } catch (err) {
+        showError(findingsSendErrorMessage_(err && err.message));
+      } finally {
+        if (btn) { btn.disabled = false; btn.classList.remove('opacity-60'); }
+      }
+    }
+
+    function deleteRecentFindingEntry(rowNum) {
+      const row = (_findingsRecentCache.rows || []).find(r => r.row === rowNum);
+      if (!row) { showToast('That entry is no longer available — refreshing…'); loadRecentFindingsFromSheet(true); return; }
+      if (!_findingsAuthStatus.authorized) { showToast('Only an allowed Audit Findings account can delete sheet entries.'); return; }
+      openFindingsDeleteConfirm(
+        { type: 'sheetRow', row: rowNum },
+        'Delete this entry from the sheet (' + row.branch + ' — ' + row.category + ')? This removes it from RAW DATA directly and can\u2019t be undone.'
+      );
+    }
+
+    async function doDeleteRecentFindingEntry(rowNum) {
+      try {
+        await deleteFindingRowInSheet(rowNum);
+        if (_findingsEditingRow === rowNum) { _findingsEditingRow = null; renderFindingsEditorForm(); }
+        showToast('Entry deleted from the sheet.');
+        loadRecentFindingsFromSheet(true);
+      } catch (err) {
+        showToast("Couldn't delete: " + findingsSendErrorMessage_(err && err.message));
+      }
     }
 
     // Matches the exact RAW DATA sheet column order (DATE, BRANCH, CATEGORY,
