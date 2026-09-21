@@ -6365,7 +6365,7 @@ html.page-fade-ready body {
         <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-accentRose"></span>High</span>
         <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-accentAmber"></span>Medium</span>
         <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-accentEmerald"></span>Low</span>
-        <span class="text-slate-400 font-normal normal-case">— scored from repo rate, findings, efficiency, and collection/sales/service trends combined</span>
+        <span class="text-slate-400 font-normal normal-case">— the same 0–100 audit risk score as Audit Risk &amp; Schedule Analysis: High = 55+ or any data red flag, Medium = 40–54, Low = below 40</span>
       </div>
 
       <p class="md:hidden flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-400 mb-2">
@@ -10822,32 +10822,74 @@ html.page-fade-ready body {
     // label/how/why are shown verbatim in the methodology panel and the
     // Excel "Risk Methodology" sheet, so the text is written to be read by
     // someone who has never seen the dashboard.
+    // Findings are scaled against the portfolio's 90th percentile, but never
+    // against less than this many weighted points (= two 2026 findings). Without
+    // this floor, a portfolio where nearly everyone is clean would turn ONE
+    // finding into a maximum-risk 100 for that branch.
+    const AUDIT_FINDINGS_MIN_CAP = 6;
     const AUDIT_RISK_FACTORS = [
-      { key: 'recency', label: 'Audit recency', defaultWeight: 20,
+      { key: 'recency', label: 'Audit recency', defaultWeight: 15,
         how: '0 points if audited today, rising evenly to 100 points at the Overdue threshold. Never audited = 100.',
-        why: 'The longer a branch goes unchecked, the longer a problem can run before anyone sees it.' },
+        why: 'The longer a branch goes unchecked, the longer a problem can run before anyone sees it. Kept deliberately smaller than the data factors so the calendar alone cannot outrank what a branch\'s own numbers say.' },
       { key: 'findings', label: 'Audit findings', defaultWeight: 25,
-        how: 'Findings are weighted 3x for 2026, 2x for 2025 and 1x for 2024, then scaled against the portfolio\'s 90th percentile (so one extreme branch does not flatten everyone else). No findings = 0.',
+        how: 'Findings are weighted 3x for 2026, 2x for 2025 and 1x for 2024, then scaled against the portfolio\'s 90th percentile (never less than ' + AUDIT_FINDINGS_MIN_CAP + ' weighted points, so a single finding cannot max out the scale). No findings = 0.',
         why: 'Past findings are the strongest sign of where more will be found; recent years count more than old ones.' },
-      { key: 'collection', label: 'Collection trend', defaultWeight: 12,
+      { key: 'collection', label: 'Collection trend', defaultWeight: 11,
         how: 'Declining = 100, Recovering = 50, Stable = 20, Improving = 0.',
         why: 'A worsening collection trend is an early warning of credit-control or reporting problems.' },
-      { key: 'efficiency', label: 'Collection efficiency', defaultWeight: 12,
-        how: 'Uses the same 70% / 50% cut-offs as the branch cards: 100% = 0 pts, 70% = 35 pts, 50% = 70 pts, 0% = 100 pts (proportional in between). No data = excluded.',
+      { key: 'efficiency', label: 'Collection efficiency', defaultWeight: 11,
+        how: 'Uses the same 70% / 50% cut-offs as the branch cards: 100% = 0 pts, 70% = 35 pts, 50% = 70 pts, 0% = 100 pts (proportional in between). Uses the most recent month that has a figure. No figure in any month = excluded.',
         why: 'Low efficiency means less of what is due is being collected.' },
-      { key: 'repo', label: 'Repo rate', defaultWeight: 10,
-        how: 'Uses the same 4% / 7% cut-offs as the branch cards: 0% = 0 pts, 4% = 35 pts, 7% = 70 pts, 12% or more = 100 pts (proportional in between). No data = excluded.',
+      { key: 'repo', label: 'Repo rate', defaultWeight: 9,
+        how: 'Uses the same 4% / 7% cut-offs as the branch cards: 0% = 0 pts, 4% = 35 pts, 7% = 70 pts, 12% or more = 100 pts (proportional in between). No account data = excluded.',
         why: 'A high repossession rate points to weaker loan quality or recovery handling.' },
-      { key: 'sales', label: 'Sales trend', defaultWeight: 8,
+      { key: 'momentum', label: 'Efficiency & repo momentum', defaultWeight: 12,
+        how: 'Compares the latest month with the earliest month on record. Efficiency falling 15 points or more = 100; repo rate rising 3 points or more = 100; flat or improving = 0 (proportional in between). The worse of the two counts.',
+        why: 'A branch that is getting worse is a stronger reason to visit than one that is low but stable. This is what makes the schedule react to movement in the data, not to the calendar.' },
+      { key: 'sales', label: 'Sales trend', defaultWeight: 6,
         how: 'Declining = 100, Recovering = 50, Stable = 20, Improving = 0.',
         why: 'Sharp sales drops can signal pressure on the branch and unusual activity.' },
-      { key: 'service', label: 'Service vs target', defaultWeight: 8,
+      { key: 'service', label: 'Service vs target', defaultWeight: 6,
         how: 'Declining (below target) = 100, on Target = 0.',
         why: 'Missing service targets is a control and customer-experience signal.' },
       { key: 'size', label: 'Portfolio size', defaultWeight: 5,
         how: 'Number of accounts scaled against the portfolio\'s 90th percentile. No data = excluded.',
         why: 'A bigger loan book means more money is at stake if something is wrong (materiality).' }
     ];
+    // DATA RED FLAGS — hard tripwires that use the same red cut-offs as the
+    // branch cards. A weighted average can dilute one severe signal (a branch
+    // at 45% efficiency can still average out as "Low" if everything else is
+    // fine), so any single red flag qualifies a branch for scheduling and lifts
+    // it to at least the High tier, whatever its overall score.
+    const AUDIT_RED_FLAGS = [
+      { key: 'eff', label: 'Efficiency below 50%',
+        test: c => c.effNow > 0 && c.effNow < 50, detail: c => c.effNow + '% collection efficiency' },
+      { key: 'repo', label: 'Repo rate 7% or higher',
+        test: c => c.hasAcct && c.repo >= 7, detail: c => c.repo.toFixed(1) + '% repo rate' },
+      { key: 'findings', label: '5+ findings in 2026',
+        test: c => (c.b.findings2026 || 0) >= 5, detail: c => (c.b.findings2026 || 0) + ' findings in 2026' },
+      { key: 'sliding', label: 'Efficiency and repo both deteriorating sharply',
+        test: c => c.effDelta !== null && c.effDelta <= -10 && c.repoDelta !== null && c.repoDelta >= 2,
+        detail: c => 'efficiency ' + c.effDelta + ' pts, repo +' + c.repoDelta.toFixed(1) + ' pts since the earliest month' },
+      { key: 'alldown', label: 'Collection, sales and service all declining',
+        test: c => c.b.collection === 'Declining' && c.b.sales === 'Declining' && c.b.service === 'Declining',
+        detail: () => 'all three trends are declining' }
+    ];
+    // Suggested audit dates skip weekends and these Philippine holidays.
+    // Fixed-date ones are listed as MM-DD; National Heroes Day (last Monday of
+    // August) is worked out automatically. Movable holidays (Holy Week, Eid)
+    // change every year: add them here as 'YYYY-MM-DD' strings.
+    const AUDIT_SCHEDULE_HOLIDAYS_FIXED = ['01-01', '04-09', '05-01', '06-12', '11-30', '12-25', '12-30'];
+    const AUDIT_SCHEDULE_HOLIDAYS_EXTRA = [];
+    function auditDayKey(d) {
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+    function auditIsHoliday(d) {
+      const mmdd = auditDayKey(d).slice(5);
+      if (AUDIT_SCHEDULE_HOLIDAYS_FIXED.indexOf(mmdd) !== -1) return true;
+      if (AUDIT_SCHEDULE_HOLIDAYS_EXTRA.indexOf(auditDayKey(d)) !== -1) return true;
+      return d.getMonth() === 7 && d.getDay() === 1 && d.getDate() + 7 > 31;
+    }
     const AUDIT_RISK_TIERS = [
       { key: 'CRITICAL', label: 'Critical', min: 70, tint: 'accentRose' },
       { key: 'HIGH',     label: 'High',     min: 55, tint: 'accentAmber' },
@@ -11026,6 +11068,7 @@ html.page-fade-ready body {
         const w = defaultAuditRiskWeights();
         let ok = true;
         AUDIT_RISK_FACTORS.forEach(f => {
+          if (raw.weights[f.key] === undefined) return; // older device: keep this factor's default
           const v = Number(raw.weights[f.key]);
           if (isFinite(v) && v >= 0 && v <= 100) w[f.key] = v; else ok = false;
         });
@@ -11479,19 +11522,32 @@ html.page-fade-ready body {
     // "risk points"; the score is the weighted average of the factors that
     // have data. A factor with no data for a branch is EXCLUDED and the
     // remaining weights are rescaled to 100% — a branch is never penalised
-    // (or rewarded) for a number that simply isn't there.
+    // (or rewarded) for a number that simply isn't there. row.risk.coverage
+    // reports how much of the total weight actually had data, so a score
+    // built on thin data can be recognised as such.
+    //
+    // IMPORTANT: `rows` must be the WHOLE portfolio. The findings and size
+    // scales are percentiles of the rows passed in; scoring one branch on its
+    // own would make it its own 90th percentile (any finding = 100 points).
+    // For a single branch use scoreBranchAgainstPortfolio() below.
     function computeAuditRiskScores(rows, cfg) {
       const weights = cfg.weights || defaultAuditRiskWeights();
       const findingsWeighted = b => (b.findings2026 || 0) * 3 + (b.findings2025 || 0) * 2 + (b.findings2024 || 0);
       const accountsOf = b => (b.accountsMay || 0) > 0 ? b.accountsMay : (b.accountsApr || 0);
-      const findingsCap = auditRiskPercentile(rows.map(r => findingsWeighted(r.b)), 0.9) || 1;
+      const findingsCap = Math.max(auditRiskPercentile(rows.map(r => findingsWeighted(r.b)), 0.9), AUDIT_FINDINGS_MIN_CAP);
       const sizeCap = auditRiskPercentile(rows.map(r => accountsOf(r.b)), 0.9) || 1;
+      const highTier = AUDIT_RISK_TIERS.find(t => t.key === 'HIGH');
+      const tierRank = t => AUDIT_RISK_TIERS.indexOf(t); // 0 = Critical ... 3 = Low
 
       rows.forEach(row => {
         const b = row.b, info = row.info;
         const f = [];
         const add = (key, available, points, detail, short) => {
-          f.push({ key, available, points: available ? Math.max(0, Math.min(100, points)) : 0, detail, short });
+          // BUG FIX: entries carried no `label`, but auditRiskWhyText() and
+          // buildOverallEvaluationHTML() both call x.label.toLowerCase() on them,
+          // which throws for any branch that has a risk driver.
+          const def = AUDIT_RISK_FACTORS.find(x => x.key === key);
+          f.push({ key, label: def ? def.label : key, available, points: available ? Math.max(0, Math.min(100, points)) : 0, detail, short });
         };
 
         const never = info.roundsCount === 0 || info.intervalDays === null || info.intervalDays === undefined;
@@ -11509,14 +11565,41 @@ html.page-fade-ready body {
         add('collection', true, AUDIT_RISK_STATUS_POINTS.collection[b.collection] ?? 20,
             'Collection is ' + (b.collection || 'Stable'), 'Collection ' + String(b.collection || 'Stable').toLowerCase());
 
-        const hasEff = (b.effMar || 0) > 0 || (b.effApr || 0) > 0 || (b.effLatest || 0) > 0;
-        add('efficiency', hasEff, auditRiskPiecewise(b.effLatest || 0, [[0, 100], [50, 70], [70, 35], [100, 0]]),
-            hasEff ? (b.effLatest + '% latest efficiency') : 'No efficiency data', 'Efficiency ' + b.effLatest + '%');
+        // Efficiency: use the most recent month that actually has a figure.
+        // A blank latest month reads as 0 in the sheet parse; scoring that as
+        // "0% efficiency" would hand the branch the maximum 100 points for a
+        // cell nobody has filled in yet.
+        const effSeries = [b.effMar || 0, b.effApr || 0, b.effLatest || 0];
+        const effNow = effSeries[2] > 0 ? effSeries[2] : (effSeries[1] > 0 ? effSeries[1] : (effSeries[0] > 0 ? effSeries[0] : 0));
+        const hasEff = effNow > 0;
+        add('efficiency', hasEff, auditRiskPiecewise(effNow, [[0, 100], [50, 70], [70, 35], [100, 0]]),
+            hasEff ? (effNow + '% ' + (effSeries[2] > 0 ? 'latest' : 'most recent available') + ' efficiency') : 'No efficiency data',
+            'Efficiency ' + effNow + '%');
 
         const hasAcct = accountsOf(b) > 0;
         const repo = b.repoRateLatest || 0;
         add('repo', hasAcct, auditRiskPiecewise(repo, [[0, 0], [4, 35], [7, 70], [12, 100]]),
             hasAcct ? (repo.toFixed(2) + '% latest repo rate') : 'No account data', 'Repo ' + repo.toFixed(1) + '%');
+
+        // Momentum: which way are efficiency and repo actually moving?
+        // (Levels alone cannot tell a branch that is sliding from one that is
+        // steadily mediocre, and the sheet already holds three months of each.)
+        const effNZ = effSeries.filter(v => v > 0);
+        const effDelta = effNZ.length >= 2 ? effNZ[effNZ.length - 1] - effNZ[0] : null;
+        const repoSeries = [b.repoRateMar || 0, b.repoRateApr || 0, b.repoRateLatest || 0];
+        const repoDelta = hasAcct ? repoSeries[2] - repoSeries[0] : null;
+        const hasMomentum = effDelta !== null || repoDelta !== null;
+        const effMomPts = (effDelta !== null && effDelta < 0) ? Math.min(100, (-effDelta / 15) * 100) : 0;
+        const repoMomPts = (repoDelta !== null && repoDelta > 0) ? Math.min(100, (repoDelta / 3) * 100) : 0;
+        const momParts = [];
+        if (effDelta !== null) momParts.push('Efficiency ' + effNZ[0] + '% → ' + effNZ[effNZ.length - 1] + '% (' + (effDelta > 0 ? '+' : '') + effDelta + ' pts)');
+        if (repoDelta !== null) momParts.push('Repo ' + repoSeries[0].toFixed(1) + '% → ' + repoSeries[2].toFixed(1) + '% (' + (repoDelta > 0 ? '+' : '') + repoDelta.toFixed(1) + ' pts)');
+        const worseIsEff = effMomPts >= repoMomPts;
+        add('momentum', hasMomentum, Math.max(effMomPts, repoMomPts),
+            hasMomentum ? momParts.join(' · ') : 'Not enough months of data',
+            Math.max(effMomPts, repoMomPts) > 0
+              ? (worseIsEff ? 'Efficiency falling ' + Math.abs(effDelta) + ' pts' : 'Repo rising ' + repoDelta.toFixed(1) + ' pts')
+              : 'No deterioration');
 
         add('sales', true, AUDIT_RISK_STATUS_POINTS.sales[b.sales] ?? 20,
             'Sales are ' + (b.sales || 'Stable'), 'Sales ' + String(b.sales || 'Stable').toLowerCase());
@@ -11529,8 +11612,12 @@ html.page-fade-ready body {
             hasAcct ? (accountsOf(b).toLocaleString() + ' accounts') : 'No account data',
             accountsOf(b).toLocaleString() + ' accounts');
 
-        let weightSum = 0;
-        f.forEach(x => { x.weight = Math.max(0, Number(weights[x.key]) || 0); if (x.available) weightSum += x.weight; });
+        let weightSum = 0, weightTotal = 0;
+        f.forEach(x => {
+          x.weight = Math.max(0, Number(weights[x.key]) || 0);
+          weightTotal += x.weight;
+          if (x.available) weightSum += x.weight;
+        });
         let score = 0;
         f.forEach(x => {
           x.share = (x.available && weightSum > 0) ? x.weight / weightSum : 0;
@@ -11538,9 +11625,20 @@ html.page-fade-ready body {
           score += x.contribution;
         });
         score = Math.round(score * 10) / 10;
+
+        const flagCtx = { b: b, effNow: effNow, hasAcct: hasAcct, repo: repo, effDelta: effDelta, repoDelta: repoDelta };
+        const redFlags = AUDIT_RED_FLAGS.filter(rf => rf.test(flagCtx)).map(rf => ({ key: rf.key, label: rf.label, detail: rf.detail(flagCtx) }));
+        const baseTier = auditRiskTierOf(score);
+        const escalated = redFlags.length > 0 && tierRank(baseTier) > tierRank(highTier);
+
         row.risk = {
           score: score,
-          tier: auditRiskTierOf(score),
+          tier: escalated ? highTier : baseTier,
+          baseTier: baseTier,
+          escalated: escalated,
+          redFlags: redFlags,
+          // Share of the total weight that had data for this branch (1 = complete).
+          coverage: weightTotal > 0 ? weightSum / weightTotal : 1,
           factors: f,
           // The (up to) three biggest reasons this branch scored the way it did.
           drivers: f.filter(x => x.available && x.points >= 50 && x.contribution > 0)
@@ -11548,6 +11646,18 @@ html.page-fade-ready body {
         };
       });
       return rows;
+    }
+
+    // "Needs a visit on its data alone": score at/above the threshold, OR any
+    // hard red flag (see AUDIT_RED_FLAGS).
+    function auditIsHighRisk(row, cfg) {
+      return row.risk.score >= cfg.minScore || (row.risk.redFlags && row.risk.redFlags.length > 0);
+    }
+    // Sort key for queues/rankings. A red-flagged branch never ranks below the
+    // High tier floor, so a diluted score cannot bury it at the bottom.
+    function auditRiskPriority(row) {
+      const highMin = (AUDIT_RISK_TIERS.find(t => t.key === 'HIGH') || { min: 55 }).min;
+      return row.risk.escalated ? Math.max(row.risk.score, highMin) : row.risk.score;
     }
 
     // Shared by the "Days Since Last Audit" panel, the table's Days cell and
@@ -11598,7 +11708,7 @@ html.page-fade-ready body {
         const isDone = (b.auditStatus || '').toUpperCase() === 'DONE';
         const days = info.intervalDays;
         const hasDays = days !== null && days !== undefined;
-        const highRisk = row.risk.score >= cfg.minScore;
+        const highRisk = auditIsHighRisk(row, cfg);
         const pastMinGap = !hasDays || days >= cfg.minGapDays;
 
         if (info.roundsCount === 0 && !hasExpected) {
@@ -11637,32 +11747,70 @@ html.page-fade-ready body {
         ...riskFlagged.map(r => ({ ...r, reason: 'High risk, not yet scheduled' })),
         ...overdueUnscheduled.map(r => ({ ...r, reason: 'Overdue, not yet scheduled' })),
         ...scheduledPastDue.map(r => ({ ...r, reason: 'Expected date already passed' }))
-      ].sort((x, y) => (y.risk.score - x.risk.score) || ((y.info.intervalDays ?? Infinity) - (x.info.intervalDays ?? Infinity)));
+      ].sort((x, y) => (auditRiskPriority(y) - auditRiskPriority(x)) || (y.risk.score - x.risk.score) || ((y.info.intervalDays ?? Infinity) - (x.info.intervalDays ?? Infinity)));
 
-      // -- Round-robin the queue across auditors, always handing the next
-      // branch to whoever currently has the LOWEST running total. --------
-      const runningLoad = {};
-      auditorNames.forEach(a => { runningLoad[a] = workload[a]; });
-      const pickAuditor = () => {
-        if (!auditorNames.length) return 'Unassigned';
-        let best = auditorNames[0];
-        auditorNames.forEach(a => { if (runningLoad[a] < runningLoad[best]) best = a; });
-        runningLoad[best]++;
-        return best;
-      };
-
-      // -- Spread suggested dates cfg.spacingDays business days apart,
-      // starting on the next business day. -------------------------------
+      // -- Give every queued branch an auditor AND a date, highest priority
+      // first. Each auditor works their own calendar ("lane"):
+      //   * Auditor independence: the person who did a branch's most recent
+      //     audit is not suggested for it again while anyone else is available.
+      //   * Respect the rotation: if someone is already queued as "Up Next"
+      //     for that branch, they stay the suggestion (unless they just did it).
+      //   * Otherwise the auditor who is free EARLIEST gets it (ties: lightest
+      //     queue), so the riskiest branches are reached soonest.
+      //   * An audit occupies cfg.spacingDays business days on that auditor's
+      //     calendar; dates never overlap an audit they already have scheduled,
+      //     and skip weekends and holidays (see auditIsHoliday()).
+      const spacing = Math.max(1, cfg.spacingDays);
+      const isOffDay = d => d.getDay() === 0 || d.getDay() === 6 || auditIsHoliday(d);
       const nextBusinessDay = (d) => {
         const nd = new Date(d);
-        do { nd.setDate(nd.getDate() + 1); } while (nd.getDay() === 0 || nd.getDay() === 6);
+        do { nd.setDate(nd.getDate() + 1); } while (isOffDay(nd));
         return nd;
       };
-      let cursor = new Date(today);
+      const occupiedDays = (start) => {
+        const days = [new Date(start)];
+        let cur = new Date(start);
+        for (let i = 1; i < spacing; i++) { cur = nextBusinessDay(cur); days.push(new Date(cur)); }
+        return days;
+      };
+      const lanes = auditorNames.length ? auditorNames.slice() : ['Unassigned'];
+      const busy = {}, runningLoad = {};
+      lanes.forEach(n => { busy[n] = new Set(); runningLoad[n] = workload[n] || 0; });
+      scheduledUpcoming.forEach(r => {
+        const lane = r.info.upNextAuditor;
+        if (lane && busy[lane] && r.info.expectedAuditDateRaw) {
+          occupiedDays(new Date(r.info.expectedAuditDateRaw)).forEach(d => busy[lane].add(auditDayKey(d)));
+        }
+      });
+      const startFrom = new Date(today); startFrom.setDate(startFrom.getDate() + 1); startFrom.setHours(0, 0, 0, 0);
+      const firstFreeSlot = (lane) => {
+        const d = new Date(startFrom);
+        for (let guard = 0; guard < 1000; guard++) {
+          if (!isOffDay(d) && occupiedDays(d).every(x => !busy[lane].has(auditDayKey(x)))) return d;
+          d.setDate(d.getDate() + 1);
+        }
+        return d;
+      };
+      const norm = v => String(v || '').trim().toUpperCase();
       const suggestions = priorityQueue.map(row => {
-        const auditor = pickAuditor();
-        const suggestedDate = new Date(cursor);
-        for (let i = 0; i < Math.max(1, cfg.spacingDays); i++) cursor = nextBusinessDay(cursor);
+        const recentNorm = norm(row.info.recentAuditor);
+        const queued = lanes.find(n => norm(n) === norm(row.info.upNextAuditor));
+        let auditor, alreadyCounted = false;
+        if (queued && norm(queued) !== recentNorm) {
+          auditor = queued; alreadyCounted = true;   // rotation already decided this one
+        } else {
+          const pool = lanes.filter(n => norm(n) !== recentNorm);
+          const candidates = pool.length ? pool : lanes;
+          let best = null, bestDate = null;
+          candidates.forEach(n => {
+            const d = firstFreeSlot(n);
+            if (best === null || d < bestDate || (d.getTime() === bestDate.getTime() && runningLoad[n] < runningLoad[best])) { best = n; bestDate = d; }
+          });
+          auditor = best;
+        }
+        if (!alreadyCounted) runningLoad[auditor]++;
+        const suggestedDate = firstFreeSlot(auditor);
+        occupiedDays(suggestedDate).forEach(d => busy[auditor].add(auditDayKey(d)));
         return Object.assign({}, row, { suggestedAuditor: auditor, suggestedDate: suggestedDate });
       });
 
@@ -11707,26 +11855,64 @@ html.page-fade-ready body {
       };
     }
 
-    // One plain-English sentence answering "why is this branch on (or not
-    // on) the schedule?" — shown in the row's breakdown and in the export.
+    // One plain-English explanation answering "why is this branch on (or
+    // not on) the schedule?" — shown in the row's breakdown and in the
+    // export. Written DATA-FIRST on purpose: it leads with the actual
+    // factors driving the branch's risk score (findings, trends,
+    // efficiency, repo rate, portfolio size — see row.risk.drivers, from
+    // computeAuditRiskScores) and only mentions "days since last audit" as
+    // supporting/backstop context at the end, never as the headline reason.
+    // The two purely date-based coverage rules (never audited; an expected
+    // date that slipped) still exist as a safety net — no branch can be
+    // skipped forever just because its other numbers look fine — but they
+    // are labeled as such rather than presented as the primary rationale.
     function auditRiskWhyText(row) {
       const cfg = window.auditAnalysisState;
       const days = row.info.intervalDays;
+      const driverPhrase = (function () {
+        const d = (row.risk.drivers || []).filter(function (x) { return x.key !== 'recency'; });
+        if (!d.length) return null;
+        return d.map(function (x) { return x.label.toLowerCase() + ' (' + x.detail + ')'; }).join(', ');
+      })();
+      const flagPhrase = (row.risk.redFlags && row.risk.redFlags.length)
+        ? row.risk.redFlags.map(function (x) { return x.label.toLowerCase() + ' (' + x.detail + ')'; }).join(', ')
+        : null;
+      const lastAuditedNote = '(Last audited ' + (days !== null && days !== undefined ? days + ' days ago' : 'never') + ' — shown for reference only.)';
+      const scoreAtThreshold = row.risk.score >= cfg.minScore;
+
       switch (row.reason) {
         case 'Never audited':
-          return 'Included because every branch must be audited at least once. This is a coverage rule and applies regardless of the risk score.';
+          return 'Included because every branch must be audited at least once — a coverage rule that applies regardless of the risk score.';
         case 'Expected date already passed':
-          return 'Included because its scheduled audit date has passed and the branch was not marked Done. This is a coverage rule.';
+          return 'Included because its scheduled audit date has passed without the branch being marked Done — a coverage rule, not a data-driven pick.'
+            + (flagPhrase ? ' Data red flag: ' + flagPhrase + '.' : '')
+            + (driverPhrase ? ' Its own numbers also support a visit: ' + driverPhrase + '.' : '');
+        case 'High risk, not yet scheduled': {
+          const scorePart = scoreAtThreshold
+            ? (driverPhrase
+                ? 'Its own numbers make the case for a visit: ' + driverPhrase + '. That puts its risk score at ' + row.risk.score.toFixed(0) + ', at or above the ' + cfg.minScore + ' threshold, with nothing currently scheduled.'
+                : 'Its risk score (' + row.risk.score.toFixed(0) + ') is at or above the minimum of ' + cfg.minScore + ' and nothing is currently scheduled.')
+            : '';
+          const flagPart = flagPhrase
+            ? 'Data red flag: ' + flagPhrase + '. A red flag qualifies a branch for scheduling whatever its overall score (' + row.risk.score.toFixed(0) + ') — a weighted average can dilute one severe signal.' + (scoreAtThreshold ? '' : ' Nothing is currently scheduled.')
+            : '';
+          return [scorePart, flagPart, lastAuditedNote].filter(Boolean).join(' ');
+        }
         case 'Overdue, not yet scheduled':
-          return 'Included because it has gone ' + days + ' days without an audit (limit: ' + cfg.overdueDays + ' days) and nothing is scheduled. This is a coverage backstop; its risk score is ' + row.risk.score.toFixed(0) + '.';
-        case 'High risk, not yet scheduled':
-          return 'Included because its risk score (' + row.risk.score.toFixed(0) + ') is at or above the minimum of ' + cfg.minScore + ', it has no audit scheduled, and it was last audited ' + days + ' days ago (minimum gap: ' + cfg.minGapDays + ' days).';
+          return 'Included as a coverage safety net, not because of its numbers: it has gone ' + days + ' days without an audit (limit: ' + cfg.overdueDays + ' days) and nothing is scheduled. Its risk score is ' + row.risk.score.toFixed(0)
+            + (driverPhrase ? ', with ' + driverPhrase + ' contributing' : ' — no single data factor is currently elevated for this branch') + '.';
         case 'Scheduled — upcoming':
-          return 'Already has an upcoming audit date, so no action is needed. Its risk score is shown for reference.';
+          return 'Already has an upcoming audit date, so no action is needed. Its risk score (' + row.risk.score.toFixed(0) + ') is shown for reference.'
+            + (flagPhrase ? ' Data red flag on record: ' + flagPhrase + '.' : '');
         case 'Monitor — recently audited':
-          return 'Risk score (' + row.risk.score.toFixed(0) + ') is at or above ' + cfg.minScore + ', but it was audited within the last ' + cfg.minGapDays + ' days, so it is not re-scheduled yet. Worth watching.';
+          return (scoreAtThreshold
+              ? (driverPhrase
+                  ? 'Worth watching: ' + driverPhrase + ', putting its risk score at ' + row.risk.score.toFixed(0) + ' (at or above ' + cfg.minScore + ').'
+                  : 'Risk score (' + row.risk.score.toFixed(0) + ') is at or above ' + cfg.minScore + '.')
+              : 'Worth watching — data red flag: ' + flagPhrase + '.')
+            + ' It was audited within the last ' + cfg.minGapDays + ' days, so it is not re-scheduled yet.';
         default:
-          return 'Not scheduled: risk score (' + row.risk.score.toFixed(0) + ') is below the minimum of ' + cfg.minScore + ' and the branch is within the ' + cfg.overdueDays + '-day audit limit.';
+          return 'Not scheduled: its own numbers are healthy (risk score ' + row.risk.score.toFixed(0) + ', below the ' + cfg.minScore + ' minimum) and it is within the ' + cfg.overdueDays + '-day coverage limit.';
       }
     }
 
@@ -11737,9 +11923,9 @@ html.page-fade-ready body {
       const cfg = window.auditAnalysisState;
       const tag = (row, reason) => Object.assign({}, row, { reason: reason, actionable: false });
       const upcoming = a.scheduledUpcoming.map(r => tag(r, 'Scheduled — upcoming'));
-      const other = a.onTrack.map(r => tag(r, r.risk.score >= cfg.minScore ? 'Monitor — recently audited' : 'On track'));
+      const other = a.onTrack.map(r => tag(r, auditIsHighRisk(r, cfg) ? 'Monitor — recently audited' : 'On track'));
       return [...a.suggestions, ...upcoming, ...other]
-        .sort((x, y) => (y.risk.score - x.risk.score) || x.b.name.localeCompare(y.b.name));
+        .sort((x, y) => (auditRiskPriority(y) - auditRiskPriority(x)) || (y.risk.score - x.risk.score) || x.b.name.localeCompare(y.b.name));
     }
 
     // Builds the flat list of rows the bottom table renders: first the
@@ -11764,7 +11950,7 @@ html.page-fade-ready body {
         case 'ON_TRACK':
           title = 'On Track'; rows = all.filter(r => r.reason === 'On track' || r.reason === 'Monitor — recently audited'); break;
         case 'HIGH_RISK':
-          title = 'High-Risk Branches (score ' + cfg.minScore + '+), ranked by score'; rows = all.filter(r => r.risk.score >= cfg.minScore); break;
+          title = 'High-Risk Branches (score ' + cfg.minScore + '+ or a data red flag), ranked by score'; rows = all.filter(r => auditIsHighRisk(r, cfg)); break;
         case 'ALL':
           title = 'All Branches, ranked by risk score'; rows = all; break;
         case 'ATTENTION':
@@ -11837,7 +12023,7 @@ html.page-fade-ready body {
       const fmt = d => d ? d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
       const headers = ['Rank', 'Branch', 'Risk Score', 'Risk Tier', 'Scheduling Status']
         .concat(AUDIT_RISK_FACTORS.map(f => f.label + ' (points added)'))
-        .concat(['Last Audited', 'Days Since Last Audit', 'Suggested Auditor', 'Suggested Date', 'Why']);
+        .concat(['Last Audited', 'Days Since Last Audit', 'Suggested Auditor', 'Suggested Date', 'Data Coverage (%)', 'Data Red Flags', 'Why']);
       const rows = all.map((row, i) => [
         i + 1, row.b.name, row.risk.score, row.risk.tier.label, row.reason
       ].concat(AUDIT_RISK_FACTORS.map(f => {
@@ -11848,6 +12034,8 @@ html.page-fade-ready body {
         (row.info.intervalDays === null || row.info.intervalDays === undefined) ? '' : row.info.intervalDays,
         row.suggestedAuditor || '',
         row.suggestedDate ? fmt(row.suggestedDate) : '',
+        Math.round((row.risk.coverage === undefined ? 1 : row.risk.coverage) * 100),
+        (row.risk.redFlags || []).map(x => x.label).join('; '),
         auditRiskWhyText(row)
       ]));
       const cfg = window.auditAnalysisState;
@@ -11856,8 +12044,9 @@ html.page-fade-ready body {
         f.label, Math.round(((Number(cfg.weights[f.key]) || 0) / wSum) * 1000) / 10 + '%', f.how, f.why
       ]).concat([
         ['', '', '', ''],
-        ['Risk tiers', '', 'Critical 70+, High 55-69, Medium 40-54, Low below 40.', ''],
-        ['Scheduling rules', '', 'Coverage rules (always scheduled): never audited; scheduled date passed without Done; no audit for ' + cfg.overdueDays + '+ days. Risk rule: risk score ' + cfg.minScore + '+ and last audited at least ' + cfg.minGapDays + ' days ago.', ''],
+        ['Risk tiers', '', 'Critical 70+, High 55-69, Medium 40-54, Low below 40. Any data red flag lifts a branch to at least High.', ''],
+        ['Data red flags', '', AUDIT_RED_FLAGS.map(x => x.label).join('; ') + '. Any one qualifies a branch for scheduling whatever its score.', 'A weighted average can dilute one severe signal; these tripwires cannot be averaged away.'],
+        ['Scheduling rules', '', 'Coverage rules (always scheduled): never audited; scheduled date passed without Done; no audit for ' + cfg.overdueDays + '+ days. Risk rule: risk score ' + cfg.minScore + '+ or any data red flag, and last audited at least ' + cfg.minGapDays + ' days ago. Suggested auditors never repeat the branch\'s most recent auditor when someone else is available; dates are per auditor, skip weekends/holidays and never overlap an audit they already have scheduled.', ''],
         ['Missing data', '', 'If a factor has no data for a branch it is excluded and the remaining weights are rescaled to 100%.', '']
       ]);
       return { headers, rows, methodHeaders: ['Factor', 'Share of score', 'How it is scored', 'Why it matters'], methodRows: methodology };
@@ -11873,7 +12062,7 @@ html.page-fade-ready body {
       const a = computeAuditScheduleAnalysis();
       const fmtDate = d => d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
       const filterBucket = cfg.filterBucket || 'ATTENTION';
-      const highRiskCount = a.rows.filter(r => r.risk.score >= cfg.minScore).length;
+      const highRiskCount = a.rows.filter(r => auditIsHighRisk(r, cfg)).length;
       const weightSum = AUDIT_RISK_FACTORS.reduce((s, f) => s + (Number(cfg.weights[f.key]) || 0), 0) || 1;
       const notice = cfg.notice; cfg.notice = null;
 
@@ -11924,9 +12113,9 @@ html.page-fade-ready body {
           const audName = isActionable ? row.suggestedAuditor : row.info.upNextAuditor;
           const distKey = auditDistKeyOf(row);
 
-          const driversText = risk.drivers.length
-              ? risk.drivers.map(d => escapeHTML(d.short)).join(' · ')
-              : 'No major risk drivers';
+          const flagBits = (risk.redFlags || []).map(x => escapeHTML(x.label));
+          const driverBits = risk.drivers.length ? risk.drivers.map(d => escapeHTML(d.short)).join(' · ') : (flagBits.length ? '' : 'No major risk drivers');
+          const driversText = (flagBits.length ? '<span class="font-bold text-accentRose">⚑ ' + flagBits.join(' · ') + '</span>' + (driverBits ? ' · ' : '') : '') + driverBits;
 
           const audCell = audName
               ? `<button type="button" data-aa-kind="auditor" data-aa-value="${escapeHTML(audName)}" title="List every branch with ${escapeHTML(audName)} as auditor" class="${isActionable ? 'px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-accentEmerald/10 text-accentEmerald rounded-md border border-accentEmerald/20 leading-tight whitespace-nowrap' : 'text-[10px] text-slate-600 underline-offset-2 hover:underline'} cursor-pointer hover:brightness-95">${escapeHTML(audName)}</button>`
@@ -11979,8 +12168,9 @@ html.page-fade-ready body {
           </tr>
           <tr id="audit-risk-detail-${idx}" class="${idx === expandIdx ? '' : 'hidden'} bg-slate-50">
             <td colspan="9" class="p-3">
-              <div class="text-[11px] font-bold text-slate-800 mb-1">How ${escapeHTML(row.b.name)} got a score of ${risk.score.toFixed(1)} (${escapeHTML(risk.tier.label)})</div>
+              <div class="text-[11px] font-bold text-slate-800 mb-1">How ${escapeHTML(row.b.name)} got a score of ${risk.score.toFixed(1)} (${escapeHTML(risk.tier.label)}${risk.escalated ? ' — raised from ' + escapeHTML(risk.baseTier.label) + ' by a data red flag' : ''})</div>
               <div class="text-[11px] text-slate-600 mb-2">${escapeHTML(auditRiskWhyText(row))}</div>
+              ${risk.coverage < 0.999 ? `<div class="text-[10px] font-semibold ${risk.coverage < 0.75 ? 'text-accentRose' : 'text-accentAmber'} mb-2">Data coverage ${Math.round(risk.coverage * 100)}% — ${risk.coverage < 0.75 ? 'low confidence: this score rests on limited data, so check the branch\'s figures before relying on it.' : 'some factors had no data and were left out.'}</div>` : ''}
               <div class="overflow-x-auto">
                 <table class="w-full text-[10px] text-left">
                   <thead class="text-slate-500 uppercase tracking-wider font-semibold">
@@ -12224,13 +12414,15 @@ html.page-fade-ready body {
             </table>
           </div>
           <ul class="mt-3 text-xs sm:text-[13px] text-slate-700 leading-relaxed space-y-1.5 list-disc pl-4">
-            <li><strong>Tiers.</strong> Critical 70+, High 55–69, Medium 40–54, Low below 40.</li>
-            <li><strong>Who gets scheduled.</strong> Always: branches never audited, branches whose scheduled date passed without being marked Done, and branches with no audit for ${cfg.overdueDays}+ days (coverage rules — no branch can be skipped because its other numbers look fine). Also: any unscheduled branch with a risk score of ${cfg.minScore}+ that was last audited at least ${cfg.minGapDays} days ago (risk rule).</li>
+            <li><strong>Tiers.</strong> Critical 70+, High 55–69, Medium 40–54, Low below 40. A branch with any data red flag (below) is shown as at least High.</li>
+            <li><strong>Data red flags.</strong> A weighted average can dilute one severe signal, so these tripwires cannot be averaged away: ${AUDIT_RED_FLAGS.map(x => escapeHTML(x.label)).join('; ')}. Any one qualifies an unscheduled branch for the schedule whatever its overall score.</li>
+            <li><strong>Who gets scheduled, and why.</strong> The primary driver is the risk rule: any unscheduled branch whose own numbers put its risk score at ${cfg.minScore}+ or trip a data red flag (last audited at least ${cfg.minGapDays} days ago) is scheduled because of what its data says — findings, trends, efficiency, repo rate or portfolio size — not because of the calendar. On top of that sit three coverage rules that exist purely as a safety net, not as an evaluation of the branch: branches never audited, branches whose scheduled date passed without being marked Done, and branches with no audit for ${cfg.overdueDays}+ days. These guarantee no branch is skipped forever just because its other numbers look fine, but they are the exception, not the basis, for the ranking.</li>
             <li><strong>Missing data.</strong> If a branch has no data for a factor, that factor is left out and the others are rescaled to 100% — a branch is never marked up or down for a number that isn't there.</li>
-            <li><strong>Consistent with the dashboard.</strong> Efficiency and repo scoring use the same red/amber/green cut-offs already shown on the branch cards (efficiency 70% / 50%, repo 4% / 7%).</li>
+            <li><strong>Consistent with the dashboard.</strong> Efficiency and repo scoring use the same red/amber/green cut-offs already shown on the branch cards (efficiency 70% / 50%, repo 4% / 7%). The Branch Scorecard's Risk column and each branch's profile use this same score, so a branch reads the same everywhere.</li>
             <li><strong>Findings for 2026</strong> are year-to-date, which is why recent years are weighted more heavily rather than compared like-for-like.</li>
             <li><strong>Whole portfolio, not just what's on screen.</strong> Every branch in the system is scored, regardless of the Overview table's current search or status filter.</li>
-            <li><strong>Workload balancing.</strong> New suggestions go to whichever auditor currently has the lightest queue, so no one is overloaded while others sit idle.</li>
+            <li><strong>Auditor and date.</strong> Highest priority first. A branch keeps the auditor already queued for it by the rotation; otherwise it goes to whichever auditor is free earliest (ties: lightest queue), and never to the person who did its most recent audit while someone else is available. Each auditor has their own calendar: an audit takes ${cfg.spacingDays} business day(s), never overlaps one they already have scheduled, and skips weekends and holidays.</li>
+            <li><strong>Data coverage.</strong> Each score shows how much of the total weight actually had data. Low coverage means low confidence.</li>
             <li><strong>A prioritisation aid, not an audit conclusion.</strong> The score says where to look first. It does not say something is wrong at a branch. Weights and thresholds are adjustable above and every score can be traced line by line.</li>
           </ul>
         </div>
@@ -12494,7 +12686,26 @@ html.page-fade-ready body {
       renderModalFilteredView();
     }
 
+    // The Branch Scorecard and each branch's profile header now use the SAME
+    // audit risk score as the Audit Risk & Schedule Analysis (previously a
+    // separate, older scoring formula with different cut-offs, so a branch
+    // could read "Low" here and "Critical" there). Critical/High -> High Risk,
+    // Medium -> Medium Risk, Low -> Low Risk. Any data red flag counts as High.
     function computeRiskProfile(b) {
+      try {
+        const r = computeBranchFullRisk(b);
+        const key = r.tier.key;
+        const level = (key === 'CRITICAL' || key === 'HIGH') ? 'High Risk' : (key === 'MEDIUM' ? 'Medium Risk' : 'Low Risk');
+        const accent = level === 'High Risk' ? 'Rose' : (level === 'Medium Risk' ? 'Amber' : 'Emerald');
+        return { score: Math.round(r.score), level: level, accent: accent };
+      } catch (e) {
+        return computeLegacyRiskProfile(b);
+      }
+    }
+
+    // Original standalone formula, kept only as a fallback if the shared
+    // engine ever throws, so the scorecard can never go blank.
+    function computeLegacyRiskProfile(b) {
       // Weighted, multi-factor risk score (0-100) so "risk" reflects the
       // branch's OVERALL picture instead of a single metric. Every factor
       // below is capped so no single number can dominate the verdict.
@@ -12538,6 +12749,118 @@ html.page-fade-ready body {
       else if (score >= 25) { level = 'Medium Risk'; accent = 'Amber'; }
 
       return { score, level, accent };
+    }
+
+    // Runs the SAME multi-factor, weight-tunable risk methodology used by
+    // the Audit Risk & Schedule Analysis (computeAuditRiskScores) for a
+    // single branch, so a branch's profile and the portfolio-wide
+    // scheduling list always agree on why a branch scored the way it did.
+    let _auditPortfolioRiskCache = { key: '', at: 0, branches: null, map: null };
+    function getAuditPortfolioRiskMap() {
+      const cfg = window.auditAnalysisState;
+      const branches = (activeData && activeData.branches) || [];
+      const key = branches.length + '|' + JSON.stringify(cfg.weights) + '|' + cfg.overdueDays + '|' + new Date().toDateString();
+      const c = _auditPortfolioRiskCache;
+      if (c.map && c.branches === branches && c.key === key && (Date.now() - c.at) < 1500) return c.map;
+      const rows = branches.map(b => ({ b: b, info: getBranchAuditRoundInfo(b) }));
+      computeAuditRiskScores(rows, cfg);
+      const map = new Map();
+      rows.forEach(r => map.set(r.b, r.risk));
+      _auditPortfolioRiskCache = { key: key, at: Date.now(), branches: branches, map: map };
+      return map;
+    }
+
+    // BUG FIX: this used to score the branch in a one-row array, which made
+    // that branch its own 90th percentile for findings and portfolio size —
+    // any finding scored 100 points and size always scored 100 — so a
+    // branch's profile score disagreed with the same branch in the portfolio
+    // list. It now scores the whole portfolio (cached for a moment) and picks
+    // this branch out, so every screen shows the same number.
+    function computeBranchFullRisk(b) {
+      const hit = getAuditPortfolioRiskMap().get(b);
+      if (hit) return hit;
+      // A branch object that isn't in the portfolio list: score it alongside
+      // the real portfolio so it still gets the same scales.
+      const cfg = window.auditAnalysisState;
+      const rows = ((activeData && activeData.branches) || []).map(x => ({ b: x, info: getBranchAuditRoundInfo(x) }));
+      const mine = { b: b, info: getBranchAuditRoundInfo(b) };
+      rows.push(mine);
+      computeAuditRiskScores(rows, cfg);
+      return mine.risk;
+    }
+
+    // Comprehensive, DATA-FIRST writeup of why a branch does (or doesn't)
+    // warrant a visit right now. Management asked for this explicitly: the
+    // case for visiting a branch should read like a case built on what the
+    // branch's own numbers say — findings history, collection/sales/service
+    // trends, efficiency, repossession rate, portfolio size — not "it has
+    // been X days since the last audit". Audit recency is still one of the
+    // eight scored factors (so a branch nobody has checked in a long time
+    // still surfaces), but it is deliberately presented here as background
+    // context in its own box at the end, never as the headline reason.
+    function buildOverallEvaluationHTML(b) {
+      const risk = computeBranchFullRisk(b);
+      const factorsByKey = {};
+      risk.factors.forEach(function (f) { factorsByKey[f.key] = f; });
+      const recency = factorsByKey.recency;
+
+      // Every available data factor OTHER than recency, ranked by how much
+      // it is actually contributing to the score — i.e. by what the data
+      // itself says matters most for this branch, worst first.
+      const dataFactors = risk.factors
+        .filter(function (f) { return f.key !== 'recency' && f.available; })
+        .sort(function (x, y) { return y.contribution - x.contribution; });
+
+      const tierColor = { CRITICAL: 'accentRose', HIGH: 'accentAmber', MEDIUM: 'accentBlue', LOW: 'accentEmerald' }[risk.tier.key] || 'accentBlue';
+      const tierWord = risk.tier.label.toLowerCase();
+
+      const topDrivers = dataFactors.filter(function (f) { return f.points >= 40; }).slice(0, 3);
+      const headline = topDrivers.length
+        ? 'Driven mainly by ' + topDrivers.map(function (f) { return f.label.toLowerCase() + ' (' + f.detail + ')'; }).join(', ') + '.'
+        : 'No single signal stands out — every measured factor is currently within a normal range.';
+
+      const dotColor = function (pts) { return pts >= 60 ? 'bg-accentRose' : (pts >= 35 ? 'bg-accentAmber' : 'bg-accentEmerald'); };
+
+      const rowsHTML = dataFactors.map(function (f) {
+        return `
+        <div class="flex items-start justify-between gap-3 py-2 border-b border-coolBorder last:border-0">
+          <div class="flex items-start gap-2 min-w-0">
+            <span class="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${dotColor(f.points)}"></span>
+            <div class="min-w-0">
+              <p class="text-xs font-bold text-slate-700">${escapeFindingHTML(f.label)}</p>
+              <p class="text-[11px] text-slate-500">${escapeFindingHTML(f.detail)}</p>
+            </div>
+          </div>
+          <span class="text-[11px] font-bold text-slate-400 whitespace-nowrap flex-shrink-0">${f.contribution.toFixed(1)} pts</span>
+        </div>`;
+      }).join('');
+
+      return `
+      <div class="bg-white rounded-xl border border-coolBorder shadow-sm overflow-hidden">
+        <div class="p-3.5 border-b border-coolBorder bg-gradient-to-r from-slate-50 to-white">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+              <svg class="w-4 h-4 text-accentIndigo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+              Overall Evaluation
+            </h4>
+            <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-${tierColor}/10 text-${tierColor} border border-${tierColor}/20 whitespace-nowrap">
+              ${escapeFindingHTML(risk.tier.label)} risk · ${risk.score.toFixed(0)}/100
+            </span>
+          </div>
+          <p class="text-xs text-slate-600 mt-2 leading-relaxed">
+            This branch is rated <strong>${tierWord} risk</strong> based on what its own numbers show — findings history, collection and sales trends, service performance, efficiency, repossession rate and portfolio size. ${headline}
+          </p>
+        </div>
+        <div class="p-3.5">
+          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">What the data shows, ranked by how much it counts toward the score</p>
+          ${rowsHTML || '<p class="text-xs text-slate-400 italic py-2">Not enough data recorded for this branch yet to break the score down further.</p>'}
+        </div>
+        <div class="px-3.5 pb-3.5">
+          <p class="text-[11px] text-slate-500 bg-slate-50 border border-coolBorder rounded-lg p-2.5">
+            <strong class="text-slate-600">For reference — audit recency:</strong> ${escapeFindingHTML(recency ? recency.detail : 'No audit history on record')}. This is tracked as a coverage safety net (every branch is still audited eventually, whatever its score) and it contributes ${recency ? recency.contribution.toFixed(1) : '0'} of the ${risk.score.toFixed(0)} points above — it is background context here, not the reason this branch is or isn't being prioritized.
+          </p>
+        </div>
+      </div>`;
     }
 
     function renderBranchDetail(b, container) {
@@ -12651,6 +12974,8 @@ html.page-fade-ready body {
                       <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-royalBlue shadow-sm">${escapeHTML((b.auditStatus || 'PENDING').toUpperCase())}</span>
                   </div>
               </div>
+
+              ${buildOverallEvaluationHTML(b)}
 
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div class="bg-white rounded-xl border border-coolBorder p-3 shadow-sm text-center">
