@@ -7017,6 +7017,7 @@ html.page-fade-ready body {
           if (analysisBtn) analysisBtn.classList.remove('hidden');
       } else if (type === 'assignmentAnalysis') {
           renderAssignmentAnalysisModal(modalBody);
+          if (typeof auditSyncEnsurePolling === 'function') auditSyncEnsurePolling();
       } else if (type === 'editAssignment') {
           renderEditAssignmentModal(filterValue, modalBody);
       } else if (type === 'auditor') {
@@ -10864,48 +10865,407 @@ html.page-fade-ready body {
       minScore: 55,         // risk score at/above which an un-scheduled branch gets scheduled
       minGapDays: 30,       // don't re-audit a branch audited more recently than this
       filterBucket: 'ATTENTION',
+      // Table filters. Every one of these can be set by typing in the filter
+      // row + pressing OK, OR by clicking any bar/row/badge in the analysis
+      // (see dispatchAuditClick).
+      tierFilter: 'ALL',    // 'ALL' | CRITICAL | HIGH | MEDIUM | LOW
+      auditorFilter: 'ALL', // matches the table's Auditor column
+      queueFilter: '',      // auditor whose CURRENT queue (Up Next) to show
+      search: '',           // branch-name contains
+      reasonFilter: '',     // exact scheduling status / reason
+      distFilter: '',       // days-since-last-audit bucket key
+      driverFilter: '',     // risk factor key: branches where it is elevated
+      sortField: null,      // null = each view's natural order
+      sortDir: 'desc',
+      expandBranch: null,   // branch whose score breakdown opens automatically
+      notice: null,         // { type: 'ok' | 'error', text } shown once after an OK
       weights: loadSavedAuditRiskWeights(),
       weightsOpen: false
     };
 
+    function resetAuditTableFilterState(cfg) {
+      cfg.tierFilter = 'ALL'; cfg.auditorFilter = 'ALL'; cfg.queueFilter = '';
+      cfg.search = ''; cfg.reasonFilter = ''; cfg.distFilter = ''; cfg.driverFilter = '';
+      cfg.sortField = null; cfg.sortDir = 'desc'; cfg.expandBranch = null;
+    }
+
+    // Opened fresh from the toolbar button: start from the default view.
+    // (Back-navigation from a branch profile goes through openModal
+    // directly, so filters the person had set are kept when they return.)
+    //
+    // CROSS-DEVICE SYNC: once a view has been synced (this device pushed
+    // one, or pulled one from another device) opening the analysis keeps
+    // showing it instead of snapping back to the default, so the same
+    // filters/settings follow the person from device to device. Only the
+    // very first open of a page load, before anything is known, starts
+    // from the default view. The "Reset" chip/button still returns to the
+    // default view, and that reset is itself synced.
     function openAssignmentAnalysis() {
+      const cfg = window.auditAnalysisState;
+      if (auditSync.version === 0 && auditSync.lastJson === null) {
+        cfg.filterBucket = 'ATTENTION';
+        resetAuditTableFilterState(cfg);
+      }
+      cfg.expandBranch = null;
+      cfg.notice = null;
       openModal('Audit Risk & Schedule Analysis', 'assignmentAnalysis', null);
     }
 
-    // Lets the thresholds be tuned live from the analysis view itself,
-    // since every office's actual audit cadence is different. Re-renders
-    // in place — no need to close/reopen the popup to see the effect.
-    function setAuditAnalysisConfig(key, value) {
-      const n = parseInt(value, 10);
-      const minAllowed = (key === 'minGapDays') ? 0 : 1;
-      if (isNaN(n) || n < minAllowed) return;
-      window.auditAnalysisState[key] = (key === 'minScore') ? Math.min(100, n) : n;
+    // Re-render in place; optionally scroll the results table into view so
+    // that after tapping a bar/pill at the top the person actually sees the
+    // branches it selected (the table sits far below on a phone).
+    function refreshAuditAnalysis(scrollToTable) {
       const body = document.getElementById('modalBody');
-      if (body) renderAssignmentAnalysisModal(body);
+      if (!body) return;
+      // The render consumes the inline notice, so grab it first: it is also
+      // shown as a toast, which stays visible even when the OK that was
+      // pressed is far from the message on a small screen.
+      const pending = window.auditAnalysisState.notice;
+      renderAssignmentAnalysisModal(body);
+      auditSyncSchedulePush(); // mirror the new view/settings to the person's other devices
+      if (pending && typeof showToast === 'function' && document.getElementById('toast')) {
+        try { showToast(pending.text, pending.type === 'error' ? 'error' : 'success'); } catch (e) {}
+      }
+      if (scrollToTable) {
+        const el = document.getElementById('aa-table-section');
+        if (el && typeof el.scrollIntoView === 'function') setTimeout(function () { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 30);
+      }
     }
 
-    function setAuditRiskWeight(key, value) {
-      const n = Number(value);
-      if (!isFinite(n) || n < 0 || n > 100) return;
-      const next = Object.assign({}, window.auditAnalysisState.weights, { [key]: n });
-      // At least one factor must keep a weight, otherwise there is
-      // nothing to score with.
-      if (!Object.keys(next).some(k => next[k] > 0)) return;
-      window.auditAnalysisState.weights = next;
-      try { localStorage.setItem(AUDIT_RISK_WEIGHTS_KEY, JSON.stringify(next)); } catch (e) {}
+    // ============================================================
+    // CROSS-DEVICE SYNC — Audit Risk & Schedule Analysis view
+    // ============================================================
+    // What syncs: the four numeric settings (Overdue limit, Spacing,
+    // Risk-score threshold, Minimum gap), the risk-factor weights, and the
+    // whole table view (summary pill, search, tier, auditor, queue,
+    // reason, days-since-audit bucket, risk driver, sort field/direction).
+    // What deliberately does NOT: which score breakdown row is expanded,
+    // whether the weights panel is open, and the one-shot OK notice —
+    // those are moment-to-moment UI state, not a "view".
+    //
+    // How: every state change already goes through refreshAuditAnalysis(),
+    // which calls auditSyncSchedulePush() -> a debounced action=
+    // saveAnalysisState (see Code.gs). While the analysis popup is open
+    // and the tab is visible, action=getAnalysisState is polled every
+    // AUDIT_SYNC_POLL_MS with sinceVersion, so an unchanged view costs a
+    // tiny "unchanged" reply (served from CacheService server-side, no
+    // Firestore read). Polling stops by itself when the popup closes or
+    // the tab is hidden, and a hidden tab catches up the moment it is
+    // looked at again — so this adds no background quota use at all.
+    //
+    // Conflict rules (last write wins, but never mid-keystroke):
+    //  - a remote change is NOT applied while this device has an unsent
+    //    change of its own, or while someone is typing/choosing in one of
+    //    the analysis inputs (it is picked up on the next poll instead);
+    //  - applying a remote view re-renders in place and keeps the scroll
+    //    position.
+    const AUDIT_SYNC_POLL_MS = 30 * 1000;
+    const AUDIT_SYNC_PUSH_DEBOUNCE_MS = 1200;
+    const AUDIT_SYNC_NUM_RULES = { overdueDays: [1, 3650], spacingDays: [1, 3650], minScore: [1, 100], minGapDays: [0, 3650] };
+    const AUDIT_SYNC_STR_KEYS = ['filterBucket', 'tierFilter', 'auditorFilter', 'queueFilter', 'search', 'reasonFilter', 'distFilter', 'driverFilter'];
+    const auditSync = {
+      version: 0,          // server version of the last state this device pushed/applied (0 = none yet)
+      lastJson: null,      // JSON of the snapshot the server is known to hold
+      pendingPush: false,  // a local change is waiting to be sent
+      pushing: false, pulling: false,
+      pushTimer: null, pollTimer: null,
+      readOnly: false      // server said this account may not write (team-wide mode, non-editor)
+    };
+
+    // Fixed key order so two snapshots of the same view always stringify identically.
+    function auditSyncSnapshot(cfg) {
+      const s = {};
+      Object.keys(AUDIT_SYNC_NUM_RULES).forEach(k => { s[k] = cfg[k]; });
+      AUDIT_SYNC_STR_KEYS.forEach(k => { s[k] = String(cfg[k] == null ? '' : cfg[k]).slice(0, 200); });
+      s.sortField = cfg.sortField ? String(cfg.sortField).slice(0, 40) : null;
+      s.sortDir = cfg.sortDir === 'asc' ? 'asc' : 'desc';
+      s.weights = {};
+      AUDIT_RISK_FACTORS.forEach(f => { s.weights[f.key] = Number(cfg.weights && cfg.weights[f.key]) || 0; });
+      return s;
+    }
+
+    // Anything that came over the wire is validated field by field; a bad
+    // or missing field is simply ignored (the device keeps its own value).
+    function auditSyncSanitize(raw) {
+      if (!raw || typeof raw !== 'object') return null;
+      const out = {};
+      Object.keys(AUDIT_SYNC_NUM_RULES).forEach(k => {
+        const n = Number(raw[k]), r = AUDIT_SYNC_NUM_RULES[k];
+        if (Number.isInteger(n) && n >= r[0] && n <= r[1]) out[k] = n;
+      });
+      AUDIT_SYNC_STR_KEYS.forEach(k => {
+        if (typeof raw[k] === 'string') out[k] = raw[k].slice(0, 200);
+      });
+      if (out.tierFilter !== undefined && out.tierFilter !== 'ALL' && !AUDIT_RISK_TIERS.some(t => t.key === out.tierFilter)) delete out.tierFilter;
+      if (raw.sortField === null || typeof raw.sortField === 'string') out.sortField = raw.sortField ? raw.sortField.slice(0, 40) : null;
+      if (raw.sortDir === 'asc' || raw.sortDir === 'desc') out.sortDir = raw.sortDir;
+      if (raw.weights && typeof raw.weights === 'object') {
+        const w = defaultAuditRiskWeights();
+        let ok = true;
+        AUDIT_RISK_FACTORS.forEach(f => {
+          const v = Number(raw.weights[f.key]);
+          if (isFinite(v) && v >= 0 && v <= 100) w[f.key] = v; else ok = false;
+        });
+        if (ok && AUDIT_RISK_FACTORS.some(f => w[f.key] > 0)) out.weights = w;
+      }
+      return out;
+    }
+
+    function auditSyncApplyRemote(state) {
+      const clean = auditSyncSanitize(state);
+      if (!clean) return false;
+      const cfg = window.auditAnalysisState;
+      Object.keys(clean).forEach(k => { if (k !== 'weights') cfg[k] = clean[k]; });
+      if (clean.weights) {
+        cfg.weights = clean.weights;
+        try { localStorage.setItem(AUDIT_RISK_WEIGHTS_KEY, JSON.stringify(clean.weights)); } catch (e) {}
+      }
+      cfg.expandBranch = null;
+      auditSync.lastJson = JSON.stringify(auditSyncSnapshot(cfg));
+      return true;
+    }
+
+    function auditSyncIsAnalysisOpen() {
+      try {
+        const modal = document.getElementById('dataModal');
+        return !!(modal && !modal.classList.contains('hidden') && modalCurrentState && modalCurrentState.type === 'assignmentAnalysis');
+      } catch (e) { return false; }
+    }
+
+    function auditSyncUserIsEditing() {
+      const el = document.activeElement;
+      return !!(el && el.id && /^aa-/.test(el.id));
+    }
+
+    // Re-render in place WITHOUT going through refreshAuditAnalysis (which
+    // would try to push) and without losing the scroll position.
+    function auditSyncRerender() {
       const body = document.getElementById('modalBody');
-      if (body) renderAssignmentAnalysisModal(body);
+      if (!body) return;
+      const modal = document.getElementById('dataModal');
+      const wrap = modal ? modal.querySelector(':scope > div.overflow-y-auto') : null;
+      const y1 = body.scrollTop, y2 = wrap ? wrap.scrollTop : 0;
+      renderAssignmentAnalysisModal(body);
+      body.scrollTop = y1;
+      if (wrap) wrap.scrollTop = y2;
+    }
+
+    function auditSyncUrl(action, extra) {
+      return window.getCurrentIdToken ? window.getCurrentIdToken().then(idToken => {
+        if (!idToken) return null;
+        const p = new URLSearchParams(Object.assign({ action: action, secret: appsScriptSecret, idToken: idToken }, extra || {}));
+        return defaultAppsScriptUrl + '?' + p.toString();
+      }) : Promise.resolve(null);
+    }
+
+    async function auditSyncPull() {
+      if (auditSync.pulling) return;
+      auditSync.pulling = true;
+      try {
+        const url = await auditSyncUrl('getAnalysisState', { sinceVersion: String(auditSync.version || 0) });
+        if (!url) return;
+        const json = await fetchSheetOnce(url);
+        if (!json || json.error || !json.success || json.unchanged) return; // silent: sync is best-effort
+        const ver = Number(json.version) || 0;
+        if (!json.state) { auditSync.version = ver; return; } // nothing saved yet
+        // Local edits win and will be pushed momentarily; don't clobber a
+        // half-typed filter either — try again on the next poll.
+        if (auditSync.pendingPush || auditSync.pushing || auditSyncUserIsEditing()) return;
+
+        const firstSync = auditSync.version === 0;
+        const cfg = window.auditAnalysisState;
+        const before = JSON.stringify(auditSyncSnapshot(cfg));
+        if (!auditSyncApplyRemote(json.state)) return;
+        auditSync.version = ver;
+        if (auditSync.lastJson !== before && auditSyncIsAnalysisOpen()) {
+          auditSyncRerender();
+          if (!firstSync && typeof showToast === 'function' && document.getElementById('toast')) {
+            try { showToast('Analysis view updated from another device.', 'success'); } catch (e) {}
+          }
+        }
+      } catch (err) {
+        console.warn('[analysis-sync] pull failed:', err && err.message ? err.message : err);
+      } finally {
+        auditSync.pulling = false;
+      }
+    }
+
+    function auditSyncSchedulePush() {
+      if (auditSync.readOnly) return;
+      const json = JSON.stringify(auditSyncSnapshot(window.auditAnalysisState));
+      if (json === auditSync.lastJson) return; // the server already has exactly this view
+      auditSync.pendingPush = true;
+      if (auditSync.pushTimer) clearTimeout(auditSync.pushTimer);
+      auditSync.pushTimer = setTimeout(auditSyncPush, AUDIT_SYNC_PUSH_DEBOUNCE_MS);
+    }
+
+    async function auditSyncPush() {
+      auditSync.pushTimer = null;
+      if (auditSync.pushing) { auditSync.pushTimer = setTimeout(auditSyncPush, AUDIT_SYNC_PUSH_DEBOUNCE_MS); return; }
+      const json = JSON.stringify(auditSyncSnapshot(window.auditAnalysisState));
+      if (json === auditSync.lastJson) { auditSync.pendingPush = false; return; }
+      auditSync.pushing = true;
+      let ok = false;
+      try {
+        const url = await auditSyncUrl('saveAnalysisState', { state: json });
+        if (!url) return;
+        const res = await fetchSheetOnce(url);
+        if (res && res.error) {
+          if (/unauthor/i.test(String(res.error))) auditSync.readOnly = true; // e.g. team-wide mode + non-editor
+          throw new Error(res.error);
+        }
+        if (!res || !res.success) throw new Error('save did not complete');
+        auditSync.version = Number(res.version) || auditSync.version;
+        auditSync.lastJson = json;
+        ok = true;
+      } catch (err) {
+        console.warn('[analysis-sync] push failed:', err && err.message ? err.message : err);
+      } finally {
+        auditSync.pushing = false;
+        auditSync.pendingPush = false;
+        // Changed again while this request was in flight -> send that too.
+        if (ok && JSON.stringify(auditSyncSnapshot(window.auditAnalysisState)) !== auditSync.lastJson) auditSyncSchedulePush();
+      }
+    }
+
+    function auditSyncTick() {
+      if (!auditSyncIsAnalysisOpen()) { auditSyncStopPolling(); return; }
+      if (document.hidden) return;
+      auditSyncPull();
+    }
+    function auditSyncStopPolling() {
+      if (auditSync.pollTimer) { clearInterval(auditSync.pollTimer); auditSync.pollTimer = null; }
+    }
+    // Called every time the analysis popup is (re)opened, including via
+    // Back from a branch profile.
+    function auditSyncEnsurePolling() {
+      if (!auditSync.pollTimer) auditSync.pollTimer = setInterval(auditSyncTick, AUDIT_SYNC_POLL_MS);
+      auditSyncPull();
+    }
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden && auditSyncIsAnalysisOpen()) {
+        if (!auditSync.pollTimer) auditSync.pollTimer = setInterval(auditSyncTick, AUDIT_SYNC_POLL_MS);
+        auditSyncPull(); // catch up immediately when this device is looked at again
+      }
+    });
+
+    // Signing out must not leave this account's view behind for the next
+    // account that signs in on the same page.
+    window.auditSyncReset = function () {
+      auditSyncStopPolling();
+      if (auditSync.pushTimer) { clearTimeout(auditSync.pushTimer); auditSync.pushTimer = null; }
+      auditSync.version = 0; auditSync.lastJson = null;
+      auditSync.pendingPush = false; auditSync.pushing = false; auditSync.pulling = false; auditSync.readOnly = false;
+      const cfg = window.auditAnalysisState;
+      if (cfg) {
+        cfg.overdueDays = 90; cfg.spacingDays = 3; cfg.minScore = 55; cfg.minGapDays = 30;
+        cfg.filterBucket = 'ATTENTION';
+        resetAuditTableFilterState(cfg);
+        cfg.weights = loadSavedAuditRiskWeights();
+      }
+    };
+    // ================= END CROSS-DEVICE SYNC =================
+
+    // ---- OK-button "apply" handlers ------------------------------------
+    // Nothing changes while typing: the value is only applied when OK is
+    // pressed (or Enter is hit in the box), so a half-typed number never
+    // reshuffles the whole analysis.
+    const AUDIT_CFG_LABELS = {
+      minScore: 'Risk-score threshold', minGapDays: 'Minimum gap since last audit',
+      overdueDays: 'Always-schedule limit', spacingDays: 'Spacing between suggestions'
+    };
+    function applyAuditAnalysisConfig(key) {
+      const cfg = window.auditAnalysisState;
+      const el = document.getElementById('aa-cfg-' + key);
+      const label = AUDIT_CFG_LABELS[key] || key;
+      const min = (key === 'minGapDays') ? 0 : 1;
+      const max = (key === 'minScore') ? 100 : 3650;
+      const raw = el ? String(el.value).trim() : '';
+      const n = /^\d+$/.test(raw) ? parseInt(raw, 10) : NaN;
+      if (isNaN(n) || n < min || n > max) {
+        cfg.notice = { type: 'error', text: label + ' must be a whole number from ' + min + ' to ' + max + '. Nothing was changed.' };
+      } else {
+        cfg[key] = n;
+        cfg.notice = { type: 'ok', text: label + ' set to ' + n + ' — analysis updated.' };
+      }
+      refreshAuditAnalysis(false);
+    }
+
+    function readAuditWeightInputs() {
+      const out = {};
+      for (const f of AUDIT_RISK_FACTORS) {
+        const el = document.getElementById('aa-w-' + f.key);
+        const raw = el ? String(el.value).trim() : '';
+        out[f.key] = raw === '' ? NaN : Number(raw);
+      }
+      return out;
+    }
+
+    // Live preview of each factor's % share while typing — nothing is
+    // applied until OK.
+    function previewAuditRiskWeights() {
+      const w = readAuditWeightInputs();
+      const vals = AUDIT_RISK_FACTORS.map(f => (isFinite(w[f.key]) && w[f.key] >= 0) ? w[f.key] : 0);
+      const sum = vals.reduce((s, v) => s + v, 0);
+      AUDIT_RISK_FACTORS.forEach((f, i) => {
+        const span = document.getElementById('aa-wpct-' + f.key);
+        if (span) span.textContent = (sum > 0 ? Math.round((vals[i] / sum) * 100) : 0) + '%';
+      });
+      const hint = document.getElementById('aa-w-hint');
+      if (hint) hint.classList.remove('hidden');
+    }
+
+    function applyAuditRiskWeights() {
+      const cfg = window.auditAnalysisState;
+      const w = readAuditWeightInputs();
+      const bad = AUDIT_RISK_FACTORS.filter(f => !isFinite(w[f.key]) || w[f.key] < 0 || w[f.key] > 100);
+      if (bad.length) {
+        cfg.notice = { type: 'error', text: 'Weights must be numbers from 0 to 100 (check: ' + bad.map(f => f.label).join(', ') + '). Nothing was changed.' };
+      } else if (!AUDIT_RISK_FACTORS.some(f => w[f.key] > 0)) {
+        cfg.notice = { type: 'error', text: 'At least one factor needs a weight above 0. Nothing was changed.' };
+      } else {
+        cfg.weights = w;
+        try { localStorage.setItem(AUDIT_RISK_WEIGHTS_KEY, JSON.stringify(w)); } catch (e) {}
+        cfg.notice = { type: 'ok', text: 'Risk-score weights applied and saved on this device — every score has been recalculated.' };
+      }
+      cfg.weightsOpen = true;
+      refreshAuditAnalysis(false);
     }
 
     function resetAuditRiskWeights() {
-      window.auditAnalysisState.weights = defaultAuditRiskWeights();
+      const cfg = window.auditAnalysisState;
+      cfg.weights = defaultAuditRiskWeights();
       try { localStorage.removeItem(AUDIT_RISK_WEIGHTS_KEY); } catch (e) {}
-      const body = document.getElementById('modalBody');
-      if (body) renderAssignmentAnalysisModal(body);
+      cfg.notice = { type: 'ok', text: 'Weights reset to the defaults.' };
+      cfg.weightsOpen = true;
+      refreshAuditAnalysis(false);
     }
 
     function setAuditWeightsOpen(isOpen) {
       window.auditAnalysisState.weightsOpen = !!isOpen;
+    }
+
+    // Filter row above the table (search + tier + auditor): one OK applies
+    // all three.
+    function applyAuditTableFilters() {
+      const cfg = window.auditAnalysisState;
+      const q = document.getElementById('aa-f-search');
+      const t = document.getElementById('aa-f-tier');
+      const u = document.getElementById('aa-f-auditor');
+      cfg.search = q ? q.value.trim() : '';
+      cfg.tierFilter = t ? t.value : 'ALL';
+      cfg.auditorFilter = u ? u.value : 'ALL';
+      // A search/tier/auditor lookup should look across every branch, not
+      // just the ones currently needing a schedule.
+      if (cfg.filterBucket === 'ATTENTION' && (cfg.search || cfg.tierFilter !== 'ALL' || cfg.auditorFilter !== 'ALL')) cfg.filterBucket = 'ALL';
+      refreshAuditAnalysis(true);
+    }
+
+    function resetAuditTableFilters() {
+      const cfg = window.auditAnalysisState;
+      cfg.filterBucket = 'ATTENTION';
+      resetAuditTableFilterState(cfg);
+      refreshAuditAnalysis(false);
     }
 
     // Expand/collapse a row's "why this score" breakdown. Toggles a class
@@ -10915,15 +11275,111 @@ html.page-fade-ready body {
       if (el) el.classList.toggle('hidden');
     }
 
-    // Makes the summary pills at the top of the analysis clickable — same
-    // "click a capsule, table below narrows to match" pattern already used
-    // by the Collection/Sales/Service/All-Branches popups. Clicking the
-    // same bucket again toggles back to the default 'ATTENTION' view.
+    // ---- click-through: every bar / row / badge / pill lists its branches
+    // Summary pills (bucket view). Clicking the active pill again returns to
+    // the default schedule view.
     function setAuditAnalysisFilter(bucket) {
-      const cur = window.auditAnalysisState.filterBucket || 'ATTENTION';
-      window.auditAnalysisState.filterBucket = (cur === bucket) ? 'ATTENTION' : bucket;
-      const body = document.getElementById('modalBody');
-      if (body) renderAssignmentAnalysisModal(body);
+      const cfg = window.auditAnalysisState;
+      const cur = cfg.filterBucket || 'ATTENTION';
+      const wasSame = (cur === bucket) && cfg.sortField === null;
+      resetAuditTableFilterState(cfg);
+      cfg.filterBucket = wasSame ? 'ATTENTION' : bucket;
+      refreshAuditAnalysis(true);
+    }
+
+    // "Avg Risk Score" / "Avg Days Since Audit" pills: all branches, sorted
+    // by that measure.
+    function showAuditAnalysisSorted(field) {
+      const cfg = window.auditAnalysisState;
+      const wasSame = cfg.filterBucket === 'ALL' && cfg.sortField === field;
+      resetAuditTableFilterState(cfg);
+      if (wasSame) { cfg.filterBucket = 'ATTENTION'; }
+      else { cfg.filterBucket = 'ALL'; cfg.sortField = field; cfg.sortDir = 'desc'; }
+      refreshAuditAnalysis(true);
+    }
+
+    // Bars/rows in the side panels: tier, queue (auditor workload), dist
+    // (days since audit), driver (risk factor), reason (scheduling status),
+    // auditor. Clicking the same one again undoes it.
+    function setAuditDrill(kind, value) {
+      const cfg = window.auditAnalysisState;
+      const map = { tier: 'tierFilter', auditor: 'auditorFilter', queue: 'queueFilter', dist: 'distFilter', driver: 'driverFilter', reason: 'reasonFilter' };
+      const k = map[kind];
+      if (!k) return;
+      const isSame = cfg.filterBucket === 'ALL' && cfg[k] === value;
+      resetAuditTableFilterState(cfg);
+      if (isSame) { cfg.filterBucket = 'ATTENTION'; }
+      else {
+        cfg.filterBucket = 'ALL';
+        cfg[k] = value;
+        if (kind === 'driver') { cfg.sortField = 'driver'; cfg.sortDir = 'desc'; }
+      }
+      refreshAuditAnalysis(true);
+    }
+
+    // Click a branch in "Recently Completed Audits": show just that branch
+    // with its score breakdown already open.
+    function focusAuditBranch(name) {
+      const cfg = window.auditAnalysisState;
+      resetAuditTableFilterState(cfg);
+      cfg.filterBucket = 'ALL';
+      cfg.search = name;
+      cfg.expandBranch = name;
+      refreshAuditAnalysis(true);
+    }
+
+    function setAuditAnalysisSort(field) {
+      const cfg = window.auditAnalysisState;
+      if (cfg.sortField === field) cfg.sortDir = (cfg.sortDir === 'asc') ? 'desc' : 'asc';
+      else { cfg.sortField = field; cfg.sortDir = (field === 'name' || field === 'reason' || field === 'auditor') ? 'asc' : 'desc'; }
+      refreshAuditAnalysis(false);
+    }
+
+    // The ✕ on a filter chip.
+    function clearAuditFilterChip(kind) {
+      const cfg = window.auditAnalysisState;
+      if (kind === 'bucket') cfg.filterBucket = 'ATTENTION';
+      else if (kind === 'tier') cfg.tierFilter = 'ALL';
+      else if (kind === 'auditor') cfg.auditorFilter = 'ALL';
+      else if (kind === 'queue') cfg.queueFilter = '';
+      else if (kind === 'search') cfg.search = '';
+      else if (kind === 'reason') cfg.reasonFilter = '';
+      else if (kind === 'dist') cfg.distFilter = '';
+      else if (kind === 'driver') { cfg.driverFilter = ''; if (cfg.sortField === 'driver') cfg.sortField = null; }
+      refreshAuditAnalysis(false);
+    }
+
+    // One delegated handler for everything clickable via data-aa-kind /
+    // data-aa-value (values are HTML-escaped attributes, so branch or
+    // auditor names containing quotes are safe). Also handles Enter/Space
+    // for keyboard use.
+    function dispatchAuditClick(kind, value) {
+      switch (kind) {
+        case 'branch': openModalDetail(value); break;
+        case 'sort': setAuditAnalysisSort(value); break;
+        case 'clear': clearAuditFilterChip(value); break;
+        case 'clearall': resetAuditTableFilters(); break;
+        case 'focus': focusAuditBranch(value); break;
+        default: setAuditDrill(kind, value);
+      }
+    }
+    function bindAuditAnalysisClicks(container) {
+      if (container.__aaBound) return;
+      container.__aaBound = true;
+      const handle = function (e) {
+        const t = e.target && e.target.closest ? e.target.closest('[data-aa-kind]') : null;
+        if (!t || !container.contains(t)) return;
+        if (e.type === 'keydown') {
+          // Real <button>s already turn Enter/Space into a click; handling
+          // it here too would fire twice (and a toggle would undo itself).
+          if (t.tagName === 'BUTTON') return;
+          if (e.key !== 'Enter' && e.key !== ' ') return;
+          e.preventDefault();
+        }
+        dispatchAuditClick(t.getAttribute('data-aa-kind'), t.getAttribute('data-aa-value'));
+      };
+      container.addEventListener('click', handle);
+      container.addEventListener('keydown', handle);
     }
 
     // ---- scoring helpers ------------------------------------------------
@@ -11023,6 +11479,24 @@ html.page-fade-ready body {
         };
       });
       return rows;
+    }
+
+    // Shared by the "Days Since Last Audit" panel, the table's Days cell and
+    // the days filter, so a bar's count always matches the rows it lists.
+    const AUDIT_DIST_BUCKETS = [
+      { key: 'never', label: 'Never audited' },
+      { key: '0-30', label: '0–30 days', test: (d) => d <= 30 },
+      { key: '31-60', label: '31–60 days', test: (d) => d > 30 && d <= 60 },
+      { key: '61-90', label: '61–90 days', test: (d) => d > 60 && d <= 90 },
+      { key: '91-180', label: '91–180 days', test: (d) => d > 90 && d <= 180 },
+      { key: '180+', label: '180+ days', test: (d) => d > 180 }
+    ];
+    function auditDistKeyOf(row) {
+      if (row.info.roundsCount === 0) return 'never';
+      const d = row.info.intervalDays;
+      if (d === null || d === undefined) return null;
+      const b = AUDIT_DIST_BUCKETS.find(x => x.test && x.test(d));
+      return b ? b.key : null;
     }
 
     // Walks every branch once, scores it, buckets it, then builds a fair,
@@ -11128,20 +11602,10 @@ html.page-fade-ready body {
       const avgRiskScore = rows.length ? Math.round((rows.reduce((s, r) => s + r.risk.score, 0) / rows.length) * 10) / 10 : null;
 
       // -- Days-Since-Last-Audit distribution -----------------------------
-      const DIST_BUCKETS = [
-        { key: 'never', label: 'Never audited' },
-        { key: '0-30', label: '0–30 days', test: (d) => d <= 30 },
-        { key: '31-60', label: '31–60 days', test: (d) => d > 30 && d <= 60 },
-        { key: '61-90', label: '61–90 days', test: (d) => d > 60 && d <= 90 },
-        { key: '91-180', label: '91–180 days', test: (d) => d > 90 && d <= 180 },
-        { key: '180+', label: '180+ days', test: (d) => d > 180 }
-      ];
-      const distribution = DIST_BUCKETS.map(bucket => ({
+      const distribution = AUDIT_DIST_BUCKETS.map(bucket => ({
         key: bucket.key,
         label: bucket.label,
-        count: rows.filter(r => bucket.key === 'never'
-          ? r.info.roundsCount === 0
-          : (r.info.roundsCount > 0 && r.info.intervalDays !== null && r.info.intervalDays !== undefined && bucket.test(r.info.intervalDays))).length
+        count: rows.filter(r => auditDistKeyOf(r) === bucket.key).length
       }));
 
       // -- Portfolio-wide risk picture ------------------------------------
@@ -11209,30 +11673,90 @@ html.page-fade-ready body {
         .sort((x, y) => (y.risk.score - x.risk.score) || x.b.name.localeCompare(y.b.name));
     }
 
-    // Builds the flat, filterable list of rows the bottom table renders,
-    // for whichever bucket is currently selected via the clickable pills.
+    // Builds the flat list of rows the bottom table renders: first the
+    // selected view (summary pill), then every extra filter (search, tier,
+    // auditor, queue, status, days bucket, risk factor), then the chosen
+    // sort. Also returns the list of active filters so the view can show
+    // them as removable chips ("show what is needed").
     function getAuditAnalysisTableRows(a) {
       const cfg = window.auditAnalysisState;
       const bucket = cfg.filterBucket || 'ATTENTION';
       const all = getAuditAnalysisAllRows(a);
+      let title, rows;
       switch (bucket) {
         case 'NEVER_AUDITED':
-          return { title: 'Never Audited', rows: all.filter(r => r.reason === 'Never audited') };
+          title = 'Never Audited'; rows = all.filter(r => r.reason === 'Never audited'); break;
         case 'NEEDS_SCHEDULING':
-          return { title: 'Needs Scheduling', rows: all.filter(r => r.suggestedAuditor !== undefined && r.reason !== 'Never audited') };
+          title = 'Needs Scheduling'; rows = all.filter(r => r.suggestedAuditor !== undefined && r.reason !== 'Never audited'); break;
         case 'SCHEDULED_UPCOMING':
-          return { title: 'Already Scheduled (Upcoming)', rows: all.filter(r => r.reason === 'Scheduled — upcoming')
-            .sort((x, y) => (x.info.expectedAuditDateRaw ?? Infinity) - (y.info.expectedAuditDateRaw ?? Infinity)) };
+          title = 'Already Scheduled (Upcoming)';
+          rows = all.filter(r => r.reason === 'Scheduled — upcoming')
+            .sort((x, y) => (x.info.expectedAuditDateRaw ?? Infinity) - (y.info.expectedAuditDateRaw ?? Infinity)); break;
         case 'ON_TRACK':
-          return { title: 'On Track', rows: all.filter(r => r.reason === 'On track' || r.reason === 'Monitor — recently audited') };
+          title = 'On Track'; rows = all.filter(r => r.reason === 'On track' || r.reason === 'Monitor — recently audited'); break;
         case 'HIGH_RISK':
-          return { title: 'High-Risk Branches (score ' + cfg.minScore + '+), ranked by score', rows: all.filter(r => r.risk.score >= cfg.minScore) };
+          title = 'High-Risk Branches (score ' + cfg.minScore + '+), ranked by score'; rows = all.filter(r => r.risk.score >= cfg.minScore); break;
         case 'ALL':
-          return { title: 'All Branches, ranked by risk score', rows: all };
+          title = 'All Branches, ranked by risk score'; rows = all; break;
         case 'ATTENTION':
         default:
-          return { title: 'Suggested Audit Schedule, ranked by risk score', rows: all.filter(r => r.suggestedAuditor !== undefined) };
+          title = 'Suggested Audit Schedule, ranked by risk score'; rows = all.filter(r => r.suggestedAuditor !== undefined);
       }
+      const baseTitle = title;
+      const chips = [];
+      if (bucket !== 'ATTENTION') chips.push({ kind: 'bucket', label: 'View: ' + baseTitle.replace(/, ranked by (risk )?score$/, '') });
+      const factorOf = (r, key) => r.risk.factors.find(x => x.key === key);
+      const factorLabel = (key) => (AUDIT_RISK_FACTORS.find(f => f.key === key) || {}).label || key;
+
+      if (cfg.reasonFilter) {
+        const v = cfg.reasonFilter;
+        rows = rows.filter(r => r.reason === v || (v === 'On track' && r.reason === 'Monitor — recently audited'));
+        chips.push({ kind: 'reason', label: 'Status: ' + v });
+      }
+      if (cfg.tierFilter && cfg.tierFilter !== 'ALL') {
+        rows = rows.filter(r => r.risk.tier.key === cfg.tierFilter);
+        const t = AUDIT_RISK_TIERS.find(x => x.key === cfg.tierFilter);
+        chips.push({ kind: 'tier', label: 'Risk tier: ' + (t ? t.label : cfg.tierFilter) });
+      }
+      if (cfg.auditorFilter && cfg.auditorFilter !== 'ALL') {
+        rows = rows.filter(r => (r.suggestedAuditor || r.info.upNextAuditor || '') === cfg.auditorFilter);
+        chips.push({ kind: 'auditor', label: 'Auditor: ' + cfg.auditorFilter });
+      }
+      if (cfg.queueFilter) {
+        rows = rows.filter(r => r.info.upNextAuditor === cfg.queueFilter);
+        chips.push({ kind: 'queue', label: 'In ' + cfg.queueFilter + '\u2019s queue' });
+      }
+      if (cfg.distFilter) {
+        rows = rows.filter(r => auditDistKeyOf(r) === cfg.distFilter);
+        const d = AUDIT_DIST_BUCKETS.find(x => x.key === cfg.distFilter);
+        chips.push({ kind: 'dist', label: 'Last audit: ' + (d ? d.label : cfg.distFilter) });
+      }
+      if (cfg.driverFilter) {
+        rows = rows.filter(r => { const x = factorOf(r, cfg.driverFilter); return x && x.available && x.points >= 60; });
+        chips.push({ kind: 'driver', label: 'High ' + factorLabel(cfg.driverFilter).toLowerCase() + ' risk' });
+      }
+      if (cfg.search) {
+        const q = cfg.search.toLowerCase();
+        rows = rows.filter(r => r.b.name.toLowerCase().includes(q));
+        chips.push({ kind: 'search', label: 'Search: \u201c' + cfg.search + '\u201d' });
+      }
+
+      if (cfg.sortField) {
+        const dir = cfg.sortDir === 'asc' ? 1 : -1;
+        const val = {
+          name: r => r.b.name.toLowerCase(),
+          reason: r => r.reason,
+          risk: r => r.risk.score,
+          last: r => (r.info.recentDateRaw ?? -Infinity),
+          days: r => (r.info.intervalDays ?? Infinity),
+          auditor: r => String(r.suggestedAuditor || r.info.upNextAuditor || '').toLowerCase(),
+          date: r => r.suggestedDate ? r.suggestedDate.getTime() : (r.info.expectedAuditDateRaw ?? Infinity),
+          driver: r => { const x = factorOf(r, cfg.driverFilter); return x ? x.contribution : 0; }
+        }[cfg.sortField];
+        if (val) rows = rows.slice().sort((x, y) => { const p = val(x), q = val(y); return (p < q ? -1 : (p > q ? 1 : 0)) * dir; });
+      }
+      const filtered = chips.some(c => c.kind !== 'bucket');
+      return { title: (filtered && bucket === 'ALL') ? 'Filtered Branches' : baseTitle, rows, chips };
     }
 
     // Flat rows for the consolidated Excel export — same data the on-screen
@@ -11271,8 +11795,9 @@ html.page-fade-ready body {
     }
 
     function renderAssignmentAnalysisModal(container) {
+      bindAuditAnalysisClicks(container);
       const escapeHTML = str => {
-          if (!str) return '';
+          if (str === null || str === undefined || str === '') return '';
           return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
       };
       const cfg = window.auditAnalysisState;
@@ -11281,13 +11806,21 @@ html.page-fade-ready body {
       const filterBucket = cfg.filterBucket || 'ATTENTION';
       const highRiskCount = a.rows.filter(r => r.risk.score >= cfg.minScore).length;
       const weightSum = AUDIT_RISK_FACTORS.reduce((s, f) => s + (Number(cfg.weights[f.key]) || 0), 0) || 1;
+      const notice = cfg.notice; cfg.notice = null;
+
+      // Attribute string that makes an element click-through (mouse + keyboard).
+      const drill = (kind, value, active, extraCls) =>
+        `data-aa-kind="${kind}" data-aa-value="${escapeHTML(value)}" role="button" tabindex="0" title="Click to list these branches below" class="cursor-pointer transition-all active:scale-[0.99] hover:bg-slate-100 ${active ? 'ring-1 ring-accentIndigo bg-accentIndigo/5' : ''} ${extraCls || ''}"`;
+      const okBtn = (onclick, label) => `<button type="button" onclick="${onclick}" aria-label="${escapeHTML(label || 'Apply')}" class="px-2.5 py-1 text-[10px] font-extrabold bg-accentCyan text-white rounded-lg hover:brightness-95 active:scale-95 transition-all cursor-pointer whitespace-nowrap">OK</button>`;
+      const inputCls = 'w-16 px-2 py-1 border border-coolBorder rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan';
+      const cfgInput = (key, min, max) => `<input id="aa-cfg-${key}" type="number" inputmode="numeric" min="${min}" max="${max}" value="${cfg[key]}" onkeydown="if(event.key==='Enter'){applyAuditAnalysisConfig('${key}')}" class="${inputCls}">`;
 
       const maxLoad = Math.max(1, ...a.auditorNames.map(n => a.workload[n]), 1);
       const workloadRows = a.auditorNames.length ? a.auditorNames.map(name => {
           const count = a.workload[name];
           const pct = Math.round((count / maxLoad) * 100);
           return `
-          <div class="flex items-center gap-2">
+          <div ${drill('queue', name, cfg.queueFilter === name, 'flex items-center gap-2 px-1 py-0.5 rounded-lg')}>
             <span class="w-28 shrink-0 text-[11px] font-semibold text-slate-700 truncate" title="${escapeHTML(name)}">${escapeHTML(name)}</span>
             <div class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
               <div class="h-full bg-accentIndigo rounded-full" style="width:${pct}%"></div>
@@ -11296,9 +11829,6 @@ html.page-fade-ready body {
           </div>`;
       }).join('') : '<p class="text-xs text-slate-400 italic">No auditors on record yet.</p>';
 
-      // Color per "Why It's Flagged" reason — shared across every bucket so
-      // a given reason always reads the same regardless of which pill got
-      // you there.
       const REASON_TINT = {
         'Never audited': 'accentRose',
         'High risk, not yet scheduled': 'accentRose',
@@ -11311,36 +11841,45 @@ html.page-fade-ready body {
       const pointsColor = p => p >= 60 ? 'text-accentRose' : (p >= 35 ? 'text-accentAmber' : 'text-accentEmerald');
 
       const table = getAuditAnalysisTableRows(a);
+      const expandIdx = cfg.expandBranch ? table.rows.findIndex(r => r.b.name === cfg.expandBranch) : -1;
+      cfg.expandBranch = null;
+
       const tableRowsHtml = table.rows.map((row, idx) => {
           const isActionable = row.suggestedAuditor !== undefined;
-          const overdueBadge = (row.info.intervalDays !== null && row.info.intervalDays !== undefined && row.info.intervalDays >= cfg.overdueDays) ? 'text-accentRose' : 'text-slate-600';
+          const days = row.info.intervalDays;
+          const hasDays = days !== null && days !== undefined;
+          const overdueBadge = (hasDays && days >= cfg.overdueDays) ? 'text-accentRose' : 'text-slate-600';
           const tint = REASON_TINT[row.reason] || 'slate-500';
           const risk = row.risk;
           const tierTint = risk.tier.tint;
+          const audName = isActionable ? row.suggestedAuditor : row.info.upNextAuditor;
+          const distKey = auditDistKeyOf(row);
 
           const driversText = risk.drivers.length
               ? risk.drivers.map(d => escapeHTML(d.short)).join(' · ')
               : 'No major risk drivers';
 
+          const audCell = audName
+              ? `<button type="button" data-aa-kind="auditor" data-aa-value="${escapeHTML(audName)}" title="List every branch with ${escapeHTML(audName)} as auditor" class="${isActionable ? 'px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-accentEmerald/10 text-accentEmerald rounded-md border border-accentEmerald/20 leading-tight whitespace-nowrap' : 'text-[10px] text-slate-600 underline-offset-2 hover:underline'} cursor-pointer hover:brightness-95">${escapeHTML(audName)}</button>`
+              : '<span class="text-[10px] text-slate-400">—</span>';
           const dateCell = isActionable
-              ? `<td class="p-1.5 text-center"><span class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-accentEmerald/10 text-accentEmerald rounded-md border border-accentEmerald/20 leading-tight whitespace-nowrap">${escapeHTML(row.suggestedAuditor)}</span></td>
-                 <td class="p-1.5 text-center text-[10px] font-semibold text-slate-700 whitespace-nowrap">${fmtDate(row.suggestedDate)}</td>`
-              : `<td class="p-1.5 text-center text-[10px] text-slate-600 whitespace-nowrap">${row.info.upNextAuditor ? escapeHTML(row.info.upNextAuditor) : '—'}</td>
-                 <td class="p-1.5 text-center text-[10px] font-semibold text-slate-700 whitespace-nowrap">${row.info.expectedAuditDate ? escapeHTML(row.info.expectedAuditDate) : '—'}</td>`;
+              ? `<td class="p-1.5 text-center text-[10px] font-semibold text-slate-700 whitespace-nowrap">${fmtDate(row.suggestedDate)}</td>`
+              : `<td class="p-1.5 text-center text-[10px] font-semibold text-slate-700 whitespace-nowrap">${row.info.expectedAuditDate ? escapeHTML(row.info.expectedAuditDate) : '—'}</td>`;
           const actionLabel = isActionable ? 'Set Schedule' : 'View';
 
           const factorRows = risk.factors.map(x => {
               const fac = AUDIT_RISK_FACTORS.find(ff => ff.key === x.key);
+              const facBtn = `<button type="button" data-aa-kind="driver" data-aa-value="${x.key}" title="List every branch with high ${escapeHTML(fac.label.toLowerCase())} risk" class="font-semibold underline-offset-2 hover:underline cursor-pointer text-left">${escapeHTML(fac.label)}</button>`;
               return x.available ? `
                 <tr class="border-t border-coolBorder/60">
-                  <td class="py-1 pr-3 font-semibold text-slate-700 whitespace-nowrap">${escapeHTML(fac.label)}</td>
+                  <td class="py-1 pr-3 text-slate-700 whitespace-nowrap">${facBtn}</td>
                   <td class="py-1 pr-3 text-slate-600">${escapeHTML(x.detail)}</td>
                   <td class="py-1 pr-3 text-center font-bold ${pointsColor(x.points)}">${Math.round(x.points)}</td>
                   <td class="py-1 pr-3 text-center text-slate-500">${Math.round(x.share * 100)}%</td>
                   <td class="py-1 text-right font-bold text-slate-700">+${x.contribution.toFixed(1)}</td>
                 </tr>` : `
                 <tr class="border-t border-coolBorder/60">
-                  <td class="py-1 pr-3 font-semibold text-slate-400 whitespace-nowrap">${escapeHTML(fac.label)}</td>
+                  <td class="py-1 pr-3 text-slate-400 whitespace-nowrap">${escapeHTML(fac.label)}</td>
                   <td class="py-1 pr-3 text-slate-400 italic" colspan="3">${escapeHTML(x.detail)} — left out of the score, other weights rescaled</td>
                   <td class="py-1 text-right text-slate-400">—</td>
                 </tr>`;
@@ -11349,8 +11888,8 @@ html.page-fade-ready body {
           return `
           <tr class="${idx % 2 === 1 ? 'bg-gray-50/50' : ''} hover:bg-accentCyan/10 transition-colors">
             <td class="p-1.5 text-center text-[10px] font-bold text-slate-400">${idx + 1}</td>
-            <td class="p-1.5 font-bold text-slate-800 text-xs break-words leading-tight">${escapeHTML(row.b.name)}</td>
-            <td class="p-1.5 text-center"><span class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-${tint}/10 text-${tint} rounded-md border border-${tint}/20 leading-tight whitespace-nowrap">${escapeHTML(row.reason)}</span></td>
+            <td class="p-1.5 text-xs leading-tight"><button type="button" data-aa-kind="branch" data-aa-value="${escapeHTML(row.b.name)}" title="Open ${escapeHTML(row.b.name)}'s detailed profile" class="font-bold text-slate-800 text-left break-words hover:text-accentCyan hover:underline underline-offset-2 cursor-pointer">${escapeHTML(row.b.name)}</button></td>
+            <td class="p-1.5 text-center"><button type="button" data-aa-kind="reason" data-aa-value="${escapeHTML(row.reason)}" title="List every branch with this status" class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-${tint}/10 text-${tint} rounded-md border border-${tint}/20 leading-tight whitespace-nowrap cursor-pointer hover:brightness-95">${escapeHTML(row.reason)}</button></td>
             <td class="p-1.5 text-center">
               <button type="button" onclick="toggleAuditRiskDetail(${idx})" title="Click to see exactly how this score was calculated" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-${tierTint}/10 border border-${tierTint}/20 text-${tierTint} hover:brightness-95 active:scale-95 transition-all cursor-pointer">
                 <span class="text-xs font-extrabold leading-none">${risk.score.toFixed(0)}</span>
@@ -11360,13 +11899,16 @@ html.page-fade-ready body {
               <div class="mt-0.5 text-[9px] text-slate-500 leading-tight max-w-[190px] mx-auto">${driversText}</div>
             </td>
             <td class="p-1.5 text-center text-[10px] text-slate-600 whitespace-nowrap">${row.info.recentDate ? escapeHTML(row.info.recentDate) : 'Never'}</td>
-            <td class="p-1.5 text-center text-[10px] font-semibold ${overdueBadge} whitespace-nowrap">${(row.info.intervalDays !== null && row.info.intervalDays !== undefined) ? row.info.intervalDays + 'd' : '—'}</td>
+            <td class="p-1.5 text-center whitespace-nowrap">${hasDays && distKey
+                ? `<button type="button" data-aa-kind="dist" data-aa-value="${distKey}" title="List every branch last audited in this range" class="text-[10px] font-semibold ${overdueBadge} hover:underline underline-offset-2 cursor-pointer">${days}d</button>`
+                : (distKey === 'never' ? `<button type="button" data-aa-kind="dist" data-aa-value="never" title="List every never-audited branch" class="text-[10px] font-semibold text-slate-400 hover:underline cursor-pointer">—</button>` : '<span class="text-[10px] text-slate-400">—</span>')}</td>
+            <td class="p-1.5 text-center">${audCell}</td>
             ${dateCell}
             <td class="p-1.5 text-center">
               <button type="button" onclick="event.stopPropagation(); openEditAssignmentModal('${escapeFindingHTML(row.b.name)}')" class="px-2 py-1 text-[10px] font-bold ${isActionable ? 'bg-accentCyan' : 'bg-slate-500'} text-white rounded-lg hover:brightness-95 active:scale-95 transition-all cursor-pointer whitespace-nowrap">${actionLabel}</button>
             </td>
           </tr>
-          <tr id="audit-risk-detail-${idx}" class="hidden bg-slate-50">
+          <tr id="audit-risk-detail-${idx}" class="${idx === expandIdx ? '' : 'hidden'} bg-slate-50">
             <td colspan="9" class="p-3">
               <div class="text-[11px] font-bold text-slate-800 mb-1">How ${escapeHTML(row.b.name)} got a score of ${risk.score.toFixed(1)} (${escapeHTML(risk.tier.label)})</div>
               <div class="text-[11px] text-slate-600 mb-2">${escapeHTML(auditRiskWhyText(row))}</div>
@@ -11387,7 +11929,7 @@ html.page-fade-ready body {
       const maxDist = Math.max(1, ...a.distribution.map(d => d.count));
       const DIST_TINT = { never: 'accentRose', '0-30': 'accentEmerald', '31-60': 'accentEmerald', '61-90': 'accentAmber', '91-180': 'accentAmber', '180+': 'accentRose' };
       const distributionRows = a.distribution.map(d => `
-          <div class="flex items-center gap-2">
+          <div ${drill('dist', d.key, cfg.distFilter === d.key, 'flex items-center gap-2 px-1 py-0.5 rounded-lg')}>
             <span class="w-20 shrink-0 text-[11px] font-semibold text-slate-700">${escapeHTML(d.label)}</span>
             <div class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
               <div class="h-full bg-${DIST_TINT[d.key] || 'accentIndigo'} rounded-full" style="width:${Math.round((d.count / maxDist) * 100)}%"></div>
@@ -11398,7 +11940,7 @@ html.page-fade-ready body {
       const maxTier = Math.max(1, ...a.riskTiers.map(t => t.count));
       const tierRanges = { CRITICAL: '70+', HIGH: '55–69', MEDIUM: '40–54', LOW: 'under 40' };
       const tierRows = a.riskTiers.map(t => `
-          <div class="flex items-center gap-2">
+          <div ${drill('tier', t.key, cfg.tierFilter === t.key, 'flex items-center gap-2 px-1 py-0.5 rounded-lg')}>
             <span class="w-24 shrink-0 text-[11px] font-semibold text-slate-700">${escapeHTML(t.label)} <span class="text-slate-400 font-medium">${tierRanges[t.key]}</span></span>
             <div class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
               <div class="h-full bg-${t.tint} rounded-full" style="width:${Math.round((t.count / maxTier) * 100)}%"></div>
@@ -11408,16 +11950,27 @@ html.page-fade-ready body {
 
       const maxDriver = Math.max(0.0001, ...a.driverStats.map(d => d.avgContribution));
       const driverRows = a.driverStats.slice().sort((x, y) => y.avgContribution - x.avgContribution).map(d => `
-          <div class="flex items-center gap-2" title="${escapeHTML(d.label)}: elevated (60+ risk points) in ${d.elevated} of ${d.withData} branches with data">
+          <div ${drill('driver', d.key, cfg.driverFilter === d.key, 'flex items-center gap-2 px-1 py-0.5 rounded-lg')}>
             <span class="w-32 shrink-0 text-[11px] font-semibold text-slate-700 truncate">${escapeHTML(d.label)}</span>
             <div class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
               <div class="h-full bg-accentIndigo rounded-full" style="width:${Math.round((d.avgContribution / maxDriver) * 100)}%"></div>
             </div>
-            <span class="w-24 shrink-0 text-right text-[10px] text-slate-500"><span class="font-bold text-slate-700">${d.elevated}</span> elevated · ${d.withData}/${a.totalBranches} data</span>
+            <span class="w-28 shrink-0 text-right text-[10px] text-slate-500"><span class="font-bold text-slate-700">${d.elevated}</span> elevated · ${d.withData}/${a.totalBranches} data</span>
           </div>`).join('');
 
+      const statusDefs = [
+        ['Never audited', 'Never audited', a.neverAudited.length, 'accentRose'],
+        ['High risk, not yet scheduled', 'High risk, not yet scheduled', a.riskFlagged.length, 'accentRose'],
+        ['Overdue, not yet scheduled', 'Overdue, not yet scheduled', a.overdueUnscheduled.length, 'accentAmber'],
+        ['Scheduled, past due date', 'Expected date already passed', a.scheduledPastDue.length, 'accentAmber'],
+        ['Scheduled, upcoming', 'Scheduled — upcoming', a.scheduledUpcoming.length, 'accentBlue'],
+        ['On track', 'On track', a.onTrack.length, 'accentEmerald']
+      ];
+      const statusRows = statusDefs.map(s => `
+          <div ${drill('reason', s[1], cfg.reasonFilter === s[1], 'flex justify-between px-1 py-0.5 rounded-lg')}><span>${escapeHTML(s[0])}</span><span class="font-bold text-${s[3]}">${s[2]}</span></div>`).join('');
+
       const recentCompletionsHtml = a.recentCompletions.length ? a.recentCompletions.map(row => `
-          <div class="flex items-center justify-between gap-2 py-1 border-b border-coolBorder/60 last:border-b-0">
+          <div ${drill('focus', row.b.name, false, 'flex items-center justify-between gap-2 py-1 px-1 border-b border-coolBorder/60 last:border-b-0')}>
             <span class="text-[11px] font-semibold text-slate-700 truncate" title="${escapeHTML(row.b.name)}">${escapeHTML(row.b.name)}</span>
             <span class="text-[10px] text-slate-500 whitespace-nowrap">${escapeHTML(row.info.recentAuditor)} · ${escapeHTML(row.info.recentDate)}</span>
           </div>`).join('') : '<p class="text-xs text-slate-400 italic">No completed audits on record yet.</p>';
@@ -11426,8 +11979,8 @@ html.page-fade-ready body {
           <label class="flex items-center justify-between gap-2 text-[11px] font-semibold text-slate-600">
             <span class="truncate" title="${escapeHTML(f.why)}">${escapeHTML(f.label)}</span>
             <span class="flex items-center gap-1.5 shrink-0">
-              <input type="number" min="0" max="100" step="1" value="${Number(cfg.weights[f.key]) || 0}" onchange="setAuditRiskWeight('${f.key}', this.value)" class="w-14 px-1.5 py-1 border border-coolBorder rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
-              <span class="w-9 text-right text-[10px] font-bold text-accentIndigo">${Math.round(((Number(cfg.weights[f.key]) || 0) / weightSum) * 100)}%</span>
+              <input id="aa-w-${f.key}" type="number" inputmode="decimal" min="0" max="100" step="1" value="${Number(cfg.weights[f.key]) || 0}" oninput="previewAuditRiskWeights()" onkeydown="if(event.key==='Enter'){applyAuditRiskWeights()}" class="w-14 px-1.5 py-1 border border-coolBorder rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
+              <span id="aa-wpct-${f.key}" class="w-9 text-right text-[10px] font-bold text-accentIndigo">${Math.round(((Number(cfg.weights[f.key]) || 0) / weightSum) * 100)}%</span>
             </span>
           </label>`).join('');
 
@@ -11439,41 +11992,60 @@ html.page-fade-ready body {
             <td class="py-1.5 text-slate-500">${escapeHTML(f.why)}</td>
           </tr>`).join('');
 
+      const sortTh = (field, label) => {
+        const on = cfg.sortField === field;
+        return `<th data-aa-kind="sort" data-aa-value="${field}" role="button" tabindex="0" title="Click to sort by ${escapeHTML(label)}" class="p-1.5 bg-gray-50 text-center whitespace-nowrap cursor-pointer select-none hover:bg-gray-100 ${on ? 'text-accentIndigo' : ''}">${escapeHTML(label)}${on ? (cfg.sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>`;
+      };
+
+      const tierOptions = ['ALL'].concat(AUDIT_RISK_TIERS.map(t => t.key)).map(k => {
+        const label = k === 'ALL' ? 'All tiers' : AUDIT_RISK_TIERS.find(t => t.key === k).label;
+        return `<option value="${k}" ${cfg.tierFilter === k ? 'selected' : ''}>${escapeHTML(label)}</option>`;
+      }).join('');
+      const auditorOptions = ['ALL'].concat(a.auditorNames).map(n =>
+        `<option value="${escapeHTML(n)}" ${cfg.auditorFilter === n ? 'selected' : ''}>${n === 'ALL' ? 'All auditors' : escapeHTML(n)}</option>`).join('');
+      const fieldLbl = 'flex flex-col gap-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500';
+      const selectCls = 'px-2 py-1 border border-coolBorder rounded-lg text-xs font-normal normal-case tracking-normal text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-accentCyan';
+
+      const chipsHtml = table.chips.length ? `
+          <div class="flex flex-wrap items-center gap-1.5 mb-2">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Showing</span>
+            ${table.chips.map(c => `<button type="button" data-aa-kind="clear" data-aa-value="${c.kind}" title="Remove this filter" class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold bg-accentIndigo/10 text-accentIndigo border border-accentIndigo/20 rounded-full hover:brightness-95 active:scale-95 cursor-pointer whitespace-nowrap">${escapeHTML(c.label)} <span aria-hidden="true">✕</span></button>`).join('')}
+            <button type="button" data-aa-kind="clearall" class="px-2 py-0.5 text-[10px] font-bold bg-white border border-coolBorder rounded-full hover:bg-gray-100 active:scale-95 cursor-pointer whitespace-nowrap">Clear all</button>
+          </div>` : '';
+
+      const emptyMsg = (filterBucket === 'ATTENTION' && !table.chips.length)
+          ? 'Nothing needs scheduling — every branch is either on track or already scheduled.'
+          : 'No branches match these filters. Remove a filter above to widen the list.';
+
       container.innerHTML = `
       <div class="space-y-4 pb-2">
         <div class="flex flex-wrap items-center gap-1.5 px-2 sm:px-3 pt-2">
-          ${summaryPill(a.totalBranches, 'Total Branches', { neutral: true, active: filterBucket === 'ALL', onClick: `onclick="setAuditAnalysisFilter('ALL')"` })}
+          ${summaryPill(a.totalBranches, 'Total Branches', { neutral: true, active: filterBucket === 'ALL' && !table.chips.some(c => c.kind !== 'bucket') && !cfg.sortField, onClick: `onclick="setAuditAnalysisFilter('ALL')"` })}
           ${summaryPill(highRiskCount, 'High-Risk (' + cfg.minScore + '+)', { tint: 'accentRose', active: filterBucket === 'HIGH_RISK', onClick: `onclick="setAuditAnalysisFilter('HIGH_RISK')"` })}
           ${summaryPill(a.neverAudited.length, 'Never Audited', { tint: 'accentRose', active: filterBucket === 'NEVER_AUDITED', onClick: `onclick="setAuditAnalysisFilter('NEVER_AUDITED')"` })}
           ${summaryPill(a.overdueUnscheduled.length + a.riskFlagged.length + a.scheduledPastDue.length, 'Needs Scheduling', { tint: 'accentAmber', active: filterBucket === 'NEEDS_SCHEDULING', onClick: `onclick="setAuditAnalysisFilter('NEEDS_SCHEDULING')"` })}
           ${summaryPill(a.scheduledUpcoming.length, 'Already Scheduled', { tint: 'accentBlue', active: filterBucket === 'SCHEDULED_UPCOMING', onClick: `onclick="setAuditAnalysisFilter('SCHEDULED_UPCOMING')"` })}
           ${summaryPill(a.onTrack.length, 'On Track', { tint: 'accentEmerald', active: filterBucket === 'ON_TRACK', onClick: `onclick="setAuditAnalysisFilter('ON_TRACK')"` })}
-          ${summaryPill(a.avgRiskScore !== null ? a.avgRiskScore : '—', 'Avg Risk Score', { tint: 'accentIndigo' })}
-          ${summaryPill(a.avgIntervalDays !== null ? a.avgIntervalDays + 'd' : '—', 'Avg Days Since Audit', { tint: 'accentIndigo' })}
+          ${summaryPill(a.avgRiskScore !== null ? a.avgRiskScore : '—', 'Avg Risk Score', { tint: 'accentIndigo', active: cfg.sortField === 'risk' && filterBucket === 'ALL', onClick: `onclick="showAuditAnalysisSorted('risk')"` })}
+          ${summaryPill(a.avgIntervalDays !== null ? a.avgIntervalDays + 'd' : '—', 'Avg Days Since Audit', { tint: 'accentIndigo', active: cfg.sortField === 'days' && filterBucket === 'ALL', onClick: `onclick="showAuditAnalysisSorted('days')"` })}
         </div>
 
-        <div class="mx-2 sm:mx-3 p-3 bg-gray-50 border border-coolBorder rounded-xl flex flex-wrap items-center gap-x-5 gap-y-2.5">
-          <label class="flex items-center gap-2 text-xs font-semibold text-slate-600">
-            Schedule when risk score is
-            <input type="number" min="1" max="100" value="${cfg.minScore}" onchange="setAuditAnalysisConfig('minScore', this.value)" class="w-16 px-2 py-1 border border-coolBorder rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
-            or higher
-          </label>
-          <label class="flex items-center gap-2 text-xs font-semibold text-slate-600">
-            Skip if audited within
-            <input type="number" min="0" value="${cfg.minGapDays}" onchange="setAuditAnalysisConfig('minGapDays', this.value)" class="w-16 px-2 py-1 border border-coolBorder rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
-            days
-          </label>
-          <label class="flex items-center gap-2 text-xs font-semibold text-slate-600">
-            Always schedule after
-            <input type="number" min="1" value="${cfg.overdueDays}" onchange="setAuditAnalysisConfig('overdueDays', this.value)" class="w-16 px-2 py-1 border border-coolBorder rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
-            days without an audit
-          </label>
-          <label class="flex items-center gap-2 text-xs font-semibold text-slate-600">
-            Spacing between suggestions
-            <input type="number" min="1" value="${cfg.spacingDays}" onchange="setAuditAnalysisConfig('spacingDays', this.value)" class="w-16 px-2 py-1 border border-coolBorder rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
-            business day(s)
-          </label>
-          ${filterBucket !== 'ATTENTION' ? `<button type="button" onclick="setAuditAnalysisFilter('${filterBucket}')" class="ml-auto px-2.5 py-1 text-[10px] font-bold bg-white border border-coolBorder rounded-lg hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Clear filter</button>` : ''}
+        <div class="mx-2 sm:mx-3 p-3 bg-gray-50 border border-coolBorder rounded-xl">
+          <div class="flex flex-wrap items-center gap-x-5 gap-y-2.5">
+            <div class="flex items-center gap-2 text-xs font-semibold text-slate-600">
+              <span>Schedule when risk score is</span>${cfgInput('minScore', 1, 100)}<span>or higher</span>${okBtn("applyAuditAnalysisConfig('minScore')", 'Apply risk-score threshold')}
+            </div>
+            <div class="flex items-center gap-2 text-xs font-semibold text-slate-600">
+              <span>Skip if audited within</span>${cfgInput('minGapDays', 0, 3650)}<span>days</span>${okBtn("applyAuditAnalysisConfig('minGapDays')", 'Apply minimum gap')}
+            </div>
+            <div class="flex items-center gap-2 text-xs font-semibold text-slate-600">
+              <span>Always schedule after</span>${cfgInput('overdueDays', 1, 3650)}<span>days without an audit</span>${okBtn("applyAuditAnalysisConfig('overdueDays')", 'Apply always-schedule limit')}
+            </div>
+            <div class="flex items-center gap-2 text-xs font-semibold text-slate-600">
+              <span>Spacing between suggestions</span>${cfgInput('spacingDays', 1, 3650)}<span>business day(s)</span>${okBtn("applyAuditAnalysisConfig('spacingDays')", 'Apply spacing')}
+            </div>
+          </div>
+          ${notice ? `<div role="status" class="mt-2 text-[11px] font-semibold ${notice.type === 'error' ? 'text-accentRose' : 'text-accentEmerald'}">${notice.type === 'error' ? '⚠ ' : '✓ '}${escapeHTML(notice.text)}</div>` : ''}
         </div>
 
         <details class="mx-2 sm:mx-3 bg-gray-50 border border-coolBorder rounded-xl" ${cfg.weightsOpen ? 'open' : ''} ontoggle="setAuditWeightsOpen(this.open)">
@@ -11482,72 +12054,90 @@ html.page-fade-ready body {
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-2">${weightInputs}</div>
             <div class="mt-2.5 flex flex-wrap items-center gap-3">
               <span class="text-[10px] text-slate-500">Weights are relative — the percentages show each factor's share of the final score. Missing data is left out and the rest rescaled.</span>
-              <button type="button" onclick="resetAuditRiskWeights()" class="ml-auto px-2.5 py-1 text-[10px] font-bold bg-white border border-coolBorder rounded-lg hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Reset to defaults</button>
+              <span id="aa-w-hint" class="hidden text-[10px] font-bold text-accentAmber">Preview only — press OK to apply.</span>
+              <span class="ml-auto flex items-center gap-2">
+                ${okBtn('applyAuditRiskWeights()', 'Apply weights')}
+                <button type="button" onclick="resetAuditRiskWeights()" class="px-2.5 py-1 text-[10px] font-bold bg-white border border-coolBorder rounded-lg hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Reset to defaults</button>
+              </span>
             </div>
           </div>
         </details>
 
         <div class="mx-2 sm:mx-3 grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div class="p-3 bg-white border border-coolBorder rounded-xl">
-            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">Risk Tiers (all branches)</h3>
-            <div class="space-y-2">${tierRows}</div>
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">Risk Tiers (all branches)</h3>
+            <p class="text-[10px] text-slate-400 mb-2">Tap a row to list those branches.</p>
+            <div class="space-y-1">${tierRows}</div>
           </div>
           <div class="p-3 bg-white border border-coolBorder rounded-xl lg:col-span-2">
-            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">What Drives Risk Across the Portfolio</h3>
-            <div class="space-y-2">${driverRows}</div>
-            <p class="mt-2 text-[10px] text-slate-400">Bars show each factor's average contribution to the score. "Elevated" = 60+ risk points for that factor.</p>
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">What Drives Risk Across the Portfolio</h3>
+            <p class="text-[10px] text-slate-400 mb-2">Tap a factor to list every branch where it is elevated (60+ risk points), worst first. Bars show average contribution to the score.</p>
+            <div class="space-y-1">${driverRows}</div>
           </div>
         </div>
 
         <div class="mx-2 sm:mx-3 grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div class="p-3 bg-white border border-coolBorder rounded-xl">
-            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">Auditor Workload (current queue)</h3>
-            <div class="space-y-2">${workloadRows}</div>
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">Auditor Workload (current queue)</h3>
+            <p class="text-[10px] text-slate-400 mb-2">Tap an auditor to list their queue.</p>
+            <div class="space-y-1">${workloadRows}</div>
           </div>
           <div class="p-3 bg-white border border-coolBorder rounded-xl">
-            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">Scheduling Status</h3>
-            <div class="space-y-1.5 text-xs text-slate-600">
-              <div class="flex justify-between"><span>Never audited</span><span class="font-bold text-accentRose">${a.neverAudited.length}</span></div>
-              <div class="flex justify-between"><span>High risk, not yet scheduled</span><span class="font-bold text-accentRose">${a.riskFlagged.length}</span></div>
-              <div class="flex justify-between"><span>Overdue, not yet scheduled</span><span class="font-bold text-accentAmber">${a.overdueUnscheduled.length}</span></div>
-              <div class="flex justify-between"><span>Scheduled, past due date</span><span class="font-bold text-accentAmber">${a.scheduledPastDue.length}</span></div>
-              <div class="flex justify-between"><span>Scheduled, upcoming</span><span class="font-bold text-accentBlue">${a.scheduledUpcoming.length}</span></div>
-              <div class="flex justify-between"><span>On track</span><span class="font-bold text-accentEmerald">${a.onTrack.length}</span></div>
-            </div>
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">Scheduling Status</h3>
+            <p class="text-[10px] text-slate-400 mb-2">Tap a status to list those branches.</p>
+            <div class="space-y-0.5 text-xs text-slate-600">${statusRows}</div>
           </div>
           <div class="p-3 bg-white border border-coolBorder rounded-xl">
-            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">Days Since Last Audit</h3>
-            <div class="space-y-2">${distributionRows}</div>
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">Days Since Last Audit</h3>
+            <p class="text-[10px] text-slate-400 mb-2">Tap a bar to list those branches.</p>
+            <div class="space-y-1">${distributionRows}</div>
           </div>
         </div>
 
         <div class="mx-2 sm:mx-3">
-          <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">Recently Completed Audits</h3>
+          <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">Recently Completed Audits</h3>
+          <p class="text-[10px] text-slate-400 mb-2">Tap a branch to see its score breakdown.</p>
           <div class="p-3 bg-white border border-coolBorder rounded-xl">${recentCompletionsHtml}</div>
         </div>
 
-        <div class="mx-2 sm:mx-3">
+        <div id="aa-table-section" class="mx-2 sm:mx-3">
           <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">${escapeHTML(table.title)} (${table.rows.length} branch${table.rows.length === 1 ? '' : 'es'})</h3>
-          <p class="text-[10px] text-slate-500 mb-2">Tap any risk score to see exactly how it was calculated.</p>
+          <p class="text-[10px] text-slate-500 mb-2">Tap a branch to open its profile, a badge or number to filter by it, a column heading to sort, or a risk score to see how it was calculated.</p>
+
+          <div class="flex flex-wrap items-end gap-x-3 gap-y-2 p-3 bg-gray-50 border border-coolBorder rounded-xl mb-2">
+            <label class="${fieldLbl}">Search branch
+              <input id="aa-f-search" type="text" value="${escapeHTML(cfg.search)}" placeholder="Branch name" onkeydown="if(event.key==='Enter'){applyAuditTableFilters()}" class="w-44 px-2 py-1 border border-coolBorder rounded-lg text-xs font-normal normal-case tracking-normal text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan">
+            </label>
+            <label class="${fieldLbl}">Risk tier
+              <select id="aa-f-tier" class="${selectCls}">${tierOptions}</select>
+            </label>
+            <label class="${fieldLbl}">Auditor
+              <select id="aa-f-auditor" class="${selectCls}">${auditorOptions}</select>
+            </label>
+            ${okBtn('applyAuditTableFilters()', 'Apply table filters')}
+            <button type="button" onclick="resetAuditTableFilters()" class="px-2.5 py-1 text-[10px] font-bold bg-white border border-coolBorder rounded-lg hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Reset filters</button>
+          </div>
+          ${chipsHtml}
+
           ${table.rows.length > 0 ? `
           <div class="rounded-xl border border-coolBorder max-h-[55vh] overflow-auto custom-scrollbar">
             <table class="w-full min-w-[980px] text-left border-collapse bg-white">
               <thead class="bg-gray-50 border-b border-coolBorder text-[10px] text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-10 shadow-sm">
                 <tr>
                   <th class="p-1.5 bg-gray-50 text-center w-9 whitespace-nowrap">#</th>
-                  <th class="p-1.5 bg-gray-50 text-left whitespace-nowrap">Branch</th>
-                  <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Why It's Flagged</th>
-                  <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Risk Score</th>
-                  <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Last Audited</th>
-                  <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Days Since</th>
-                  <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Auditor</th>
-                  <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Date</th>
+                  ${sortTh('name', 'Branch').replace('text-center', 'text-left')}
+                  ${sortTh('reason', "Why It's Flagged")}
+                  ${sortTh('risk', 'Risk Score')}
+                  ${sortTh('last', 'Last Audited')}
+                  ${sortTh('days', 'Days Since')}
+                  ${sortTh('auditor', 'Auditor')}
+                  ${sortTh('date', 'Date')}
                   <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Action</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-coolBorder text-xs">${tableRowsHtml}</tbody>
             </table>
-          </div>` : `<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">${filterBucket === 'ATTENTION' ? 'Nothing needs scheduling — every branch is either on track or already scheduled.' : 'No branches in this category right now.'}</div>`}
+          </div>` : `<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">${emptyMsg}</div>`}
         </div>
 
         <div class="mx-2 sm:mx-3 p-3.5 bg-accentIndigo/5 border border-accentIndigo/20 rounded-xl">
@@ -20788,6 +21378,7 @@ html.page-fade-ready body {
         stopAutoRefresh();
         stopPresenceHeartbeat();
         stopPresenceWatcher();
+        if (typeof window.auditSyncReset === 'function') window.auditSyncReset();
         authGate.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
         authLogoutBtn.classList.add('hidden');
