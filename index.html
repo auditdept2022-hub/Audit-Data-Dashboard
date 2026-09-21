@@ -12055,10 +12055,10 @@ html.page-fade-ready body {
 
       const methodologyRows = AUDIT_RISK_FACTORS.map(f => `
           <tr class="border-t border-accentIndigo/15 align-top">
-            <td class="py-1.5 pr-3 font-bold text-slate-700 whitespace-nowrap">${escapeHTML(f.label)}</td>
-            <td class="py-1.5 pr-3 text-center font-bold text-accentIndigo">${Math.round(((Number(cfg.weights[f.key]) || 0) / weightSum) * 100)}%</td>
-            <td class="py-1.5 pr-3 text-slate-600">${escapeHTML(f.how)}</td>
-            <td class="py-1.5 text-slate-500">${escapeHTML(f.why)}</td>
+            <td class="py-2.5 pr-4 font-bold text-slate-700 whitespace-nowrap">${escapeHTML(f.label)}</td>
+            <td class="py-2.5 pr-4 text-center font-bold text-accentIndigo">${Math.round(((Number(cfg.weights[f.key]) || 0) / weightSum) * 100)}%</td>
+            <td class="py-2.5 pr-4 text-slate-600 leading-relaxed">${escapeHTML(f.how)}</td>
+            <td class="py-2.5 text-slate-600 leading-relaxed">${escapeHTML(f.why)}</td>
           </tr>`).join('');
 
       const sortTh = (field, label) => {
@@ -12212,18 +12212,18 @@ html.page-fade-ready body {
           </div>` : `<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">${emptyMsg}</div>`}
         </div>
 
-        <div class="mx-2 sm:mx-3 p-3.5 bg-accentIndigo/5 border border-accentIndigo/20 rounded-xl">
-          <h3 class="text-xs font-bold text-accentIndigo uppercase tracking-wide mb-1.5">How the ranking is decided</h3>
-          <p class="text-[11px] text-slate-600 mb-2">Branches are not ranked on audit interval alone. Each one gets a 0–100 risk score built from everything the dashboard tracks — audit history, findings, collections, efficiency, repo, sales, service and portfolio size — and the suggested schedule is ordered by that score, highest first.</p>
+        <div class="mx-2 sm:mx-3 p-3.5 sm:p-4 bg-accentIndigo/5 border border-accentIndigo/20 rounded-xl">
+          <h3 class="text-sm font-bold text-accentIndigo uppercase tracking-wide mb-1.5">How the ranking is decided</h3>
+          <p class="text-xs sm:text-[13px] text-slate-700 leading-relaxed mb-3">Branches are not ranked on audit interval alone. Each one gets a 0–100 risk score built from everything the dashboard tracks — audit history, findings, collections, efficiency, repo, sales, service and portfolio size — and the suggested schedule is ordered by that score, highest first.</p>
           <div class="overflow-x-auto">
-            <table class="w-full text-[10px] text-left">
-              <thead class="text-slate-500 uppercase tracking-wider font-semibold">
-                <tr><th class="pb-1 pr-3">Factor</th><th class="pb-1 pr-3 text-center">Share</th><th class="pb-1 pr-3">How it is scored</th><th class="pb-1">Why it matters</th></tr>
+            <table class="w-full text-xs text-left">
+              <thead class="text-slate-600 uppercase tracking-wider font-bold text-[11px]">
+                <tr><th class="pb-2 pr-4">Factor</th><th class="pb-2 pr-4 text-center">Share</th><th class="pb-2 pr-4">How it is scored</th><th class="pb-2">Why it matters</th></tr>
               </thead>
               <tbody>${methodologyRows}</tbody>
             </table>
           </div>
-          <ul class="mt-2.5 text-[11px] text-slate-600 space-y-1 list-disc pl-4">
+          <ul class="mt-3 text-xs sm:text-[13px] text-slate-700 leading-relaxed space-y-1.5 list-disc pl-4">
             <li><strong>Tiers.</strong> Critical 70+, High 55–69, Medium 40–54, Low below 40.</li>
             <li><strong>Who gets scheduled.</strong> Always: branches never audited, branches whose scheduled date passed without being marked Done, and branches with no audit for ${cfg.overdueDays}+ days (coverage rules — no branch can be skipped because its other numbers look fine). Also: any unscheduled branch with a risk score of ${cfg.minScore}+ that was last audited at least ${cfg.minGapDays} days ago (risk rule).</li>
             <li><strong>Missing data.</strong> If a branch has no data for a factor, that factor is left out and the others are rescaled to 100% — a branch is never marked up or down for a number that isn't there.</li>
