@@ -11208,11 +11208,8 @@ html.page-fade-ready body {
       const vals = AUDIT_RISK_FACTORS.map(f => (isFinite(w[f.key]) && w[f.key] >= 0) ? w[f.key] : 0);
       const sum = vals.reduce((s, v) => s + v, 0);
       AUDIT_RISK_FACTORS.forEach((f, i) => {
-        const pct = sum > 0 ? Math.round((vals[i] / sum) * 100) : 0;
         const span = document.getElementById('aa-wpct-' + f.key);
-        if (span) span.textContent = pct + '%';
-        const bar = document.getElementById('aa-wbar-' + f.key);
-        if (bar) bar.style.width = pct + '%';
+        if (span) span.textContent = (sum > 0 ? Math.round((vals[i] / sum) * 100) : 0) + '%';
       });
       const hint = document.getElementById('aa-w-hint');
       if (hint) hint.classList.remove('hidden');
@@ -11860,15 +11857,9 @@ html.page-fade-ready body {
       // Attribute string that makes an element click-through (mouse + keyboard).
       const drill = (kind, value, active, extraCls) =>
         `data-aa-kind="${kind}" data-aa-value="${escapeHTML(value)}" role="button" tabindex="0" title="Click to list these branches below" class="cursor-pointer transition-all active:scale-[0.99] hover:bg-slate-100 ${active ? 'ring-1 ring-accentIndigo bg-accentIndigo/5' : ''} ${extraCls || ''}"`;
-      const okBtn = (onclick, label) => `<button type="button" onclick="${onclick}" aria-label="${escapeHTML(label || 'Apply')}" class="px-4 py-1.5 text-[11px] font-extrabold bg-accentCyan text-white rounded-lg shadow-sm hover:brightness-95 active:scale-95 transition-all cursor-pointer whitespace-nowrap">OK</button>`;
-      const inputCls = 'w-20 px-2 py-1.5 border border-coolBorder rounded-lg text-sm font-bold text-center text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-accentCyan/40 focus:border-accentCyan transition-colors';
+      const okBtn = (onclick, label) => `<button type="button" onclick="${onclick}" aria-label="${escapeHTML(label || 'Apply')}" class="px-2.5 py-1 text-[10px] font-extrabold bg-accentCyan text-white rounded-lg hover:brightness-95 active:scale-95 transition-all cursor-pointer whitespace-nowrap">OK</button>`;
+      const inputCls = 'w-14 px-1.5 py-0.5 border border-coolBorder rounded-md text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan';
       const cfgInput = (key, min, max) => `<input id="aa-cfg-${key}" type="number" inputmode="numeric" min="${min}" max="${max}" value="${cfg[key]}" onkeydown="if(event.key==='Enter'){applyAllAuditAnalysisSettings()}" class="${inputCls}">`;
-      const ruleCard = (label, input, suffix, help) => `
-          <div class="p-3 bg-white border border-coolBorder rounded-lg">
-            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">${escapeHTML(label)}</div>
-            <div class="flex items-center gap-2">${input}<span class="text-xs font-semibold text-slate-600">${escapeHTML(suffix)}</span></div>
-            ${help ? `<div class="mt-1.5 text-[10px] leading-snug text-slate-400">${escapeHTML(help)}</div>` : ''}
-          </div>`;
 
       const maxLoad = Math.max(1, ...a.auditorNames.map(n => a.workload[n]), 1);
       const workloadRows = a.auditorNames.length ? a.auditorNames.map(name => {
@@ -12030,23 +12021,14 @@ html.page-fade-ready body {
             <span class="text-[10px] text-slate-500 whitespace-nowrap">${escapeHTML(row.info.recentAuditor)} · ${escapeHTML(row.info.recentDate)}</span>
           </div>`).join('') : '<p class="text-xs text-slate-400 italic">No completed audits on record yet.</p>';
 
-      const weightInputs = AUDIT_RISK_FACTORS.map(f => {
-        const val = Number(cfg.weights[f.key]) || 0;
-        const pct = Math.round((val / weightSum) * 100);
-        return `
-          <div class="p-2.5 bg-white border border-coolBorder rounded-lg" title="${escapeHTML(f.why)}">
-            <div class="flex items-center justify-between gap-2 mb-2">
-              <span class="text-[11px] font-bold text-slate-700 truncate">${escapeHTML(f.label)}</span>
-              <span id="aa-wpct-${f.key}" class="text-[11px] font-extrabold text-accentIndigo shrink-0">${pct}%</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <input id="aa-w-${f.key}" type="number" inputmode="decimal" min="0" max="100" step="1" value="${val}" oninput="previewAuditRiskWeights()" onkeydown="if(event.key==='Enter'){applyAllAuditAnalysisSettings()}" class="w-14 shrink-0 px-1.5 py-1 border border-coolBorder rounded-lg text-xs font-bold text-center focus:outline-none focus:ring-2 focus:ring-accentCyan/40 focus:border-accentCyan transition-colors">
-              <div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                <div id="aa-wbar-${f.key}" class="h-full bg-accentIndigo rounded-full transition-all" style="width:${pct}%"></div>
-              </div>
-            </div>
-          </div>`;
-      }).join('');
+      const weightInputs = AUDIT_RISK_FACTORS.map(f => `
+          <label class="flex items-center justify-between gap-1.5 text-[10px] font-semibold text-slate-600">
+            <span class="truncate" title="${escapeHTML(f.why)}">${escapeHTML(f.label)}</span>
+            <span class="flex items-center gap-1 shrink-0">
+              <input id="aa-w-${f.key}" type="number" inputmode="decimal" min="0" max="100" step="1" value="${Number(cfg.weights[f.key]) || 0}" oninput="previewAuditRiskWeights()" onkeydown="if(event.key==='Enter'){applyAllAuditAnalysisSettings()}" class="w-12 px-1 py-0.5 border border-coolBorder rounded-md text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
+              <span id="aa-wpct-${f.key}" class="w-8 text-right text-[10px] font-bold text-accentIndigo">${Math.round(((Number(cfg.weights[f.key]) || 0) / weightSum) * 100)}%</span>
+            </span>
+          </label>`).join('');
 
       const methodologyRows = AUDIT_RISK_FACTORS.map(f => `
           <tr class="border-t border-accentIndigo/15 align-top">
@@ -12094,38 +12076,40 @@ html.page-fade-ready body {
           ${summaryPill(a.avgIntervalDays !== null ? a.avgIntervalDays + 'd' : '—', 'Avg Days Since Audit', { tint: 'accentIndigo', active: cfg.sortField === 'days' && filterBucket === 'ALL', onClick: `onclick="showAuditAnalysisSorted('days')"` })}
         </div>
 
-        <div class="mx-2 sm:mx-3 bg-white border border-coolBorder rounded-xl overflow-hidden shadow-sm">
-          <div class="px-4 py-3 border-b border-coolBorder bg-gradient-to-r from-accentIndigo/[0.06] to-transparent">
-            <h3 class="text-sm font-extrabold text-slate-800">Audit Scheduling Settings</h3>
-            <p class="text-[11px] text-slate-500 mt-0.5">Control which branches get suggested for audit, and how much each risk factor counts toward the score.</p>
-          </div>
-
-          <div class="p-4">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-              ${ruleCard('Minimum risk score', cfgInput('minScore', 1, 100), 'or higher', 'Unscheduled branches at or above this score qualify for scheduling.')}
-              ${ruleCard('Skip if audited within', cfgInput('minGapDays', 0, 3650), 'days', 'Recently audited branches are left off the suggested list.')}
-              ${ruleCard('Always schedule after', cfgInput('overdueDays', 1, 3650), 'days without an audit', 'Overrides the rules above — no branch goes unaudited forever.')}
-              ${ruleCard('Spacing between suggestions', cfgInput('spacingDays', 1, 3650), 'business day(s)', 'Minimum gap enforced between two suggested audit dates.')}
+        <div class="mx-2 sm:mx-3 bg-gray-50 border border-coolBorder rounded-xl">
+          <div class="px-3 py-2">
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+              <div class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+                <span>Schedule when risk score is</span>${cfgInput('minScore', 1, 100)}<span>or higher</span>
+              </div>
+              <div class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+                <span>Skip if audited within</span>${cfgInput('minGapDays', 0, 3650)}<span>days</span>
+              </div>
+              <div class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+                <span>Always schedule after</span>${cfgInput('overdueDays', 1, 3650)}<span>days without an audit</span>
+              </div>
+              <div class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+                <span>Spacing between suggestions</span>${cfgInput('spacingDays', 1, 3650)}<span>business day(s)</span>
+              </div>
             </div>
           </div>
 
           <details class="border-t border-coolBorder" ${cfg.weightsOpen ? 'open' : ''} ontoggle="setAuditWeightsOpen(this.open)">
-            <summary class="px-4 py-3 flex flex-wrap items-center justify-between gap-1 text-xs font-bold text-slate-700 cursor-pointer select-none hover:bg-slate-50 transition-colors">
-              <span>Risk score weights <span class="font-medium text-slate-400">— how much each factor counts</span></span>
-              <span class="text-[10px] font-semibold text-slate-400 normal-case">Tap to adjust · saved on this device</span>
-            </summary>
-            <div class="px-4 pb-4 pt-1 bg-slate-50/60 border-t border-coolBorder/60">
-              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 mt-3">${weightInputs}</div>
-              <div class="mt-3 flex flex-wrap items-center gap-3">
-                <span class="text-[10px] leading-snug text-slate-500 max-w-md">Weights are relative — the percentages show each factor's share of the final score. Missing data is left out and the rest is rescaled.</span>
-                <span id="aa-w-hint" class="hidden text-[10px] font-bold text-accentAmber">Preview only — press OK to apply.</span>
-                <button type="button" onclick="resetAuditRiskWeights()" class="ml-auto px-2.5 py-1.5 text-[10px] font-bold bg-white border border-coolBorder rounded-lg hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Reset to defaults</button>
+            <summary class="px-3 py-1.5 text-[11px] font-bold text-slate-700 cursor-pointer select-none">Risk score weights — how much each factor counts <span class="font-medium text-slate-500">(tap to adjust; saved on this device)</span></summary>
+            <div class="px-3 pb-2">
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-5 gap-y-1">${weightInputs}</div>
+              <div class="mt-1.5 flex flex-wrap items-center gap-2">
+                <span class="text-[9px] text-slate-500">Weights are relative — the percentages show each factor's share of the final score. Missing data is left out and the rest rescaled.</span>
+                <span id="aa-w-hint" class="hidden text-[9px] font-bold text-accentAmber">Preview only — press OK to apply.</span>
+                <span class="ml-auto">
+                  <button type="button" onclick="resetAuditRiskWeights()" class="px-2 py-0.5 text-[10px] font-bold bg-white border border-coolBorder rounded-md hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Reset to defaults</button>
+                </span>
               </div>
             </div>
           </details>
 
-          <div class="p-4 border-t border-coolBorder flex flex-wrap items-center gap-3 bg-slate-50/60">
-            ${notice ? `<div role="status" class="text-[11px] font-semibold ${notice.type === 'error' ? 'text-accentRose' : 'text-accentEmerald'}">${notice.type === 'error' ? '⚠ ' : '✓ '}${escapeHTML(notice.text)}</div>` : '<span></span>'}
+          <div class="p-2 border-t border-coolBorder flex flex-wrap items-center gap-2">
+            ${notice ? `<div role="status" class="text-[10px] font-semibold ${notice.type === 'error' ? 'text-accentRose' : 'text-accentEmerald'}">${notice.type === 'error' ? '⚠ ' : '✓ '}${escapeHTML(notice.text)}</div>` : '<span></span>'}
             <span class="ml-auto">${okBtn('applyAllAuditAnalysisSettings()', 'Apply all settings (thresholds and weights)')}</span>
           </div>
         </div>
