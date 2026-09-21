@@ -3468,7 +3468,13 @@ html.page-fade-ready body {
         var bar = document.createElement('div');
         bar.id = 'appUpdateBanner';
         bar.setAttribute('role', 'status');
-        bar.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(1rem + env(safe-area-inset-bottom,0px));' +
+        // Positioned at the TOP of the screen (not the bottom) so it sits
+        // with the rest of the app's notifications (see #toast, which is
+        // also top-center) instead of appearing in a different corner of
+        // the screen than everything else. Sits just below the main
+        // #toast pill (which uses top:1.1rem) so the two can never overlap
+        // if both happen to be up at once.
+        bar.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);top:calc(4rem + env(safe-area-inset-top,0px));' +
           'z-index:2147483000;display:flex;align-items:center;gap:.75rem;padding:.65rem .9rem;border-radius:.85rem;' +
           'background:#0f2547;color:#fff;font:600 .8rem/1.2 system-ui,sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.35);max-width:calc(100vw - 1.5rem)';
         var msg = document.createElement('span');
@@ -5116,6 +5122,14 @@ html.page-fade-ready body {
           <div class="flex items-center gap-1 flex-shrink-0 ml-auto sm:ml-0">
             <button id="modalEditAssignBtn" onclick="openHeaderEditAssignment()" title="Edit assignment" aria-label="Edit assignment" class="hidden p-2 modal-header-icon-btn active:scale-95 rounded-xl transition-all cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path><path d="m15 5 4 4"></path></svg>
+            </button>
+            <!-- "Data Analysis" — whole-portfolio audit/scheduling analysis,
+                 only shown on the Assignment Branches Overview popup (type
+                 === 'assignment'). See openAssignmentAnalysis() /
+                 renderAssignmentAnalysisModal(). Shown/hidden per-open
+                 inside openModal(), same pattern as modalAddFindingBtn. -->
+            <button id="modalAnalysisBtn" onclick="openAssignmentAnalysis()" title="Audit Schedule Analysis" aria-label="Audit Schedule Analysis" class="hidden p-2 modal-header-icon-btn active:scale-95 rounded-xl transition-all cursor-pointer">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M3 3v16a2 2 0 0 0 2 2h16"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>
             </button>
             <!-- Pencil button for the Audit Findings Breakdown popup only (type
                  === 'findings'). Opens the standalone "Add Audit Finding" editor
@@ -6968,6 +6982,11 @@ html.page-fade-ready body {
       // a few lines below.
       const addFindingBtn = document.getElementById('modalAddFindingBtn');
       if (addFindingBtn) addFindingBtn.classList.add('hidden');
+      // Same idea for the "Data Analysis" button — only the Assignment
+      // Branches Overview popup (type === 'assignment') turns it on, in
+      // the 'assignment' branch just below.
+      const analysisBtn = document.getElementById('modalAnalysisBtn');
+      if (analysisBtn) analysisBtn.classList.add('hidden');
 
       let branchesToDisplay = [];
 
@@ -6982,6 +7001,9 @@ html.page-fade-ready body {
       } else if (type === 'assignment') {
           if (!window.assignmentFilterState) window.assignmentFilterState = defaultAssignmentFilterState();
           renderAssignmentModalView();
+          if (analysisBtn) analysisBtn.classList.remove('hidden');
+      } else if (type === 'assignmentAnalysis') {
+          renderAssignmentAnalysisModal(modalBody);
       } else if (type === 'editAssignment') {
           renderEditAssignmentModal(filterValue, modalBody);
       } else if (type === 'auditor') {
@@ -10712,6 +10734,261 @@ html.page-fade-ready body {
 
       html += `</tbody></table></div>`;
       return html;
+    }
+
+    // ============================================================
+    // AUDIT SCHEDULE ANALYSIS — comprehensive, whole-portfolio view
+    // ============================================================
+    // Opened from the "Data Analysis" toolbar button on the Assignment
+    // Branches Overview popup (see modalAnalysisBtn in the modal header
+    // markup). Deliberately built from activeData.branches — EVERY branch
+    // in the portfolio — rather than whatever subset the Overview table
+    // happens to be filtered/searched/scrolled to at the moment. The whole
+    // point of a scheduling analysis is to catch branches that have fallen
+    // off the currently-visible list (an old search term, a status filter
+    // left on, a long scroll) — not just to reformat what's already on
+    // screen. See the "Why this analysis" panel rendered at the bottom of
+    // this view for the full reasoning behind each signal used here.
+    window.auditAnalysisState = window.auditAnalysisState || { overdueDays: 90, spacingDays: 3 };
+
+    function openAssignmentAnalysis() {
+      openModal('Audit Schedule Analysis', 'assignmentAnalysis', null);
+    }
+
+    // Lets the two thresholds below (overdue window, spacing between
+    // suggested dates) be tuned live from the analysis view itself, since
+    // every office's actual audit cadence is different. Re-renders in
+    // place — no need to close/reopen the popup to see the effect.
+    function setAuditAnalysisConfig(key, value) {
+      const n = parseInt(value, 10);
+      if (isNaN(n) || n < 1) return;
+      window.auditAnalysisState[key] = n;
+      const body = document.getElementById('modalBody');
+      if (body) renderAssignmentAnalysisModal(body);
+    }
+
+    // Walks every branch once and buckets it, then builds a fair,
+    // ready-to-use suggested schedule out of whatever needs attention.
+    function computeAuditScheduleAnalysis() {
+      const cfg = window.auditAnalysisState;
+      const today = Date.now();
+      const branches = activeData.branches || [];
+      const rows = branches.map(b => ({ b, info: getBranchAuditRoundInfo(b) }));
+
+      // -- Bucket every branch into exactly one category --------------
+      // neverAudited        : no completed round on record at all, and
+      //                       nothing scheduled either — the biggest blind
+      //                       spot, since there's no history to fall back on.
+      // scheduledPastDue    : has an Expected Audit Date, but it's already
+      //                       come and gone without the branch being marked
+      //                       Done — a schedule slipped.
+      // scheduledUpcoming   : has an Expected Audit Date still in the future
+      //                       — already handled, nothing to suggest.
+      // overdueUnscheduled  : has audit history, but it's older than the
+      //                       configurable overdue threshold and nothing is
+      //                       currently scheduled to address it.
+      // onTrack             : everything else — recently audited (or newly
+      //                       added) branches that don't need attention yet.
+      const neverAudited = [], overdueUnscheduled = [], scheduledPastDue = [], scheduledUpcoming = [], onTrack = [];
+      rows.forEach(row => {
+        const { b, info } = row;
+        const hasExpected = !!(info.expectedAuditDate && info.expectedAuditDateRaw);
+        const isDone = (b.auditStatus || '').toUpperCase() === 'DONE';
+
+        if (info.roundsCount === 0 && !hasExpected) {
+          neverAudited.push(row);
+        } else if (hasExpected && info.expectedAuditDateRaw < today && !isDone) {
+          scheduledPastDue.push(row);
+        } else if (hasExpected && info.expectedAuditDateRaw >= today) {
+          scheduledUpcoming.push(row);
+        } else if (!hasExpected && info.intervalDays !== null && info.intervalDays !== undefined && info.intervalDays >= cfg.overdueDays) {
+          overdueUnscheduled.push(row);
+        } else {
+          onTrack.push(row);
+        }
+      });
+
+      // -- Current auditor workload (who already has upcoming work) ---
+      // Built from BOTH "who most recently audited this branch" (so every
+      // active auditor shows up, even ones with nothing queued right now)
+      // and "who's currently Up Next" (the actual live queue count). New
+      // suggestions are handed out against this so the rotation stays fair
+      // rather than repeating whatever imbalance already exists.
+      const auditorSet = new Set();
+      rows.forEach(row => {
+        if (row.info.recentAuditor && row.info.recentAuditor !== 'Unassigned') auditorSet.add(row.info.recentAuditor);
+        if (row.info.upNextAuditor && row.info.upNextAuditor !== 'Unassigned') auditorSet.add(row.info.upNextAuditor);
+      });
+      const workload = {};
+      auditorSet.forEach(a => { workload[a] = 0; });
+      rows.forEach(row => {
+        const a = row.info.upNextAuditor;
+        if (a && a !== 'Unassigned' && Object.prototype.hasOwnProperty.call(workload, a)) workload[a]++;
+      });
+      const auditorNames = Array.from(auditorSet).sort((x, y) => x.localeCompare(y));
+
+      // -- Priority queue: never-audited first (biggest risk), then
+      // overdue-unscheduled / past-due, longest-waiting first. -----------
+      const priorityQueue = [
+        ...neverAudited.map(r => ({ ...r, reason: 'Never audited' })),
+        ...overdueUnscheduled.map(r => ({ ...r, reason: 'Overdue, not yet scheduled' })),
+        ...scheduledPastDue.map(r => ({ ...r, reason: 'Expected date already passed' }))
+      ].sort((x, y) => (y.info.intervalDays ?? Infinity) - (x.info.intervalDays ?? Infinity));
+
+      // -- Round-robin the queue across auditors, always handing the next
+      // branch to whoever currently has the LOWEST running total (their
+      // real current queue, plus anything already handed out this pass) —
+      // so the suggested schedule actively balances load instead of just
+      // reinforcing an existing imbalance. --------------------------------
+      const runningLoad = {};
+      auditorNames.forEach(a => { runningLoad[a] = workload[a]; });
+      const pickAuditor = () => {
+        if (!auditorNames.length) return 'Unassigned';
+        let best = auditorNames[0];
+        auditorNames.forEach(a => { if (runningLoad[a] < runningLoad[best]) best = a; });
+        runningLoad[best]++;
+        return best;
+      };
+
+      // -- Spread suggested dates cfg.spacingDays business days apart,
+      // starting on the next business day, so the schedule this produces
+      // is something you could actually hand out as-is. -------------------
+      const nextBusinessDay = (d) => {
+        const nd = new Date(d);
+        do { nd.setDate(nd.getDate() + 1); } while (nd.getDay() === 0 || nd.getDay() === 6);
+        return nd;
+      };
+      let cursor = new Date(today);
+      const suggestions = priorityQueue.map(row => {
+        const auditor = pickAuditor();
+        const suggestedDate = new Date(cursor);
+        for (let i = 0; i < Math.max(1, cfg.spacingDays); i++) cursor = nextBusinessDay(cursor);
+        return Object.assign({}, row, { suggestedAuditor: auditor, suggestedDate: suggestedDate });
+      });
+
+      const intervalVals = rows.map(r => r.info.intervalDays).filter(v => v !== null && v !== undefined);
+      const avgIntervalDays = intervalVals.length ? Math.round(intervalVals.reduce((s, v) => s + v, 0) / intervalVals.length) : null;
+
+      return {
+        totalBranches: rows.length,
+        neverAudited, overdueUnscheduled, scheduledPastDue, scheduledUpcoming, onTrack,
+        workload, auditorNames, suggestions, avgIntervalDays
+      };
+    }
+
+    function renderAssignmentAnalysisModal(container) {
+      const escapeHTML = str => {
+          if (!str) return '';
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+      };
+      const cfg = window.auditAnalysisState;
+      const a = computeAuditScheduleAnalysis();
+      const fmtDate = d => d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+      const maxLoad = Math.max(1, ...a.auditorNames.map(n => a.workload[n]), 1);
+      const workloadRows = a.auditorNames.length ? a.auditorNames.map(name => {
+          const count = a.workload[name];
+          const pct = Math.round((count / maxLoad) * 100);
+          return `
+          <div class="flex items-center gap-2">
+            <span class="w-28 shrink-0 text-[11px] font-semibold text-slate-700 truncate" title="${escapeHTML(name)}">${escapeHTML(name)}</span>
+            <div class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+              <div class="h-full bg-accentIndigo rounded-full" style="width:${pct}%"></div>
+            </div>
+            <span class="w-6 shrink-0 text-right text-[11px] font-bold text-slate-600">${count}</span>
+          </div>`;
+      }).join('') : '<p class="text-xs text-slate-400 italic">No auditors on record yet.</p>';
+
+      const suggestionRows = a.suggestions.map((row, idx) => {
+          const overdueBadge = (row.info.intervalDays !== null && row.info.intervalDays !== undefined && row.info.intervalDays >= cfg.overdueDays) ? 'text-accentRose' : 'text-slate-600';
+          return `
+          <tr class="${idx % 2 === 1 ? 'bg-gray-50/50' : ''} hover:bg-accentCyan/10 transition-colors">
+            <td class="p-1.5 text-center text-[10px] font-bold text-slate-400">${idx + 1}</td>
+            <td class="p-1.5 font-bold text-slate-800 text-xs break-words leading-tight">${escapeHTML(row.b.name)}</td>
+            <td class="p-1.5 text-center"><span class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-accentRose/10 text-accentRose rounded-md border border-accentRose/20 leading-tight whitespace-nowrap">${escapeHTML(row.reason)}</span></td>
+            <td class="p-1.5 text-center text-[10px] text-slate-600 whitespace-nowrap">${row.info.recentDate ? escapeHTML(row.info.recentDate) : 'Never'}</td>
+            <td class="p-1.5 text-center text-[10px] font-semibold ${overdueBadge} whitespace-nowrap">${(row.info.intervalDays !== null && row.info.intervalDays !== undefined) ? row.info.intervalDays + 'd' : '—'}</td>
+            <td class="p-1.5 text-center"><span class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-accentEmerald/10 text-accentEmerald rounded-md border border-accentEmerald/20 leading-tight whitespace-nowrap">${escapeHTML(row.suggestedAuditor)}</span></td>
+            <td class="p-1.5 text-center text-[10px] font-semibold text-slate-700 whitespace-nowrap">${fmtDate(row.suggestedDate)}</td>
+            <td class="p-1.5 text-center">
+              <button type="button" onclick="event.stopPropagation(); openEditAssignmentModal('${escapeFindingHTML(row.b.name)}')" class="px-2 py-1 text-[10px] font-bold bg-accentCyan text-white rounded-lg hover:bg-accentCyan/90 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Set Schedule</button>
+            </td>
+          </tr>`;
+      }).join('');
+
+      container.innerHTML = `
+      <div class="space-y-4 pb-2">
+        <div class="flex flex-wrap items-center gap-1.5 px-2 sm:px-3 pt-2">
+          ${summaryPill(a.totalBranches, 'Total Branches', { neutral: true })}
+          ${summaryPill(a.neverAudited.length, 'Never Audited', { tint: 'accentRose' })}
+          ${summaryPill(a.overdueUnscheduled.length + a.scheduledPastDue.length, 'Needs Scheduling', { tint: 'accentAmber' })}
+          ${summaryPill(a.scheduledUpcoming.length, 'Already Scheduled', { tint: 'accentBlue' })}
+          ${summaryPill(a.avgIntervalDays !== null ? a.avgIntervalDays + 'd' : '—', 'Avg Days Since Audit', { tint: 'accentIndigo' })}
+        </div>
+
+        <div class="mx-2 sm:mx-3 p-3 bg-gray-50 border border-coolBorder rounded-xl flex flex-wrap items-center gap-4">
+          <label class="flex items-center gap-2 text-xs font-semibold text-slate-600">
+            Overdue threshold
+            <input type="number" min="1" value="${cfg.overdueDays}" onchange="setAuditAnalysisConfig('overdueDays', this.value)" class="w-16 px-2 py-1 border border-coolBorder rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
+            days without a scheduled date
+          </label>
+          <label class="flex items-center gap-2 text-xs font-semibold text-slate-600">
+            Spacing between suggestions
+            <input type="number" min="1" value="${cfg.spacingDays}" onchange="setAuditAnalysisConfig('spacingDays', this.value)" class="w-16 px-2 py-1 border border-coolBorder rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
+            business day(s)
+          </label>
+        </div>
+
+        <div class="mx-2 sm:mx-3 grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="p-3 bg-white border border-coolBorder rounded-xl">
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">Auditor Workload (current queue)</h3>
+            <div class="space-y-2">${workloadRows}</div>
+          </div>
+          <div class="p-3 bg-white border border-coolBorder rounded-xl">
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">Portfolio Breakdown</h3>
+            <div class="space-y-1.5 text-xs text-slate-600">
+              <div class="flex justify-between"><span>Never audited</span><span class="font-bold text-accentRose">${a.neverAudited.length}</span></div>
+              <div class="flex justify-between"><span>Overdue, not yet scheduled</span><span class="font-bold text-accentAmber">${a.overdueUnscheduled.length}</span></div>
+              <div class="flex justify-between"><span>Scheduled, past due date</span><span class="font-bold text-accentAmber">${a.scheduledPastDue.length}</span></div>
+              <div class="flex justify-between"><span>Scheduled, upcoming</span><span class="font-bold text-accentBlue">${a.scheduledUpcoming.length}</span></div>
+              <div class="flex justify-between"><span>On track</span><span class="font-bold text-accentEmerald">${a.onTrack.length}</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mx-2 sm:mx-3">
+          <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">Suggested Audit Schedule (${a.suggestions.length} branch${a.suggestions.length === 1 ? '' : 'es'} need${a.suggestions.length === 1 ? 's' : ''} attention)</h3>
+          ${a.suggestions.length > 0 ? `
+          <div class="rounded-xl border border-coolBorder max-h-[50vh] overflow-auto custom-scrollbar">
+            <table class="w-full min-w-[760px] text-left border-collapse bg-white">
+              <thead class="bg-gray-50 border-b border-coolBorder text-[10px] text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-10 shadow-sm">
+                <tr>
+                  <th class="p-1.5 bg-gray-50 text-center w-9 whitespace-nowrap">#</th>
+                  <th class="p-1.5 bg-gray-50 text-left whitespace-nowrap">Branch</th>
+                  <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Why It's Flagged</th>
+                  <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Last Audited</th>
+                  <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Days Since</th>
+                  <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Suggested Auditor</th>
+                  <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Suggested Date</th>
+                  <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Action</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-coolBorder text-xs">${suggestionRows}</tbody>
+            </table>
+          </div>` : `<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">Nothing overdue — every branch is either on track or already scheduled.</div>`}
+        </div>
+
+        <div class="mx-2 sm:mx-3 p-3.5 bg-accentIndigo/5 border border-accentIndigo/20 rounded-xl">
+          <h3 class="text-xs font-bold text-accentIndigo uppercase tracking-wide mb-1.5">Why this analysis is built this way</h3>
+          <ul class="text-[11px] text-slate-600 space-y-1 list-disc pl-4">
+            <li><strong>Whole-portfolio, not just what's on screen.</strong> This is built from every branch in the system, not whatever the Overview table's current search/status filter happens to be showing — so a branch that's fallen off the visible list because of an old search term or filter can't quietly go unaudited.</li>
+            <li><strong>Risk-based prioritization.</strong> Branches that have gone longest without an audit — or have never been audited at all — carry the most control risk, so they're surfaced first here instead of being found by chance during a routine scroll.</li>
+            <li><strong>Workload balancing.</strong> New suggestions are handed to whichever auditor currently has the lightest queue, so the rotation stays fair and no single auditor gets overloaded while others sit idle — the same principle the Emergency Auditor rotation already uses elsewhere in this dashboard.</li>
+            <li><strong>Turns insight straight into action.</strong> Each suggested row is one click ("Set Schedule") away from the exact same Edit Assignment form used everywhere else in the dashboard, pre-filled with the branch — accepting or adjusting a suggestion writes straight to the sheet instead of you re-typing it by hand.</li>
+            <li><strong>Adjustable thresholds.</strong> The overdue window and the spacing between suggested dates are both editable above, so the schedule this produces matches your actual audit cadence rather than a one-size-fits-all guess.</li>
+          </ul>
+        </div>
+      </div>`;
     }
 
     // Popup opened from the AUDITOR NEXT ASSIGNMENT stock card. Reuses the
