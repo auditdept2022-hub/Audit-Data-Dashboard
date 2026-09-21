@@ -12076,38 +12076,43 @@ html.page-fade-ready body {
           ${summaryPill(a.avgIntervalDays !== null ? a.avgIntervalDays + 'd' : '—', 'Avg Days Since Audit', { tint: 'accentIndigo', active: cfg.sortField === 'days' && filterBucket === 'ALL', onClick: `onclick="showAuditAnalysisSorted('days')"` })}
         </div>
 
-        <div class="mx-2 sm:mx-3 p-3 bg-gray-50 border border-coolBorder rounded-xl">
-          <div class="flex flex-wrap items-center gap-x-5 gap-y-2.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-slate-600">
-              <span>Schedule when risk score is</span>${cfgInput('minScore', 1, 100)}<span>or higher</span>
+        <div class="mx-2 sm:mx-3 bg-gray-50 border border-coolBorder rounded-xl">
+          <div class="p-3">
+            <div class="flex flex-wrap items-center gap-x-5 gap-y-2.5">
+              <div class="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                <span>Schedule when risk score is</span>${cfgInput('minScore', 1, 100)}<span>or higher</span>
+              </div>
+              <div class="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                <span>Skip if audited within</span>${cfgInput('minGapDays', 0, 3650)}<span>days</span>
+              </div>
+              <div class="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                <span>Always schedule after</span>${cfgInput('overdueDays', 1, 3650)}<span>days without an audit</span>
+              </div>
+              <div class="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                <span>Spacing between suggestions</span>${cfgInput('spacingDays', 1, 3650)}<span>business day(s)</span>
+              </div>
             </div>
-            <div class="flex items-center gap-2 text-xs font-semibold text-slate-600">
-              <span>Skip if audited within</span>${cfgInput('minGapDays', 0, 3650)}<span>days</span>
+          </div>
+
+          <details class="border-t border-coolBorder" ${cfg.weightsOpen ? 'open' : ''} ontoggle="setAuditWeightsOpen(this.open)">
+            <summary class="px-3 py-2 text-xs font-bold text-slate-700 cursor-pointer select-none">Risk score weights — how much each factor counts <span class="font-medium text-slate-500">(tap to adjust; saved on this device)</span></summary>
+            <div class="px-3 pb-3">
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-2">${weightInputs}</div>
+              <div class="mt-2.5 flex flex-wrap items-center gap-3">
+                <span class="text-[10px] text-slate-500">Weights are relative — the percentages show each factor's share of the final score. Missing data is left out and the rest rescaled.</span>
+                <span id="aa-w-hint" class="hidden text-[10px] font-bold text-accentAmber">Preview only — press OK to apply.</span>
+                <span class="ml-auto">
+                  <button type="button" onclick="resetAuditRiskWeights()" class="px-2.5 py-1 text-[10px] font-bold bg-white border border-coolBorder rounded-lg hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Reset to defaults</button>
+                </span>
+              </div>
             </div>
-            <div class="flex items-center gap-2 text-xs font-semibold text-slate-600">
-              <span>Always schedule after</span>${cfgInput('overdueDays', 1, 3650)}<span>days without an audit</span>
-            </div>
-            <div class="flex items-center gap-2 text-xs font-semibold text-slate-600">
-              <span>Spacing between suggestions</span>${cfgInput('spacingDays', 1, 3650)}<span>business day(s)</span>
-            </div>
+          </details>
+
+          <div class="p-3 border-t border-coolBorder flex flex-wrap items-center gap-3">
+            ${notice ? `<div role="status" class="text-[11px] font-semibold ${notice.type === 'error' ? 'text-accentRose' : 'text-accentEmerald'}">${notice.type === 'error' ? '⚠ ' : '✓ '}${escapeHTML(notice.text)}</div>` : '<span></span>'}
             <span class="ml-auto">${okBtn('applyAllAuditAnalysisSettings()', 'Apply all settings (thresholds and weights)')}</span>
           </div>
-          ${notice ? `<div role="status" class="mt-2 text-[11px] font-semibold ${notice.type === 'error' ? 'text-accentRose' : 'text-accentEmerald'}">${notice.type === 'error' ? '⚠ ' : '✓ '}${escapeHTML(notice.text)}</div>` : ''}
         </div>
-
-        <details class="mx-2 sm:mx-3 bg-gray-50 border border-coolBorder rounded-xl" ${cfg.weightsOpen ? 'open' : ''} ontoggle="setAuditWeightsOpen(this.open)">
-          <summary class="px-3 py-2 text-xs font-bold text-slate-700 cursor-pointer select-none">Risk score weights — how much each factor counts <span class="font-medium text-slate-500">(tap to adjust; saved on this device)</span></summary>
-          <div class="px-3 pb-3">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-2">${weightInputs}</div>
-            <div class="mt-2.5 flex flex-wrap items-center gap-3">
-              <span class="text-[10px] text-slate-500">Weights are relative — the percentages show each factor's share of the final score. Missing data is left out and the rest rescaled.</span>
-              <span id="aa-w-hint" class="hidden text-[10px] font-bold text-accentAmber">Preview only — press OK to apply.</span>
-              <span class="ml-auto flex items-center gap-2">
-                <button type="button" onclick="resetAuditRiskWeights()" class="px-2.5 py-1 text-[10px] font-bold bg-white border border-coolBorder rounded-lg hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Reset to defaults</button>
-              </span>
-            </div>
-          </div>
-        </details>
 
         <div class="mx-2 sm:mx-3 grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div class="p-3 bg-white border border-coolBorder rounded-xl">
@@ -13131,6 +13136,21 @@ html.page-fade-ready body {
                     <td class="p-2 text-xs text-slate-800">${escapeFindingHTML(r.finding)}</td>
                 </tr>`).join('');
 
+        // Mobile (<640px) gets stacked cards instead of the 3-column table:
+        // the table's fixed w-24 Date + w-40 Category columns left almost
+        // no room for Remarks on a phone-width popup. Desktop table below
+        // is untouched.
+        const cardsHtml = records.length === 0
+            ? `<div class="p-4 text-center text-xs text-slate-400 italic">No individual findings recorded for FY${year} (from AUDIT FINDINGS sheet).</div>`
+            : records.map(r => `
+                <div class="p-2.5 border-t border-coolBorder first:border-t-0">
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <span class="text-[11px] font-semibold text-slate-500 tabular-nums">${formatFindingDate(r.date, r.year)}</span>
+                        ${getFindingCategoryBadge(r.category)}
+                    </div>
+                    <p class="text-xs text-slate-800 leading-snug break-words">${escapeFindingHTML(r.finding)}</p>
+                </div>`).join('');
+
         container.innerHTML = `
             <div class="bg-white rounded-lg border border-coolBorder overflow-hidden">
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-3 py-2 bg-slate-50 border-b border-coolBorder">
@@ -13138,7 +13158,8 @@ html.page-fade-ready body {
                     <div class="flex gap-1.5 overflow-x-auto sm:overflow-visible -mx-1 px-1 sm:mx-0 sm:px-0 shrink-0">${yearTabs}</div>
                 </div>
                 <div class="max-h-64 overflow-y-auto custom-scrollbar">
-                    <table class="w-full text-left border-collapse">
+                    <div class="sm:hidden divide-y divide-coolBorder">${cardsHtml}</div>
+                    <table class="hidden sm:table w-full text-left border-collapse">
                         <thead class="bg-slate-50 text-[9px] uppercase tracking-wider text-slate-400 font-bold sticky top-0">
                             <tr><th class="p-2 w-24 text-right">Date</th><th class="p-2 w-40">Category</th><th class="p-2">Remarks</th></tr>
                         </thead>
@@ -16527,13 +16548,39 @@ html.page-fade-ready body {
           </td>
         </tr>`).join('');
 
+      // Mobile (<640px) gets its own stacked-card layout instead of the
+      // 5-column table above — squeezing Date/Branch/Category/Findings
+      // into ~300px of table-fixed columns left everything wrapping into
+      // unreadable slivers on a phone. Desktop table markup above is
+      // untouched; this is purely an additional, narrower-screen view.
+      const cards = store.staged.map(r => `
+        <div class="p-2.5 border-t border-coolBorder first:border-t-0">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px]">
+                <span class="font-bold text-slate-500 whitespace-nowrap">${escapeFindingHTML(r.date)}</span>
+                <span class="text-slate-300">•</span>
+                <span class="font-semibold text-slate-700 break-words">${escapeFindingHTML(r.branch)}</span>
+              </div>
+              <div class="mt-1">${getFindingCategoryBadge(r.category)}</div>
+            </div>
+            <button onclick="removeStagedFindingEntry('${r.id}')" title="Remove" aria-label="Remove entry" class="shrink-0 p-1.5 -mt-0.5 -mr-0.5 text-slate-400 hover:text-accentRose hover:bg-accentRose/10 rounded-lg transition-all active:scale-95">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+            </button>
+          </div>
+          <p class="mt-1.5 text-xs text-slate-800 leading-snug break-words">${escapeFindingHTML(r.finding)}</p>
+        </div>`).join('');
+
       container.innerHTML = `
-        <table class="w-full table-fixed text-left border-collapse">
-          <thead class="bg-slate-50 text-[9px] uppercase tracking-wider text-slate-400 font-bold sticky top-0">
-            <tr><th class="p-1.5 w-[15%]">Date</th><th class="p-1.5 w-[18%]">Branch</th><th class="p-1.5 w-[20%]">Category</th><th class="p-1.5">Findings</th><th class="p-1.5 w-9"></th></tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>`;
+        <div class="sm:hidden divide-y divide-coolBorder">${cards}</div>
+        <div class="hidden sm:block">
+          <table class="w-full table-fixed text-left border-collapse">
+            <thead class="bg-slate-50 text-[9px] uppercase tracking-wider text-slate-400 font-bold sticky top-0">
+              <tr><th class="p-1.5 w-[15%]">Date</th><th class="p-1.5 w-[18%]">Branch</th><th class="p-1.5 w-[20%]">Category</th><th class="p-1.5">Findings</th><th class="p-1.5 w-9"></th></tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
     }
 
     // Delete confirmations still use their own #findingsDeleteConfirmModal
@@ -16694,13 +16741,42 @@ html.page-fade-ready body {
           </td>
         </tr>`).join('');
 
+      // Mobile stacked-card layout — see the comment in
+      // renderStagedFindingsTable() for why this exists alongside (not
+      // instead of) the desktop table below.
+      const cards = cache.rows.map(r => `
+        <div class="p-2.5 border-t border-coolBorder first:border-t-0${r.row === editingRow ? ' bg-accentIndigo/5' : ''}">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px]">
+                <span class="font-bold text-slate-500 whitespace-nowrap">${escapeFindingHTML(r.date)}</span>
+                <span class="text-slate-300">•</span>
+                <span class="font-semibold text-slate-700 break-words">${escapeFindingHTML(r.branch)}</span>
+              </div>
+              <div class="mt-1">${getFindingCategoryBadge(r.category)}</div>
+            </div>
+            <span class="shrink-0 -mt-0.5 -mr-0.5 inline-flex items-center gap-0.5">
+              <button onclick="startEditRecentFinding(${r.row})" title="Edit" aria-label="Edit entry" class="p-1.5 text-slate-400 hover:text-royalBlue hover:bg-royalBlue/10 rounded-lg transition-all active:scale-95">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+              </button>
+              <button onclick="deleteRecentFindingEntry(${r.row})" title="Delete" aria-label="Delete entry" class="p-1.5 text-slate-400 hover:text-accentRose hover:bg-accentRose/10 rounded-lg transition-all active:scale-95">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
+              </button>
+            </span>
+          </div>
+          <p class="mt-1.5 text-xs text-slate-800 leading-snug break-words">${escapeFindingHTML(r.finding)}</p>
+        </div>`).join('');
+
       container.innerHTML = `
-        <table class="w-full table-fixed text-left border-collapse">
-          <thead class="bg-slate-50 text-[9px] uppercase tracking-wider text-slate-400 font-bold sticky top-0">
-            <tr><th class="p-1.5 w-[14%]">Date</th><th class="p-1.5 w-[16%]">Branch</th><th class="p-1.5 w-[18%]">Category</th><th class="p-1.5">Findings</th><th class="p-1.5 w-[4.5rem]"></th></tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>`;
+        <div class="sm:hidden divide-y divide-coolBorder">${cards}</div>
+        <div class="hidden sm:block">
+          <table class="w-full table-fixed text-left border-collapse">
+            <thead class="bg-slate-50 text-[9px] uppercase tracking-wider text-slate-400 font-bold sticky top-0">
+              <tr><th class="p-1.5 w-[14%]">Date</th><th class="p-1.5 w-[16%]">Branch</th><th class="p-1.5 w-[18%]">Category</th><th class="p-1.5">Findings</th><th class="p-1.5 w-[4.5rem]"></th></tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
     }
 
     // Loads one row from the "Recently Added" list back into the form
@@ -16921,13 +16997,43 @@ html.page-fade-ready body {
         </tr>`;
       }).join('');
 
+      // Mobile stacked-card layout — see the comment in
+      // renderStagedFindingsTable() for why this exists alongside (not
+      // instead of) the desktop table below.
+      const cards = cache.rows.map(r => {
+        const daysLeft = Number.isFinite(r.daysLeft) ? r.daysLeft : null;
+        const agoLabel = r.deletedAt ? escapeFindingHTML(r.deletedAt) : '';
+        const leftLabel = daysLeft === null ? '' : (daysLeft <= 0 ? 'removes soon' : `${daysLeft}d left`);
+        return `
+        <div class="p-2.5 border-t border-coolBorder first:border-t-0 opacity-90">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px]">
+                <span class="font-bold text-slate-500 whitespace-nowrap">${escapeFindingHTML(r.date)}</span>
+                <span class="text-slate-300">•</span>
+                <span class="font-semibold text-slate-700 break-words">${escapeFindingHTML(r.branch)}</span>
+              </div>
+              <div class="mt-1">${getFindingCategoryBadge(r.category)}</div>
+            </div>
+            <button onclick="restoreFindingEntry(${r.row})" title="Restore" aria-label="Restore entry" class="shrink-0 p-1.5 -mt-0.5 -mr-0.5 text-slate-400 hover:text-accentEmerald hover:bg-accentEmerald/10 rounded-lg transition-all active:scale-95">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36"></path><path d="M3 3v6h6"></path></svg>
+            </button>
+          </div>
+          <p class="mt-1.5 text-xs text-slate-800 leading-snug break-words">${escapeFindingHTML(r.finding)}</p>
+          <div class="mt-1 text-[10px] text-slate-400">Deleted ${agoLabel}${r.deletedBy ? ' by ' + escapeFindingHTML(r.deletedBy) : ''}${leftLabel ? ' \u2022 ' + leftLabel : ''}</div>
+        </div>`;
+      }).join('');
+
       container.innerHTML = `
-        <table class="w-full table-fixed text-left border-collapse">
-          <thead class="bg-slate-50 text-[9px] uppercase tracking-wider text-slate-400 font-bold sticky top-0">
-            <tr><th class="p-1.5 w-[14%]">Date</th><th class="p-1.5 w-[16%]">Branch</th><th class="p-1.5 w-[18%]">Category</th><th class="p-1.5">Findings <span class="normal-case font-medium text-slate-400/70">(auto-removed after 30d)</span></th><th class="p-1.5 w-[4.5rem]"></th></tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>`;
+        <div class="sm:hidden divide-y divide-coolBorder">${cards}</div>
+        <div class="hidden sm:block">
+          <table class="w-full table-fixed text-left border-collapse">
+            <thead class="bg-slate-50 text-[9px] uppercase tracking-wider text-slate-400 font-bold sticky top-0">
+              <tr><th class="p-1.5 w-[14%]">Date</th><th class="p-1.5 w-[16%]">Branch</th><th class="p-1.5 w-[18%]">Category</th><th class="p-1.5">Findings <span class="normal-case font-medium text-slate-400/70">(auto-removed after 30d)</span></th><th class="p-1.5 w-[4.5rem]"></th></tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
     }
 
     // Restores one History row straight back to RAW DATA — no confirmation
@@ -16997,6 +17103,22 @@ html.page-fade-ready body {
                 </tr>`).join('');
         }
 
+        // Mobile (<640px) gets stacked cards instead of the 3-column table
+        // — see the comment in renderProfileFindingsPanel() for why.
+        let cardsHtml;
+        if (records.length === 0) {
+            cardsHtml = `<div class="p-4 text-center text-xs text-slate-400 italic">No findings logged for ${year}.</div>`;
+        } else {
+            cardsHtml = records.map(r => `
+                <div class="p-2.5 border-t border-coolBorder first:border-t-0">
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <span class="text-[11px] font-semibold text-slate-500 tabular-nums">${formatFindingDate(r.date, r.year)}</span>
+                        ${getFindingCategoryBadge(r.category)}
+                    </div>
+                    <p class="text-xs text-slate-800 leading-snug break-words">${escapeFindingHTML(r.finding)}</p>
+                </div>`).join('');
+        }
+
         body.innerHTML = `
             <div class="bg-white rounded-lg border border-coolBorder overflow-hidden">
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-3 py-2 bg-slate-50 border-b border-coolBorder">
@@ -17004,7 +17126,8 @@ html.page-fade-ready body {
                     <div class="flex gap-1.5 overflow-x-auto sm:overflow-visible -mx-1 px-1 sm:mx-0 sm:px-0 shrink-0">${yearTabs}</div>
                 </div>
                 <div class="max-h-64 overflow-y-auto custom-scrollbar">
-                    <table class="w-full text-left border-collapse">
+                    <div class="sm:hidden divide-y divide-coolBorder">${cardsHtml}</div>
+                    <table class="hidden sm:table w-full text-left border-collapse">
                         <thead class="bg-slate-50 text-[9px] uppercase tracking-wider text-slate-400 font-bold sticky top-0">
                             <tr><th class="p-2 w-24 text-right">Date</th><th class="p-2 w-40">Category</th><th class="p-2">Remarks</th></tr>
                         </thead>
