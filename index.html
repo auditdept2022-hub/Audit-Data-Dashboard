@@ -11232,6 +11232,52 @@ html.page-fade-ready body {
       refreshAuditAnalysis(false);
     }
 
+    // Single "OK" applies the four scheduling thresholds and every risk-score
+    // weight together, in one atomic step. If any field is invalid, nothing
+    // is changed and all problems are reported at once.
+    function applyAllAuditAnalysisSettings() {
+      const cfg = window.auditAnalysisState;
+      const problems = [];
+
+      const cfgKeys = ['minScore', 'minGapDays', 'overdueDays', 'spacingDays'];
+      const newCfgVals = {};
+      cfgKeys.forEach(key => {
+        const el = document.getElementById('aa-cfg-' + key);
+        const label = AUDIT_CFG_LABELS[key] || key;
+        const min = (key === 'minGapDays') ? 0 : 1;
+        const max = (key === 'minScore') ? 100 : 3650;
+        const raw = el ? String(el.value).trim() : '';
+        const n = /^\d+$/.test(raw) ? parseInt(raw, 10) : NaN;
+        if (isNaN(n) || n < min || n > max) {
+          problems.push(label + ' must be a whole number from ' + min + ' to ' + max + '.');
+        } else {
+          newCfgVals[key] = n;
+        }
+      });
+
+      const w = readAuditWeightInputs();
+      const badWeights = AUDIT_RISK_FACTORS.filter(f => !isFinite(w[f.key]) || w[f.key] < 0 || w[f.key] > 100);
+      let weightsOk = true;
+      if (badWeights.length) {
+        weightsOk = false;
+        problems.push('Weights must be numbers from 0 to 100 (check: ' + badWeights.map(f => f.label).join(', ') + ').');
+      } else if (!AUDIT_RISK_FACTORS.some(f => w[f.key] > 0)) {
+        weightsOk = false;
+        problems.push('At least one risk-score weight needs to be above 0.');
+      }
+
+      if (problems.length) {
+        cfg.notice = { type: 'error', text: problems.join(' ') + ' Nothing was changed.' };
+      } else {
+        cfgKeys.forEach(key => { cfg[key] = newCfgVals[key]; });
+        cfg.weights = w;
+        try { localStorage.setItem(AUDIT_RISK_WEIGHTS_KEY, JSON.stringify(w)); } catch (e) {}
+        cfg.notice = { type: 'ok', text: 'Settings applied — scheduling thresholds and risk-score weights are both updated.' };
+      }
+      cfg.weightsOpen = true;
+      refreshAuditAnalysis(false);
+    }
+
     function resetAuditRiskWeights() {
       const cfg = window.auditAnalysisState;
       cfg.weights = defaultAuditRiskWeights();
@@ -11813,7 +11859,7 @@ html.page-fade-ready body {
         `data-aa-kind="${kind}" data-aa-value="${escapeHTML(value)}" role="button" tabindex="0" title="Click to list these branches below" class="cursor-pointer transition-all active:scale-[0.99] hover:bg-slate-100 ${active ? 'ring-1 ring-accentIndigo bg-accentIndigo/5' : ''} ${extraCls || ''}"`;
       const okBtn = (onclick, label) => `<button type="button" onclick="${onclick}" aria-label="${escapeHTML(label || 'Apply')}" class="px-2.5 py-1 text-[10px] font-extrabold bg-accentCyan text-white rounded-lg hover:brightness-95 active:scale-95 transition-all cursor-pointer whitespace-nowrap">OK</button>`;
       const inputCls = 'w-16 px-2 py-1 border border-coolBorder rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan';
-      const cfgInput = (key, min, max) => `<input id="aa-cfg-${key}" type="number" inputmode="numeric" min="${min}" max="${max}" value="${cfg[key]}" onkeydown="if(event.key==='Enter'){applyAuditAnalysisConfig('${key}')}" class="${inputCls}">`;
+      const cfgInput = (key, min, max) => `<input id="aa-cfg-${key}" type="number" inputmode="numeric" min="${min}" max="${max}" value="${cfg[key]}" onkeydown="if(event.key==='Enter'){applyAllAuditAnalysisSettings()}" class="${inputCls}">`;
 
       const maxLoad = Math.max(1, ...a.auditorNames.map(n => a.workload[n]), 1);
       const workloadRows = a.auditorNames.length ? a.auditorNames.map(name => {
@@ -11979,7 +12025,7 @@ html.page-fade-ready body {
           <label class="flex items-center justify-between gap-2 text-[11px] font-semibold text-slate-600">
             <span class="truncate" title="${escapeHTML(f.why)}">${escapeHTML(f.label)}</span>
             <span class="flex items-center gap-1.5 shrink-0">
-              <input id="aa-w-${f.key}" type="number" inputmode="decimal" min="0" max="100" step="1" value="${Number(cfg.weights[f.key]) || 0}" oninput="previewAuditRiskWeights()" onkeydown="if(event.key==='Enter'){applyAuditRiskWeights()}" class="w-14 px-1.5 py-1 border border-coolBorder rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
+              <input id="aa-w-${f.key}" type="number" inputmode="decimal" min="0" max="100" step="1" value="${Number(cfg.weights[f.key]) || 0}" oninput="previewAuditRiskWeights()" onkeydown="if(event.key==='Enter'){applyAllAuditAnalysisSettings()}" class="w-14 px-1.5 py-1 border border-coolBorder rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
               <span id="aa-wpct-${f.key}" class="w-9 text-right text-[10px] font-bold text-accentIndigo">${Math.round(((Number(cfg.weights[f.key]) || 0) / weightSum) * 100)}%</span>
             </span>
           </label>`).join('');
@@ -12033,17 +12079,18 @@ html.page-fade-ready body {
         <div class="mx-2 sm:mx-3 p-3 bg-gray-50 border border-coolBorder rounded-xl">
           <div class="flex flex-wrap items-center gap-x-5 gap-y-2.5">
             <div class="flex items-center gap-2 text-xs font-semibold text-slate-600">
-              <span>Schedule when risk score is</span>${cfgInput('minScore', 1, 100)}<span>or higher</span>${okBtn("applyAuditAnalysisConfig('minScore')", 'Apply risk-score threshold')}
+              <span>Schedule when risk score is</span>${cfgInput('minScore', 1, 100)}<span>or higher</span>
             </div>
             <div class="flex items-center gap-2 text-xs font-semibold text-slate-600">
-              <span>Skip if audited within</span>${cfgInput('minGapDays', 0, 3650)}<span>days</span>${okBtn("applyAuditAnalysisConfig('minGapDays')", 'Apply minimum gap')}
+              <span>Skip if audited within</span>${cfgInput('minGapDays', 0, 3650)}<span>days</span>
             </div>
             <div class="flex items-center gap-2 text-xs font-semibold text-slate-600">
-              <span>Always schedule after</span>${cfgInput('overdueDays', 1, 3650)}<span>days without an audit</span>${okBtn("applyAuditAnalysisConfig('overdueDays')", 'Apply always-schedule limit')}
+              <span>Always schedule after</span>${cfgInput('overdueDays', 1, 3650)}<span>days without an audit</span>
             </div>
             <div class="flex items-center gap-2 text-xs font-semibold text-slate-600">
-              <span>Spacing between suggestions</span>${cfgInput('spacingDays', 1, 3650)}<span>business day(s)</span>${okBtn("applyAuditAnalysisConfig('spacingDays')", 'Apply spacing')}
+              <span>Spacing between suggestions</span>${cfgInput('spacingDays', 1, 3650)}<span>business day(s)</span>
             </div>
+            <span class="ml-auto">${okBtn('applyAllAuditAnalysisSettings()', 'Apply all settings (thresholds and weights)')}</span>
           </div>
           ${notice ? `<div role="status" class="mt-2 text-[11px] font-semibold ${notice.type === 'error' ? 'text-accentRose' : 'text-accentEmerald'}">${notice.type === 'error' ? '⚠ ' : '✓ '}${escapeHTML(notice.text)}</div>` : ''}
         </div>
@@ -12056,7 +12103,6 @@ html.page-fade-ready body {
               <span class="text-[10px] text-slate-500">Weights are relative — the percentages show each factor's share of the final score. Missing data is left out and the rest rescaled.</span>
               <span id="aa-w-hint" class="hidden text-[10px] font-bold text-accentAmber">Preview only — press OK to apply.</span>
               <span class="ml-auto flex items-center gap-2">
-                ${okBtn('applyAuditRiskWeights()', 'Apply weights')}
                 <button type="button" onclick="resetAuditRiskWeights()" class="px-2.5 py-1 text-[10px] font-bold bg-white border border-coolBorder rounded-lg hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Reset to defaults</button>
               </span>
             </div>
