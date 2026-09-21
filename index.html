@@ -3482,13 +3482,26 @@ html.page-fade-ready body {
         var go = document.createElement('button');
         go.textContent = 'Refresh';
         go.style.cssText = 'background:#fff;color:#0f2547;border:0;border-radius:.6rem;padding:.4rem .8rem;font-weight:700;cursor:pointer';
-        go.onclick = function () { window.location.reload(); };
+        go.onclick = function (ev) { ev.stopPropagation(); window.location.reload(); };
         var later = document.createElement('button');
         later.textContent = '\u2715';
         later.setAttribute('aria-label', 'Dismiss');
         later.style.cssText = 'background:transparent;color:#cbd5e1;border:0;cursor:pointer;font-size:1rem';
-        later.onclick = function () { bar.remove(); };
+        later.onclick = function (ev) { ev.stopPropagation(); bar.remove(); };
         bar.appendChild(msg); bar.appendChild(go); bar.appendChild(later);
+        // Make the WHOLE capsule clickable (not just the "Refresh" button) —
+        // tapping anywhere on the banner (other than the explicit "\u2715"
+        // dismiss button) reloads, same as pressing Refresh. Matters most on
+        // mobile, where the capsule's own text/padding is a much bigger,
+        // easier target than the small Refresh button alone.
+        bar.style.cursor = 'pointer';
+        bar.setAttribute('role', 'button');
+        bar.setAttribute('tabindex', '0');
+        bar.setAttribute('aria-label', 'A new version of the dashboard is available. Activate to refresh.');
+        bar.onclick = function () { window.location.reload(); };
+        bar.onkeydown = function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); window.location.reload(); }
+        };
         document.body.appendChild(bar);
       });
     }
@@ -5128,7 +5141,7 @@ html.page-fade-ready body {
                  === 'assignment'). See openAssignmentAnalysis() /
                  renderAssignmentAnalysisModal(). Shown/hidden per-open
                  inside openModal(), same pattern as modalAddFindingBtn. -->
-            <button id="modalAnalysisBtn" onclick="openAssignmentAnalysis()" title="Audit Schedule Analysis" aria-label="Audit Schedule Analysis" class="hidden p-2 modal-header-icon-btn active:scale-95 rounded-xl transition-all cursor-pointer">
+            <button id="modalAnalysisBtn" onclick="openAssignmentAnalysis()" title="Audit Risk &amp; Schedule Analysis" aria-label="Audit Risk and Schedule Analysis" class="hidden p-2 modal-header-icon-btn active:scale-95 rounded-xl transition-all cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M3 3v16a2 2 0 0 0 2 2h16"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>
             </button>
             <!-- Pencil button for the Audit Findings Breakdown popup only (type
@@ -9415,9 +9428,19 @@ html.page-fade-ready body {
       // salesTrendLabels / serviceTrendLabels.
       const _exportSalesM = (activeData.summary && activeData.summary.salesTrendLabels) || _exportM;
       const _exportServiceM = (activeData.summary && activeData.summary.serviceTrendLabels) || _exportM;
+      // Multi-factor audit risk scores + the rules behind them, so the
+      // reasoning behind the suggested audit order can be handed to
+      // management as a spreadsheet. Guarded so a problem here can never
+      // block the rest of the consolidated report from exporting.
+      let _riskExport = null;
+      try { _riskExport = (typeof buildAuditRiskExport === 'function') ? buildAuditRiskExport() : null; } catch (e) { _riskExport = null; }
       const sheets = [
           { name: 'Summary', headers: ['Metric', 'Value'], rows: summaryRows },
           { name: 'Branches', headers: ['#', 'Branch', 'Audit Status', 'Auditor', 'Last Audit Date', 'Up Next Auditor', 'Expected Audit Date', 'Collection', 'Sales', 'Service', 'Eff ' + _exportM[0] + ' %', 'Eff ' + _exportM[1] + ' %', 'Eff ' + _exportM[2] + ' %', 'Repo Rate ' + _exportM[0] + ' %', 'Repo Rate ' + _exportM[1] + ' %', 'Repo Rate ' + _exportM[2] + ' %', 'No. of Repo ' + _exportM[0], 'No. of Repo ' + _exportM[1], 'No. of Repo ' + _exportM[2], 'Accounts ' + _exportM[0], 'Accounts ' + _exportM[1], 'Accounts ' + _exportM[2], 'Sales ' + _exportSalesM[0] + ' (INS/COD/CA)', 'Sales ' + _exportSalesM[1] + ' (INS/COD/CA)', 'Sales ' + _exportSalesM[2] + ' (INS/COD/CA)', 'Expected INS', 'Expected COD', 'Service Target', 'Service ' + _exportServiceM[0], 'Service ' + _exportServiceM[1], 'Service ' + _exportServiceM[2], 'Findings 2024', 'Findings 2025', 'Findings 2026'], rows: branchRows },
+          ...(_riskExport ? [
+              { name: 'Audit Risk Scores', headers: _riskExport.headers, rows: _riskExport.rows },
+              { name: 'Risk Methodology', headers: _riskExport.methodHeaders, rows: _riskExport.methodRows }
+          ] : []),
           { name: 'Assignment Queue', headers: ['Branch', 'Up Next Auditor', 'Expected Audit Date', 'Last Audit Date', 'Last Auditor', 'Recent Audit Date', 'Recent Auditor', 'Audit Interval (to date)'], rows: assignmentQueueRows },
           { name: 'Lowest Efficiency', headers: ['Branch', 'Efficiency %'], rows: (activeData.lowestEfficiency || []).map(function(x) { return [x.branch, x.rate]; }) },
           { name: 'Highest Repo Rate', headers: ['Branch', 'Repo Rate %'], rows: (activeData.highestRepo || []).map(function(x) { return [x.branch, (Number(x.rate) || 0).toFixed(2)]; }) },
@@ -10737,63 +10760,303 @@ html.page-fade-ready body {
     }
 
     // ============================================================
-    // AUDIT SCHEDULE ANALYSIS — comprehensive, whole-portfolio view
+    // AUDIT RISK & SCHEDULE ANALYSIS — whole-portfolio, multi-factor
     // ============================================================
     // Opened from the "Data Analysis" toolbar button on the Assignment
     // Branches Overview popup (see modalAnalysisBtn in the modal header
-    // markup). Deliberately built from activeData.branches — EVERY branch
-    // in the portfolio — rather than whatever subset the Overview table
-    // happens to be filtered/searched/scrolled to at the moment. The whole
-    // point of a scheduling analysis is to catch branches that have fallen
-    // off the currently-visible list (an old search term, a status filter
-    // left on, a long scroll) — not just to reformat what's already on
-    // screen. See the "Why this analysis" panel rendered at the bottom of
-    // this view for the full reasoning behind each signal used here.
-    window.auditAnalysisState = window.auditAnalysisState || { overdueDays: 90, spacingDays: 3 };
+    // markup). Built from activeData.branches — EVERY branch in the
+    // portfolio — rather than whatever subset the Overview table happens
+    // to be filtered/searched/scrolled to at the moment.
+    //
+    // WHY A RISK SCORE (and not just "days since last audit"):
+    // Ranking purely by audit interval answers "who has waited longest?"
+    // but not "where is the risk?". A branch audited 40 days ago with
+    // rising findings, declining collection and a high repo rate can be a
+    // bigger concern than a clean branch audited 120 days ago. So every
+    // branch now gets a 0-100 Audit Risk Score built from ALL the data
+    // already in the dashboard (audit history, findings, collection,
+    // efficiency, repo, sales, service, portfolio size). Every point in
+    // that score is traceable: the table's "Risk" column expands into a
+    // factor-by-factor breakdown, so any ranking can be explained (and
+    // defended) line by line. The weights are visible and editable, and
+    // the same rules are written out at the bottom of the analysis view
+    // and in the Excel export.
+    //
+    // Two kinds of rule decide who is put on the suggested schedule:
+    //   1. Coverage rules (never audited / scheduled date slipped /
+    //      overdue past the threshold) — these are policy backstops that
+    //      apply no matter what the score says, so no branch can be
+    //      skipped just because its other numbers look healthy.
+    //   2. Risk rule — an un-scheduled branch whose score is at or above
+    //      the minimum score AND that hasn't been audited within the
+    //      minimum-gap window (to avoid re-auditing something that was
+    //      just done).
+    // Everything that is put on the schedule is then ordered by risk
+    // score, highest first.
+    const AUDIT_RISK_WEIGHTS_KEY = 'auditDashboard_v1_riskWeights';
 
-    function openAssignmentAnalysis() {
-      openModal('Audit Schedule Analysis', 'assignmentAnalysis', null);
+    // label/how/why are shown verbatim in the methodology panel and the
+    // Excel "Risk Methodology" sheet, so the text is written to be read by
+    // someone who has never seen the dashboard.
+    const AUDIT_RISK_FACTORS = [
+      { key: 'recency', label: 'Audit recency', defaultWeight: 20,
+        how: '0 points if audited today, rising evenly to 100 points at the Overdue threshold. Never audited = 100.',
+        why: 'The longer a branch goes unchecked, the longer a problem can run before anyone sees it.' },
+      { key: 'findings', label: 'Audit findings', defaultWeight: 25,
+        how: 'Findings are weighted 3x for 2026, 2x for 2025 and 1x for 2024, then scaled against the portfolio\'s 90th percentile (so one extreme branch does not flatten everyone else). No findings = 0.',
+        why: 'Past findings are the strongest sign of where more will be found; recent years count more than old ones.' },
+      { key: 'collection', label: 'Collection trend', defaultWeight: 12,
+        how: 'Declining = 100, Recovering = 50, Stable = 20, Improving = 0.',
+        why: 'A worsening collection trend is an early warning of credit-control or reporting problems.' },
+      { key: 'efficiency', label: 'Collection efficiency', defaultWeight: 12,
+        how: 'Uses the same 70% / 50% cut-offs as the branch cards: 100% = 0 pts, 70% = 35 pts, 50% = 70 pts, 0% = 100 pts (proportional in between). No data = excluded.',
+        why: 'Low efficiency means less of what is due is being collected.' },
+      { key: 'repo', label: 'Repo rate', defaultWeight: 10,
+        how: 'Uses the same 4% / 7% cut-offs as the branch cards: 0% = 0 pts, 4% = 35 pts, 7% = 70 pts, 12% or more = 100 pts (proportional in between). No data = excluded.',
+        why: 'A high repossession rate points to weaker loan quality or recovery handling.' },
+      { key: 'sales', label: 'Sales trend', defaultWeight: 8,
+        how: 'Declining = 100, Recovering = 50, Stable = 20, Improving = 0.',
+        why: 'Sharp sales drops can signal pressure on the branch and unusual activity.' },
+      { key: 'service', label: 'Service vs target', defaultWeight: 8,
+        how: 'Declining (below target) = 100, on Target = 0.',
+        why: 'Missing service targets is a control and customer-experience signal.' },
+      { key: 'size', label: 'Portfolio size', defaultWeight: 5,
+        how: 'Number of accounts scaled against the portfolio\'s 90th percentile. No data = excluded.',
+        why: 'A bigger loan book means more money is at stake if something is wrong (materiality).' }
+    ];
+    const AUDIT_RISK_TIERS = [
+      { key: 'CRITICAL', label: 'Critical', min: 70, tint: 'accentRose' },
+      { key: 'HIGH',     label: 'High',     min: 55, tint: 'accentAmber' },
+      { key: 'MEDIUM',   label: 'Medium',   min: 40, tint: 'accentBlue' },
+      { key: 'LOW',      label: 'Low',      min: -Infinity, tint: 'accentEmerald' }
+    ];
+    const AUDIT_RISK_STATUS_POINTS = {
+      collection: { Declining: 100, Recovering: 50, Stable: 20, Improving: 0 },
+      sales:      { Declining: 100, Recovering: 50, Stable: 20, Improving: 0 },
+      service:    { Declining: 100, Target: 0 }
+    };
+
+    function defaultAuditRiskWeights() {
+      const w = {};
+      AUDIT_RISK_FACTORS.forEach(f => { w[f.key] = f.defaultWeight; });
+      return w;
     }
 
-    // Lets the two thresholds below (overdue window, spacing between
-    // suggested dates) be tuned live from the analysis view itself, since
-    // every office's actual audit cadence is different. Re-renders in
-    // place — no need to close/reopen the popup to see the effect.
+    // Weights the person has tuned are remembered across reloads, so a
+    // set of weights agreed with management doesn't silently reset.
+    function loadSavedAuditRiskWeights() {
+      const w = defaultAuditRiskWeights();
+      try {
+        const raw = localStorage.getItem(AUDIT_RISK_WEIGHTS_KEY);
+        if (!raw) return w;
+        const saved = JSON.parse(raw);
+        AUDIT_RISK_FACTORS.forEach(f => {
+          const v = Number(saved && saved[f.key]);
+          if (isFinite(v) && v >= 0 && v <= 100) w[f.key] = v;
+        });
+      } catch (e) { /* storage unavailable or corrupt — use defaults */ }
+      return w;
+    }
+
+    window.auditAnalysisState = window.auditAnalysisState || {
+      overdueDays: 90,      // coverage backstop AND the day-count where recency risk reaches 100
+      spacingDays: 3,       // business days between suggested audit dates
+      minScore: 55,         // risk score at/above which an un-scheduled branch gets scheduled
+      minGapDays: 30,       // don't re-audit a branch audited more recently than this
+      filterBucket: 'ATTENTION',
+      weights: loadSavedAuditRiskWeights(),
+      weightsOpen: false
+    };
+
+    function openAssignmentAnalysis() {
+      openModal('Audit Risk & Schedule Analysis', 'assignmentAnalysis', null);
+    }
+
+    // Lets the thresholds be tuned live from the analysis view itself,
+    // since every office's actual audit cadence is different. Re-renders
+    // in place — no need to close/reopen the popup to see the effect.
     function setAuditAnalysisConfig(key, value) {
       const n = parseInt(value, 10);
-      if (isNaN(n) || n < 1) return;
-      window.auditAnalysisState[key] = n;
+      const minAllowed = (key === 'minGapDays') ? 0 : 1;
+      if (isNaN(n) || n < minAllowed) return;
+      window.auditAnalysisState[key] = (key === 'minScore') ? Math.min(100, n) : n;
       const body = document.getElementById('modalBody');
       if (body) renderAssignmentAnalysisModal(body);
     }
 
-    // Walks every branch once and buckets it, then builds a fair,
+    function setAuditRiskWeight(key, value) {
+      const n = Number(value);
+      if (!isFinite(n) || n < 0 || n > 100) return;
+      const next = Object.assign({}, window.auditAnalysisState.weights, { [key]: n });
+      // At least one factor must keep a weight, otherwise there is
+      // nothing to score with.
+      if (!Object.keys(next).some(k => next[k] > 0)) return;
+      window.auditAnalysisState.weights = next;
+      try { localStorage.setItem(AUDIT_RISK_WEIGHTS_KEY, JSON.stringify(next)); } catch (e) {}
+      const body = document.getElementById('modalBody');
+      if (body) renderAssignmentAnalysisModal(body);
+    }
+
+    function resetAuditRiskWeights() {
+      window.auditAnalysisState.weights = defaultAuditRiskWeights();
+      try { localStorage.removeItem(AUDIT_RISK_WEIGHTS_KEY); } catch (e) {}
+      const body = document.getElementById('modalBody');
+      if (body) renderAssignmentAnalysisModal(body);
+    }
+
+    function setAuditWeightsOpen(isOpen) {
+      window.auditAnalysisState.weightsOpen = !!isOpen;
+    }
+
+    // Expand/collapse a row's "why this score" breakdown. Toggles a class
+    // rather than re-rendering so the table keeps its scroll position.
+    function toggleAuditRiskDetail(idx) {
+      const el = document.getElementById('audit-risk-detail-' + idx);
+      if (el) el.classList.toggle('hidden');
+    }
+
+    // Makes the summary pills at the top of the analysis clickable — same
+    // "click a capsule, table below narrows to match" pattern already used
+    // by the Collection/Sales/Service/All-Branches popups. Clicking the
+    // same bucket again toggles back to the default 'ATTENTION' view.
+    function setAuditAnalysisFilter(bucket) {
+      const cur = window.auditAnalysisState.filterBucket || 'ATTENTION';
+      window.auditAnalysisState.filterBucket = (cur === bucket) ? 'ATTENTION' : bucket;
+      const body = document.getElementById('modalBody');
+      if (body) renderAssignmentAnalysisModal(body);
+    }
+
+    // ---- scoring helpers ------------------------------------------------
+    function auditRiskTierOf(score) {
+      return AUDIT_RISK_TIERS.find(t => score >= t.min) || AUDIT_RISK_TIERS[AUDIT_RISK_TIERS.length - 1];
+    }
+
+    // Linear interpolation across [x, points] anchor pairs (ascending x).
+    function auditRiskPiecewise(x, anchors) {
+      if (x <= anchors[0][0]) return anchors[0][1];
+      for (let i = 1; i < anchors.length; i++) {
+        const a = anchors[i - 1], b = anchors[i];
+        if (x <= b[0]) return a[1] + (b[1] - a[1]) * ((x - a[0]) / (b[0] - a[0]));
+      }
+      return anchors[anchors.length - 1][1];
+    }
+
+    // Percentile of the POSITIVE values only, so a portfolio where most
+    // branches have zero findings still gets a meaningful scale.
+    function auditRiskPercentile(values, p) {
+      const a = values.filter(v => v > 0).sort((x, y) => x - y);
+      if (!a.length) return 0;
+      const idx = (a.length - 1) * p, lo = Math.floor(idx), hi = Math.ceil(idx);
+      return a[lo] + (a[hi] - a[lo]) * (idx - lo);
+    }
+
+    // Scores every row in place (adds row.risk). Each factor yields 0-100
+    // "risk points"; the score is the weighted average of the factors that
+    // have data. A factor with no data for a branch is EXCLUDED and the
+    // remaining weights are rescaled to 100% — a branch is never penalised
+    // (or rewarded) for a number that simply isn't there.
+    function computeAuditRiskScores(rows, cfg) {
+      const weights = cfg.weights || defaultAuditRiskWeights();
+      const findingsWeighted = b => (b.findings2026 || 0) * 3 + (b.findings2025 || 0) * 2 + (b.findings2024 || 0);
+      const accountsOf = b => (b.accountsMay || 0) > 0 ? b.accountsMay : (b.accountsApr || 0);
+      const findingsCap = auditRiskPercentile(rows.map(r => findingsWeighted(r.b)), 0.9) || 1;
+      const sizeCap = auditRiskPercentile(rows.map(r => accountsOf(r.b)), 0.9) || 1;
+
+      rows.forEach(row => {
+        const b = row.b, info = row.info;
+        const f = [];
+        const add = (key, available, points, detail, short) => {
+          f.push({ key, available, points: available ? Math.max(0, Math.min(100, points)) : 0, detail, short });
+        };
+
+        const never = info.roundsCount === 0 || info.intervalDays === null || info.intervalDays === undefined;
+        add('recency', true,
+            never ? 100 : (Math.max(0, info.intervalDays) / Math.max(1, cfg.overdueDays)) * 100,
+            never ? 'Never audited' : info.intervalDays + ' days since last audit',
+            never ? 'Never audited' : info.intervalDays + 'd since audit');
+
+        const fw = findingsWeighted(b);
+        const ftotal = (b.findings2024 || 0) + (b.findings2025 || 0) + (b.findings2026 || 0);
+        add('findings', true, fw === 0 ? 0 : (fw / findingsCap) * 100,
+            (b.findings2026 || 0) + ' in 2026 · ' + (b.findings2025 || 0) + ' in 2025 · ' + (b.findings2024 || 0) + ' in 2024',
+            ftotal + ' finding' + (ftotal === 1 ? '' : 's') + ' (' + (b.findings2026 || 0) + ' in 2026)');
+
+        add('collection', true, AUDIT_RISK_STATUS_POINTS.collection[b.collection] ?? 20,
+            'Collection is ' + (b.collection || 'Stable'), 'Collection ' + String(b.collection || 'Stable').toLowerCase());
+
+        const hasEff = (b.effMar || 0) > 0 || (b.effApr || 0) > 0 || (b.effLatest || 0) > 0;
+        add('efficiency', hasEff, auditRiskPiecewise(b.effLatest || 0, [[0, 100], [50, 70], [70, 35], [100, 0]]),
+            hasEff ? (b.effLatest + '% latest efficiency') : 'No efficiency data', 'Efficiency ' + b.effLatest + '%');
+
+        const hasAcct = accountsOf(b) > 0;
+        const repo = b.repoRateLatest || 0;
+        add('repo', hasAcct, auditRiskPiecewise(repo, [[0, 0], [4, 35], [7, 70], [12, 100]]),
+            hasAcct ? (repo.toFixed(2) + '% latest repo rate') : 'No account data', 'Repo ' + repo.toFixed(1) + '%');
+
+        add('sales', true, AUDIT_RISK_STATUS_POINTS.sales[b.sales] ?? 20,
+            'Sales are ' + (b.sales || 'Stable'), 'Sales ' + String(b.sales || 'Stable').toLowerCase());
+
+        add('service', true, AUDIT_RISK_STATUS_POINTS.service[b.service] ?? 0,
+            b.service === 'Declining' ? 'Below service target' : 'On service target',
+            b.service === 'Declining' ? 'Service below target' : 'Service on target');
+
+        add('size', hasAcct, (accountsOf(b) / sizeCap) * 100,
+            hasAcct ? (accountsOf(b).toLocaleString() + ' accounts') : 'No account data',
+            accountsOf(b).toLocaleString() + ' accounts');
+
+        let weightSum = 0;
+        f.forEach(x => { x.weight = Math.max(0, Number(weights[x.key]) || 0); if (x.available) weightSum += x.weight; });
+        let score = 0;
+        f.forEach(x => {
+          x.share = (x.available && weightSum > 0) ? x.weight / weightSum : 0;
+          x.contribution = x.share * x.points;
+          score += x.contribution;
+        });
+        score = Math.round(score * 10) / 10;
+        row.risk = {
+          score: score,
+          tier: auditRiskTierOf(score),
+          factors: f,
+          // The (up to) three biggest reasons this branch scored the way it did.
+          drivers: f.filter(x => x.available && x.points >= 50 && x.contribution > 0)
+                    .sort((x, y) => y.contribution - x.contribution).slice(0, 3)
+        };
+      });
+      return rows;
+    }
+
+    // Walks every branch once, scores it, buckets it, then builds a fair,
     // ready-to-use suggested schedule out of whatever needs attention.
     function computeAuditScheduleAnalysis() {
       const cfg = window.auditAnalysisState;
       const today = Date.now();
       const branches = activeData.branches || [];
       const rows = branches.map(b => ({ b, info: getBranchAuditRoundInfo(b) }));
+      computeAuditRiskScores(rows, cfg);
 
       // -- Bucket every branch into exactly one category --------------
       // neverAudited        : no completed round on record at all, and
-      //                       nothing scheduled either — the biggest blind
-      //                       spot, since there's no history to fall back on.
-      // scheduledPastDue    : has an Expected Audit Date, but it's already
+      //                       nothing scheduled either (coverage rule).
+      // scheduledPastDue    : has an Expected Audit Date that's already
       //                       come and gone without the branch being marked
-      //                       Done — a schedule slipped.
+      //                       Done — a schedule slipped (coverage rule).
       // scheduledUpcoming   : has an Expected Audit Date still in the future
       //                       — already handled, nothing to suggest.
-      // overdueUnscheduled  : has audit history, but it's older than the
-      //                       configurable overdue threshold and nothing is
-      //                       currently scheduled to address it.
-      // onTrack             : everything else — recently audited (or newly
-      //                       added) branches that don't need attention yet.
-      const neverAudited = [], overdueUnscheduled = [], scheduledPastDue = [], scheduledUpcoming = [], onTrack = [];
+      // riskFlagged         : nothing scheduled, risk score >= minScore, and
+      //                       last audit is at least minGapDays ago (risk rule).
+      // overdueUnscheduled  : nothing scheduled, not high-risk by score, but
+      //                       it has gone overdueDays without an audit
+      //                       (coverage backstop).
+      // onTrack             : everything else.
+      const neverAudited = [], overdueUnscheduled = [], riskFlagged = [], scheduledPastDue = [], scheduledUpcoming = [], onTrack = [];
       rows.forEach(row => {
         const { b, info } = row;
         const hasExpected = !!(info.expectedAuditDate && info.expectedAuditDateRaw);
         const isDone = (b.auditStatus || '').toUpperCase() === 'DONE';
+        const days = info.intervalDays;
+        const hasDays = days !== null && days !== undefined;
+        const highRisk = row.risk.score >= cfg.minScore;
+        const pastMinGap = !hasDays || days >= cfg.minGapDays;
 
         if (info.roundsCount === 0 && !hasExpected) {
           neverAudited.push(row);
@@ -10801,7 +11064,9 @@ html.page-fade-ready body {
           scheduledPastDue.push(row);
         } else if (hasExpected && info.expectedAuditDateRaw >= today) {
           scheduledUpcoming.push(row);
-        } else if (!hasExpected && info.intervalDays !== null && info.intervalDays !== undefined && info.intervalDays >= cfg.overdueDays) {
+        } else if (!hasExpected && highRisk && pastMinGap) {
+          riskFlagged.push(row);
+        } else if (!hasExpected && hasDays && days >= cfg.overdueDays) {
           overdueUnscheduled.push(row);
         } else {
           onTrack.push(row);
@@ -10809,11 +11074,6 @@ html.page-fade-ready body {
       });
 
       // -- Current auditor workload (who already has upcoming work) ---
-      // Built from BOTH "who most recently audited this branch" (so every
-      // active auditor shows up, even ones with nothing queued right now)
-      // and "who's currently Up Next" (the actual live queue count). New
-      // suggestions are handed out against this so the rotation stays fair
-      // rather than repeating whatever imbalance already exists.
       const auditorSet = new Set();
       rows.forEach(row => {
         if (row.info.recentAuditor && row.info.recentAuditor !== 'Unassigned') auditorSet.add(row.info.recentAuditor);
@@ -10827,19 +11087,17 @@ html.page-fade-ready body {
       });
       const auditorNames = Array.from(auditorSet).sort((x, y) => x.localeCompare(y));
 
-      // -- Priority queue: never-audited first (biggest risk), then
-      // overdue-unscheduled / past-due, longest-waiting first. -----------
+      // -- Priority queue: everything that needs scheduling, highest
+      // overall risk score first (ties: longest since last audit). -------
       const priorityQueue = [
         ...neverAudited.map(r => ({ ...r, reason: 'Never audited' })),
+        ...riskFlagged.map(r => ({ ...r, reason: 'High risk, not yet scheduled' })),
         ...overdueUnscheduled.map(r => ({ ...r, reason: 'Overdue, not yet scheduled' })),
         ...scheduledPastDue.map(r => ({ ...r, reason: 'Expected date already passed' }))
-      ].sort((x, y) => (y.info.intervalDays ?? Infinity) - (x.info.intervalDays ?? Infinity));
+      ].sort((x, y) => (y.risk.score - x.risk.score) || ((y.info.intervalDays ?? Infinity) - (x.info.intervalDays ?? Infinity)));
 
       // -- Round-robin the queue across auditors, always handing the next
-      // branch to whoever currently has the LOWEST running total (their
-      // real current queue, plus anything already handed out this pass) —
-      // so the suggested schedule actively balances load instead of just
-      // reinforcing an existing imbalance. --------------------------------
+      // branch to whoever currently has the LOWEST running total. --------
       const runningLoad = {};
       auditorNames.forEach(a => { runningLoad[a] = workload[a]; });
       const pickAuditor = () => {
@@ -10851,8 +11109,7 @@ html.page-fade-ready body {
       };
 
       // -- Spread suggested dates cfg.spacingDays business days apart,
-      // starting on the next business day, so the schedule this produces
-      // is something you could actually hand out as-is. -------------------
+      // starting on the next business day. -------------------------------
       const nextBusinessDay = (d) => {
         const nd = new Date(d);
         do { nd.setDate(nd.getDate() + 1); } while (nd.getDay() === 0 || nd.getDay() === 6);
@@ -10868,12 +11125,149 @@ html.page-fade-ready body {
 
       const intervalVals = rows.map(r => r.info.intervalDays).filter(v => v !== null && v !== undefined);
       const avgIntervalDays = intervalVals.length ? Math.round(intervalVals.reduce((s, v) => s + v, 0) / intervalVals.length) : null;
+      const avgRiskScore = rows.length ? Math.round((rows.reduce((s, r) => s + r.risk.score, 0) / rows.length) * 10) / 10 : null;
+
+      // -- Days-Since-Last-Audit distribution -----------------------------
+      const DIST_BUCKETS = [
+        { key: 'never', label: 'Never audited' },
+        { key: '0-30', label: '0–30 days', test: (d) => d <= 30 },
+        { key: '31-60', label: '31–60 days', test: (d) => d > 30 && d <= 60 },
+        { key: '61-90', label: '61–90 days', test: (d) => d > 60 && d <= 90 },
+        { key: '91-180', label: '91–180 days', test: (d) => d > 90 && d <= 180 },
+        { key: '180+', label: '180+ days', test: (d) => d > 180 }
+      ];
+      const distribution = DIST_BUCKETS.map(bucket => ({
+        key: bucket.key,
+        label: bucket.label,
+        count: rows.filter(r => bucket.key === 'never'
+          ? r.info.roundsCount === 0
+          : (r.info.roundsCount > 0 && r.info.intervalDays !== null && r.info.intervalDays !== undefined && bucket.test(r.info.intervalDays))).length
+      }));
+
+      // -- Portfolio-wide risk picture ------------------------------------
+      const riskTiers = AUDIT_RISK_TIERS.map(t => ({
+        key: t.key, label: t.label, tint: t.tint, min: t.min,
+        count: rows.filter(r => r.risk.tier.key === t.key).length
+      }));
+      const driverStats = AUDIT_RISK_FACTORS.map(fac => {
+        const fs = rows.map(r => r.risk.factors.find(x => x.key === fac.key));
+        const withData = fs.filter(x => x.available);
+        return {
+          key: fac.key, label: fac.label,
+          avgContribution: rows.length ? fs.reduce((s, x) => s + x.contribution, 0) / rows.length : 0,
+          elevated: withData.filter(x => x.points >= 60).length,
+          withData: withData.length
+        };
+      });
+
+      // -- Recently completed audits --------------------------------------
+      const recentCompletions = rows
+        .filter(r => r.info.recentDateRaw !== null && r.info.recentDateRaw !== undefined)
+        .sort((x, y) => y.info.recentDateRaw - x.info.recentDateRaw)
+        .slice(0, 6);
 
       return {
         totalBranches: rows.length,
-        neverAudited, overdueUnscheduled, scheduledPastDue, scheduledUpcoming, onTrack,
-        workload, auditorNames, suggestions, avgIntervalDays
+        neverAudited, overdueUnscheduled, riskFlagged, scheduledPastDue, scheduledUpcoming, onTrack,
+        workload, auditorNames, suggestions, avgIntervalDays, avgRiskScore,
+        distribution, recentCompletions, riskTiers, driverStats, rows
       };
+    }
+
+    // One plain-English sentence answering "why is this branch on (or not
+    // on) the schedule?" — shown in the row's breakdown and in the export.
+    function auditRiskWhyText(row) {
+      const cfg = window.auditAnalysisState;
+      const days = row.info.intervalDays;
+      switch (row.reason) {
+        case 'Never audited':
+          return 'Included because every branch must be audited at least once. This is a coverage rule and applies regardless of the risk score.';
+        case 'Expected date already passed':
+          return 'Included because its scheduled audit date has passed and the branch was not marked Done. This is a coverage rule.';
+        case 'Overdue, not yet scheduled':
+          return 'Included because it has gone ' + days + ' days without an audit (limit: ' + cfg.overdueDays + ' days) and nothing is scheduled. This is a coverage backstop; its risk score is ' + row.risk.score.toFixed(0) + '.';
+        case 'High risk, not yet scheduled':
+          return 'Included because its risk score (' + row.risk.score.toFixed(0) + ') is at or above the minimum of ' + cfg.minScore + ', it has no audit scheduled, and it was last audited ' + days + ' days ago (minimum gap: ' + cfg.minGapDays + ' days).';
+        case 'Scheduled — upcoming':
+          return 'Already has an upcoming audit date, so no action is needed. Its risk score is shown for reference.';
+        case 'Monitor — recently audited':
+          return 'Risk score (' + row.risk.score.toFixed(0) + ') is at or above ' + cfg.minScore + ', but it was audited within the last ' + cfg.minGapDays + ' days, so it is not re-scheduled yet. Worth watching.';
+        default:
+          return 'Not scheduled: risk score (' + row.risk.score.toFixed(0) + ') is below the minimum of ' + cfg.minScore + ' and the branch is within the ' + cfg.overdueDays + '-day audit limit.';
+      }
+    }
+
+    // Every branch, tagged with its scheduling reason, ranked by risk
+    // score (highest first). Suggestion rows keep their suggested
+    // auditor/date; the rest are informational.
+    function getAuditAnalysisAllRows(a) {
+      const cfg = window.auditAnalysisState;
+      const tag = (row, reason) => Object.assign({}, row, { reason: reason, actionable: false });
+      const upcoming = a.scheduledUpcoming.map(r => tag(r, 'Scheduled — upcoming'));
+      const other = a.onTrack.map(r => tag(r, r.risk.score >= cfg.minScore ? 'Monitor — recently audited' : 'On track'));
+      return [...a.suggestions, ...upcoming, ...other]
+        .sort((x, y) => (y.risk.score - x.risk.score) || x.b.name.localeCompare(y.b.name));
+    }
+
+    // Builds the flat, filterable list of rows the bottom table renders,
+    // for whichever bucket is currently selected via the clickable pills.
+    function getAuditAnalysisTableRows(a) {
+      const cfg = window.auditAnalysisState;
+      const bucket = cfg.filterBucket || 'ATTENTION';
+      const all = getAuditAnalysisAllRows(a);
+      switch (bucket) {
+        case 'NEVER_AUDITED':
+          return { title: 'Never Audited', rows: all.filter(r => r.reason === 'Never audited') };
+        case 'NEEDS_SCHEDULING':
+          return { title: 'Needs Scheduling', rows: all.filter(r => r.suggestedAuditor !== undefined && r.reason !== 'Never audited') };
+        case 'SCHEDULED_UPCOMING':
+          return { title: 'Already Scheduled (Upcoming)', rows: all.filter(r => r.reason === 'Scheduled — upcoming')
+            .sort((x, y) => (x.info.expectedAuditDateRaw ?? Infinity) - (y.info.expectedAuditDateRaw ?? Infinity)) };
+        case 'ON_TRACK':
+          return { title: 'On Track', rows: all.filter(r => r.reason === 'On track' || r.reason === 'Monitor — recently audited') };
+        case 'HIGH_RISK':
+          return { title: 'High-Risk Branches (score ' + cfg.minScore + '+), ranked by score', rows: all.filter(r => r.risk.score >= cfg.minScore) };
+        case 'ALL':
+          return { title: 'All Branches, ranked by risk score', rows: all };
+        case 'ATTENTION':
+        default:
+          return { title: 'Suggested Audit Schedule, ranked by risk score', rows: all.filter(r => r.suggestedAuditor !== undefined) };
+      }
+    }
+
+    // Flat rows for the consolidated Excel export — same data the on-screen
+    // table shows, plus each factor's points, so the full reasoning can be
+    // handed to management as a spreadsheet.
+    function buildAuditRiskExport() {
+      const a = computeAuditScheduleAnalysis();
+      const all = getAuditAnalysisAllRows(a);
+      const fmt = d => d ? d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+      const headers = ['Rank', 'Branch', 'Risk Score', 'Risk Tier', 'Scheduling Status']
+        .concat(AUDIT_RISK_FACTORS.map(f => f.label + ' (points added)'))
+        .concat(['Last Audited', 'Days Since Last Audit', 'Suggested Auditor', 'Suggested Date', 'Why']);
+      const rows = all.map((row, i) => [
+        i + 1, row.b.name, row.risk.score, row.risk.tier.label, row.reason
+      ].concat(AUDIT_RISK_FACTORS.map(f => {
+        const x = row.risk.factors.find(y => y.key === f.key);
+        return x && x.available ? Math.round(x.contribution * 10) / 10 : 'no data';
+      })).concat([
+        row.info.recentDate || 'Never',
+        (row.info.intervalDays === null || row.info.intervalDays === undefined) ? '' : row.info.intervalDays,
+        row.suggestedAuditor || '',
+        row.suggestedDate ? fmt(row.suggestedDate) : '',
+        auditRiskWhyText(row)
+      ]));
+      const cfg = window.auditAnalysisState;
+      const wSum = AUDIT_RISK_FACTORS.reduce((s, f) => s + (Number(cfg.weights[f.key]) || 0), 0) || 1;
+      const methodology = AUDIT_RISK_FACTORS.map(f => [
+        f.label, Math.round(((Number(cfg.weights[f.key]) || 0) / wSum) * 1000) / 10 + '%', f.how, f.why
+      ]).concat([
+        ['', '', '', ''],
+        ['Risk tiers', '', 'Critical 70+, High 55-69, Medium 40-54, Low below 40.', ''],
+        ['Scheduling rules', '', 'Coverage rules (always scheduled): never audited; scheduled date passed without Done; no audit for ' + cfg.overdueDays + '+ days. Risk rule: risk score ' + cfg.minScore + '+ and last audited at least ' + cfg.minGapDays + ' days ago.', ''],
+        ['Missing data', '', 'If a factor has no data for a branch it is excluded and the remaining weights are rescaled to 100%.', '']
+      ]);
+      return { headers, rows, methodHeaders: ['Factor', 'Share of score', 'How it is scored', 'Why it matters'], methodRows: methodology };
     }
 
     function renderAssignmentAnalysisModal(container) {
@@ -10884,6 +11278,9 @@ html.page-fade-ready body {
       const cfg = window.auditAnalysisState;
       const a = computeAuditScheduleAnalysis();
       const fmtDate = d => d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+      const filterBucket = cfg.filterBucket || 'ATTENTION';
+      const highRiskCount = a.rows.filter(r => r.risk.score >= cfg.minScore).length;
+      const weightSum = AUDIT_RISK_FACTORS.reduce((s, f) => s + (Number(cfg.weights[f.key]) || 0), 0) || 1;
 
       const maxLoad = Math.max(1, ...a.auditorNames.map(n => a.workload[n]), 1);
       const workloadRows = a.auditorNames.length ? a.auditorNames.map(name => {
@@ -10899,93 +11296,280 @@ html.page-fade-ready body {
           </div>`;
       }).join('') : '<p class="text-xs text-slate-400 italic">No auditors on record yet.</p>';
 
-      const suggestionRows = a.suggestions.map((row, idx) => {
+      // Color per "Why It's Flagged" reason — shared across every bucket so
+      // a given reason always reads the same regardless of which pill got
+      // you there.
+      const REASON_TINT = {
+        'Never audited': 'accentRose',
+        'High risk, not yet scheduled': 'accentRose',
+        'Overdue, not yet scheduled': 'accentAmber',
+        'Expected date already passed': 'accentAmber',
+        'Scheduled — upcoming': 'accentBlue',
+        'Monitor — recently audited': 'accentCyan',
+        'On track': 'accentEmerald'
+      };
+      const pointsColor = p => p >= 60 ? 'text-accentRose' : (p >= 35 ? 'text-accentAmber' : 'text-accentEmerald');
+
+      const table = getAuditAnalysisTableRows(a);
+      const tableRowsHtml = table.rows.map((row, idx) => {
+          const isActionable = row.suggestedAuditor !== undefined;
           const overdueBadge = (row.info.intervalDays !== null && row.info.intervalDays !== undefined && row.info.intervalDays >= cfg.overdueDays) ? 'text-accentRose' : 'text-slate-600';
+          const tint = REASON_TINT[row.reason] || 'slate-500';
+          const risk = row.risk;
+          const tierTint = risk.tier.tint;
+
+          const driversText = risk.drivers.length
+              ? risk.drivers.map(d => escapeHTML(d.short)).join(' · ')
+              : 'No major risk drivers';
+
+          const dateCell = isActionable
+              ? `<td class="p-1.5 text-center"><span class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-accentEmerald/10 text-accentEmerald rounded-md border border-accentEmerald/20 leading-tight whitespace-nowrap">${escapeHTML(row.suggestedAuditor)}</span></td>
+                 <td class="p-1.5 text-center text-[10px] font-semibold text-slate-700 whitespace-nowrap">${fmtDate(row.suggestedDate)}</td>`
+              : `<td class="p-1.5 text-center text-[10px] text-slate-600 whitespace-nowrap">${row.info.upNextAuditor ? escapeHTML(row.info.upNextAuditor) : '—'}</td>
+                 <td class="p-1.5 text-center text-[10px] font-semibold text-slate-700 whitespace-nowrap">${row.info.expectedAuditDate ? escapeHTML(row.info.expectedAuditDate) : '—'}</td>`;
+          const actionLabel = isActionable ? 'Set Schedule' : 'View';
+
+          const factorRows = risk.factors.map(x => {
+              const fac = AUDIT_RISK_FACTORS.find(ff => ff.key === x.key);
+              return x.available ? `
+                <tr class="border-t border-coolBorder/60">
+                  <td class="py-1 pr-3 font-semibold text-slate-700 whitespace-nowrap">${escapeHTML(fac.label)}</td>
+                  <td class="py-1 pr-3 text-slate-600">${escapeHTML(x.detail)}</td>
+                  <td class="py-1 pr-3 text-center font-bold ${pointsColor(x.points)}">${Math.round(x.points)}</td>
+                  <td class="py-1 pr-3 text-center text-slate-500">${Math.round(x.share * 100)}%</td>
+                  <td class="py-1 text-right font-bold text-slate-700">+${x.contribution.toFixed(1)}</td>
+                </tr>` : `
+                <tr class="border-t border-coolBorder/60">
+                  <td class="py-1 pr-3 font-semibold text-slate-400 whitespace-nowrap">${escapeHTML(fac.label)}</td>
+                  <td class="py-1 pr-3 text-slate-400 italic" colspan="3">${escapeHTML(x.detail)} — left out of the score, other weights rescaled</td>
+                  <td class="py-1 text-right text-slate-400">—</td>
+                </tr>`;
+          }).join('');
+
           return `
           <tr class="${idx % 2 === 1 ? 'bg-gray-50/50' : ''} hover:bg-accentCyan/10 transition-colors">
             <td class="p-1.5 text-center text-[10px] font-bold text-slate-400">${idx + 1}</td>
             <td class="p-1.5 font-bold text-slate-800 text-xs break-words leading-tight">${escapeHTML(row.b.name)}</td>
-            <td class="p-1.5 text-center"><span class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-accentRose/10 text-accentRose rounded-md border border-accentRose/20 leading-tight whitespace-nowrap">${escapeHTML(row.reason)}</span></td>
+            <td class="p-1.5 text-center"><span class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-${tint}/10 text-${tint} rounded-md border border-${tint}/20 leading-tight whitespace-nowrap">${escapeHTML(row.reason)}</span></td>
+            <td class="p-1.5 text-center">
+              <button type="button" onclick="toggleAuditRiskDetail(${idx})" title="Click to see exactly how this score was calculated" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-${tierTint}/10 border border-${tierTint}/20 text-${tierTint} hover:brightness-95 active:scale-95 transition-all cursor-pointer">
+                <span class="text-xs font-extrabold leading-none">${risk.score.toFixed(0)}</span>
+                <span class="text-[9px] font-bold uppercase tracking-wider leading-none">${escapeHTML(risk.tier.label)}</span>
+                <span class="text-[9px] leading-none">▾</span>
+              </button>
+              <div class="mt-0.5 text-[9px] text-slate-500 leading-tight max-w-[190px] mx-auto">${driversText}</div>
+            </td>
             <td class="p-1.5 text-center text-[10px] text-slate-600 whitespace-nowrap">${row.info.recentDate ? escapeHTML(row.info.recentDate) : 'Never'}</td>
             <td class="p-1.5 text-center text-[10px] font-semibold ${overdueBadge} whitespace-nowrap">${(row.info.intervalDays !== null && row.info.intervalDays !== undefined) ? row.info.intervalDays + 'd' : '—'}</td>
-            <td class="p-1.5 text-center"><span class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-accentEmerald/10 text-accentEmerald rounded-md border border-accentEmerald/20 leading-tight whitespace-nowrap">${escapeHTML(row.suggestedAuditor)}</span></td>
-            <td class="p-1.5 text-center text-[10px] font-semibold text-slate-700 whitespace-nowrap">${fmtDate(row.suggestedDate)}</td>
+            ${dateCell}
             <td class="p-1.5 text-center">
-              <button type="button" onclick="event.stopPropagation(); openEditAssignmentModal('${escapeFindingHTML(row.b.name)}')" class="px-2 py-1 text-[10px] font-bold bg-accentCyan text-white rounded-lg hover:bg-accentCyan/90 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Set Schedule</button>
+              <button type="button" onclick="event.stopPropagation(); openEditAssignmentModal('${escapeFindingHTML(row.b.name)}')" class="px-2 py-1 text-[10px] font-bold ${isActionable ? 'bg-accentCyan' : 'bg-slate-500'} text-white rounded-lg hover:brightness-95 active:scale-95 transition-all cursor-pointer whitespace-nowrap">${actionLabel}</button>
+            </td>
+          </tr>
+          <tr id="audit-risk-detail-${idx}" class="hidden bg-slate-50">
+            <td colspan="9" class="p-3">
+              <div class="text-[11px] font-bold text-slate-800 mb-1">How ${escapeHTML(row.b.name)} got a score of ${risk.score.toFixed(1)} (${escapeHTML(risk.tier.label)})</div>
+              <div class="text-[11px] text-slate-600 mb-2">${escapeHTML(auditRiskWhyText(row))}</div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-[10px] text-left">
+                  <thead class="text-slate-500 uppercase tracking-wider font-semibold">
+                    <tr><th class="pb-1 pr-3">Factor</th><th class="pb-1 pr-3">What the data says</th><th class="pb-1 pr-3 text-center">Risk (0–100)</th><th class="pb-1 pr-3 text-center">Weight</th><th class="pb-1 text-right">Adds to score</th></tr>
+                  </thead>
+                  <tbody>${factorRows}
+                    <tr class="border-t-2 border-slate-300"><td class="pt-1 font-extrabold text-slate-800" colspan="4">Total risk score</td><td class="pt-1 text-right font-extrabold text-slate-800">${risk.score.toFixed(1)}</td></tr>
+                  </tbody>
+                </table>
+              </div>
             </td>
           </tr>`;
       }).join('');
 
+      const maxDist = Math.max(1, ...a.distribution.map(d => d.count));
+      const DIST_TINT = { never: 'accentRose', '0-30': 'accentEmerald', '31-60': 'accentEmerald', '61-90': 'accentAmber', '91-180': 'accentAmber', '180+': 'accentRose' };
+      const distributionRows = a.distribution.map(d => `
+          <div class="flex items-center gap-2">
+            <span class="w-20 shrink-0 text-[11px] font-semibold text-slate-700">${escapeHTML(d.label)}</span>
+            <div class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+              <div class="h-full bg-${DIST_TINT[d.key] || 'accentIndigo'} rounded-full" style="width:${Math.round((d.count / maxDist) * 100)}%"></div>
+            </div>
+            <span class="w-6 shrink-0 text-right text-[11px] font-bold text-slate-600">${d.count}</span>
+          </div>`).join('');
+
+      const maxTier = Math.max(1, ...a.riskTiers.map(t => t.count));
+      const tierRanges = { CRITICAL: '70+', HIGH: '55–69', MEDIUM: '40–54', LOW: 'under 40' };
+      const tierRows = a.riskTiers.map(t => `
+          <div class="flex items-center gap-2">
+            <span class="w-24 shrink-0 text-[11px] font-semibold text-slate-700">${escapeHTML(t.label)} <span class="text-slate-400 font-medium">${tierRanges[t.key]}</span></span>
+            <div class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+              <div class="h-full bg-${t.tint} rounded-full" style="width:${Math.round((t.count / maxTier) * 100)}%"></div>
+            </div>
+            <span class="w-6 shrink-0 text-right text-[11px] font-bold text-slate-600">${t.count}</span>
+          </div>`).join('');
+
+      const maxDriver = Math.max(0.0001, ...a.driverStats.map(d => d.avgContribution));
+      const driverRows = a.driverStats.slice().sort((x, y) => y.avgContribution - x.avgContribution).map(d => `
+          <div class="flex items-center gap-2" title="${escapeHTML(d.label)}: elevated (60+ risk points) in ${d.elevated} of ${d.withData} branches with data">
+            <span class="w-32 shrink-0 text-[11px] font-semibold text-slate-700 truncate">${escapeHTML(d.label)}</span>
+            <div class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+              <div class="h-full bg-accentIndigo rounded-full" style="width:${Math.round((d.avgContribution / maxDriver) * 100)}%"></div>
+            </div>
+            <span class="w-24 shrink-0 text-right text-[10px] text-slate-500"><span class="font-bold text-slate-700">${d.elevated}</span> elevated · ${d.withData}/${a.totalBranches} data</span>
+          </div>`).join('');
+
+      const recentCompletionsHtml = a.recentCompletions.length ? a.recentCompletions.map(row => `
+          <div class="flex items-center justify-between gap-2 py-1 border-b border-coolBorder/60 last:border-b-0">
+            <span class="text-[11px] font-semibold text-slate-700 truncate" title="${escapeHTML(row.b.name)}">${escapeHTML(row.b.name)}</span>
+            <span class="text-[10px] text-slate-500 whitespace-nowrap">${escapeHTML(row.info.recentAuditor)} · ${escapeHTML(row.info.recentDate)}</span>
+          </div>`).join('') : '<p class="text-xs text-slate-400 italic">No completed audits on record yet.</p>';
+
+      const weightInputs = AUDIT_RISK_FACTORS.map(f => `
+          <label class="flex items-center justify-between gap-2 text-[11px] font-semibold text-slate-600">
+            <span class="truncate" title="${escapeHTML(f.why)}">${escapeHTML(f.label)}</span>
+            <span class="flex items-center gap-1.5 shrink-0">
+              <input type="number" min="0" max="100" step="1" value="${Number(cfg.weights[f.key]) || 0}" onchange="setAuditRiskWeight('${f.key}', this.value)" class="w-14 px-1.5 py-1 border border-coolBorder rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
+              <span class="w-9 text-right text-[10px] font-bold text-accentIndigo">${Math.round(((Number(cfg.weights[f.key]) || 0) / weightSum) * 100)}%</span>
+            </span>
+          </label>`).join('');
+
+      const methodologyRows = AUDIT_RISK_FACTORS.map(f => `
+          <tr class="border-t border-accentIndigo/15 align-top">
+            <td class="py-1.5 pr-3 font-bold text-slate-700 whitespace-nowrap">${escapeHTML(f.label)}</td>
+            <td class="py-1.5 pr-3 text-center font-bold text-accentIndigo">${Math.round(((Number(cfg.weights[f.key]) || 0) / weightSum) * 100)}%</td>
+            <td class="py-1.5 pr-3 text-slate-600">${escapeHTML(f.how)}</td>
+            <td class="py-1.5 text-slate-500">${escapeHTML(f.why)}</td>
+          </tr>`).join('');
+
       container.innerHTML = `
       <div class="space-y-4 pb-2">
         <div class="flex flex-wrap items-center gap-1.5 px-2 sm:px-3 pt-2">
-          ${summaryPill(a.totalBranches, 'Total Branches', { neutral: true })}
-          ${summaryPill(a.neverAudited.length, 'Never Audited', { tint: 'accentRose' })}
-          ${summaryPill(a.overdueUnscheduled.length + a.scheduledPastDue.length, 'Needs Scheduling', { tint: 'accentAmber' })}
-          ${summaryPill(a.scheduledUpcoming.length, 'Already Scheduled', { tint: 'accentBlue' })}
+          ${summaryPill(a.totalBranches, 'Total Branches', { neutral: true, active: filterBucket === 'ALL', onClick: `onclick="setAuditAnalysisFilter('ALL')"` })}
+          ${summaryPill(highRiskCount, 'High-Risk (' + cfg.minScore + '+)', { tint: 'accentRose', active: filterBucket === 'HIGH_RISK', onClick: `onclick="setAuditAnalysisFilter('HIGH_RISK')"` })}
+          ${summaryPill(a.neverAudited.length, 'Never Audited', { tint: 'accentRose', active: filterBucket === 'NEVER_AUDITED', onClick: `onclick="setAuditAnalysisFilter('NEVER_AUDITED')"` })}
+          ${summaryPill(a.overdueUnscheduled.length + a.riskFlagged.length + a.scheduledPastDue.length, 'Needs Scheduling', { tint: 'accentAmber', active: filterBucket === 'NEEDS_SCHEDULING', onClick: `onclick="setAuditAnalysisFilter('NEEDS_SCHEDULING')"` })}
+          ${summaryPill(a.scheduledUpcoming.length, 'Already Scheduled', { tint: 'accentBlue', active: filterBucket === 'SCHEDULED_UPCOMING', onClick: `onclick="setAuditAnalysisFilter('SCHEDULED_UPCOMING')"` })}
+          ${summaryPill(a.onTrack.length, 'On Track', { tint: 'accentEmerald', active: filterBucket === 'ON_TRACK', onClick: `onclick="setAuditAnalysisFilter('ON_TRACK')"` })}
+          ${summaryPill(a.avgRiskScore !== null ? a.avgRiskScore : '—', 'Avg Risk Score', { tint: 'accentIndigo' })}
           ${summaryPill(a.avgIntervalDays !== null ? a.avgIntervalDays + 'd' : '—', 'Avg Days Since Audit', { tint: 'accentIndigo' })}
         </div>
 
-        <div class="mx-2 sm:mx-3 p-3 bg-gray-50 border border-coolBorder rounded-xl flex flex-wrap items-center gap-4">
+        <div class="mx-2 sm:mx-3 p-3 bg-gray-50 border border-coolBorder rounded-xl flex flex-wrap items-center gap-x-5 gap-y-2.5">
           <label class="flex items-center gap-2 text-xs font-semibold text-slate-600">
-            Overdue threshold
+            Schedule when risk score is
+            <input type="number" min="1" max="100" value="${cfg.minScore}" onchange="setAuditAnalysisConfig('minScore', this.value)" class="w-16 px-2 py-1 border border-coolBorder rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
+            or higher
+          </label>
+          <label class="flex items-center gap-2 text-xs font-semibold text-slate-600">
+            Skip if audited within
+            <input type="number" min="0" value="${cfg.minGapDays}" onchange="setAuditAnalysisConfig('minGapDays', this.value)" class="w-16 px-2 py-1 border border-coolBorder rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
+            days
+          </label>
+          <label class="flex items-center gap-2 text-xs font-semibold text-slate-600">
+            Always schedule after
             <input type="number" min="1" value="${cfg.overdueDays}" onchange="setAuditAnalysisConfig('overdueDays', this.value)" class="w-16 px-2 py-1 border border-coolBorder rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
-            days without a scheduled date
+            days without an audit
           </label>
           <label class="flex items-center gap-2 text-xs font-semibold text-slate-600">
             Spacing between suggestions
             <input type="number" min="1" value="${cfg.spacingDays}" onchange="setAuditAnalysisConfig('spacingDays', this.value)" class="w-16 px-2 py-1 border border-coolBorder rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
             business day(s)
           </label>
+          ${filterBucket !== 'ATTENTION' ? `<button type="button" onclick="setAuditAnalysisFilter('${filterBucket}')" class="ml-auto px-2.5 py-1 text-[10px] font-bold bg-white border border-coolBorder rounded-lg hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Clear filter</button>` : ''}
         </div>
 
-        <div class="mx-2 sm:mx-3 grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <details class="mx-2 sm:mx-3 bg-gray-50 border border-coolBorder rounded-xl" ${cfg.weightsOpen ? 'open' : ''} ontoggle="setAuditWeightsOpen(this.open)">
+          <summary class="px-3 py-2 text-xs font-bold text-slate-700 cursor-pointer select-none">Risk score weights — how much each factor counts <span class="font-medium text-slate-500">(tap to adjust; saved on this device)</span></summary>
+          <div class="px-3 pb-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-2">${weightInputs}</div>
+            <div class="mt-2.5 flex flex-wrap items-center gap-3">
+              <span class="text-[10px] text-slate-500">Weights are relative — the percentages show each factor's share of the final score. Missing data is left out and the rest rescaled.</span>
+              <button type="button" onclick="resetAuditRiskWeights()" class="ml-auto px-2.5 py-1 text-[10px] font-bold bg-white border border-coolBorder rounded-lg hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Reset to defaults</button>
+            </div>
+          </div>
+        </details>
+
+        <div class="mx-2 sm:mx-3 grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div class="p-3 bg-white border border-coolBorder rounded-xl">
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">Risk Tiers (all branches)</h3>
+            <div class="space-y-2">${tierRows}</div>
+          </div>
+          <div class="p-3 bg-white border border-coolBorder rounded-xl lg:col-span-2">
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">What Drives Risk Across the Portfolio</h3>
+            <div class="space-y-2">${driverRows}</div>
+            <p class="mt-2 text-[10px] text-slate-400">Bars show each factor's average contribution to the score. "Elevated" = 60+ risk points for that factor.</p>
+          </div>
+        </div>
+
+        <div class="mx-2 sm:mx-3 grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div class="p-3 bg-white border border-coolBorder rounded-xl">
             <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">Auditor Workload (current queue)</h3>
             <div class="space-y-2">${workloadRows}</div>
           </div>
           <div class="p-3 bg-white border border-coolBorder rounded-xl">
-            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">Portfolio Breakdown</h3>
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">Scheduling Status</h3>
             <div class="space-y-1.5 text-xs text-slate-600">
               <div class="flex justify-between"><span>Never audited</span><span class="font-bold text-accentRose">${a.neverAudited.length}</span></div>
+              <div class="flex justify-between"><span>High risk, not yet scheduled</span><span class="font-bold text-accentRose">${a.riskFlagged.length}</span></div>
               <div class="flex justify-between"><span>Overdue, not yet scheduled</span><span class="font-bold text-accentAmber">${a.overdueUnscheduled.length}</span></div>
               <div class="flex justify-between"><span>Scheduled, past due date</span><span class="font-bold text-accentAmber">${a.scheduledPastDue.length}</span></div>
               <div class="flex justify-between"><span>Scheduled, upcoming</span><span class="font-bold text-accentBlue">${a.scheduledUpcoming.length}</span></div>
               <div class="flex justify-between"><span>On track</span><span class="font-bold text-accentEmerald">${a.onTrack.length}</span></div>
             </div>
           </div>
+          <div class="p-3 bg-white border border-coolBorder rounded-xl">
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">Days Since Last Audit</h3>
+            <div class="space-y-2">${distributionRows}</div>
+          </div>
         </div>
 
         <div class="mx-2 sm:mx-3">
-          <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">Suggested Audit Schedule (${a.suggestions.length} branch${a.suggestions.length === 1 ? '' : 'es'} need${a.suggestions.length === 1 ? 's' : ''} attention)</h3>
-          ${a.suggestions.length > 0 ? `
-          <div class="rounded-xl border border-coolBorder max-h-[50vh] overflow-auto custom-scrollbar">
-            <table class="w-full min-w-[760px] text-left border-collapse bg-white">
+          <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">Recently Completed Audits</h3>
+          <div class="p-3 bg-white border border-coolBorder rounded-xl">${recentCompletionsHtml}</div>
+        </div>
+
+        <div class="mx-2 sm:mx-3">
+          <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">${escapeHTML(table.title)} (${table.rows.length} branch${table.rows.length === 1 ? '' : 'es'})</h3>
+          <p class="text-[10px] text-slate-500 mb-2">Tap any risk score to see exactly how it was calculated.</p>
+          ${table.rows.length > 0 ? `
+          <div class="rounded-xl border border-coolBorder max-h-[55vh] overflow-auto custom-scrollbar">
+            <table class="w-full min-w-[980px] text-left border-collapse bg-white">
               <thead class="bg-gray-50 border-b border-coolBorder text-[10px] text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-10 shadow-sm">
                 <tr>
                   <th class="p-1.5 bg-gray-50 text-center w-9 whitespace-nowrap">#</th>
                   <th class="p-1.5 bg-gray-50 text-left whitespace-nowrap">Branch</th>
                   <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Why It's Flagged</th>
+                  <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Risk Score</th>
                   <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Last Audited</th>
                   <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Days Since</th>
-                  <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Suggested Auditor</th>
-                  <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Suggested Date</th>
+                  <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Auditor</th>
+                  <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Date</th>
                   <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Action</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-coolBorder text-xs">${suggestionRows}</tbody>
+              <tbody class="divide-y divide-coolBorder text-xs">${tableRowsHtml}</tbody>
             </table>
-          </div>` : `<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">Nothing overdue — every branch is either on track or already scheduled.</div>`}
+          </div>` : `<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">${filterBucket === 'ATTENTION' ? 'Nothing needs scheduling — every branch is either on track or already scheduled.' : 'No branches in this category right now.'}</div>`}
         </div>
 
         <div class="mx-2 sm:mx-3 p-3.5 bg-accentIndigo/5 border border-accentIndigo/20 rounded-xl">
-          <h3 class="text-xs font-bold text-accentIndigo uppercase tracking-wide mb-1.5">Why this analysis is built this way</h3>
-          <ul class="text-[11px] text-slate-600 space-y-1 list-disc pl-4">
-            <li><strong>Whole-portfolio, not just what's on screen.</strong> This is built from every branch in the system, not whatever the Overview table's current search/status filter happens to be showing — so a branch that's fallen off the visible list because of an old search term or filter can't quietly go unaudited.</li>
-            <li><strong>Risk-based prioritization.</strong> Branches that have gone longest without an audit — or have never been audited at all — carry the most control risk, so they're surfaced first here instead of being found by chance during a routine scroll.</li>
-            <li><strong>Workload balancing.</strong> New suggestions are handed to whichever auditor currently has the lightest queue, so the rotation stays fair and no single auditor gets overloaded while others sit idle — the same principle the Emergency Auditor rotation already uses elsewhere in this dashboard.</li>
-            <li><strong>Turns insight straight into action.</strong> Each suggested row is one click ("Set Schedule") away from the exact same Edit Assignment form used everywhere else in the dashboard, pre-filled with the branch — accepting or adjusting a suggestion writes straight to the sheet instead of you re-typing it by hand.</li>
-            <li><strong>Adjustable thresholds.</strong> The overdue window and the spacing between suggested dates are both editable above, so the schedule this produces matches your actual audit cadence rather than a one-size-fits-all guess.</li>
+          <h3 class="text-xs font-bold text-accentIndigo uppercase tracking-wide mb-1.5">How the ranking is decided</h3>
+          <p class="text-[11px] text-slate-600 mb-2">Branches are not ranked on audit interval alone. Each one gets a 0–100 risk score built from everything the dashboard tracks — audit history, findings, collections, efficiency, repo, sales, service and portfolio size — and the suggested schedule is ordered by that score, highest first.</p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-[10px] text-left">
+              <thead class="text-slate-500 uppercase tracking-wider font-semibold">
+                <tr><th class="pb-1 pr-3">Factor</th><th class="pb-1 pr-3 text-center">Share</th><th class="pb-1 pr-3">How it is scored</th><th class="pb-1">Why it matters</th></tr>
+              </thead>
+              <tbody>${methodologyRows}</tbody>
+            </table>
+          </div>
+          <ul class="mt-2.5 text-[11px] text-slate-600 space-y-1 list-disc pl-4">
+            <li><strong>Tiers.</strong> Critical 70+, High 55–69, Medium 40–54, Low below 40.</li>
+            <li><strong>Who gets scheduled.</strong> Always: branches never audited, branches whose scheduled date passed without being marked Done, and branches with no audit for ${cfg.overdueDays}+ days (coverage rules — no branch can be skipped because its other numbers look fine). Also: any unscheduled branch with a risk score of ${cfg.minScore}+ that was last audited at least ${cfg.minGapDays} days ago (risk rule).</li>
+            <li><strong>Missing data.</strong> If a branch has no data for a factor, that factor is left out and the others are rescaled to 100% — a branch is never marked up or down for a number that isn't there.</li>
+            <li><strong>Consistent with the dashboard.</strong> Efficiency and repo scoring use the same red/amber/green cut-offs already shown on the branch cards (efficiency 70% / 50%, repo 4% / 7%).</li>
+            <li><strong>Findings for 2026</strong> are year-to-date, which is why recent years are weighted more heavily rather than compared like-for-like.</li>
+            <li><strong>Whole portfolio, not just what's on screen.</strong> Every branch in the system is scored, regardless of the Overview table's current search or status filter.</li>
+            <li><strong>Workload balancing.</strong> New suggestions go to whichever auditor currently has the lightest queue, so no one is overloaded while others sit idle.</li>
+            <li><strong>A prioritisation aid, not an audit conclusion.</strong> The score says where to look first. It does not say something is wrong at a branch. Weights and thresholds are adjustable above and every score can be traced line by line.</li>
           </ul>
         </div>
       </div>`;
