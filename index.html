@@ -12382,31 +12382,55 @@ html.page-fade-ready body {
       // Plain-language strength label is the primary, visible text; the
       // actual r/n statistic moves into a tooltip for anyone who wants it,
       // since "r = 0.07 (n=56)" on its own means nothing to most readers.
-      const corrLabel = key => {
-        if (key === 'findings') return '<span class="text-slate-400" title="Not shown for Audit findings itself — comparing findings to findings would always show a perfect link, which is not meaningful.">— (self)</span>';
+      // Same plain-language strength check as corrLabel, but returning the
+      // pieces separately (dot color + text) so the slider-based weight
+      // cards below can show a small colored dot next to the phrase.
+      const corrInfo = key => {
+        if (key === 'findings') {
+          return { dot: 'bg-slate-300', text: '<span class="text-slate-400" title="Not shown for Audit findings itself — comparing findings to findings would always show a perfect link, which is not meaningful.">Not applicable</span>' };
+        }
         const c = a.correlations && a.correlations[key];
         if (!c || c.r === null || c.n < 5) {
-          return '<span class="text-slate-400" title="Fewer than 5 branches currently have enough data to check this.">Not enough history yet</span>';
+          return { dot: 'bg-slate-200', text: '<span class="text-slate-400" title="Fewer than 5 branches currently have enough data to check this.">Not enough history yet</span>' };
         }
         const abs = Math.abs(c.r);
         const strength = abs >= 0.5 ? 'Strong' : (abs >= 0.3 ? 'Moderate' : 'Weak');
+        const dot = abs >= 0.5 ? 'bg-accentEmerald' : (abs >= 0.3 ? 'bg-accentBlue' : 'bg-slate-300');
         const color = abs >= 0.5 ? 'text-accentEmerald' : (abs >= 0.3 ? 'text-accentBlue' : 'text-slate-400');
-        const tip = 'Statistically: Pearson r = ' + c.r.toFixed(2) + ', across ' + c.n + ' branches with data. Higher (closer to 1) means this factor has more reliably lined up with real findings in the past.';
-        return '<span class="' + color + '" title="' + tip + '">' + strength + ' link to real findings</span>';
+        const tip = 'Statistically: Pearson r = ' + c.r.toFixed(2) + ', across ' + c.n + ' branches with data. Closer to 1 means this factor has more reliably lined up with real findings in the past.';
+        return { dot, text: '<span class="' + color + ' font-semibold" title="' + tip + '">' + strength + ' evidence</span>' };
       };
+      // Kept for the "How the ranking is decided" methodology table further
+      // down, which wants one plain string per factor rather than separate
+      // dot/text pieces.
+      const corrLabel = key => corrInfo(key).text;
 
-      const weightInputs = AUDIT_RISK_FACTORS.map(f => `
-          <div class="rounded-lg border border-coolBorder bg-white px-2.5 py-2">
-            <div class="flex items-center justify-between gap-2">
-              <span class="text-[11px] font-bold text-slate-700">${escapeHTML(f.label)}</span>
-              <span class="flex items-center gap-1 shrink-0">
-                <input id="aa-w-${f.key}" type="number" inputmode="decimal" min="0" max="100" step="1" value="${Number(cfg.weights[f.key]) || 0}" oninput="previewAuditRiskWeights()" onkeydown="if(event.key==='Enter'){applyAllAuditAnalysisSettings()}" title="Weight (points). Higher = counts for more of the score." class="w-12 px-1 py-0.5 border border-coolBorder rounded-md text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
-                <span id="aa-wpct-${f.key}" class="w-9 text-right text-[11px] font-bold text-accentIndigo">${Math.round(((Number(cfg.weights[f.key]) || 0) / weightSum) * 100)}%</span>
-              </span>
+      const weightInputs = AUDIT_RISK_FACTORS.map(f => {
+        const val = Number(cfg.weights[f.key]) || 0;
+        const pct = Math.round((val / weightSum) * 100);
+        const info = corrInfo(f.key);
+        return `
+          <div class="rounded-xl border border-coolBorder bg-white p-3">
+            <div class="flex items-start justify-between gap-2">
+              <span class="text-[13px] font-bold text-slate-800 leading-snug">${escapeHTML(f.label)}</span>
+              <span id="aa-wpct-${f.key}" class="text-base font-extrabold text-accentIndigo whitespace-nowrap leading-snug">${pct}%</span>
             </div>
-            <p class="mt-0.5 text-[10px] leading-snug text-slate-500">${escapeHTML(f.why)}</p>
-            <p class="mt-1 text-[10px] font-semibold">${corrLabel(f.key)}</p>
-          </div>`).join('');
+            <p class="mt-0.5 text-[11px] leading-snug text-slate-500">${escapeHTML(f.why)}</p>
+            <div class="mt-2.5 flex items-center gap-2.5">
+              <input id="aa-ws-${f.key}" type="range" min="0" max="100" step="1" value="${val}"
+                oninput="document.getElementById('aa-w-${f.key}').value=this.value; previewAuditRiskWeights();"
+                title="Drag to change how much this factor counts" class="flex-1 h-1.5 accent-accentIndigo cursor-pointer">
+              <input id="aa-w-${f.key}" type="number" inputmode="decimal" min="0" max="100" step="1" value="${val}"
+                oninput="document.getElementById('aa-ws-${f.key}').value=this.value; previewAuditRiskWeights();"
+                onkeydown="if(event.key==='Enter'){applyAllAuditAnalysisSettings()}"
+                title="Weight (points). Higher = counts for more of the score." class="w-12 px-1 py-0.5 border border-coolBorder rounded-md text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
+            </div>
+            <div class="mt-2 flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full flex-shrink-0 ${info.dot}"></span>
+              <span class="text-[10px]">${info.text}</span>
+            </div>
+          </div>`;
+      }).join('');
 
       const methodologyRows = AUDIT_RISK_FACTORS.map(f => `
           <tr class="border-t border-accentIndigo/15 align-top">
@@ -12456,28 +12480,40 @@ html.page-fade-ready body {
         </div>
 
         <div class="mx-2 sm:mx-3 bg-gray-50 border border-coolBorder rounded-xl">
-          <div class="px-3 py-2">
-            <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-              <div class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
-                <span>Schedule when risk score is</span>${cfgInput('minScore', 1, 100)}<span>or higher</span>
-              </div>
-              <div class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
-                <span>Skip if audited within</span>${cfgInput('minGapDays', 0, 3650)}<span>days</span>
-              </div>
-              <div class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
-                <span>Always schedule after</span>${cfgInput('overdueDays', 1, 3650)}<span>days without an audit</span>
-              </div>
-              <div class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
-                <span>Spacing between suggestions</span>${cfgInput('spacingDays', 1, 3650)}<span>business day(s)</span>
-              </div>
-              <div class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600" title="Weighted findings (3x 2026, 2x 2025, 1x 2024) at or above this score 100 on the findings factor. Fixed — not recalculated from whichever branches are currently loaded.">
-                <span>Findings score 100 at</span>${cfgInput('findingsCap', 1, 1000)}<span>weighted pts</span>
-              </div>
-              <div class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600" title="Branches with this many accounts or more score 100 on the portfolio-size factor. Fixed — not recalculated from whichever branches are currently loaded.">
-                <span>Portfolio size scores 100 at</span>${cfgInput('sizeCap', 1, 10000000)}<span>accounts</span>
-              </div>
-              <button type="button" onclick="resetAuditRiskCaps()" title="Recompute both caps from the current portfolio's 90th percentile, then freeze them again from here" class="px-2 py-0.5 text-[10px] font-bold bg-white border border-coolBorder rounded-md hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Recalculate caps from current data</button>
+          <div class="p-3">
+          <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">When to put a branch on the schedule</p>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div class="rounded-lg border border-coolBorder bg-white p-2.5">
+              <p class="text-[10.5px] font-semibold text-slate-600 leading-snug mb-1.5">Schedule a branch once its risk score reaches</p>
+              <div class="flex items-center gap-1">${cfgInput('minScore', 1, 100)}<span class="text-[10px] text-slate-400">out of 100</span></div>
             </div>
+            <div class="rounded-lg border border-coolBorder bg-white p-2.5">
+              <p class="text-[10.5px] font-semibold text-slate-600 leading-snug mb-1.5">But skip it if it was already audited within the last</p>
+              <div class="flex items-center gap-1">${cfgInput('minGapDays', 0, 3650)}<span class="text-[10px] text-slate-400">days</span></div>
+            </div>
+            <div class="rounded-lg border border-coolBorder bg-white p-2.5">
+              <p class="text-[10.5px] font-semibold text-slate-600 leading-snug mb-1.5">Always schedule any branch with no audit for</p>
+              <div class="flex items-center gap-1">${cfgInput('overdueDays', 1, 3650)}<span class="text-[10px] text-slate-400">days, regardless of score</span></div>
+            </div>
+            <div class="rounded-lg border border-coolBorder bg-white p-2.5">
+              <p class="text-[10.5px] font-semibold text-slate-600 leading-snug mb-1.5">Space out each auditor's suggested visits by</p>
+              <div class="flex items-center gap-1">${cfgInput('spacingDays', 1, 3650)}<span class="text-[10px] text-slate-400">business day(s)</span></div>
+            </div>
+          </div>
+          <div class="flex items-center justify-between gap-2 mt-3 mb-1.5">
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Scoring scale <span class="font-medium text-slate-400 normal-case tracking-normal">— advanced, rarely needs changing</span></p>
+            <button type="button" onclick="resetAuditRiskCaps()" title="Recompute both caps from the current portfolio's 90th percentile, then freeze them again from here" class="px-2 py-0.5 text-[10px] font-bold bg-white border border-coolBorder rounded-md hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Recalculate from current data</button>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div class="rounded-lg border border-coolBorder bg-white p-2.5" title="Weighted findings (3x 2026, 2x 2025, 1x 2024) at or above this score 100 on the findings factor. Fixed — not recalculated from whichever branches are currently loaded.">
+              <p class="text-[10.5px] font-semibold text-slate-600 leading-snug mb-1.5">A branch's weighted findings history hits the maximum findings score at</p>
+              <div class="flex items-center gap-1">${cfgInput('findingsCap', 1, 1000)}<span class="text-[10px] text-slate-400">weighted points</span></div>
+            </div>
+            <div class="rounded-lg border border-coolBorder bg-white p-2.5" title="Branches with this many accounts or more score 100 on the portfolio-size factor. Fixed — not recalculated from whichever branches are currently loaded.">
+              <p class="text-[10.5px] font-semibold text-slate-600 leading-snug mb-1.5">A branch's account count hits the maximum size score at</p>
+              <div class="flex items-center gap-1">${cfgInput('sizeCap', 1, 10000000)}<span class="text-[10px] text-slate-400">accounts</span></div>
+            </div>
+          </div>
           </div>
 
           <details class="border-t border-coolBorder" ${cfg.weightsOpen ? 'open' : ''} ontoggle="setAuditWeightsOpen(this.open)">
