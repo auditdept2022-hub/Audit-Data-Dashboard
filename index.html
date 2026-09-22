@@ -10828,20 +10828,38 @@ html.page-fade-ready body {
     // Without this floor, a portfolio where nearly everyone is clean would
     // turn ONE finding into a maximum-risk 100 for that branch.
     const AUDIT_FINDINGS_MIN_CAP = 6;
+    // NOTE ON RECENCY: 'recency' (days since last audit) carries a modest
+    // 10% weight below — control also depends on visit cadence itself
+    // (an un-visited branch is a control gap even when its other numbers
+    // look fine), so it's given a real, visible share of the score rather
+    // than being folded into the coverage backstops alone. It's kept well
+    // below the combined weight of the actual performance data (findings,
+    // collection, efficiency, repo, sales, service, size total 90%), so two
+    // branches with very different findings/collection/efficiency histories
+    // still separate mainly on THAT, not on the calendar — but two branches
+    // that are otherwise similar can now be told apart by how overdue they
+    // are, which is the "control depends on visits too" case. Recency is
+    // ALSO still the sole driver of the separate, always-on coverage
+    // backstops (never audited / overdue-days — see
+    // computeAuditScheduleAnalysis's neverAudited / overdueUnscheduled
+    // buckets), which guarantee a branch is never skipped forever no matter
+    // what its score says; that part is unaffected by this weight. The 10
+    // points were taken proportionally from the other factors, so their
+    // defaults still sum to 100 together with recency.
     const AUDIT_RISK_FACTORS = [
-      { key: 'recency', label: 'Audit recency', defaultWeight: 15,
+      { key: 'recency', label: 'Audit recency', defaultWeight: 10,
         how: '0 points if audited today, rising evenly to 100 points at the Overdue threshold. Never audited = 100.',
-        why: 'The longer a branch goes unchecked, the longer a problem can run before anyone sees it. Kept deliberately smaller than the data factors so the calendar alone cannot outrank what a branch\'s own numbers say.' },
-      { key: 'findings', label: 'Audit findings', defaultWeight: 25,
+        why: 'Control depends on branches actually being visited, not only on what their other numbers say, so recency carries a real (if deliberately smaller) share of the score. It is also, separately, what drives the never-audited/overdue coverage rules that guarantee no branch is skipped forever.' },
+      { key: 'findings', label: 'Audit findings', defaultWeight: 26,
         how: 'Findings are weighted 3x for 2026, 2x for 2025 and 1x for 2024, then scaled against a FIXED cap (editable in Settings; starts at the portfolio\'s 90th percentile the first time it\'s computed, never below ' + AUDIT_FINDINGS_MIN_CAP + ' weighted points, then stays put). No findings = 0.',
         why: 'Past findings are the strongest sign of where more will be found; recent years count more than old ones. The cap is fixed rather than recalculated on every view so the same findings history always produces the same score, instead of drifting as the portfolio changes.' },
-      { key: 'collection', label: 'Collection trend', defaultWeight: 11,
+      { key: 'collection', label: 'Collection trend', defaultWeight: 12,
         how: 'Declining = 100, Recovering = 50, Stable = 20, Improving = 0.',
         why: 'A worsening collection trend is an early warning of credit-control or reporting problems.' },
-      { key: 'efficiency', label: 'Collection efficiency', defaultWeight: 17,
+      { key: 'efficiency', label: 'Collection efficiency', defaultWeight: 18,
         how: 'Level (70% of this factor) uses the same 70% / 50% cut-offs as the branch cards: 100% = 0 pts, 70% = 35 pts, 50% = 70 pts, 0% = 100 pts. Trend (30%) adds up to 100 pts if efficiency has fallen 15+ points since the earliest month on record; flat or improving adds 0. Uses the most recent month that has a figure. No figure in any month = excluded.',
         why: 'Low efficiency means less of what is due is being collected, and a branch that is actively getting worse is a stronger reason to visit than one that is merely low and flat. Level and trend are blended into this ONE factor (not scored separately) so a falling efficiency is never counted twice toward the total.' },
-      { key: 'repo', label: 'Repo rate', defaultWeight: 15,
+      { key: 'repo', label: 'Repo rate', defaultWeight: 16,
         how: 'Level (70% of this factor) uses the same 4% / 7% cut-offs as the branch cards: 0% = 0 pts, 4% = 35 pts, 7% = 70 pts, 12% or more = 100 pts. Trend (30%) adds up to 100 pts if the repo rate has risen 3+ points since the earliest month on record; flat or improving adds 0. No account data = excluded.',
         why: 'A high repossession rate points to weaker loan quality or recovery handling, and a rate that is actively rising is a stronger signal than one that is high but stable. Level and trend are blended into this ONE factor (not scored separately) so a worsening repo rate is never counted twice toward the total.' },
       { key: 'sales', label: 'Sales trend', defaultWeight: 6,
@@ -10850,7 +10868,7 @@ html.page-fade-ready body {
       { key: 'service', label: 'Service vs target', defaultWeight: 6,
         how: 'Declining (below target) = 100, on Target = 0.',
         why: 'Missing service targets is a control and customer-experience signal.' },
-      { key: 'size', label: 'Portfolio size', defaultWeight: 5,
+      { key: 'size', label: 'Portfolio size', defaultWeight: 6,
         how: 'Number of accounts scaled against a FIXED cap (editable in Settings; starts at the portfolio\'s 90th percentile the first time it\'s computed, then stays put). No data = excluded.',
         why: 'A bigger loan book means more money is at stake if something is wrong (materiality). The cap is fixed rather than recalculated on every view so branch size is scored consistently over time, not relative to whichever branches happen to be loaded right now.' }
     ];
@@ -12938,10 +12956,16 @@ html.page-fade-ready body {
     // case for visiting a branch should read like a case built on what the
     // branch's own numbers say — findings history, collection/sales/service
     // trends, efficiency, repossession rate, portfolio size — not "it has
-    // been X days since the last audit". Audit recency is still one of the
-    // eight scored factors (so a branch nobody has checked in a long time
-    // still surfaces), but it is deliberately presented here as background
-    // context in its own box at the end, never as the headline reason.
+    // been X days since the last audit". Audit recency now carries a real
+    // (10%) share of the score — see the note above AUDIT_RISK_FACTORS —
+    // but stays out of the "dataFactors" list/headline below so the
+    // narrative here keeps reading as a case built on the branch's own
+    // performance data, with recency called out separately, once, at the
+    // end, as its own line rather than blended into "driven mainly by...".
+    // NOTE: this function is not currently called from anywhere in the UI
+    // (its previous call site, in the branch Detailed Profile, was removed
+    // on request) — it's kept here, correct and unused, in case that card
+    // is wanted back.
     function buildOverallEvaluationHTML(b) {
       const risk = computeBranchFullRisk(b);
       const factorsByKey = {};
@@ -12979,6 +13003,25 @@ html.page-fade-ready body {
         </div>`;
       }).join('');
 
+      // Recency's own line, shown separately at the end (background
+      // context, never folded into the "driven mainly by" headline above)
+      // now that it actually carries score weight again — previously this
+      // was computed but silently never rendered anywhere in this card.
+      const recencyHTML = (recency && recency.available)
+        ? `
+        <div class="px-3.5 pb-3.5 pt-1">
+          <div class="flex items-start justify-between gap-3 py-2 px-2.5 rounded-lg bg-slate-50 border border-coolBorder">
+            <div class="flex items-start gap-2 min-w-0">
+              <span class="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${dotColor(recency.points)}"></span>
+              <div class="min-w-0">
+                <p class="text-xs font-bold text-slate-700">${escapeFindingHTML(recency.label)}</p>
+                <p class="text-[11px] text-slate-500">${escapeFindingHTML(recency.detail)} — background context, not a data finding.</p>
+              </div>
+            </div>
+            <span class="text-[11px] font-bold text-slate-400 whitespace-nowrap flex-shrink-0">${recency.contribution.toFixed(1)} pts</span>
+          </div>
+        </div>` : '';
+
       return `
       <div class="bg-white rounded-xl border border-coolBorder shadow-sm overflow-hidden">
         <div class="p-3.5 border-b border-coolBorder bg-gradient-to-r from-slate-50 to-white">
@@ -12999,6 +13042,7 @@ html.page-fade-ready body {
           <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">What the data shows, ranked by how much it counts toward the score</p>
           ${rowsHTML || '<p class="text-xs text-slate-400 italic py-2">Not enough data recorded for this branch yet to break the score down further.</p>'}
         </div>
+        ${recencyHTML}
       </div>`;
     }
 
