@@ -7105,11 +7105,23 @@ html.page-fade-ready body {
     }
 
     function renderAuditKpiListModal(bucket, modalBody) {
+      const escapeHTML = str => {
+          if (str === null || str === undefined || str === '') return '';
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+      };
       const a = computeAuditScheduleAnalysis();
       let table, sub;
       if (bucket === 'RISK_SORT') { table = getAuditAnalysisTableRows(a, 'ALL', 'risk'); sub = 'All branches, highest risk score first'; }
       else if (bucket === 'DAYS_SORT') { table = getAuditAnalysisTableRows(a, 'ALL', 'days'); sub = 'All branches, longest since last audit first'; }
       else { table = getAuditAnalysisTableRows(a, bucket); }
+
+      const chipLabel = 'View: ' + table.title.replace(/, ranked by (risk )?score$/, '');
+      const chipsHtml = `
+          <div class="flex flex-wrap items-center gap-1.5 mb-2">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Showing</span>
+            <button type="button" onclick="modalGoBack()" title="Back to Executive Summary" class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold bg-accentIndigo/10 text-accentIndigo border border-accentIndigo/20 rounded-full hover:brightness-95 active:scale-95 cursor-pointer whitespace-nowrap">${escapeHTML(chipLabel)} <span aria-hidden="true">✕</span></button>
+            <button type="button" onclick="modalGoBack()" class="px-2 py-0.5 text-[10px] font-bold bg-white border border-coolBorder rounded-full hover:bg-gray-100 active:scale-95 cursor-pointer whitespace-nowrap">Clear all</button>
+          </div>`;
 
       const tableHtml = table.rows.length
           ? `<div class="rounded-xl border border-coolBorder overflow-auto custom-scrollbar shadow-sm">${buildAuditKpiQueueTableHtml(table.rows)}</div>`
@@ -7118,11 +7130,7 @@ html.page-fade-ready body {
       modalBody.classList.remove('mv-mode');
       modalBody.innerHTML = `
         <div class="p-3 sm:p-3.5">
-          <div class="flex items-center justify-between mb-0.5">
-            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">${table.title}</h3>
-            <span class="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold uppercase tracking-wider text-white" style="background:${TINT_HEX.accentIndigo}">${table.rows.length} branch${table.rows.length === 1 ? '' : 'es'}</span>
-          </div>
-          ${sub ? `<p class="text-[10px] text-slate-500 mb-2">${sub}</p>` : `<p class="text-[10px] text-slate-500 mb-2">Tap a branch to open its profile, or a risk score to see how it was calculated.</p>`}
+          ${chipsHtml}
           ${tableHtml}
         </div>`;
       bindAuditAnalysisClicks(modalBody);
