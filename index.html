@@ -12893,54 +12893,8 @@ html.page-fade-ready body {
           </button>`).join('')}</div>`
         : '<div class="flex items-center gap-2 p-3 bg-accentEmerald/5 border border-accentEmerald/20 rounded-xl text-xs font-semibold text-accentEmerald"><span class="w-2 h-2 rounded-full bg-accentEmerald"></span>Nothing needs escalation right now — no unresolved critical branches, no missed schedules, no unaddressed high-risk branches.</div>';
 
-      // One-line "pulse" strip — a single, honest headline read on the
-      // portfolio (composed only from numbers already computed above), so
-      // management sees where things stand before reading anything else.
-      const pulseTone = highRiskCount > 0 ? 'accentRose' : (overdueCount > 0 ? 'accentAmber' : 'accentEmerald');
-      const pulseHex = TINT_HEX[pulseTone];
-      const pulseText = highRiskCount > 0
-        ? highRiskCount + ' branch' + (highRiskCount === 1 ? '' : 'es') + ' at Critical/High risk need attention'
-        : (overdueCount > 0 ? overdueCount + ' audit' + (overdueCount === 1 ? '' : 's') + ' overdue, nothing at Critical/High risk' : 'Portfolio is on track — no Critical/High risk, nothing overdue');
-
       container.innerHTML = `
       <div class="space-y-5 pb-2">
-
-        <div class="mx-2 sm:mx-3 flex flex-wrap items-center gap-x-3 gap-y-1 px-3.5 py-2.5 rounded-xl border" style="background:${pulseHex}0d; border-color:${pulseHex}33;">
-          <span class="w-2 h-2 rounded-full flex-shrink-0" style="background:${pulseHex}"></span>
-          <span class="text-[12.5px] font-extrabold text-slate-800">${escapeHTML(pulseText)}</span>
-          <span class="text-[10.5px] text-slate-500">· ${a.totalBranches} branches tracked · ${coveragePct !== null ? coveragePct + '% ever audited' : 'coverage unknown'}</span>
-          <span class="ml-auto text-[9px] font-bold uppercase tracking-wider text-slate-400">Live · reused from the analysis below, not recalculated</span>
-        </div>
-
-        <div>
-          <div class="flex items-center justify-between px-2 sm:px-3 mb-1.5">
-            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Executive Summary</h3>
-            <span class="text-[9.5px] text-slate-400 hidden sm:inline">Tap any tile to filter the Priority Audit Queue below</span>
-          </div>
-          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 px-2 sm:px-3">
-            ${kpiCard(a.totalBranches, 'Total Branches', { neutral: true, active: filterBucket === 'ALL' && !table.chips.some(c => c.kind !== 'bucket') && !cfg.sortField, onClick: `onclick="setAuditAnalysisFilter('ALL')"` })}
-            ${kpiCard(highRiskCount, 'Critical / High Risk', { tint: 'accentRose', active: filterBucket === 'HIGH_RISK', onClick: `onclick="setAuditAnalysisFilter('HIGH_RISK')"` })}
-            ${kpiCard(a.overdueUnscheduled.length + a.riskFlagged.length + a.scheduledPastDue.length, 'Needs Scheduling', { tint: 'accentAmber', active: filterBucket === 'NEEDS_SCHEDULING', onClick: `onclick="setAuditAnalysisFilter('NEEDS_SCHEDULING')"` })}
-            ${kpiCard(overdueCount, 'Overdue Audits', { tint: 'accentAmber', active: filterBucket === 'OVERDUE', onClick: `onclick="setAuditAnalysisFilter('OVERDUE')"` })}
-            ${kpiCard(a.scheduledUpcoming.length, 'Due Soon', { tint: 'accentBlue', active: filterBucket === 'SCHEDULED_UPCOMING', onClick: `onclick="setAuditAnalysisFilter('SCHEDULED_UPCOMING')"` })}
-            ${kpiCard(a.neverAudited.length, 'Never Audited', { tint: 'accentRose', active: filterBucket === 'NEVER_AUDITED', onClick: `onclick="setAuditAnalysisFilter('NEVER_AUDITED')"` })}
-            ${kpiCard(a.onTrack.length, 'On Track', { tint: 'accentEmerald', active: filterBucket === 'ON_TRACK', onClick: `onclick="setAuditAnalysisFilter('ON_TRACK')"` })}
-            ${kpiCard(a.avgRiskScore !== null ? a.avgRiskScore : '—', 'Avg Risk Score', { tint: 'accentIndigo', active: cfg.sortField === 'risk' && filterBucket === 'ALL', onClick: `onclick="showAuditAnalysisSorted('risk')"`, sub: 'out of 100' })}
-            ${kpiCard(a.avgIntervalDays !== null ? a.avgIntervalDays + 'd' : '—', 'Avg Days Since Audit', { tint: 'accentIndigo', active: cfg.sortField === 'days' && filterBucket === 'ALL', onClick: `onclick="showAuditAnalysisSorted('days')"` })}
-            ${kpiCard(coveragePct !== null ? coveragePct + '%' : '—', 'Audit Coverage', { tint: 'accentIndigo', active: filterBucket === 'EVER_AUDITED', onClick: `onclick="setAuditAnalysisFilter('EVER_AUDITED')"`, sub: 'ever audited' })}
-          </div>
-        </div>
-
-        <div class="mx-2 sm:mx-3">
-          <div class="flex items-center justify-between mb-1.5">
-            <div>
-              <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Management Attention</h3>
-              <p class="text-[10px] text-slate-400 mt-0.5">The most consequential exceptions right now, worst first — pulled straight from the data below. Tap any item to see the branches behind it.</p>
-            </div>
-            ${attention.length ? `<span class="shrink-0 px-2 py-1 rounded-full text-[9.5px] font-extrabold uppercase tracking-wider text-white" style="background:${TINT_HEX.accentRose}">${attention.length} open item${attention.length === 1 ? '' : 's'}</span>` : ''}
-          </div>
-          ${attentionHtml}
-        </div>
 
         <details class="mx-2 sm:mx-3 bg-white border border-coolBorder rounded-xl shadow-sm" ${cfg.settingsOpen ? 'open' : ''} ontoggle="setAuditSettingsOpen(this.open)">
           <summary class="flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-3 cursor-pointer select-none rounded-xl hover:bg-gray-50">
@@ -13021,6 +12975,36 @@ html.page-fade-ready body {
 
           ${notice ? `<div role="status" class="px-4 py-2 border-t border-coolBorder text-[10.5px] font-semibold ${notice.type === 'error' ? 'text-accentRose' : 'text-accentEmerald'}">${notice.type === 'error' ? '⚠ ' : '✓ '}${escapeHTML(notice.text)}</div>` : ''}
         </details>
+
+        <div>
+          <div class="flex items-center justify-between px-2 sm:px-3 mb-1.5">
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Executive Summary</h3>
+            <span class="text-[9.5px] text-slate-400 hidden sm:inline">Tap any tile to filter the Priority Audit Queue below</span>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 px-2 sm:px-3">
+            ${kpiCard(a.totalBranches, 'Total Branches', { neutral: true, active: filterBucket === 'ALL' && !table.chips.some(c => c.kind !== 'bucket') && !cfg.sortField, onClick: `onclick="setAuditAnalysisFilter('ALL')"` })}
+            ${kpiCard(highRiskCount, 'Critical / High Risk', { tint: 'accentRose', active: filterBucket === 'HIGH_RISK', onClick: `onclick="setAuditAnalysisFilter('HIGH_RISK')"` })}
+            ${kpiCard(a.overdueUnscheduled.length + a.riskFlagged.length + a.scheduledPastDue.length, 'Needs Scheduling', { tint: 'accentAmber', active: filterBucket === 'NEEDS_SCHEDULING', onClick: `onclick="setAuditAnalysisFilter('NEEDS_SCHEDULING')"` })}
+            ${kpiCard(overdueCount, 'Overdue Audits', { tint: 'accentAmber', active: filterBucket === 'OVERDUE', onClick: `onclick="setAuditAnalysisFilter('OVERDUE')"` })}
+            ${kpiCard(a.scheduledUpcoming.length, 'Due Soon', { tint: 'accentBlue', active: filterBucket === 'SCHEDULED_UPCOMING', onClick: `onclick="setAuditAnalysisFilter('SCHEDULED_UPCOMING')"` })}
+            ${kpiCard(a.neverAudited.length, 'Never Audited', { tint: 'accentRose', active: filterBucket === 'NEVER_AUDITED', onClick: `onclick="setAuditAnalysisFilter('NEVER_AUDITED')"` })}
+            ${kpiCard(a.onTrack.length, 'On Track', { tint: 'accentEmerald', active: filterBucket === 'ON_TRACK', onClick: `onclick="setAuditAnalysisFilter('ON_TRACK')"` })}
+            ${kpiCard(a.avgRiskScore !== null ? a.avgRiskScore : '—', 'Avg Risk Score', { tint: 'accentIndigo', active: cfg.sortField === 'risk' && filterBucket === 'ALL', onClick: `onclick="showAuditAnalysisSorted('risk')"`, sub: 'out of 100' })}
+            ${kpiCard(a.avgIntervalDays !== null ? a.avgIntervalDays + 'd' : '—', 'Avg Days Since Audit', { tint: 'accentIndigo', active: cfg.sortField === 'days' && filterBucket === 'ALL', onClick: `onclick="showAuditAnalysisSorted('days')"` })}
+            ${kpiCard(coveragePct !== null ? coveragePct + '%' : '—', 'Audit Coverage', { tint: 'accentIndigo', active: filterBucket === 'EVER_AUDITED', onClick: `onclick="setAuditAnalysisFilter('EVER_AUDITED')"`, sub: 'ever audited' })}
+          </div>
+        </div>
+
+        <div class="mx-2 sm:mx-3">
+          <div class="flex items-center justify-between mb-1.5">
+            <div>
+              <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Management Attention</h3>
+              <p class="text-[10px] text-slate-400 mt-0.5">The most consequential exceptions right now, worst first — pulled straight from the data below. Tap any item to see the branches behind it.</p>
+            </div>
+            ${attention.length ? `<span class="shrink-0 px-2 py-1 rounded-full text-[9.5px] font-extrabold uppercase tracking-wider text-white" style="background:${TINT_HEX.accentRose}">${attention.length} open item${attention.length === 1 ? '' : 's'}</span>` : ''}
+          </div>
+          ${attentionHtml}
+        </div>
 
         <div class="mx-2 sm:mx-3 grid grid-cols-1 lg:grid-cols-3 gap-3">
           <div class="p-3.5 bg-white border border-coolBorder rounded-xl shadow-sm">
