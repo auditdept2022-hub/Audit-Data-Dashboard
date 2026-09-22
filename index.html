@@ -10884,12 +10884,9 @@ html.page-fade-ready body {
       { key: 'findings', label: 'Audit findings', defaultWeight: 26,
         how: 'Findings are weighted 3x for 2026, 2x for 2025 and 1x for 2024, then scaled against a FIXED cap (editable in Settings; starts at the portfolio\'s 90th percentile the first time it\'s computed, never below ' + AUDIT_FINDINGS_MIN_CAP + ' weighted points, then stays put). No findings = 0.',
         why: 'Past findings are the strongest sign of where more will be found; recent years count more than old ones. The cap is fixed rather than recalculated on every view so the same findings history always produces the same score, instead of drifting as the portfolio changes.' },
-      { key: 'collection', label: 'Collection status (reported)', defaultWeight: 12,
-        how: 'Declining = 100, Recovering = 50, Stable = 20, Improving = 0. Sourced as its own status column, separate from the Collection Efficiency % below.',
-        why: 'A separately reported collection status can flag a shift before it shows up in the efficiency percentage, or catch context the percentage alone misses. Because it and Collection Efficiency both describe "is collection getting better or worse", check the Overlap check above the weight list before trusting both at full strength — if they move together in your data, one is being paid for twice.' },
-      { key: 'efficiency', label: 'Collection efficiency (%, level & trend)', defaultWeight: 18,
-        how: 'Level (70% of this factor) uses the same 70% / 50% cut-offs as the branch cards: 100% = 0 pts, 70% = 35 pts, 50% = 70 pts, 0% = 100 pts. Trend (30%) adds up to 100 pts if efficiency has fallen 15+ points since the earliest month on record; flat or improving adds 0. Uses the most recent month that has a figure. No figure in any month = excluded.',
-        why: 'Low efficiency means less of what is due is being collected, and a branch that is actively getting worse is a stronger reason to visit than one that is merely low and flat. Level and trend are blended into this ONE factor (not scored separately) so a falling efficiency is never counted twice toward the total. This is the numeric counterpart to the reported Collection status above — see the Overlap check if both are carrying full weight.' },
+      { key: 'efficiency', label: 'Collection health (efficiency % + reported status)', defaultWeight: 30,
+        how: 'One blended factor, no more double-counting: efficiency LEVEL (55%, same 70%/50% cut-offs as the branch cards) + efficiency TREND (20%, up to 100 pts for a 15+ point fall since the earliest month on record) + the separately reported collection STATUS (25%: Declining=100, Recovering=50, Stable=20, Improving=0). If there is no efficiency % on file yet, status alone carries the factor; if there is no status either (rare — it defaults to Stable), level+trend alone carries it.',
+        why: 'Collection efficiency (%) and the reported collection status used to be scored as two separate factors, but they both answer the same question — is collection getting better or worse — so weighting both at full strength paid for one signal twice. Blending them into a single factor removes that double-count at the source rather than just flagging it.' },
       { key: 'repo', label: 'Repo rate', defaultWeight: 16,
         how: 'Level (70% of this factor) uses the same 4% / 7% cut-offs as the branch cards: 0% = 0 pts, 4% = 35 pts, 7% = 70 pts, 12% or more = 100 pts. Trend (30%) adds up to 100 pts if the repo rate has risen 3+ points since the earliest month on record; flat or improving adds 0. No account data = excluded.',
         why: 'A high repossession rate points to weaker loan quality or recovery handling, and a rate that is actively rising is a stronger signal than one that is high but stable. Level and trend are blended into this ONE factor (not scored separately) so a worsening repo rate is never counted twice toward the total.' },
@@ -10967,6 +10964,16 @@ html.page-fade-ready body {
           const v = Number(saved && saved[f.key]);
           if (isFinite(v) && v >= 0 && v <= 100) w[f.key] = v;
         });
+        // MIGRATION: 'collection' used to be its own weighted factor and was
+        // merged into 'efficiency' (see AUDIT_RISK_FACTORS) to stop the same
+        // signal being paid for twice. A weight set saved before that merge
+        // would otherwise silently lose whatever share the person had given
+        // 'collection' — fold it into 'efficiency' once so a custom split
+        // someone agreed with management isn't quietly shrunk by the change.
+        const legacyCollectionW = Number(saved && saved.collection);
+        if (isFinite(legacyCollectionW) && legacyCollectionW > 0 && !AUDIT_RISK_FACTORS.some(f => f.key === 'collection')) {
+          w.efficiency = Math.min(100, (Number(w.efficiency) || 0) + legacyCollectionW);
+        }
       } catch (e) { /* storage unavailable or corrupt — use defaults */ }
       return w;
     }
@@ -11862,10 +11869,14 @@ html.page-fade-ready body {
             (b.findings2026 || 0) + ' in 2026 · ' + (b.findings2025 || 0) + ' in 2025 · ' + (b.findings2024 || 0) + ' in 2024',
             ftotal + ' finding' + (ftotal === 1 ? '' : 's') + ' (' + (b.findings2026 || 0) + ' in 2026)');
 
-        add('collection', true, AUDIT_RISK_STATUS_POINTS.collection[b.collection] ?? 20,
-            'Collection is ' + (b.collection || 'Stable'), 'Collection ' + String(b.collection || 'Stable').toLowerCase());
-
-        // Efficiency: use the most recent month that actually has a figure.
+        // Collection health: ONE factor blending three signals so none of
+        // them is paid for twice —
+        //   1. efficiency LEVEL (numeric %, same cut-offs as the branch cards)
+        //   2. efficiency TREND (has the % fallen since the earliest month?)
+        //   3. reported collection STATUS (its own column: Declining/
+        //      Recovering/Stable/Improving) — a separate signal from the %,
+        //      but answering the same underlying question, so it is blended
+        //      IN rather than scored as its own weighted factor.
         // A blank latest month reads as 0 in the sheet parse; scoring that as
         // "0% efficiency" would hand the branch the maximum 100 points for a
         // cell nobody has filled in yet.
@@ -11873,20 +11884,36 @@ html.page-fade-ready body {
         const effNow = effSeries[2] > 0 ? effSeries[2] : (effSeries[1] > 0 ? effSeries[1] : (effSeries[0] > 0 ? effSeries[0] : 0));
         const hasEff = effNow > 0;
         const effLevelPts = auditRiskPiecewise(effNow, [[0, 100], [50, 70], [70, 35], [100, 0]]);
-        // Trend: has efficiency fallen since the earliest month on record?
-        // Blended INTO this same factor (70% level / 30% trend) rather than
-        // scored again as a separate factor — a falling efficiency level
-        // used to be penalised once for being low and a second time for the
-        // drop, which quietly inflated its effective weight beyond what the
-        // weight editor showed.
         const effNZ = effSeries.filter(v => v > 0);
         const effDelta = effNZ.length >= 2 ? effNZ[effNZ.length - 1] - effNZ[0] : null;
         const effTrendPts = (effDelta !== null && effDelta < 0) ? Math.min(100, (-effDelta / 15) * 100) : 0;
-        const effPts = effDelta !== null ? (effLevelPts * 0.7 + effTrendPts * 0.3) : effLevelPts;
-        add('efficiency', hasEff, effPts,
-            hasEff ? (effNow + '% ' + (effSeries[2] > 0 ? 'latest' : 'most recent available') + ' efficiency'
-              + (effDelta !== null ? (', ' + (effDelta > 0 ? '+' : '') + effDelta + ' pts vs earliest month on record') : '')) : 'No efficiency data',
-            'Efficiency ' + effNow + '%' + (effDelta !== null && effDelta < 0 ? ' (falling)' : ''));
+        const statusPts = AUDIT_RISK_STATUS_POINTS.collection[b.collection];
+        const hasStatus = statusPts !== undefined && statusPts !== null;
+        let effPts, hasEfficiencyFactor;
+        if (hasEff && effDelta !== null && hasStatus) {
+          effPts = effLevelPts * 0.55 + effTrendPts * 0.20 + statusPts * 0.25;
+          hasEfficiencyFactor = true;
+        } else if (hasEff && hasStatus) {
+          effPts = effLevelPts * 0.75 + statusPts * 0.25;
+          hasEfficiencyFactor = true;
+        } else if (hasEff) {
+          effPts = effDelta !== null ? (effLevelPts * 0.7 + effTrendPts * 0.3) : effLevelPts;
+          hasEfficiencyFactor = true;
+        } else if (hasStatus) {
+          // No % on file yet for this branch — the reported status alone
+          // still tells us something, so it carries the whole factor
+          // instead of the branch losing this weight entirely.
+          effPts = statusPts;
+          hasEfficiencyFactor = true;
+        } else {
+          effPts = 0;
+          hasEfficiencyFactor = false;
+        }
+        add('efficiency', hasEfficiencyFactor, effPts,
+            (hasEff ? (effNow + '% ' + (effSeries[2] > 0 ? 'latest' : 'most recent available') + ' efficiency'
+              + (effDelta !== null ? (', ' + (effDelta > 0 ? '+' : '') + effDelta + ' pts vs earliest month on record') : '')) : 'No efficiency % on file')
+              + (hasStatus ? '; collection reported as ' + (b.collection || 'Stable') : ''),
+            'Efficiency ' + effNow + '%' + (effDelta !== null && effDelta < 0 ? ' (falling)' : '') + ', collection ' + String(b.collection || 'Stable').toLowerCase());
 
         const hasAcct = accountsOf(b) > 0;
         const repo = b.repoRateLatest || 0;
@@ -12645,17 +12672,17 @@ html.page-fade-ready body {
           ? 'Not shown for Audit findings itself — comparing findings to findings would always show a perfect link, which is not meaningful.'
           : (info.text.match(/title="([^"]*)"/) || [])[1] || '';
         return `
-          <div class="flex items-center gap-2 px-2.5 py-1.5" title="${escapeHTML(f.why)}">
-            <span class="w-1.5 h-1.5 rounded-full flex-shrink-0 ${info.dot}" title="${escapeHTML(evidenceTip)}"></span>
-            <span class="text-[11px] font-semibold text-slate-700 w-28 sm:w-36 truncate">${escapeHTML(f.label)}</span>
+          <div class="flex items-center gap-3 px-3 py-2.5" title="${escapeHTML(f.why)}">
+            <span class="w-2 h-2 rounded-full flex-shrink-0 ${info.dot}" title="${escapeHTML(evidenceTip)}"></span>
+            <span class="text-[11.5px] font-semibold text-slate-700 w-32 sm:w-44 leading-tight">${escapeHTML(f.label)}</span>
             <input id="aa-ws-${f.key}" type="range" min="0" max="100" step="1" value="${val}"
               oninput="document.getElementById('aa-w-${f.key}').value=this.value; previewAuditRiskWeights();"
-              title="Drag to change how much this factor counts" class="flex-1 h-1 accent-accentIndigo cursor-pointer">
+              title="Drag to change how much this factor counts" class="flex-1 h-1.5 accent-accentIndigo cursor-pointer">
             <input id="aa-w-${f.key}" type="number" inputmode="decimal" min="0" max="100" step="1" value="${val}"
               oninput="document.getElementById('aa-ws-${f.key}').value=this.value; previewAuditRiskWeights();"
               onkeydown="if(event.key==='Enter'){applyAllAuditAnalysisSettings()}"
-              title="Weight (points). Higher = counts for more of the score." class="w-10 px-1 py-0.5 border border-coolBorder rounded-md text-[11px] text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
-            <span id="aa-wpct-${f.key}" class="w-8 text-right text-[11px] font-extrabold text-accentIndigo whitespace-nowrap">${pct}%</span>
+              title="Weight (points). Higher = counts for more of the score." class="w-11 px-1 py-1 border border-coolBorder rounded-md text-[11px] text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
+            <span id="aa-wpct-${f.key}" class="w-9 text-right text-[11px] font-extrabold text-accentIndigo whitespace-nowrap">${pct}%</span>
           </div>`;
       }).join('');
 
@@ -12695,7 +12722,7 @@ html.page-fade-ready body {
 
       container.innerHTML = `
       <div class="space-y-4 pb-2">
-        <div class="flex flex-wrap items-center gap-1.5 px-2 sm:px-3 pt-2">
+        <div class="flex flex-wrap items-center gap-2 px-2 sm:px-3 pt-2">
           ${summaryPill(a.totalBranches, 'Total Branches', { neutral: true, active: filterBucket === 'ALL' && !table.chips.some(c => c.kind !== 'bucket') && !cfg.sortField, onClick: `onclick="setAuditAnalysisFilter('ALL')"` })}
           ${summaryPill(highRiskCount, 'High-Risk (' + cfg.minScore + '+)', { tint: 'accentRose', active: filterBucket === 'HIGH_RISK', onClick: `onclick="setAuditAnalysisFilter('HIGH_RISK')"` })}
           ${summaryPill(a.neverAudited.length, 'Never Audited', { tint: 'accentRose', active: filterBucket === 'NEVER_AUDITED', onClick: `onclick="setAuditAnalysisFilter('NEVER_AUDITED')"` })}
@@ -12707,69 +12734,82 @@ html.page-fade-ready body {
         </div>
 
         <details class="mx-2 sm:mx-3 bg-gray-50 border border-coolBorder rounded-xl" ${cfg.settingsOpen ? 'open' : ''} ontoggle="setAuditSettingsOpen(this.open)">
-          <summary class="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2 cursor-pointer select-none">
-            <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Scheduling rules &amp; risk scoring</span>
+          <summary class="flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-3 cursor-pointer select-none">
+            <span class="text-[12px] font-bold text-slate-700 uppercase tracking-wider">Scheduling rules &amp; risk scoring</span>
             ${wsBadge}
-            <span class="text-[10px] font-medium text-slate-400 normal-case tracking-normal">Risk score ≥ ${cfg.minScore} · skip if audited &lt;${cfg.minGapDays}d ago · always after ${cfg.overdueDays}d overdue · ${cfg.spacingDays} biz-day auditor spacing<span class="hidden sm:inline"> — tap to view or adjust</span></span>
+            <span class="text-[10.5px] font-medium text-slate-400 normal-case tracking-normal">Risk score ≥ ${cfg.minScore} · skip if audited &lt;${cfg.minGapDays}d ago · always after ${cfg.overdueDays}d overdue · ${cfg.spacingDays} biz-day auditor spacing<span class="hidden sm:inline"> — tap to view or adjust</span></span>
           </summary>
-          <div class="px-3 pb-2.5 pt-2 border-t border-coolBorder">
-          <div class="flex flex-wrap items-end gap-x-4 gap-y-2">
-            <label class="flex flex-col gap-1">
-              <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-tight" title="Schedule a branch once its risk score reaches this, out of 100">Schedule once risk ≥</span>
-              <span class="flex items-center gap-1">${cfgInput('minScore', 1, 100)}<span class="text-[9px] text-slate-400">/100</span></span>
-            </label>
-            <label class="flex flex-col gap-1">
-              <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-tight" title="But skip it if it was already audited within this many days">Skip if audited within</span>
-              <span class="flex items-center gap-1">${cfgInput('minGapDays', 0, 3650)}<span class="text-[9px] text-slate-400">days</span></span>
-            </label>
-            <label class="flex flex-col gap-1">
-              <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-tight" title="Always schedule any branch with no audit for this long, regardless of score">Always after</span>
-              <span class="flex items-center gap-1">${cfgInput('overdueDays', 1, 3650)}<span class="text-[9px] text-slate-400">days overdue</span></span>
-            </label>
-            <label class="flex flex-col gap-1">
-              <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-tight" title="Space out each auditor's suggested visits by this many business days">Auditor spacing</span>
-              <span class="flex items-center gap-1">${cfgInput('spacingDays', 1, 3650)}<span class="text-[9px] text-slate-400">biz day(s)</span></span>
-            </label>
-            <span class="hidden sm:block w-px self-stretch bg-coolBorder"></span>
-            <label class="flex flex-col gap-1" title="Weighted findings (3x 2026, 2x 2025, 1x 2024) at or above this score 100 on the findings factor. Fixed — not recalculated from whichever branches are currently loaded.">
-              <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wide leading-tight">Findings cap <span class="normal-case font-medium">(advanced)</span></span>
-              <span class="flex items-center gap-1">${cfgInput('findingsCap', 1, 1000)}<span class="text-[9px] text-slate-400">pts</span></span>
-              ${capSanityNote(findingsSanity)}
-            </label>
-            <label class="flex flex-col gap-1" title="Branches with this many accounts or more score 100 on the portfolio-size factor. Fixed — not recalculated from whichever branches are currently loaded.">
-              <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wide leading-tight">Size cap <span class="normal-case font-medium">(advanced)</span></span>
-              <span class="flex items-center gap-1">${cfgInput('sizeCap', 1, 10000000)}<span class="text-[9px] text-slate-400">accts</span></span>
-              ${capSanityNote(sizeSanity)}
-            </label>
-            <button type="button" onclick="resetAuditRiskCaps()" title="Recompute both caps from the current portfolio's 90th percentile, then freeze them again from here" class="px-2 py-1 text-[9px] font-bold bg-white border border-coolBorder rounded-md hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Recalc caps</button>
-            <span class="flex-1"></span>
-            ${okBtn('applyAllAuditAnalysisSettings()', 'Apply thresholds and weights')}
-          </div>
+          <div class="px-4 pb-4 pt-3 border-t border-coolBorder space-y-4">
+
+            <div>
+              <h4 class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Scheduling thresholds</h4>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 p-3 bg-white border border-coolBorder rounded-lg">
+                <label class="flex flex-col gap-1.5">
+                  <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide leading-snug" title="Schedule a branch once its risk score reaches this, out of 100">Schedule once risk ≥</span>
+                  <span class="flex items-center gap-1.5">${cfgInput('minScore', 1, 100)}<span class="text-[10px] text-slate-400">/100</span></span>
+                </label>
+                <label class="flex flex-col gap-1.5">
+                  <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide leading-snug" title="But skip it if it was already audited within this many days">Skip if audited within</span>
+                  <span class="flex items-center gap-1.5">${cfgInput('minGapDays', 0, 3650)}<span class="text-[10px] text-slate-400">days</span></span>
+                </label>
+                <label class="flex flex-col gap-1.5">
+                  <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide leading-snug" title="Always schedule any branch with no audit for this long, regardless of score">Always after</span>
+                  <span class="flex items-center gap-1.5">${cfgInput('overdueDays', 1, 3650)}<span class="text-[10px] text-slate-400">days overdue</span></span>
+                </label>
+                <label class="flex flex-col gap-1.5">
+                  <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide leading-snug" title="Space out each auditor's suggested visits by this many business days">Auditor spacing</span>
+                  <span class="flex items-center gap-1.5">${cfgInput('spacingDays', 1, 3650)}<span class="text-[10px] text-slate-400">biz day(s)</span></span>
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex items-center gap-1.5 mb-2">
+                <h4 class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Score caps <span class="normal-case font-medium text-slate-400">(advanced — what counts as "maxed out")</span></h4>
+              </div>
+              <div class="flex flex-wrap items-end gap-x-6 gap-y-3 p-3 bg-white border border-coolBorder rounded-lg">
+                <label class="flex flex-col gap-1.5" title="Weighted findings (3x 2026, 2x 2025, 1x 2024) at or above this score 100 on the findings factor. Fixed — not recalculated from whichever branches are currently loaded.">
+                  <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide leading-snug">Findings cap</span>
+                  <span class="flex items-center gap-1.5">${cfgInput('findingsCap', 1, 1000)}<span class="text-[10px] text-slate-400">pts</span></span>
+                  <span>${capSanityNote(findingsSanity)}</span>
+                </label>
+                <label class="flex flex-col gap-1.5" title="Branches with this many accounts or more score 100 on the portfolio-size factor. Fixed — not recalculated from whichever branches are currently loaded.">
+                  <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide leading-snug">Size cap</span>
+                  <span class="flex items-center gap-1.5">${cfgInput('sizeCap', 1, 10000000)}<span class="text-[10px] text-slate-400">accts</span></span>
+                  <span>${capSanityNote(sizeSanity)}</span>
+                </label>
+                <button type="button" onclick="resetAuditRiskCaps()" title="Recompute both caps from the current portfolio's 90th percentile, then freeze them again from here" class="px-2.5 py-1.5 text-[10px] font-bold bg-white border border-coolBorder rounded-md hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Recalc caps</button>
+              </div>
+            </div>
+
+            <div class="flex justify-end">
+              ${okBtn('applyAllAuditAnalysisSettings()', 'Apply thresholds and weights')}
+            </div>
           </div>
 
           <details class="border-t border-coolBorder" ${cfg.weightsOpen ? 'open' : ''} ontoggle="setAuditWeightsOpen(this.open)">
-            <summary class="flex flex-wrap items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-slate-700 cursor-pointer select-none">Risk score weights ${wsBadge} <span class="font-medium text-slate-400 normal-case">(tap to adjust)</span></summary>
-            <div class="px-2.5 pb-2">
-              <p class="text-[9.5px] text-slate-400 leading-snug mb-1.5 px-0.5">Hover a factor for why it matters. Dot = how well it's actually matched real findings so far: <span class="text-accentEmerald font-semibold">green</span> strong, <span class="text-accentBlue font-semibold">blue</span> moderate, <span class="text-slate-400 font-semibold">grey</span> weak. Don't need to sum to 100 — auto-converted to %.</p>
+            <summary class="flex flex-wrap items-center gap-1.5 px-4 py-2.5 text-[12px] font-bold text-slate-700 cursor-pointer select-none">Risk score weights ${wsBadge} <span class="font-medium text-slate-400 normal-case">(tap to adjust)</span></summary>
+            <div class="px-3.5 pb-3.5 space-y-2">
+              <p class="text-[10px] text-slate-400 leading-snug px-0.5">Hover a factor for why it matters. Dot = how well it's actually matched real findings so far: <span class="text-accentEmerald font-semibold">green</span> strong, <span class="text-accentBlue font-semibold">blue</span> moderate, <span class="text-slate-400 font-semibold">grey</span> weak. Don't need to sum to 100 — auto-converted to %.</p>
               ${(a.overlap && a.overlap.length) ? `
-              <div class="mb-1.5 px-2 py-1.5 rounded-lg bg-accentAmber/10 border border-accentAmber/25 text-[9.5px] text-slate-600 leading-snug">
+              <div class="px-3 py-2 rounded-lg bg-accentAmber/10 border border-accentAmber/25 text-[10px] text-slate-600 leading-relaxed">
                 <span class="font-bold text-accentAmber uppercase tracking-wide">⚠ Overlap check</span> —
                 ${a.overlap.map(p => `<span title="Pearson r = ${p.r.toFixed(2)} across ${p.n} branches with data in both factors — how closely these two factors' points moved together, not how either relates to findings.">${escapeHTML(p.labelA)} and ${escapeHTML(p.labelB)} move together in your data (r = ${p.r.toFixed(2)}, n = ${p.n})</span>`).join('; ')}.
                 They may be capturing the same underlying signal rather than two independent ones — weighting both at full strength risks double-counting it. <b>Suggest from data</b> already discounts overlapping factors for this; if you're setting weights by hand, consider lowering one or combining them into a single factor instead.
               </div>` : ''}
               <div class="divide-y divide-coolBorder border border-coolBorder rounded-lg bg-white overflow-hidden">${weightInputs}</div>
-              <div class="mt-1.5 flex flex-wrap items-center gap-2">
-                <span id="aa-w-hint" class="hidden text-[9px] font-bold text-accentAmber">Preview only — press OK to apply.</span>
-                <span class="ml-auto flex items-center gap-1.5">
-                  <button type="button" onclick="suggestAuditRiskWeightsFromData()" title="Set weights proportional to each factor's correlation with actual findings" class="px-2 py-0.5 text-[10px] font-bold bg-accentIndigo/10 text-accentIndigo border border-accentIndigo/20 rounded-md hover:brightness-95 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Suggest from data</button>
-                  <button type="button" onclick="resetAuditRiskWeights()" title="Re-derive weights from findings correlation; falls back to the original starting numbers only if there isn't enough audit history yet" class="px-2 py-0.5 text-[10px] font-bold bg-white border border-coolBorder rounded-md hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Reset</button>
+              <div class="flex flex-wrap items-center gap-2 pt-0.5">
+                <span id="aa-w-hint" class="hidden text-[10px] font-bold text-accentAmber">Preview only — press OK to apply.</span>
+                <span class="ml-auto flex items-center gap-2">
+                  <button type="button" onclick="suggestAuditRiskWeightsFromData()" title="Set weights proportional to each factor's correlation with actual findings" class="px-2.5 py-1 text-[10px] font-bold bg-accentIndigo/10 text-accentIndigo border border-accentIndigo/20 rounded-md hover:brightness-95 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Suggest from data</button>
+                  <button type="button" onclick="resetAuditRiskWeights()" title="Re-derive weights from findings correlation; falls back to the original starting numbers only if there isn't enough audit history yet" class="px-2.5 py-1 text-[10px] font-bold bg-white border border-coolBorder rounded-md hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Reset</button>
                   ${okBtn('applyAllAuditAnalysisSettings()', 'Apply all settings (thresholds and weights)')}
                 </span>
               </div>
             </div>
           </details>
 
-          ${notice ? `<div role="status" class="px-3 py-1.5 border-t border-coolBorder text-[10px] font-semibold ${notice.type === 'error' ? 'text-accentRose' : 'text-accentEmerald'}">${notice.type === 'error' ? '⚠ ' : '✓ '}${escapeHTML(notice.text)}</div>` : ''}
+          ${notice ? `<div role="status" class="px-4 py-2 border-t border-coolBorder text-[10.5px] font-semibold ${notice.type === 'error' ? 'text-accentRose' : 'text-accentEmerald'}">${notice.type === 'error' ? '⚠ ' : '✓ '}${escapeHTML(notice.text)}</div>` : ''}
         </details>
 
         <div class="mx-2 sm:mx-3 grid grid-cols-1 lg:grid-cols-3 gap-4">
