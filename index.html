@@ -11094,7 +11094,9 @@ html.page-fade-ready body {
       pendingPush: false,  // a local change is waiting to be sent
       pushing: false, pulling: false,
       pushTimer: null, pollTimer: null,
-      readOnly: false      // server said this account may not write (team-wide mode, non-editor)
+      readOnly: false,     // server said this account may not write (team-wide mode, non-editor)
+      everPulled: false,   // has this session made at least one pull attempt yet? see auditSyncSchedulePush
+      deferredPush: false  // a push was requested before everPulled and is waiting to be retried
     };
 
     // Fixed key order so two snapshots of the same view always stringify identically.
@@ -11213,11 +11215,34 @@ html.page-fade-ready body {
         console.warn('[analysis-sync] pull failed:', err && err.message ? err.message : err);
       } finally {
         auditSync.pulling = false;
+        // FIX: findingsCap/sizeCap are meant to be computed ONCE and then
+        // frozen forever (see computeAuditRiskScores) — but a device that
+        // opens the analysis before its first pull has resolved will find
+        // cfg.findingsCap/sizeCap still null, compute a FRESH one from
+        // whatever happens to be loaded locally, and (via the render ->
+        // auditSyncSchedulePush path) mark that as pendingPush. The guard a
+        // few lines up ("don't clobber a local edit in flight") then
+        // correctly refuses to apply the real remote cap once it arrives —
+        // but the debounced push right after sends the fresh LOCAL guess to
+        // the server anyway, overwriting the real frozen value for every
+        // device. That's the silent cap drift a "frozen" cap should never
+        // have. Fix: no push leaves this device until it has made at least
+        // one genuine attempt to learn what the server already has, so a
+        // real remote cap always gets first say.
+        if (!auditSync.everPulled) {
+          auditSync.everPulled = true;
+          if (auditSync.deferredPush) { auditSync.deferredPush = false; auditSyncSchedulePush(); }
+        }
       }
     }
 
     function auditSyncSchedulePush() {
       if (auditSync.readOnly) return;
+      // Don't send anything until this session has made at least one
+      // attempt to learn the server's value first — see the note in
+      // auditSyncPull's `finally` block for why. The deferred push is
+      // retried automatically the moment that first attempt finishes.
+      if (!auditSync.everPulled) { auditSync.deferredPush = true; return; }
       const json = JSON.stringify(auditSyncSnapshot(window.auditAnalysisState));
       if (json === auditSync.lastJson) return; // the server already has exactly this view
       auditSync.pendingPush = true;
@@ -11282,6 +11307,7 @@ html.page-fade-ready body {
       if (auditSync.pushTimer) { clearTimeout(auditSync.pushTimer); auditSync.pushTimer = null; }
       auditSync.version = 0; auditSync.lastJson = null;
       auditSync.pendingPush = false; auditSync.pushing = false; auditSync.pulling = false; auditSync.readOnly = false;
+      auditSync.everPulled = false; auditSync.deferredPush = false;
       const cfg = window.auditAnalysisState;
       if (cfg) {
         cfg.overdueDays = 90; cfg.spacingDays = 3; cfg.minScore = 55; cfg.minGapDays = 30;
