@@ -17716,7 +17716,7 @@ html.page-fade-ready body {
       }
       const icon = diff > 0 ? '\u25b2' : '\u25bc';
       const diffLabel = diff > 0 ? `+${diff}` : `\u2212${Math.abs(diff)}`;
-      el.innerHTML = `<span class="${color}">${icon} ${diffLabel}</span> <span class="text-slate-400 font-normal">since last check</span>`;
+      el.innerHTML = `<span class="${color}">${icon} ${diffLabel}</span>`;
     }
 
     function updateStatCards() {
@@ -17766,7 +17766,6 @@ html.page-fade-ready body {
       renderTrendBadge('stat-sales-trend', sum.salesImproving || 0, prevSnapshot.salesImproving, 'up');
       animateCountUp(document.getElementById('stat-service-target'), sum.serviceTarget || 0, { suffixHTML: ' <span class="text-sm font-medium text-slate-500">on target</span>' });
       document.getElementById('stat-service-sub').innerText = `${sum.serviceDeclining || 0} declining`;
-      renderTrendBadge('stat-service-trend', sum.serviceTarget || 0, prevSnapshot.serviceTarget, 'up');
       
       const pctChange = sum.findings2024 > 0 ? Math.round(((sum.findings2025 - sum.findings2024) / sum.findings2024) * 100) : 0;
       
