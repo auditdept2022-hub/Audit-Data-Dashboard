@@ -12900,7 +12900,6 @@ html.page-fade-ready body {
           <summary class="flex flex-wrap items-center gap-x-2 gap-y-1 px-3.5 py-2.5 cursor-pointer select-none rounded-xl hover:bg-gray-50">
             <span class="p-0.5 rounded-md bg-accentIndigo/10 text-accentIndigo text-[11px] leading-none">⚙</span>
             <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Scoring Configuration</span>
-            ${wsBadge}
             <span class="text-[10px] font-medium text-slate-400 normal-case tracking-normal">Risk ≥ ${cfg.minScore} · skip &lt;${cfg.minGapDays}d · always &gt;${cfg.overdueDays}d · ${cfg.spacingDays}d spacing<span class="hidden sm:inline"> — tap to adjust</span></span>
           </summary>
 
@@ -12924,16 +12923,13 @@ html.page-fade-ready body {
                 <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-snug">Auditor spacing</span>
                 <span class="flex items-center gap-1">${cfgInput('spacingDays', 1, 3650)}<span class="text-[9px] text-slate-400">biz d</span></span>
               </label>
-              <span class="w-px self-stretch bg-coolBorder hidden sm:block"></span>
               <label class="flex flex-col gap-1" title="Weighted findings (3x 2026, 2x 2025, 1x 2024) at or above this score 100 on the findings factor. Fixed — not recalculated from whichever branches are currently loaded.">
                 <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-snug">Findings cap</span>
                 <span class="flex items-center gap-1">${cfgInput('findingsCap', 1, 1000)}<span class="text-[9px] text-slate-400">pts</span></span>
-                ${capSanityNote(findingsSanity)}
               </label>
               <label class="flex flex-col gap-1" title="Branches with this many accounts or more score 100 on the portfolio-size factor. Fixed — not recalculated from whichever branches are currently loaded.">
                 <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-snug">Size cap</span>
                 <span class="flex items-center gap-1">${cfgInput('sizeCap', 1, 10000000)}<span class="text-[9px] text-slate-400">accts</span></span>
-                ${capSanityNote(sizeSanity)}
               </label>
               <button type="button" onclick="resetAuditRiskCaps()" title="Recompute both caps from the current portfolio's 90th percentile, then freeze them again from here" class="px-2 py-1 text-[9.5px] font-bold bg-white border border-coolBorder rounded-md hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap self-center">Recalc caps</button>
             </div>
@@ -12952,11 +12948,11 @@ html.page-fade-ready body {
               <div class="divide-y divide-coolBorder border border-coolBorder rounded-lg bg-white overflow-hidden">${weightInputs}</div>
               <p class="text-[9px] text-slate-400 leading-snug px-0.5 mt-1">Dot = match to real findings so far: <span class="text-accentEmerald font-semibold">green</span> strong, <span class="text-accentBlue font-semibold">blue</span> moderate, <span class="text-slate-400 font-semibold">grey</span> weak.</p>
               <div class="flex flex-wrap items-center gap-2 pt-1.5">
-                <span id="aa-w-hint" class="hidden text-[9.5px] font-bold text-accentAmber">Preview only — press OK to apply.</span>
+                <span id="aa-w-hint" class="hidden text-[9.5px] font-bold text-accentAmber">Preview only — press Save to apply.</span>
                 <span class="ml-auto flex items-center gap-2">
                   <button type="button" onclick="suggestAuditRiskWeightsFromData()" title="Set weights proportional to each factor's correlation with actual findings" class="px-2 py-1 text-[9.5px] font-bold bg-accentIndigo/10 text-accentIndigo border border-accentIndigo/20 rounded-md hover:brightness-95 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Suggest from data</button>
                   <button type="button" onclick="resetAuditRiskWeights()" title="Re-derive weights from findings correlation; falls back to the original starting numbers only if there isn't enough audit history yet" class="px-2 py-1 text-[9.5px] font-bold bg-white border border-coolBorder rounded-md hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Reset</button>
-                  ${okBtn('applyAllAuditAnalysisSettings()', 'Apply all settings (thresholds and weights)')}
+                  <button type="button" onclick="applyAllAuditAnalysisSettings()" aria-label="Apply all settings (thresholds and weights)" class="px-2.5 py-1 text-[10px] font-extrabold bg-accentCyan text-white rounded-lg hover:brightness-95 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Save</button>
                 </span>
               </div>
             </div>
@@ -13002,7 +12998,6 @@ html.page-fade-ready body {
               <span class="text-[9px] font-bold text-slate-400">${a.totalBranches} branches</span>
             </div>
             <p class="text-[10px] text-slate-400 mb-2.5">Branches, % of portfolio and average score per tier. Tap a row to list those branches.</p>
-            <div class="flex h-2.5 w-full rounded-full overflow-hidden mb-2.5 bg-gray-100">${a.riskTiers.map(t => a.totalBranches ? `<div title="${escapeHTML(t.label)}: ${t.count}" style="width:${(t.count / a.totalBranches) * 100}%; background:${TINT_HEX[t.tint] || '#94a3b8'}"></div>` : '').join('')}</div>
             <div class="space-y-1">${tierRows}</div>
           </div>
           <div class="p-3.5 bg-white border border-coolBorder rounded-xl shadow-sm lg:col-span-2">
