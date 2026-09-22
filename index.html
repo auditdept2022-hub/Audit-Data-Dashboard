@@ -10884,12 +10884,12 @@ html.page-fade-ready body {
       { key: 'findings', label: 'Audit findings', defaultWeight: 26,
         how: 'Findings are weighted 3x for 2026, 2x for 2025 and 1x for 2024, then scaled against a FIXED cap (editable in Settings; starts at the portfolio\'s 90th percentile the first time it\'s computed, never below ' + AUDIT_FINDINGS_MIN_CAP + ' weighted points, then stays put). No findings = 0.',
         why: 'Past findings are the strongest sign of where more will be found; recent years count more than old ones. The cap is fixed rather than recalculated on every view so the same findings history always produces the same score, instead of drifting as the portfolio changes.' },
-      { key: 'collection', label: 'Collection trend', defaultWeight: 12,
-        how: 'Declining = 100, Recovering = 50, Stable = 20, Improving = 0.',
-        why: 'A worsening collection trend is an early warning of credit-control or reporting problems.' },
-      { key: 'efficiency', label: 'Collection efficiency', defaultWeight: 18,
+      { key: 'collection', label: 'Collection status (reported)', defaultWeight: 12,
+        how: 'Declining = 100, Recovering = 50, Stable = 20, Improving = 0. Sourced as its own status column, separate from the Collection Efficiency % below.',
+        why: 'A separately reported collection status can flag a shift before it shows up in the efficiency percentage, or catch context the percentage alone misses. Because it and Collection Efficiency both describe "is collection getting better or worse", check the Overlap check above the weight list before trusting both at full strength — if they move together in your data, one is being paid for twice.' },
+      { key: 'efficiency', label: 'Collection efficiency (%, level & trend)', defaultWeight: 18,
         how: 'Level (70% of this factor) uses the same 70% / 50% cut-offs as the branch cards: 100% = 0 pts, 70% = 35 pts, 50% = 70 pts, 0% = 100 pts. Trend (30%) adds up to 100 pts if efficiency has fallen 15+ points since the earliest month on record; flat or improving adds 0. Uses the most recent month that has a figure. No figure in any month = excluded.',
-        why: 'Low efficiency means less of what is due is being collected, and a branch that is actively getting worse is a stronger reason to visit than one that is merely low and flat. Level and trend are blended into this ONE factor (not scored separately) so a falling efficiency is never counted twice toward the total.' },
+        why: 'Low efficiency means less of what is due is being collected, and a branch that is actively getting worse is a stronger reason to visit than one that is merely low and flat. Level and trend are blended into this ONE factor (not scored separately) so a falling efficiency is never counted twice toward the total. This is the numeric counterpart to the reported Collection status above — see the Overlap check if both are carrying full weight.' },
       { key: 'repo', label: 'Repo rate', defaultWeight: 16,
         how: 'Level (70% of this factor) uses the same 4% / 7% cut-offs as the branch cards: 0% = 0 pts, 4% = 35 pts, 7% = 70 pts, 12% or more = 100 pts. Trend (30%) adds up to 100 pts if the repo rate has risen 3+ points since the earliest month on record; flat or improving adds 0. No account data = excluded.',
         why: 'A high repossession rate points to weaker loan quality or recovery handling, and a rate that is actively rising is a stronger signal than one that is high but stable. Level and trend are blended into this ONE factor (not scored separately) so a worsening repo rate is never counted twice toward the total.' },
@@ -11605,6 +11605,35 @@ html.page-fade-ready body {
 
     // Percentile of the POSITIVE values only, so a portfolio where most
     // branches have zero findings still gets a meaningful scale.
+    // Shared, single-source-of-truth versions of the two figures the caps are
+    // measured against (weighted findings, live account count). Several
+    // places used to compute their own local copy of this same logic; these
+    // globals exist so the new cap-sanity check below is guaranteed to be
+    // scoring branches exactly the same way computeAuditRiskScores does.
+    function auditFindingsWeighted(b) { return (b.findings2024 || 0) + (b.findings2025 || 0) * 2 + (b.findings2026 || 0) * 3; }
+    function auditAccountsOf(b) { return (b.accountsMay || 0) > 0 ? b.accountsMay : (b.accountsApr || 0); }
+
+    // "Is this cap actually calibrated to the portfolio, or just a stale/
+    // guessed number?" A findings/size cap that's too LOW makes most of the
+    // portfolio score a flat 100 on that factor (it stops discriminating
+    // between a branch that's slightly over the cap and one that's wildly
+    // over it); a cap that's way ABOVE where the live 90th percentile
+    // currently sits is stale relative to how the book has moved since it
+    // was frozen. Both are shown so a manager can see WHY a cap needs
+    // attention instead of just being told to trust it.
+    function auditCapSanity(branches, cap, valueOf) {
+      const values = (branches || []).map(valueOf).filter(v => v > 0);
+      if (!values.length || !cap) return null;
+      const maxed = values.filter(v => v >= cap).length;
+      const livePctl = Math.round(auditRiskPercentile(values, 0.9)) || 0;
+      return {
+        maxedCount: maxed, total: values.length,
+        maxedPct: Math.round((maxed / values.length) * 100),
+        livePctl,
+        stale: livePctl > 0 && (cap < livePctl * 0.6 || cap > livePctl * 1.6)
+      };
+    }
+
     function auditRiskPercentile(values, p) {
       const a = values.filter(v => v > 0).sort((x, y) => x - y);
       if (!a.length) return 0;
@@ -11651,6 +11680,44 @@ html.page-fade-ready body {
       return out;
     }
 
+    // DOUBLE-COUNTING CHECK: correlates every pair of factors' risk POINTS
+    // against each OTHER (not against findings). Two factors can each look
+    // fine individually against findings (see computeAuditFactorCorrelations
+    // above) while still moving almost in lockstep with each other -- e.g. a
+    // categorical "collection trend" label and the numeric "collection
+    // efficiency" trend both tend to say the same thing about the same
+    // branches. When that happens, giving both a separate weight isn't two
+    // pieces of evidence, it's one piece of evidence counted twice, which
+    // quietly inflates "collection" (or whichever pair) beyond what it
+    // earned. This surfaces those pairs with the actual r so a management
+    // reviewer sees evidence, not a guess about which factors "feel" similar.
+    // Only pairs with at least AUDIT_OVERLAP_MIN_N branches of shared data
+    // and |r| >= AUDIT_OVERLAP_THRESHOLD are returned, sorted strongest-first.
+    const AUDIT_OVERLAP_THRESHOLD = 0.5;
+    const AUDIT_OVERLAP_MIN_N = 5;
+    function computeAuditFactorOverlap(rows) {
+      const keys = AUDIT_RISK_FACTORS.map(f => f.key);
+      const labelOf = k => (AUDIT_RISK_FACTORS.find(f => f.key === k) || {}).label || k;
+      const pairs = [];
+      for (let i = 0; i < keys.length; i++) {
+        for (let j = i + 1; j < keys.length; j++) {
+          const ka = keys[i], kb = keys[j];
+          const xs = [], ys = [];
+          rows.forEach(r => {
+            const fa = r.risk && r.risk.factors && r.risk.factors.find(f => f.key === ka);
+            const fb = r.risk && r.risk.factors && r.risk.factors.find(f => f.key === kb);
+            if (fa && fb && fa.available && fb.available) { xs.push(fa.points); ys.push(fb.points); }
+          });
+          const r = auditRiskPearson(xs, ys);
+          if (r !== null && xs.length >= AUDIT_OVERLAP_MIN_N && Math.abs(r) >= AUDIT_OVERLAP_THRESHOLD) {
+            pairs.push({ a: ka, b: kb, labelA: labelOf(ka), labelB: labelOf(kb), r: r, n: xs.length });
+          }
+        }
+      }
+      pairs.sort((x, y) => Math.abs(y.r) - Math.abs(x.r));
+      return pairs;
+    }
+
     // Core of the data-driven weighting: sets every factor's weight
     // proportional to how strongly it actually correlates with a branch's
     // findings history (|r|), instead of leaving the hand-picked starting
@@ -11664,6 +11731,7 @@ html.page-fade-ready body {
     // factor's .points exist; does not touch cfg or storage itself.
     function computeDataDrivenAuditRiskWeights(rows, cfg) {
       const corr = computeAuditFactorCorrelations(rows);
+      const overlap = computeAuditFactorOverlap(rows);
       const findingsWeight = Math.max(0, Number(cfg.weights.findings) || 0) || 25;
       const remaining = Math.max(0, 100 - findingsWeight);
       const others = AUDIT_RISK_FACTORS.filter(f => f.key !== 'findings');
@@ -11674,10 +11742,33 @@ html.page-fade-ready body {
         if (c && c.r !== null && c.n >= 5) { usableFactors++; return Math.max(floor, Math.abs(c.r) * 100); }
         return floor;
       });
-      const sum = strengths.reduce((s, v) => s + v, 0) || 1;
+      // DEDUPLICATE OVERLAPPING FACTORS before turning strengths into weights.
+      // Without this, two factors that move together (e.g. Collection trend
+      // and Collection efficiency) each get their FULL findings-correlation
+      // weight, so the same underlying signal is paid for twice and the
+      // "collection" side of the score ends up overweighted relative to
+      // factors that only appear once. Group factors into overlap clusters
+      // (union-find over the pairs from computeAuditFactorOverlap, which are
+      // already |r| >= 0.5 with >=5 branches of shared data) and divide each
+      // clustered factor's strength by sqrt(cluster size) -- the standard
+      // fix for redundant/correlated evidence: two 70%-confident but
+      // redundant signals should carry roughly as much combined weight as
+      // one 70%-confident signal, not two.
+      const keys = others.map(f => f.key);
+      const parent = {}; keys.forEach(k => parent[k] = k);
+      const find = k => (parent[k] === k ? k : (parent[k] = find(parent[k])));
+      const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; };
+      overlap.forEach(p => { if (keys.includes(p.a) && keys.includes(p.b)) union(p.a, p.b); });
+      const clusterSize = {};
+      keys.forEach(k => { const root = find(k); clusterSize[root] = (clusterSize[root] || 0) + 1; });
+      const dedupedStrengths = strengths.map((s, i) => {
+        const size = clusterSize[find(keys[i])] || 1;
+        return size > 1 ? s / Math.sqrt(size) : s;
+      });
+      const sum = dedupedStrengths.reduce((s, v) => s + v, 0) || 1;
       const w = { findings: findingsWeight };
-      others.forEach((f, i) => { w[f.key] = Math.round((strengths[i] / sum) * remaining); });
-      return { weights: w, corr, usableFactors, n: rows.length };
+      others.forEach((f, i) => { w[f.key] = Math.round((dedupedStrengths[i] / sum) * remaining); });
+      return { weights: w, corr, overlap, usableFactors, n: rows.length };
     }
 
     // Button handler: explicitly (re)derive weights from the current
@@ -11692,7 +11783,10 @@ html.page-fade-ready body {
       cfg.weightsSource = 'data';
       try { localStorage.setItem(AUDIT_RISK_WEIGHTS_KEY, JSON.stringify(result.weights)); } catch (e) {}
       saveAuditRiskWeightsSource('data');
-      cfg.notice = { type: 'ok', text: 'Weights set from each factor\u2019s correlation with actual findings across ' + rows.length + ' branches (r shown next to each factor below). Review, then press OK to keep them.' };
+      const overlapNote = (result.overlap && result.overlap.length)
+        ? ' ' + result.overlap.length + ' overlapping pair' + (result.overlap.length > 1 ? 's' : '') + ' (' + result.overlap.map(p => p.labelA + ' \u2194 ' + p.labelB).join(', ') + ') were discounted so that signal isn\u2019t paid for twice \u2014 see the overlap check below.'
+        : '';
+      cfg.notice = { type: 'ok', text: 'Weights set from each factor\u2019s correlation with actual findings across ' + rows.length + ' branches (r shown next to each factor below).' + overlapNote + ' Review, then press OK to keep them.' };
       cfg.weightsOpen = true;
       refreshAuditAnalysis(false);
     }
@@ -12090,7 +12184,8 @@ html.page-fade-ready body {
         neverAudited, overdueUnscheduled, riskFlagged, scheduledPastDue, scheduledUpcoming, onTrack,
         workload, auditorNames, suggestions, avgIntervalDays, avgRiskScore,
         distribution, recentCompletions, riskTiers, driverStats, rows,
-        correlations: computeAuditFactorCorrelations(rows)
+        correlations: computeAuditFactorCorrelations(rows),
+        overlap: computeAuditFactorOverlap(rows)
       };
     }
 
@@ -12524,6 +12619,24 @@ html.page-fade-ready body {
         return '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide bg-slate-200 text-slate-500 border border-slate-300" title="Not enough audit history yet (need at least ' + AUDIT_WEIGHTS_MIN_ROWS + ' scored branches) to derive weights from findings, so the original starting numbers are in use.">● Starting defaults</span>';
       })();
 
+      // CAP SANITY — turns "is 150 the right number?" from a guess into a
+      // read of the actual current portfolio: how many branches are pinned
+      // at the max on this factor right now (cap too low to discriminate
+      // between them), and where the 90th percentile sits TODAY vs. the
+      // frozen cap (cap gone stale as the book has grown/shrunk since it
+      // was last set).
+      const branchesNow = a.rows.map(r => r.b);
+      const findingsSanity = auditCapSanity(branchesNow, cfg.findingsCap, auditFindingsWeighted);
+      const sizeSanity = auditCapSanity(branchesNow, cfg.sizeCap, auditAccountsOf);
+      const capSanityNote = s => {
+        if (!s) return '';
+        const bits = [];
+        if (s.maxedPct >= 15) bits.push(s.maxedCount + ' of ' + s.total + ' branches (' + s.maxedPct + '%) are already maxed out at 100 on this factor — the cap may be too low to tell them apart.');
+        if (s.stale) bits.push('the portfolio\'s live 90th percentile is now ' + s.livePctl + ', versus this frozen cap — consider "Recalc caps".');
+        if (!bits.length) return '<span class="text-[8.5px] text-accentEmerald font-semibold" title="' + s.maxedCount + ' of ' + s.total + ' branches currently score 100 on this factor; the live 90th percentile is ' + s.livePctl + '.">✓ looks calibrated</span>';
+        return '<span class="text-[8.5px] text-accentAmber font-semibold" title="' + escapeHTML(bits.join(' ')) + '">⚠ check this</span>';
+      };
+
       const weightInputs = AUDIT_RISK_FACTORS.map(f => {
         const val = Number(cfg.weights[f.key]) || 0;
         const pct = Math.round((val / weightSum) * 100);
@@ -12621,10 +12734,12 @@ html.page-fade-ready body {
             <label class="flex flex-col gap-1" title="Weighted findings (3x 2026, 2x 2025, 1x 2024) at or above this score 100 on the findings factor. Fixed — not recalculated from whichever branches are currently loaded.">
               <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wide leading-tight">Findings cap <span class="normal-case font-medium">(advanced)</span></span>
               <span class="flex items-center gap-1">${cfgInput('findingsCap', 1, 1000)}<span class="text-[9px] text-slate-400">pts</span></span>
+              ${capSanityNote(findingsSanity)}
             </label>
             <label class="flex flex-col gap-1" title="Branches with this many accounts or more score 100 on the portfolio-size factor. Fixed — not recalculated from whichever branches are currently loaded.">
               <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wide leading-tight">Size cap <span class="normal-case font-medium">(advanced)</span></span>
               <span class="flex items-center gap-1">${cfgInput('sizeCap', 1, 10000000)}<span class="text-[9px] text-slate-400">accts</span></span>
+              ${capSanityNote(sizeSanity)}
             </label>
             <button type="button" onclick="resetAuditRiskCaps()" title="Recompute both caps from the current portfolio's 90th percentile, then freeze them again from here" class="px-2 py-1 text-[9px] font-bold bg-white border border-coolBorder rounded-md hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Recalc caps</button>
             <span class="flex-1"></span>
@@ -12636,6 +12751,12 @@ html.page-fade-ready body {
             <summary class="flex flex-wrap items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-slate-700 cursor-pointer select-none">Risk score weights ${wsBadge} <span class="font-medium text-slate-400 normal-case">(tap to adjust)</span></summary>
             <div class="px-2.5 pb-2">
               <p class="text-[9.5px] text-slate-400 leading-snug mb-1.5 px-0.5">Hover a factor for why it matters. Dot = how well it's actually matched real findings so far: <span class="text-accentEmerald font-semibold">green</span> strong, <span class="text-accentBlue font-semibold">blue</span> moderate, <span class="text-slate-400 font-semibold">grey</span> weak. Don't need to sum to 100 — auto-converted to %.</p>
+              ${(a.overlap && a.overlap.length) ? `
+              <div class="mb-1.5 px-2 py-1.5 rounded-lg bg-accentAmber/10 border border-accentAmber/25 text-[9.5px] text-slate-600 leading-snug">
+                <span class="font-bold text-accentAmber uppercase tracking-wide">⚠ Overlap check</span> —
+                ${a.overlap.map(p => `<span title="Pearson r = ${p.r.toFixed(2)} across ${p.n} branches with data in both factors — how closely these two factors' points moved together, not how either relates to findings.">${escapeHTML(p.labelA)} and ${escapeHTML(p.labelB)} move together in your data (r = ${p.r.toFixed(2)}, n = ${p.n})</span>`).join('; ')}.
+                They may be capturing the same underlying signal rather than two independent ones — weighting both at full strength risks double-counting it. <b>Suggest from data</b> already discounts overlapping factors for this; if you're setting weights by hand, consider lowering one or combining them into a single factor instead.
+              </div>` : ''}
               <div class="divide-y divide-coolBorder border border-coolBorder rounded-lg bg-white overflow-hidden">${weightInputs}</div>
               <div class="mt-1.5 flex flex-wrap items-center gap-2">
                 <span id="aa-w-hint" class="hidden text-[9px] font-bold text-accentAmber">Preview only — press OK to apply.</span>
