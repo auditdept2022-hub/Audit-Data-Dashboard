@@ -12378,23 +12378,35 @@ html.page-fade-ready body {
       // branch's real findings history, computed fresh every render (see
       // computeAuditFactorCorrelations). The findings factor has none (it
       // would be circular); a factor with under 5 branches of data shows
-      // "insufficient data" instead of a number that would be noise.
+      // "not enough history yet" instead of a number that would be noise.
+      // Plain-language strength label is the primary, visible text; the
+      // actual r/n statistic moves into a tooltip for anyone who wants it,
+      // since "r = 0.07 (n=56)" on its own means nothing to most readers.
       const corrLabel = key => {
-        if (key === 'findings') return '';
+        if (key === 'findings') return '<span class="text-slate-400" title="Not shown for Audit findings itself — comparing findings to findings would always show a perfect link, which is not meaningful.">— (self)</span>';
         const c = a.correlations && a.correlations[key];
-        if (!c || c.r === null || c.n < 5) return '<span class="text-slate-400">r: insufficient data</span>';
-        return '<span class="' + (Math.abs(c.r) >= 0.3 ? 'text-accentEmerald' : 'text-slate-400') + '" title="Pearson correlation with actual findings, across ' + c.n + ' branches with data">r = ' + c.r.toFixed(2) + ' (n=' + c.n + ')</span>';
+        if (!c || c.r === null || c.n < 5) {
+          return '<span class="text-slate-400" title="Fewer than 5 branches currently have enough data to check this.">Not enough history yet</span>';
+        }
+        const abs = Math.abs(c.r);
+        const strength = abs >= 0.5 ? 'Strong' : (abs >= 0.3 ? 'Moderate' : 'Weak');
+        const color = abs >= 0.5 ? 'text-accentEmerald' : (abs >= 0.3 ? 'text-accentBlue' : 'text-slate-400');
+        const tip = 'Statistically: Pearson r = ' + c.r.toFixed(2) + ', across ' + c.n + ' branches with data. Higher (closer to 1) means this factor has more reliably lined up with real findings in the past.';
+        return '<span class="' + color + '" title="' + tip + '">' + strength + ' link to real findings</span>';
       };
 
       const weightInputs = AUDIT_RISK_FACTORS.map(f => `
-          <label class="flex items-center justify-between gap-1.5 text-[10px] font-semibold text-slate-600">
-            <span class="truncate" title="${escapeHTML(f.why)}">${escapeHTML(f.label)}</span>
-            <span class="flex items-center gap-1 shrink-0">
-              <span class="text-[9px] font-normal">${corrLabel(f.key)}</span>
-              <input id="aa-w-${f.key}" type="number" inputmode="decimal" min="0" max="100" step="1" value="${Number(cfg.weights[f.key]) || 0}" oninput="previewAuditRiskWeights()" onkeydown="if(event.key==='Enter'){applyAllAuditAnalysisSettings()}" class="w-12 px-1 py-0.5 border border-coolBorder rounded-md text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
-              <span id="aa-wpct-${f.key}" class="w-8 text-right text-[10px] font-bold text-accentIndigo">${Math.round(((Number(cfg.weights[f.key]) || 0) / weightSum) * 100)}%</span>
-            </span>
-          </label>`).join('');
+          <div class="rounded-lg border border-coolBorder bg-white px-2.5 py-2">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[11px] font-bold text-slate-700">${escapeHTML(f.label)}</span>
+              <span class="flex items-center gap-1 shrink-0">
+                <input id="aa-w-${f.key}" type="number" inputmode="decimal" min="0" max="100" step="1" value="${Number(cfg.weights[f.key]) || 0}" oninput="previewAuditRiskWeights()" onkeydown="if(event.key==='Enter'){applyAllAuditAnalysisSettings()}" title="Weight (points). Higher = counts for more of the score." class="w-12 px-1 py-0.5 border border-coolBorder rounded-md text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
+                <span id="aa-wpct-${f.key}" class="w-9 text-right text-[11px] font-bold text-accentIndigo">${Math.round(((Number(cfg.weights[f.key]) || 0) / weightSum) * 100)}%</span>
+              </span>
+            </div>
+            <p class="mt-0.5 text-[10px] leading-snug text-slate-500">${escapeHTML(f.why)}</p>
+            <p class="mt-1 text-[10px] font-semibold">${corrLabel(f.key)}</p>
+          </div>`).join('');
 
       const methodologyRows = AUDIT_RISK_FACTORS.map(f => `
           <tr class="border-t border-accentIndigo/15 align-top">
@@ -12471,9 +12483,10 @@ html.page-fade-ready body {
           <details class="border-t border-coolBorder" ${cfg.weightsOpen ? 'open' : ''} ontoggle="setAuditWeightsOpen(this.open)">
             <summary class="px-3 py-1.5 text-[11px] font-bold text-slate-700 cursor-pointer select-none">Risk score weights — how much each factor counts <span class="font-medium text-slate-500">(tap to adjust; saved on this device)</span></summary>
             <div class="px-3 pb-2">
-              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-5 gap-y-1">${weightInputs}</div>
-              <div class="mt-1.5 flex flex-wrap items-center gap-2">
-                <span class="text-[9px] text-slate-500">Weights are relative — the percentages show each factor's share of the final score. Missing data is left out and the rest rescaled. "r" is each factor's correlation with actual findings across the portfolio — evidence for the weight, not just a rationale.</span>
+              <p class="text-[11px] text-slate-600 leading-relaxed mb-2">Each box below is one factor in the risk score. Raise a number to make that factor count for more of the score, lower it to count for less — you don't need them to add up to 100, they're automatically converted to the percentages shown. The colored line under each factor is a plain-language check on how well it has actually matched real audit findings across your branches so far: <span class="text-accentEmerald font-semibold">Strong</span> is the best evidence for a heavier weight, <span class="text-accentBlue font-semibold">Moderate</span> is decent evidence, <span class="text-slate-400 font-semibold">Weak</span> means the past data hasn't backed it up much (hover it for the exact statistic).</p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">${weightInputs}</div>
+              <div class="mt-2 flex flex-wrap items-center gap-2">
+                <span class="text-[9px] text-slate-500">Weights are relative — the percentages show each factor's share of the final score. If a branch is missing data for a factor, that factor is left out for that branch only and the rest are rescaled so it's never penalized for a blank cell.</span>
                 <span id="aa-w-hint" class="hidden text-[9px] font-bold text-accentAmber">Preview only — press OK to apply.</span>
                 <span class="ml-auto flex items-center gap-1.5">
                   <button type="button" onclick="suggestAuditRiskWeightsFromData()" title="Set weights proportional to each factor's correlation with actual findings, instead of the hand-picked defaults" class="px-2 py-0.5 text-[10px] font-bold bg-accentIndigo/10 text-accentIndigo border border-accentIndigo/20 rounded-md hover:brightness-95 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Suggest weights from data</button>
