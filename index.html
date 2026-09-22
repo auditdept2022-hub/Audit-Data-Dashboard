@@ -11556,6 +11556,21 @@ html.page-fade-ready body {
       refreshAuditAnalysis(true);
     }
 
+    // Used by the Management Attention cards, where one card can need more
+    // than one filter at once (e.g. a specific scheduling reason AND a risk
+    // tier) — setAuditDrill only ever sets one filter field at a time, so
+    // this takes a small object of { field: value } overrides instead.
+    // Nothing here computes anything new: it just points the existing
+    // filtered table (getAuditAnalysisTableRows) at rows that were already
+    // bucketed by computeAuditScheduleAnalysis.
+    function focusAuditAttention(overrides) {
+      const cfg = window.auditAnalysisState;
+      resetAuditTableFilterState(cfg);
+      cfg.filterBucket = 'ALL';
+      Object.keys(overrides || {}).forEach(k => { cfg[k] = overrides[k]; });
+      refreshAuditAnalysis(true);
+    }
+
     // Click a branch in "Recently Completed Audits": show just that branch
     // with its score breakdown already open.
     function focusAuditBranch(name) {
@@ -12242,6 +12257,77 @@ html.page-fade-ready body {
       };
     }
 
+    // MANAGEMENT ATTENTION — the handful of exceptions a manager most needs
+    // to see first, surfaced automatically from the SAME analysis object
+    // (`a`) the rest of the view already renders from. This does not compute
+    // anything new: every count and "worst" branch below comes straight out
+    // of the buckets, workload map and risk scores computeAuditScheduleAnalysis
+    // already built, just ranked and phrased for a 5-second read. Each item
+    // drills into the existing filtered table via focusAuditAttention.
+    function computeAuditManagementAttention(a, cfg) {
+      const items = [];
+      const worstOf = rows => rows.length ? rows.reduce((w, r) => r.risk.score > w.risk.score ? r : w) : null;
+      const plural = (n, s) => n + ' ' + s + (n === 1 ? '' : 's');
+
+      const criticalUnaddressed = a.suggestions.filter(r => r.risk.tier.key === 'CRITICAL');
+      if (criticalUnaddressed.length) {
+        const worst = worstOf(criticalUnaddressed);
+        items.push({ severity: 100, tint: 'accentRose',
+          title: plural(criticalUnaddressed.length, 'critical-risk branch') + ' with nothing resolved',
+          detail: 'Worst: ' + worst.b.name + ' — risk score ' + worst.risk.score.toFixed(0) + ', ' + worst.reason.toLowerCase() + '.',
+          onclick: "focusAuditAttention({tierFilter:'CRITICAL'})" });
+      }
+      if (a.neverAudited.length) {
+        const worst = a.neverAudited.slice().sort((x, y) => auditAccountsOf(y.b) - auditAccountsOf(x.b))[0];
+        const accts = auditAccountsOf(worst.b);
+        items.push({ severity: 90, tint: 'accentRose',
+          title: plural(a.neverAudited.length, 'branch') + ' never audited',
+          detail: 'Largest exposure: ' + worst.b.name + (accts ? ' (' + accts.toLocaleString() + ' accounts)' : '') + '.',
+          onclick: "focusAuditAttention({reasonFilter:'Never audited'})" });
+      }
+      if (a.riskFlagged.length) {
+        const worst = worstOf(a.riskFlagged);
+        items.push({ severity: 85, tint: 'accentRose',
+          title: plural(a.riskFlagged.length, 'high-risk branch') + ' not yet scheduled',
+          detail: 'Highest: ' + worst.b.name + ' — risk score ' + worst.risk.score.toFixed(0) + '.',
+          onclick: "focusAuditAttention({reasonFilter:'High risk, not yet scheduled'})" });
+      }
+      if (a.scheduledPastDue.length) {
+        const worst = a.scheduledPastDue.slice().sort((x, y) => (x.info.expectedAuditDateRaw || 0) - (y.info.expectedAuditDateRaw || 0))[0];
+        const daysLate = worst.info.expectedAuditDateRaw ? Math.round((Date.now() - worst.info.expectedAuditDateRaw) / 86400000) : null;
+        items.push({ severity: 75, tint: 'accentAmber',
+          title: plural(a.scheduledPastDue.length, 'branch') + ' whose scheduled date already passed',
+          detail: 'Most overdue: ' + worst.b.name + (daysLate !== null ? ' — ' + daysLate + ' days past its expected date' : '') + '.',
+          onclick: "focusAuditAttention({reasonFilter:'Expected date already passed'})" });
+      }
+      if (a.overdueUnscheduled.length) {
+        const worst = a.overdueUnscheduled.slice().sort((x, y) => (y.info.intervalDays || 0) - (x.info.intervalDays || 0))[0];
+        items.push({ severity: 65, tint: 'accentAmber',
+          title: plural(a.overdueUnscheduled.length, 'branch') + ' overdue with nothing scheduled',
+          detail: 'Longest wait: ' + worst.b.name + ' — ' + worst.info.intervalDays + ' days since last audit.',
+          onclick: "focusAuditAttention({reasonFilter:'Overdue, not yet scheduled'})" });
+      }
+      if (a.auditorNames.length >= 2) {
+        const loads = a.auditorNames.map(n => ({ name: n, count: a.workload[n] || 0 }));
+        const max = loads.reduce((m, x) => x.count > m.count ? x : m, loads[0]);
+        const avg = loads.reduce((s, x) => s + x.count, 0) / loads.length;
+        if (max.count >= 3 && max.count >= avg * 1.5) {
+          items.push({ severity: 40, tint: 'accentIndigo',
+            title: 'Uneven auditor workload',
+            detail: max.name + ' has ' + max.count + ' branches queued, versus a portfolio average of ' + (Math.round(avg * 10) / 10) + '.',
+            onclick: "focusAuditAttention({queueFilter:" + JSON.stringify(String(max.name)) + "})" });
+        }
+      }
+      const upcomingHighRisk = a.scheduledUpcoming.filter(r => auditIsHighRisk(r, cfg));
+      if (upcomingHighRisk.length) {
+        items.push({ severity: 30, tint: 'accentBlue',
+          title: plural(upcomingHighRisk.length, 'upcoming audit') + ' worth prioritizing sooner',
+          detail: 'Already scheduled, but current data puts ' + (upcomingHighRisk.length === 1 ? 'it' : 'them') + ' at High/Critical risk.',
+          onclick: "focusAuditAttention({reasonFilter:'Scheduled — upcoming'})" });
+      }
+      return items.sort((x, y) => y.severity - x.severity).slice(0, 6);
+    }
+
     // One plain-English explanation answering "why is this branch on (or
     // not on) the schedule?" — shown in the row's breakdown and in the
     // export. Written DATA-FIRST on purpose: it leads with the actual
@@ -12338,11 +12424,16 @@ html.page-fade-ready body {
           title = 'On Track'; rows = all.filter(r => r.reason === 'On track' || r.reason === 'Monitor — recently audited'); break;
         case 'HIGH_RISK':
           title = 'High-Risk Branches (score ' + cfg.minScore + '+ or a data red flag), ranked by score'; rows = all.filter(r => auditIsHighRisk(r, cfg)); break;
+        case 'OVERDUE':
+          title = 'Overdue Audits (no audit for ' + cfg.overdueDays + '+ days, or a scheduled date that passed)';
+          rows = all.filter(r => r.reason === 'Overdue, not yet scheduled' || r.reason === 'Expected date already passed'); break;
+        case 'EVER_AUDITED':
+          title = 'Branches Audited At Least Once (audit coverage)'; rows = all.filter(r => r.reason !== 'Never audited'); break;
         case 'ALL':
           title = 'All Branches, ranked by risk score'; rows = all; break;
         case 'ATTENTION':
         default:
-          title = 'Suggested Audit Schedule, ranked by risk score'; rows = all.filter(r => r.suggestedAuditor !== undefined);
+          title = 'Priority Audit Queue, ranked by risk score'; rows = all.filter(r => r.suggestedAuditor !== undefined);
       }
       const baseTitle = title;
       const chips = [];
@@ -12458,6 +12549,9 @@ html.page-fade-ready body {
       const fmtDate = d => d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
       const filterBucket = cfg.filterBucket || 'ATTENTION';
       const highRiskCount = a.rows.filter(r => auditIsHighRisk(r, cfg)).length;
+      const overdueCount = a.overdueUnscheduled.length + a.scheduledPastDue.length;
+      const coveragePct = a.totalBranches ? Math.round(((a.totalBranches - a.neverAudited.length) / a.totalBranches) * 100) : null;
+      const attention = computeAuditManagementAttention(a, cfg);
       const weightSum = AUDIT_RISK_FACTORS.reduce((s, f) => s + (Number(cfg.weights[f.key]) || 0), 0) || 1;
       const notice = cfg.notice; cfg.notice = null;
 
@@ -12563,7 +12657,8 @@ html.page-fade-ready body {
           </tr>
           <tr id="audit-risk-detail-${idx}" class="${idx === expandIdx ? '' : 'hidden'} bg-slate-50">
             <td colspan="9" class="p-3">
-              <div class="text-[11px] font-bold text-slate-800 mb-1">How ${escapeHTML(row.b.name)} got a score of ${risk.score.toFixed(1)} (${escapeHTML(risk.tier.label)}${risk.escalated ? ' — raised from ' + escapeHTML(risk.baseTier.label) + ' by a data red flag' : ''})</div>
+              <div class="text-[10px] font-bold uppercase tracking-wider text-accentIndigo mb-1">Why this branch needs attention</div>
+              <div class="text-[11px] font-bold text-slate-800 mb-1">${escapeHTML(row.b.name)} — score ${risk.score.toFixed(1)} (${escapeHTML(risk.tier.label)}${risk.escalated ? ', raised from ' + escapeHTML(risk.baseTier.label) + ' by a data red flag' : ''})</div>
               <div class="text-[11px] text-slate-600 mb-2">${escapeHTML(auditRiskWhyText(row))}</div>
               ${risk.coverage < 0.999 ? `<div class="text-[10px] font-semibold ${risk.coverage < 0.75 ? 'text-accentRose' : 'text-accentAmber'} mb-2">Data coverage ${Math.round(risk.coverage * 100)}% — ${risk.coverage < 0.75 ? 'low confidence: this score rests on limited data, so check the branch\'s figures before relying on it.' : 'some factors had no data and were left out.'}</div>` : ''}
               <div class="overflow-x-auto">
@@ -12593,14 +12688,24 @@ html.page-fade-ready body {
 
       const maxTier = Math.max(1, ...a.riskTiers.map(t => t.count));
       const tierRanges = { CRITICAL: '70+', HIGH: '55–69', MEDIUM: '40–54', LOW: 'under 40' };
-      const tierRows = a.riskTiers.map(t => `
+      const tierAvgScore = key => {
+        const rs = a.rows.filter(r => r.risk.tier.key === key);
+        return rs.length ? rs.reduce((s, r) => s + r.risk.score, 0) / rs.length : null;
+      };
+      const tierRows = a.riskTiers.map(t => {
+        const pct = a.totalBranches ? Math.round((t.count / a.totalBranches) * 100) : 0;
+        const avg = tierAvgScore(t.key);
+        return `
           <div ${drill('tier', t.key, cfg.tierFilter === t.key, 'flex items-center gap-2 px-1 py-0.5 rounded-lg')}>
             <span class="w-24 shrink-0 text-[11px] font-semibold text-slate-700">${escapeHTML(t.label)} <span class="text-slate-400 font-medium">${tierRanges[t.key]}</span></span>
             <div class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
               <div class="h-full bg-${t.tint} rounded-full" style="width:${Math.round((t.count / maxTier) * 100)}%"></div>
             </div>
-            <span class="w-6 shrink-0 text-right text-[11px] font-bold text-slate-600">${t.count}</span>
-          </div>`).join('');
+            <span class="w-9 shrink-0 text-right text-[11px] font-bold text-slate-600">${t.count}</span>
+            <span class="w-9 shrink-0 text-right text-[10px] text-slate-400">${pct}%</span>
+            <span class="w-16 shrink-0 text-right text-[10px] text-slate-400">avg ${avg !== null ? avg.toFixed(0) : '—'}</span>
+          </div>`;
+      }).join('');
 
       const maxDriver = Math.max(0.0001, ...a.driverStats.map(d => d.avgContribution));
       const driverRows = a.driverStats.slice().sort((x, y) => y.avgContribution - x.avgContribution).map(d => `
@@ -12620,8 +12725,11 @@ html.page-fade-ready body {
         ['Scheduled, upcoming', 'Scheduled — upcoming', a.scheduledUpcoming.length, 'accentBlue'],
         ['On track', 'On track', a.onTrack.length, 'accentEmerald']
       ];
-      const statusRows = statusDefs.map(s => `
-          <div ${drill('reason', s[1], cfg.reasonFilter === s[1], 'flex justify-between px-1 py-0.5 rounded-lg')}><span>${escapeHTML(s[0])}</span><span class="font-bold text-${s[3]}">${s[2]}</span></div>`).join('');
+      const statusRows = statusDefs.map(s => {
+        const pct = a.totalBranches ? Math.round((s[2] / a.totalBranches) * 100) : 0;
+        return `
+          <div ${drill('reason', s[1], cfg.reasonFilter === s[1], 'flex justify-between items-center px-1 py-0.5 rounded-lg')}><span>${escapeHTML(s[0])}</span><span class="flex items-center gap-2"><span class="text-[9px] text-slate-400">${pct}%</span><span class="font-bold text-${s[3]}">${s[2]}</span></span></div>`;
+      }).join('');
 
       const recentCompletionsHtml = a.recentCompletions.length ? a.recentCompletions.map(row => `
           <div ${drill('focus', row.b.name, false, 'flex items-center justify-between gap-2 py-1 px-1 border-b border-coolBorder/60 last:border-b-0')}>
@@ -12746,17 +12854,39 @@ html.page-fade-ready body {
           ? 'Nothing needs scheduling — every branch is either on track or already scheduled.'
           : 'No branches match these filters. Remove a filter above to widen the list.';
 
+      const attentionHtml = attention.length
+        ? `<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${attention.map(it => `
+          <button type="button" onclick="${escapeHTML(it.onclick)}" title="Click to see the branches behind this" class="text-left flex items-start gap-2.5 p-2.5 bg-white border border-coolBorder rounded-xl hover:bg-${it.tint}/5 hover:border-${it.tint}/30 active:scale-[0.99] transition-all cursor-pointer">
+            <span class="mt-1 w-1.5 h-1.5 rounded-full bg-${it.tint} flex-shrink-0"></span>
+            <span class="min-w-0">
+              <span class="block text-[11.5px] font-bold text-slate-800 leading-snug">${escapeHTML(it.title)}</span>
+              <span class="block text-[10.5px] text-slate-500 leading-snug mt-0.5">${escapeHTML(it.detail)}</span>
+            </span>
+          </button>`).join('')}</div>`
+        : '<div class="p-3 bg-accentEmerald/5 border border-accentEmerald/20 rounded-xl text-xs font-semibold text-accentEmerald">✓ Nothing needs escalation right now — no unresolved critical branches, no missed schedules, no unaddressed high-risk branches.</div>';
+
       container.innerHTML = `
       <div class="space-y-4 pb-2">
-        <div class="flex flex-wrap items-center gap-2 px-2 sm:px-3 pt-2">
-          ${summaryPill(a.totalBranches, 'Total Branches', { neutral: true, active: filterBucket === 'ALL' && !table.chips.some(c => c.kind !== 'bucket') && !cfg.sortField, onClick: `onclick="setAuditAnalysisFilter('ALL')"` })}
-          ${summaryPill(highRiskCount, 'High-Risk (' + cfg.minScore + '+)', { tint: 'accentRose', active: filterBucket === 'HIGH_RISK', onClick: `onclick="setAuditAnalysisFilter('HIGH_RISK')"` })}
-          ${summaryPill(a.neverAudited.length, 'Never Audited', { tint: 'accentRose', active: filterBucket === 'NEVER_AUDITED', onClick: `onclick="setAuditAnalysisFilter('NEVER_AUDITED')"` })}
-          ${summaryPill(a.overdueUnscheduled.length + a.riskFlagged.length + a.scheduledPastDue.length, 'Needs Scheduling', { tint: 'accentAmber', active: filterBucket === 'NEEDS_SCHEDULING', onClick: `onclick="setAuditAnalysisFilter('NEEDS_SCHEDULING')"` })}
-          ${summaryPill(a.scheduledUpcoming.length, 'Already Scheduled', { tint: 'accentBlue', active: filterBucket === 'SCHEDULED_UPCOMING', onClick: `onclick="setAuditAnalysisFilter('SCHEDULED_UPCOMING')"` })}
-          ${summaryPill(a.onTrack.length, 'On Track', { tint: 'accentEmerald', active: filterBucket === 'ON_TRACK', onClick: `onclick="setAuditAnalysisFilter('ON_TRACK')"` })}
-          ${summaryPill(a.avgRiskScore !== null ? a.avgRiskScore : '—', 'Avg Risk Score', { tint: 'accentIndigo', active: cfg.sortField === 'risk' && filterBucket === 'ALL', onClick: `onclick="showAuditAnalysisSorted('risk')"` })}
-          ${summaryPill(a.avgIntervalDays !== null ? a.avgIntervalDays + 'd' : '—', 'Avg Days Since Audit', { tint: 'accentIndigo', active: cfg.sortField === 'days' && filterBucket === 'ALL', onClick: `onclick="showAuditAnalysisSorted('days')"` })}
+        <div>
+          <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5 px-2 sm:px-3">Executive Summary</h3>
+          <div class="flex flex-wrap items-center gap-2 px-2 sm:px-3">
+            ${summaryPill(a.totalBranches, 'Total Branches', { neutral: true, active: filterBucket === 'ALL' && !table.chips.some(c => c.kind !== 'bucket') && !cfg.sortField, onClick: `onclick="setAuditAnalysisFilter('ALL')"` })}
+            ${summaryPill(highRiskCount, 'Critical / High Risk', { tint: 'accentRose', active: filterBucket === 'HIGH_RISK', onClick: `onclick="setAuditAnalysisFilter('HIGH_RISK')"` })}
+            ${summaryPill(a.overdueUnscheduled.length + a.riskFlagged.length + a.scheduledPastDue.length, 'Needs Immediate Scheduling', { tint: 'accentAmber', active: filterBucket === 'NEEDS_SCHEDULING', onClick: `onclick="setAuditAnalysisFilter('NEEDS_SCHEDULING')"` })}
+            ${summaryPill(overdueCount, 'Overdue Audits', { tint: 'accentAmber', active: filterBucket === 'OVERDUE', onClick: `onclick="setAuditAnalysisFilter('OVERDUE')"` })}
+            ${summaryPill(a.scheduledUpcoming.length, 'Due Soon', { tint: 'accentBlue', active: filterBucket === 'SCHEDULED_UPCOMING', onClick: `onclick="setAuditAnalysisFilter('SCHEDULED_UPCOMING')"` })}
+            ${summaryPill(a.neverAudited.length, 'Never Audited', { tint: 'accentRose', active: filterBucket === 'NEVER_AUDITED', onClick: `onclick="setAuditAnalysisFilter('NEVER_AUDITED')"` })}
+            ${summaryPill(a.onTrack.length, 'On Track', { tint: 'accentEmerald', active: filterBucket === 'ON_TRACK', onClick: `onclick="setAuditAnalysisFilter('ON_TRACK')"` })}
+            ${summaryPill(a.avgRiskScore !== null ? a.avgRiskScore : '—', 'Avg Risk Score', { tint: 'accentIndigo', active: cfg.sortField === 'risk' && filterBucket === 'ALL', onClick: `onclick="showAuditAnalysisSorted('risk')"` })}
+            ${summaryPill(a.avgIntervalDays !== null ? a.avgIntervalDays + 'd' : '—', 'Avg Days Since Audit', { tint: 'accentIndigo', active: cfg.sortField === 'days' && filterBucket === 'ALL', onClick: `onclick="showAuditAnalysisSorted('days')"` })}
+            ${summaryPill(coveragePct !== null ? coveragePct + '%' : '—', 'Audit Coverage', { tint: 'accentIndigo', active: filterBucket === 'EVER_AUDITED', onClick: `onclick="setAuditAnalysisFilter('EVER_AUDITED')"` })}
+          </div>
+        </div>
+
+        <div class="mx-2 sm:mx-3">
+          <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">Management Attention</h3>
+          <p class="text-[10px] text-slate-400 mb-2">The most consequential exceptions right now, worst first — pulled straight from the data below. Tap any item to see the branches behind it.</p>
+          ${attentionHtml}
         </div>
 
         <details class="mx-2 sm:mx-3 bg-gray-50 border border-coolBorder rounded-xl" ${cfg.settingsOpen ? 'open' : ''} ontoggle="setAuditSettingsOpen(this.open)">
@@ -12840,12 +12970,12 @@ html.page-fade-ready body {
 
         <div class="mx-2 sm:mx-3 grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div class="p-3 bg-white border border-coolBorder rounded-xl">
-            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">Risk Tiers (all branches)</h3>
-            <p class="text-[10px] text-slate-400 mb-2">Tap a row to list those branches.</p>
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">Risk Distribution</h3>
+            <p class="text-[10px] text-slate-400 mb-2">Branches, % of portfolio and average score per tier. Tap a row to list those branches.</p>
             <div class="space-y-1">${tierRows}</div>
           </div>
           <div class="p-3 bg-white border border-coolBorder rounded-xl lg:col-span-2">
-            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">What Drives Risk Across the Portfolio</h3>
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">Risk Drivers</h3>
             <p class="text-[10px] text-slate-400 mb-2">Tap a factor to list every branch where it is elevated (60+ risk points), worst first. Bars show average contribution to the score.</p>
             <div class="space-y-1">${driverRows}</div>
           </div>
@@ -12853,12 +12983,12 @@ html.page-fade-ready body {
 
         <div class="mx-2 sm:mx-3 grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div class="p-3 bg-white border border-coolBorder rounded-xl">
-            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">Auditor Workload (current queue)</h3>
-            <p class="text-[10px] text-slate-400 mb-2">Tap an auditor to list their queue.</p>
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">Auditor Workload</h3>
+            <p class="text-[10px] text-slate-400 mb-2">Current queue size per auditor. Tap an auditor to list their queue.</p>
             <div class="space-y-1">${workloadRows}</div>
           </div>
           <div class="p-3 bg-white border border-coolBorder rounded-xl">
-            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">Scheduling Status</h3>
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">Audit Schedule Health</h3>
             <p class="text-[10px] text-slate-400 mb-2">Tap a status to list those branches.</p>
             <div class="space-y-0.5 text-xs text-slate-600">${statusRows}</div>
           </div>
