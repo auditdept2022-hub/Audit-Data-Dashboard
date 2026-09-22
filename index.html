@@ -10822,30 +10822,28 @@ html.page-fade-ready body {
     // label/how/why are shown verbatim in the methodology panel and the
     // Excel "Risk Methodology" sheet, so the text is written to be read by
     // someone who has never seen the dashboard.
-    // Findings are scaled against the portfolio's 90th percentile, but never
-    // against less than this many weighted points (= two 2026 findings). Without
-    // this floor, a portfolio where nearly everyone is clean would turn ONE
-    // finding into a maximum-risk 100 for that branch.
+    // Findings are scaled against a cap that starts at the portfolio's 90th
+    // percentile the first time it's computed (see computeAuditRiskScores),
+    // but never below this many weighted points (= two 2026 findings).
+    // Without this floor, a portfolio where nearly everyone is clean would
+    // turn ONE finding into a maximum-risk 100 for that branch.
     const AUDIT_FINDINGS_MIN_CAP = 6;
     const AUDIT_RISK_FACTORS = [
       { key: 'recency', label: 'Audit recency', defaultWeight: 15,
         how: '0 points if audited today, rising evenly to 100 points at the Overdue threshold. Never audited = 100.',
         why: 'The longer a branch goes unchecked, the longer a problem can run before anyone sees it. Kept deliberately smaller than the data factors so the calendar alone cannot outrank what a branch\'s own numbers say.' },
       { key: 'findings', label: 'Audit findings', defaultWeight: 25,
-        how: 'Findings are weighted 3x for 2026, 2x for 2025 and 1x for 2024, then scaled against the portfolio\'s 90th percentile (never less than ' + AUDIT_FINDINGS_MIN_CAP + ' weighted points, so a single finding cannot max out the scale). No findings = 0.',
-        why: 'Past findings are the strongest sign of where more will be found; recent years count more than old ones.' },
+        how: 'Findings are weighted 3x for 2026, 2x for 2025 and 1x for 2024, then scaled against a FIXED cap (editable in Settings; starts at the portfolio\'s 90th percentile the first time it\'s computed, never below ' + AUDIT_FINDINGS_MIN_CAP + ' weighted points, then stays put). No findings = 0.',
+        why: 'Past findings are the strongest sign of where more will be found; recent years count more than old ones. The cap is fixed rather than recalculated on every view so the same findings history always produces the same score, instead of drifting as the portfolio changes.' },
       { key: 'collection', label: 'Collection trend', defaultWeight: 11,
         how: 'Declining = 100, Recovering = 50, Stable = 20, Improving = 0.',
         why: 'A worsening collection trend is an early warning of credit-control or reporting problems.' },
-      { key: 'efficiency', label: 'Collection efficiency', defaultWeight: 11,
-        how: 'Uses the same 70% / 50% cut-offs as the branch cards: 100% = 0 pts, 70% = 35 pts, 50% = 70 pts, 0% = 100 pts (proportional in between). Uses the most recent month that has a figure. No figure in any month = excluded.',
-        why: 'Low efficiency means less of what is due is being collected.' },
-      { key: 'repo', label: 'Repo rate', defaultWeight: 9,
-        how: 'Uses the same 4% / 7% cut-offs as the branch cards: 0% = 0 pts, 4% = 35 pts, 7% = 70 pts, 12% or more = 100 pts (proportional in between). No account data = excluded.',
-        why: 'A high repossession rate points to weaker loan quality or recovery handling.' },
-      { key: 'momentum', label: 'Efficiency & repo momentum', defaultWeight: 12,
-        how: 'Compares the latest month with the earliest month on record. Efficiency falling 15 points or more = 100; repo rate rising 3 points or more = 100; flat or improving = 0 (proportional in between). The worse of the two counts.',
-        why: 'A branch that is getting worse is a stronger reason to visit than one that is low but stable. This is what makes the schedule react to movement in the data, not to the calendar.' },
+      { key: 'efficiency', label: 'Collection efficiency', defaultWeight: 17,
+        how: 'Level (70% of this factor) uses the same 70% / 50% cut-offs as the branch cards: 100% = 0 pts, 70% = 35 pts, 50% = 70 pts, 0% = 100 pts. Trend (30%) adds up to 100 pts if efficiency has fallen 15+ points since the earliest month on record; flat or improving adds 0. Uses the most recent month that has a figure. No figure in any month = excluded.',
+        why: 'Low efficiency means less of what is due is being collected, and a branch that is actively getting worse is a stronger reason to visit than one that is merely low and flat. Level and trend are blended into this ONE factor (not scored separately) so a falling efficiency is never counted twice toward the total.' },
+      { key: 'repo', label: 'Repo rate', defaultWeight: 15,
+        how: 'Level (70% of this factor) uses the same 4% / 7% cut-offs as the branch cards: 0% = 0 pts, 4% = 35 pts, 7% = 70 pts, 12% or more = 100 pts. Trend (30%) adds up to 100 pts if the repo rate has risen 3+ points since the earliest month on record; flat or improving adds 0. No account data = excluded.',
+        why: 'A high repossession rate points to weaker loan quality or recovery handling, and a rate that is actively rising is a stronger signal than one that is high but stable. Level and trend are blended into this ONE factor (not scored separately) so a worsening repo rate is never counted twice toward the total.' },
       { key: 'sales', label: 'Sales trend', defaultWeight: 6,
         how: 'Declining = 100, Recovering = 50, Stable = 20, Improving = 0.',
         why: 'Sharp sales drops can signal pressure on the branch and unusual activity.' },
@@ -10853,8 +10851,8 @@ html.page-fade-ready body {
         how: 'Declining (below target) = 100, on Target = 0.',
         why: 'Missing service targets is a control and customer-experience signal.' },
       { key: 'size', label: 'Portfolio size', defaultWeight: 5,
-        how: 'Number of accounts scaled against the portfolio\'s 90th percentile. No data = excluded.',
-        why: 'A bigger loan book means more money is at stake if something is wrong (materiality).' }
+        how: 'Number of accounts scaled against a FIXED cap (editable in Settings; starts at the portfolio\'s 90th percentile the first time it\'s computed, then stays put). No data = excluded.',
+        why: 'A bigger loan book means more money is at stake if something is wrong (materiality). The cap is fixed rather than recalculated on every view so branch size is scored consistently over time, not relative to whichever branches happen to be loaded right now.' }
     ];
     // DATA RED FLAGS — hard tripwires that use the same red cut-offs as the
     // branch cards. A weighted average can dilute one severe signal (a branch
@@ -10929,6 +10927,10 @@ html.page-fade-ready body {
       spacingDays: 3,       // business days between suggested audit dates
       minScore: 55,         // risk score at/above which an un-scheduled branch gets scheduled
       minGapDays: 30,       // don't re-audit a branch audited more recently than this
+      findingsCap: null,    // weighted-findings value that scores 100 on the findings factor; frozen the
+                             // first time it's computed (see computeAuditRiskScores) so scores stay
+                             // comparable over time instead of drifting with the portfolio; editable below
+      sizeCap: null,        // accounts value that scores 100 on the portfolio-size factor; same freeze-once rule
       filterBucket: 'ATTENTION',
       // Table filters. Every one of these can be set by typing in the filter
       // row + pressing OK, OR by clicking any bar/row/badge in the analysis
@@ -11026,7 +11028,7 @@ html.page-fade-ready body {
     //    position.
     const AUDIT_SYNC_POLL_MS = 30 * 1000;
     const AUDIT_SYNC_PUSH_DEBOUNCE_MS = 1200;
-    const AUDIT_SYNC_NUM_RULES = { overdueDays: [1, 3650], spacingDays: [1, 3650], minScore: [1, 100], minGapDays: [0, 3650] };
+    const AUDIT_SYNC_NUM_RULES = { overdueDays: [1, 3650], spacingDays: [1, 3650], minScore: [1, 100], minGapDays: [0, 3650], findingsCap: [1, 1000], sizeCap: [1, 10000000] };
     const AUDIT_SYNC_STR_KEYS = ['filterBucket', 'tierFilter', 'auditorFilter', 'queueFilter', 'search', 'reasonFilter', 'distFilter', 'driverFilter'];
     const auditSync = {
       version: 0,          // server version of the last state this device pushed/applied (0 = none yet)
@@ -11225,6 +11227,7 @@ html.page-fade-ready body {
       const cfg = window.auditAnalysisState;
       if (cfg) {
         cfg.overdueDays = 90; cfg.spacingDays = 3; cfg.minScore = 55; cfg.minGapDays = 30;
+        cfg.findingsCap = null; cfg.sizeCap = null;
         cfg.filterBucket = 'ATTENTION';
         resetAuditTableFilterState(cfg);
         cfg.weights = loadSavedAuditRiskWeights();
@@ -11238,14 +11241,21 @@ html.page-fade-ready body {
     // reshuffles the whole analysis.
     const AUDIT_CFG_LABELS = {
       minScore: 'Risk-score threshold', minGapDays: 'Minimum gap since last audit',
-      overdueDays: 'Always-schedule limit', spacingDays: 'Spacing between suggestions'
+      overdueDays: 'Always-schedule limit', spacingDays: 'Spacing between suggestions',
+      findingsCap: 'Findings cap', sizeCap: 'Portfolio-size cap'
+    };
+    // Shared with AUDIT_SYNC_NUM_RULES's ranges so a value valid here is also
+    // valid to sync to other devices.
+    const AUDIT_CFG_BOUNDS = {
+      minScore: [1, 100], minGapDays: [0, 3650], overdueDays: [1, 3650], spacingDays: [1, 3650],
+      findingsCap: [1, 1000], sizeCap: [1, 10000000]
     };
     function applyAuditAnalysisConfig(key) {
       const cfg = window.auditAnalysisState;
       const el = document.getElementById('aa-cfg-' + key);
       const label = AUDIT_CFG_LABELS[key] || key;
-      const min = (key === 'minGapDays') ? 0 : 1;
-      const max = (key === 'minScore') ? 100 : 3650;
+      const bounds = AUDIT_CFG_BOUNDS[key] || [1, 3650];
+      const min = bounds[0], max = bounds[1];
       const raw = el ? String(el.value).trim() : '';
       const n = /^\d+$/.test(raw) ? parseInt(raw, 10) : NaN;
       if (isNaN(n) || n < min || n > max) {
@@ -11305,13 +11315,13 @@ html.page-fade-ready body {
       const cfg = window.auditAnalysisState;
       const problems = [];
 
-      const cfgKeys = ['minScore', 'minGapDays', 'overdueDays', 'spacingDays'];
+      const cfgKeys = ['minScore', 'minGapDays', 'overdueDays', 'spacingDays', 'findingsCap', 'sizeCap'];
       const newCfgVals = {};
       cfgKeys.forEach(key => {
         const el = document.getElementById('aa-cfg-' + key);
         const label = AUDIT_CFG_LABELS[key] || key;
-        const min = (key === 'minGapDays') ? 0 : 1;
-        const max = (key === 'minScore') ? 100 : 3650;
+        const bounds = AUDIT_CFG_BOUNDS[key] || [1, 3650];
+        const min = bounds[0], max = bounds[1];
         const raw = el ? String(el.value).trim() : '';
         const n = /^\d+$/.test(raw) ? parseInt(raw, 10) : NaN;
         if (isNaN(n) || n < min || n > max) {
@@ -11518,6 +11528,89 @@ html.page-fade-ready body {
       return a[lo] + (a[hi] - a[lo]) * (idx - lo);
     }
 
+    // Pearson correlation coefficient between two equal-length numeric
+    // arrays. Returns null when there isn't enough spread or data to say
+    // anything ( < 3 points, or no variation in either series ).
+    function auditRiskPearson(xs, ys) {
+      const n = xs.length;
+      if (n < 3) return null;
+      const mean = a => a.reduce((s, v) => s + v, 0) / a.length;
+      const mx = mean(xs), my = mean(ys);
+      let sxy = 0, sxx = 0, syy = 0;
+      for (let i = 0; i < n; i++) {
+        const dx = xs[i] - mx, dy = ys[i] - my;
+        sxy += dx * dy; sxx += dx * dx; syy += dy * dy;
+      }
+      if (sxx === 0 || syy === 0) return null;
+      return sxy / Math.sqrt(sxx * syy);
+    }
+
+    // How well each factor's risk points actually line up with a branch's
+    // real findings history (the same 3x/2x/1x-weighted findings used by the
+    // findings factor itself). This is the check the weights never had: a
+    // weight can now be defended with "r = 0.xx across N branches" instead of
+    // a written rationale alone. `rows` must already be scored (computeAuditRiskScores
+    // run first). The findings factor is excluded — correlating it with the
+    // outcome it partly IS would be circular, not evidence.
+    function computeAuditFactorCorrelations(rows) {
+      const findingsWeighted = b => (b.findings2026 || 0) * 3 + (b.findings2025 || 0) * 2 + (b.findings2024 || 0);
+      const out = {};
+      AUDIT_RISK_FACTORS.forEach(fac => {
+        if (fac.key === 'findings') return;
+        const xs = [], ys = [];
+        rows.forEach(r => {
+          const x = r.risk && r.risk.factors && r.risk.factors.find(f => f.key === fac.key);
+          if (x && x.available) { xs.push(x.points); ys.push(findingsWeighted(r.b)); }
+        });
+        out[fac.key] = { r: auditRiskPearson(xs, ys), n: xs.length };
+      });
+      return out;
+    }
+
+    // Sets every factor's weight proportional to how strongly it actually
+    // correlates with a branch's findings history (|r|), instead of leaving
+    // the hand-picked defaults unchecked. The findings factor keeps its own
+    // current weight (correlating it with itself would be circular); every
+    // other factor is rescaled from |r| so the total still sums to 100. A
+    // factor with too little data (fewer than 5 branches) or a near-zero
+    // correlation is left at a small floor rather than zeroed out — one
+    // portfolio snapshot is weak evidence to permanently silence a factor.
+    function suggestAuditRiskWeightsFromData() {
+      const cfg = window.auditAnalysisState;
+      const branches = activeData.branches || [];
+      const rows = branches.map(b => ({ b, info: getBranchAuditRoundInfo(b) }));
+      computeAuditRiskScores(rows, cfg);
+      const corr = computeAuditFactorCorrelations(rows);
+      const findingsWeight = Math.max(0, Number(cfg.weights.findings) || 0) || 25;
+      const remaining = Math.max(0, 100 - findingsWeight);
+      const others = AUDIT_RISK_FACTORS.filter(f => f.key !== 'findings');
+      const floor = 2;
+      const strengths = others.map(f => {
+        const c = corr[f.key];
+        return (c && c.r !== null && c.n >= 5) ? Math.max(floor, Math.abs(c.r) * 100) : floor;
+      });
+      const sum = strengths.reduce((s, v) => s + v, 0) || 1;
+      const w = { findings: findingsWeight };
+      others.forEach((f, i) => { w[f.key] = Math.round((strengths[i] / sum) * remaining); });
+      cfg.weights = w;
+      try { localStorage.setItem(AUDIT_RISK_WEIGHTS_KEY, JSON.stringify(w)); } catch (e) {}
+      cfg.notice = { type: 'ok', text: 'Weights set from each factor\u2019s correlation with actual findings across ' + rows.length + ' branches (r shown next to each factor below). Review, then press OK to keep them.' };
+      cfg.weightsOpen = true;
+      refreshAuditAnalysis(false);
+    }
+
+    // Resets the findings/size caps so they're recomputed fresh from the
+    // CURRENT portfolio's 90th percentile, then frozen again from that point
+    // on. Use this deliberately (e.g. after a known shift in the book), not
+    // as something that happens silently on every view.
+    function resetAuditRiskCaps() {
+      const cfg = window.auditAnalysisState;
+      cfg.findingsCap = null;
+      cfg.sizeCap = null;
+      cfg.notice = { type: 'ok', text: 'Findings and portfolio-size caps recalculated from the current portfolio, and frozen from here.' };
+      refreshAuditAnalysis(false);
+    }
+
     // Scores every row in place (adds row.risk). Each factor yields 0-100
     // "risk points"; the score is the weighted average of the factors that
     // have data. A factor with no data for a branch is EXCLUDED and the
@@ -11534,8 +11627,23 @@ html.page-fade-ready body {
       const weights = cfg.weights || defaultAuditRiskWeights();
       const findingsWeighted = b => (b.findings2026 || 0) * 3 + (b.findings2025 || 0) * 2 + (b.findings2024 || 0);
       const accountsOf = b => (b.accountsMay || 0) > 0 ? b.accountsMay : (b.accountsApr || 0);
-      const findingsCap = Math.max(auditRiskPercentile(rows.map(r => findingsWeighted(r.b)), 0.9), AUDIT_FINDINGS_MIN_CAP);
-      const sizeCap = auditRiskPercentile(rows.map(r => accountsOf(r.b)), 0.9) || 1;
+      // Findings/size are scaled against caps that are computed ONCE and then
+      // frozen in cfg, not recalculated on every call from whatever rows
+      // happen to be passed in. A percentile recomputed per call means the
+      // same branch, with identical numbers, scores differently depending on
+      // which other branches are in the portfolio at that moment — that's a
+      // property of the *portfolio's snapshot*, not of the branch's risk, and
+      // it silently drifts as branches are added or removed over time. The
+      // caps are editable in Settings and can be deliberately recalculated
+      // with resetAuditRiskCaps().
+      if (cfg.findingsCap === null || cfg.findingsCap === undefined) {
+        cfg.findingsCap = Math.max(Math.round(auditRiskPercentile(rows.map(r => findingsWeighted(r.b)), 0.9)), AUDIT_FINDINGS_MIN_CAP);
+      }
+      if (cfg.sizeCap === null || cfg.sizeCap === undefined) {
+        cfg.sizeCap = Math.round(auditRiskPercentile(rows.map(r => accountsOf(r.b)), 0.9)) || 1;
+      }
+      const findingsCap = cfg.findingsCap;
+      const sizeCap = cfg.sizeCap;
       const highTier = AUDIT_RISK_TIERS.find(t => t.key === 'HIGH');
       const tierRank = t => AUDIT_RISK_TIERS.indexOf(t); // 0 = Critical ... 3 = Low
 
@@ -11572,34 +11680,39 @@ html.page-fade-ready body {
         const effSeries = [b.effMar || 0, b.effApr || 0, b.effLatest || 0];
         const effNow = effSeries[2] > 0 ? effSeries[2] : (effSeries[1] > 0 ? effSeries[1] : (effSeries[0] > 0 ? effSeries[0] : 0));
         const hasEff = effNow > 0;
-        add('efficiency', hasEff, auditRiskPiecewise(effNow, [[0, 100], [50, 70], [70, 35], [100, 0]]),
-            hasEff ? (effNow + '% ' + (effSeries[2] > 0 ? 'latest' : 'most recent available') + ' efficiency') : 'No efficiency data',
-            'Efficiency ' + effNow + '%');
+        const effLevelPts = auditRiskPiecewise(effNow, [[0, 100], [50, 70], [70, 35], [100, 0]]);
+        // Trend: has efficiency fallen since the earliest month on record?
+        // Blended INTO this same factor (70% level / 30% trend) rather than
+        // scored again as a separate factor — a falling efficiency level
+        // used to be penalised once for being low and a second time for the
+        // drop, which quietly inflated its effective weight beyond what the
+        // weight editor showed.
+        const effNZ = effSeries.filter(v => v > 0);
+        const effDelta = effNZ.length >= 2 ? effNZ[effNZ.length - 1] - effNZ[0] : null;
+        const effTrendPts = (effDelta !== null && effDelta < 0) ? Math.min(100, (-effDelta / 15) * 100) : 0;
+        const effPts = effDelta !== null ? (effLevelPts * 0.7 + effTrendPts * 0.3) : effLevelPts;
+        add('efficiency', hasEff, effPts,
+            hasEff ? (effNow + '% ' + (effSeries[2] > 0 ? 'latest' : 'most recent available') + ' efficiency'
+              + (effDelta !== null ? (', ' + (effDelta > 0 ? '+' : '') + effDelta + ' pts vs earliest month on record') : '')) : 'No efficiency data',
+            'Efficiency ' + effNow + '%' + (effDelta !== null && effDelta < 0 ? ' (falling)' : ''));
 
         const hasAcct = accountsOf(b) > 0;
         const repo = b.repoRateLatest || 0;
-        add('repo', hasAcct, auditRiskPiecewise(repo, [[0, 0], [4, 35], [7, 70], [12, 100]]),
-            hasAcct ? (repo.toFixed(2) + '% latest repo rate') : 'No account data', 'Repo ' + repo.toFixed(1) + '%');
-
-        // Momentum: which way are efficiency and repo actually moving?
-        // (Levels alone cannot tell a branch that is sliding from one that is
-        // steadily mediocre, and the sheet already holds three months of each.)
-        const effNZ = effSeries.filter(v => v > 0);
-        const effDelta = effNZ.length >= 2 ? effNZ[effNZ.length - 1] - effNZ[0] : null;
+        const repoLevelPts = auditRiskPiecewise(repo, [[0, 0], [4, 35], [7, 70], [12, 100]]);
+        // Same blend for repo: level (70%) + trend since the earliest month
+        // (30%), in one factor, for the same reason as efficiency above.
+        // repoSeries[0] > 0 guards against a blank earlier month (parsed as
+        // 0) being read as a real starting point and manufacturing a huge
+        // fake "rise" — the same blank-cell trap efficiency already avoided.
         const repoSeries = [b.repoRateMar || 0, b.repoRateApr || 0, b.repoRateLatest || 0];
-        const repoDelta = hasAcct ? repoSeries[2] - repoSeries[0] : null;
-        const hasMomentum = effDelta !== null || repoDelta !== null;
-        const effMomPts = (effDelta !== null && effDelta < 0) ? Math.min(100, (-effDelta / 15) * 100) : 0;
-        const repoMomPts = (repoDelta !== null && repoDelta > 0) ? Math.min(100, (repoDelta / 3) * 100) : 0;
-        const momParts = [];
-        if (effDelta !== null) momParts.push('Efficiency ' + effNZ[0] + '% → ' + effNZ[effNZ.length - 1] + '% (' + (effDelta > 0 ? '+' : '') + effDelta + ' pts)');
-        if (repoDelta !== null) momParts.push('Repo ' + repoSeries[0].toFixed(1) + '% → ' + repoSeries[2].toFixed(1) + '% (' + (repoDelta > 0 ? '+' : '') + repoDelta.toFixed(1) + ' pts)');
-        const worseIsEff = effMomPts >= repoMomPts;
-        add('momentum', hasMomentum, Math.max(effMomPts, repoMomPts),
-            hasMomentum ? momParts.join(' · ') : 'Not enough months of data',
-            Math.max(effMomPts, repoMomPts) > 0
-              ? (worseIsEff ? 'Efficiency falling ' + Math.abs(effDelta) + ' pts' : 'Repo rising ' + repoDelta.toFixed(1) + ' pts')
-              : 'No deterioration');
+        const repoHasTrend = hasAcct && repoSeries[0] > 0;
+        const repoDelta = repoHasTrend ? repoSeries[2] - repoSeries[0] : null;
+        const repoTrendPts = (repoDelta !== null && repoDelta > 0) ? Math.min(100, (repoDelta / 3) * 100) : 0;
+        const repoPts = repoHasTrend ? (repoLevelPts * 0.7 + repoTrendPts * 0.3) : repoLevelPts;
+        add('repo', hasAcct, repoPts,
+            hasAcct ? (repo.toFixed(2) + '% latest repo rate'
+              + (repoHasTrend ? (', ' + (repoDelta > 0 ? '+' : '') + repoDelta.toFixed(1) + ' pts vs earliest month on record') : '')) : 'No account data',
+            'Repo ' + repo.toFixed(1) + '%' + (repoDelta !== null && repoDelta > 0 ? ' (rising)' : ''));
 
         add('sales', true, AUDIT_RISK_STATUS_POINTS.sales[b.sales] ?? 20,
             'Sales are ' + (b.sales || 'Stable'), 'Sales ' + String(b.sales || 'Stable').toLowerCase());
@@ -11851,7 +11964,8 @@ html.page-fade-ready body {
         totalBranches: rows.length,
         neverAudited, overdueUnscheduled, riskFlagged, scheduledPastDue, scheduledUpcoming, onTrack,
         workload, auditorNames, suggestions, avgIntervalDays, avgRiskScore,
-        distribution, recentCompletions, riskTiers, driverStats, rows
+        distribution, recentCompletions, riskTiers, driverStats, rows,
+        correlations: computeAuditFactorCorrelations(rows)
       };
     }
 
@@ -12040,16 +12154,24 @@ html.page-fade-ready body {
       ]));
       const cfg = window.auditAnalysisState;
       const wSum = AUDIT_RISK_FACTORS.reduce((s, f) => s + (Number(cfg.weights[f.key]) || 0), 0) || 1;
+      const corrText = key => {
+        if (key === 'findings') return 'n/a (would be circular)';
+        const c = a.correlations && a.correlations[key];
+        if (!c || c.r === null || c.n < 5) return 'insufficient data';
+        return 'r = ' + c.r.toFixed(2) + ' (n=' + c.n + ')';
+      };
       const methodology = AUDIT_RISK_FACTORS.map(f => [
-        f.label, Math.round(((Number(cfg.weights[f.key]) || 0) / wSum) * 1000) / 10 + '%', f.how, f.why
+        f.label, Math.round(((Number(cfg.weights[f.key]) || 0) / wSum) * 1000) / 10 + '%', corrText(f.key), f.how, f.why
       ]).concat([
-        ['', '', '', ''],
-        ['Risk tiers', '', 'Critical 70+, High 55-69, Medium 40-54, Low below 40. Any data red flag lifts a branch to at least High.', ''],
-        ['Data red flags', '', AUDIT_RED_FLAGS.map(x => x.label).join('; ') + '. Any one qualifies a branch for scheduling whatever its score.', 'A weighted average can dilute one severe signal; these tripwires cannot be averaged away.'],
-        ['Scheduling rules', '', 'Coverage rules (always scheduled): never audited; scheduled date passed without Done; no audit for ' + cfg.overdueDays + '+ days. Risk rule: risk score ' + cfg.minScore + '+ or any data red flag, and last audited at least ' + cfg.minGapDays + ' days ago. Suggested auditors never repeat the branch\'s most recent auditor when someone else is available; dates are per auditor, skip weekends/holidays and never overlap an audit they already have scheduled.', ''],
-        ['Missing data', '', 'If a factor has no data for a branch it is excluded and the remaining weights are rescaled to 100%.', '']
+        ['', '', '', '', ''],
+        ['Findings cap', '', '', cfg.findingsCap + ' weighted points score 100 on the Findings factor. Fixed and editable in Settings (not recalculated from whichever branches happen to be loaded).', ''],
+        ['Portfolio-size cap', '', '', cfg.sizeCap + ' accounts score 100 on the Portfolio Size factor. Fixed and editable in Settings, same reason as above.', ''],
+        ['Risk tiers', '', '', 'Critical 70+, High 55-69, Medium 40-54, Low below 40. Any data red flag lifts a branch to at least High.', ''],
+        ['Data red flags', '', '', AUDIT_RED_FLAGS.map(x => x.label).join('; ') + '. Any one qualifies a branch for scheduling whatever its score.', 'A weighted average can dilute one severe signal; these tripwires cannot be averaged away.'],
+        ['Scheduling rules', '', '', 'Coverage rules (always scheduled): never audited; scheduled date passed without Done; no audit for ' + cfg.overdueDays + '+ days. Risk rule: risk score ' + cfg.minScore + '+ or any data red flag, and last audited at least ' + cfg.minGapDays + ' days ago. Suggested auditors never repeat the branch\'s most recent auditor when someone else is available; dates are per auditor, skip weekends/holidays and never overlap an audit they already have scheduled.', ''],
+        ['Missing data', '', '', 'If a factor has no data for a branch it is excluded and the remaining weights are rescaled to 100%.', '']
       ]);
-      return { headers, rows, methodHeaders: ['Factor', 'Share of score', 'How it is scored', 'Why it matters'], methodRows: methodology };
+      return { headers, rows, methodHeaders: ['Factor', 'Share of score', 'Correlation w/ findings', 'How it is scored', 'Why it matters'], methodRows: methodology };
     }
 
     function renderAssignmentAnalysisModal(container) {
@@ -12234,10 +12356,23 @@ html.page-fade-ready body {
             <span class="text-[10px] text-slate-500 whitespace-nowrap">${escapeHTML(row.info.recentAuditor)} · ${escapeHTML(row.info.recentDate)}</span>
           </div>`).join('') : '<p class="text-xs text-slate-400 italic">No completed audits on record yet.</p>';
 
+      // r = how strongly this factor's points actually correlate with a
+      // branch's real findings history, computed fresh every render (see
+      // computeAuditFactorCorrelations). The findings factor has none (it
+      // would be circular); a factor with under 5 branches of data shows
+      // "insufficient data" instead of a number that would be noise.
+      const corrLabel = key => {
+        if (key === 'findings') return '';
+        const c = a.correlations && a.correlations[key];
+        if (!c || c.r === null || c.n < 5) return '<span class="text-slate-400">r: insufficient data</span>';
+        return '<span class="' + (Math.abs(c.r) >= 0.3 ? 'text-accentEmerald' : 'text-slate-400') + '" title="Pearson correlation with actual findings, across ' + c.n + ' branches with data">r = ' + c.r.toFixed(2) + ' (n=' + c.n + ')</span>';
+      };
+
       const weightInputs = AUDIT_RISK_FACTORS.map(f => `
           <label class="flex items-center justify-between gap-1.5 text-[10px] font-semibold text-slate-600">
             <span class="truncate" title="${escapeHTML(f.why)}">${escapeHTML(f.label)}</span>
             <span class="flex items-center gap-1 shrink-0">
+              <span class="text-[9px] font-normal">${corrLabel(f.key)}</span>
               <input id="aa-w-${f.key}" type="number" inputmode="decimal" min="0" max="100" step="1" value="${Number(cfg.weights[f.key]) || 0}" oninput="previewAuditRiskWeights()" onkeydown="if(event.key==='Enter'){applyAllAuditAnalysisSettings()}" class="w-12 px-1 py-0.5 border border-coolBorder rounded-md text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
               <span id="aa-wpct-${f.key}" class="w-8 text-right text-[10px] font-bold text-accentIndigo">${Math.round(((Number(cfg.weights[f.key]) || 0) / weightSum) * 100)}%</span>
             </span>
@@ -12247,6 +12382,7 @@ html.page-fade-ready body {
           <tr class="border-t border-accentIndigo/15 align-top">
             <td class="py-2.5 pr-4 font-bold text-slate-700 whitespace-nowrap">${escapeHTML(f.label)}</td>
             <td class="py-2.5 pr-4 text-center font-bold text-accentIndigo">${Math.round(((Number(cfg.weights[f.key]) || 0) / weightSum) * 100)}%</td>
+            <td class="py-2.5 pr-4 text-center text-[11px] whitespace-nowrap">${corrLabel(f.key) || '<span class="text-slate-400">—</span>'}</td>
             <td class="py-2.5 pr-4 text-slate-600 leading-relaxed">${escapeHTML(f.how)}</td>
             <td class="py-2.5 text-slate-600 leading-relaxed">${escapeHTML(f.why)}</td>
           </tr>`).join('');
@@ -12304,6 +12440,13 @@ html.page-fade-ready body {
               <div class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
                 <span>Spacing between suggestions</span>${cfgInput('spacingDays', 1, 3650)}<span>business day(s)</span>
               </div>
+              <div class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600" title="Weighted findings (3x 2026, 2x 2025, 1x 2024) at or above this score 100 on the findings factor. Fixed — not recalculated from whichever branches are currently loaded.">
+                <span>Findings score 100 at</span>${cfgInput('findingsCap', 1, 1000)}<span>weighted pts</span>
+              </div>
+              <div class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600" title="Branches with this many accounts or more score 100 on the portfolio-size factor. Fixed — not recalculated from whichever branches are currently loaded.">
+                <span>Portfolio size scores 100 at</span>${cfgInput('sizeCap', 1, 10000000)}<span>accounts</span>
+              </div>
+              <button type="button" onclick="resetAuditRiskCaps()" title="Recompute both caps from the current portfolio's 90th percentile, then freeze them again from here" class="px-2 py-0.5 text-[10px] font-bold bg-white border border-coolBorder rounded-md hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Recalculate caps from current data</button>
             </div>
           </div>
 
@@ -12312,9 +12455,10 @@ html.page-fade-ready body {
             <div class="px-3 pb-2">
               <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-5 gap-y-1">${weightInputs}</div>
               <div class="mt-1.5 flex flex-wrap items-center gap-2">
-                <span class="text-[9px] text-slate-500">Weights are relative — the percentages show each factor's share of the final score. Missing data is left out and the rest rescaled.</span>
+                <span class="text-[9px] text-slate-500">Weights are relative — the percentages show each factor's share of the final score. Missing data is left out and the rest rescaled. "r" is each factor's correlation with actual findings across the portfolio — evidence for the weight, not just a rationale.</span>
                 <span id="aa-w-hint" class="hidden text-[9px] font-bold text-accentAmber">Preview only — press OK to apply.</span>
                 <span class="ml-auto flex items-center gap-1.5">
+                  <button type="button" onclick="suggestAuditRiskWeightsFromData()" title="Set weights proportional to each factor's correlation with actual findings, instead of the hand-picked defaults" class="px-2 py-0.5 text-[10px] font-bold bg-accentIndigo/10 text-accentIndigo border border-accentIndigo/20 rounded-md hover:brightness-95 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Suggest weights from data</button>
                   <button type="button" onclick="resetAuditRiskWeights()" class="px-2 py-0.5 text-[10px] font-bold bg-white border border-coolBorder rounded-md hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Reset to defaults</button>
                   ${okBtn('applyAllAuditAnalysisSettings()', 'Apply all settings (thresholds and weights)')}
                 </span>
@@ -12408,7 +12552,7 @@ html.page-fade-ready body {
           <div class="overflow-x-auto">
             <table class="w-full text-xs text-left">
               <thead class="text-slate-600 uppercase tracking-wider font-bold text-[11px]">
-                <tr><th class="pb-2 pr-4">Factor</th><th class="pb-2 pr-4 text-center">Share</th><th class="pb-2 pr-4">How it is scored</th><th class="pb-2">Why it matters</th></tr>
+                <tr><th class="pb-2 pr-4">Factor</th><th class="pb-2 pr-4 text-center">Share</th><th class="pb-2 pr-4 text-center" title="Pearson correlation between this factor's points and actual findings, across the current portfolio">Correlation w/ findings</th><th class="pb-2 pr-4">How it is scored</th><th class="pb-2">Why it matters</th></tr>
               </thead>
               <tbody>${methodologyRows}</tbody>
             </table>
@@ -12854,11 +12998,6 @@ html.page-fade-ready body {
         <div class="p-3.5">
           <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">What the data shows, ranked by how much it counts toward the score</p>
           ${rowsHTML || '<p class="text-xs text-slate-400 italic py-2">Not enough data recorded for this branch yet to break the score down further.</p>'}
-        </div>
-        <div class="px-3.5 pb-3.5">
-          <p class="text-[11px] text-slate-500 bg-slate-50 border border-coolBorder rounded-lg p-2.5">
-            <strong class="text-slate-600">For reference — audit recency:</strong> ${escapeFindingHTML(recency ? recency.detail : 'No audit history on record')}. This is tracked as a coverage safety net (every branch is still audited eventually, whatever its score) and it contributes ${recency ? recency.contribution.toFixed(1) : '0'} of the ${risk.score.toFixed(0)} points above — it is background context here, not the reason this branch is or isn't being prioritized.
-          </p>
         </div>
       </div>`;
     }
