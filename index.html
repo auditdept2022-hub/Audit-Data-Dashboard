@@ -12562,6 +12562,30 @@ html.page-fade-ready body {
       const inputCls = 'w-14 px-1.5 py-0.5 border border-coolBorder rounded-md text-xs text-center focus:outline-none focus:ring-1 focus:ring-accentCyan';
       const cfgInput = (key, min, max) => `<input id="aa-cfg-${key}" type="number" inputmode="numeric" min="${min}" max="${max}" value="${cfg[key]}" onkeydown="if(event.key==='Enter'){applyAllAuditAnalysisSettings()}" class="${inputCls}">`;
 
+      // ---- Executive KPI tile ------------------------------------------
+      // A compact, click-to-filter stat card for the top-of-page command
+      // strip. Deliberately separate from the shared summaryPill() helper
+      // (used elsewhere in the dashboard for other popups) so this section
+      // can carry its own denser, management-report look without touching
+      // any other screen. Every value passed in is already computed above
+      // from the SAME analysis object the rest of the view reads from —
+      // this only changes how it is displayed, never what it says.
+      const TINT_HEX = { accentRose: '#e11d48', accentAmber: '#d97706', accentBlue: '#2563eb', accentEmerald: '#059669', accentIndigo: '#4f46e5', accentCyan: '#0891b2', slate: '#64748b' };
+      const kpiCard = (value, label, opts = {}) => {
+        const tint = opts.tint || 'slate';
+        const hex = TINT_HEX[tint] || TINT_HEX.slate;
+        const active = !!opts.active;
+        return `
+        <button type="button" ${opts.onClick || ''} title="${escapeHTML(opts.title || ('Click to filter the queue below by ' + label))}"
+          class="group relative text-left p-2.5 rounded-xl border transition-all active:scale-[0.98] cursor-pointer overflow-hidden ${active ? 'border-transparent shadow-md' : 'bg-white border-coolBorder hover:border-slate-300 hover:shadow-sm'}"
+          style="${active ? `background:${hex};` : ''}">
+          <span class="block text-[9px] font-bold uppercase tracking-wider leading-tight ${active ? 'text-white/80' : 'text-slate-400'}">${escapeHTML(label)}</span>
+          <span class="block text-lg font-extrabold leading-tight mt-0.5 ${active ? 'text-white' : 'text-slate-800'}" style="${active ? '' : `color:${opts.neutral ? '#1e293b' : hex}`}">${value}</span>
+          ${opts.sub ? `<span class="block text-[9px] font-semibold mt-0.5 ${active ? 'text-white/70' : 'text-slate-400'}">${escapeHTML(opts.sub)}</span>` : ''}
+          ${!active && !opts.neutral ? `<span class="absolute left-0 top-0 bottom-0 w-[3px]" style="background:${hex}"></span>` : ''}
+        </button>`;
+      };
+
       const maxLoad = Math.max(1, ...a.auditorNames.map(n => a.workload[n]), 1);
       const workloadRows = a.auditorNames.length ? a.auditorNames.map(name => {
           const count = a.workload[name];
@@ -12634,7 +12658,7 @@ html.page-fade-ready body {
 
           return `
           <tr class="${idx % 2 === 1 ? 'bg-gray-50/50' : ''} hover:bg-accentCyan/10 transition-colors">
-            <td class="p-1.5 text-center text-[10px] font-bold text-slate-400">${idx + 1}</td>
+            <td class="p-1.5 text-center">${idx < 3 && isActionable ? `<span class="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-extrabold text-white" style="background:${idx === 0 ? '#e11d48' : idx === 1 ? '#d97706' : '#4f46e5'}">${idx + 1}</span>` : `<span class="text-[10px] font-bold text-slate-400">${idx + 1}</span>`}</td>
             <td class="p-1.5 text-xs leading-tight"><button type="button" data-aa-kind="branch" data-aa-value="${escapeHTML(row.b.name)}" title="Open ${escapeHTML(row.b.name)}'s detailed profile" class="font-bold text-slate-800 text-left break-words hover:text-accentCyan hover:underline underline-offset-2 cursor-pointer">${escapeHTML(row.b.name)}</button></td>
             <td class="p-1.5 text-center"><button type="button" data-aa-kind="reason" data-aa-value="${escapeHTML(row.reason)}" title="List every branch with this status" class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-${tint}/10 text-${tint} rounded-md border border-${tint}/20 leading-tight whitespace-nowrap cursor-pointer hover:brightness-95">${escapeHTML(row.reason)}</button></td>
             <td class="p-1.5 text-center">
@@ -12657,7 +12681,10 @@ html.page-fade-ready body {
           </tr>
           <tr id="audit-risk-detail-${idx}" class="${idx === expandIdx ? '' : 'hidden'} bg-slate-50">
             <td colspan="9" class="p-3">
-              <div class="text-[10px] font-bold uppercase tracking-wider text-accentIndigo mb-1">Why this branch needs attention</div>
+              <div class="flex items-center gap-1.5 mb-1">
+                <span class="w-1.5 h-1.5 rounded-full" style="background:${TINT_HEX[tierTint] || '#94a3b8'}"></span>
+                <div class="text-[10px] font-bold uppercase tracking-wider text-accentIndigo">Why this branch needs attention</div>
+              </div>
               <div class="text-[11px] font-bold text-slate-800 mb-1">${escapeHTML(row.b.name)} — score ${risk.score.toFixed(1)} (${escapeHTML(risk.tier.label)}${risk.escalated ? ', raised from ' + escapeHTML(risk.baseTier.label) + ' by a data red flag' : ''})</div>
               <div class="text-[11px] text-slate-600 mb-2">${escapeHTML(auditRiskWhyText(row))}</div>
               ${risk.coverage < 0.999 ? `<div class="text-[10px] font-semibold ${risk.coverage < 0.75 ? 'text-accentRose' : 'text-accentAmber'} mb-2">Data coverage ${Math.round(risk.coverage * 100)}% — ${risk.coverage < 0.75 ? 'low confidence: this score rests on limited data, so check the branch\'s figures before relying on it.' : 'some factors had no data and were left out.'}</div>` : ''}
@@ -12855,43 +12882,70 @@ html.page-fade-ready body {
           : 'No branches match these filters. Remove a filter above to widen the list.';
 
       const attentionHtml = attention.length
-        ? `<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${attention.map(it => `
-          <button type="button" onclick="${escapeHTML(it.onclick)}" title="Click to see the branches behind this" class="text-left flex items-start gap-2.5 p-2.5 bg-white border border-coolBorder rounded-xl hover:bg-${it.tint}/5 hover:border-${it.tint}/30 active:scale-[0.99] transition-all cursor-pointer">
-            <span class="mt-1 w-1.5 h-1.5 rounded-full bg-${it.tint} flex-shrink-0"></span>
+        ? `<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${attention.map((it, i) => `
+          <button type="button" onclick="${escapeHTML(it.onclick)}" title="Click to see the branches behind this" class="relative text-left flex items-start gap-2.5 p-2.5 pl-3.5 bg-white border border-coolBorder rounded-xl hover:bg-${it.tint}/5 hover:border-${it.tint}/30 active:scale-[0.99] transition-all cursor-pointer overflow-hidden shadow-sm">
+            <span class="absolute left-0 top-0 bottom-0 w-1 bg-${it.tint}"></span>
+            <span class="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-${it.tint}/10 text-${it.tint} text-[10px] font-extrabold flex items-center justify-center">${i + 1}</span>
             <span class="min-w-0">
               <span class="block text-[11.5px] font-bold text-slate-800 leading-snug">${escapeHTML(it.title)}</span>
               <span class="block text-[10.5px] text-slate-500 leading-snug mt-0.5">${escapeHTML(it.detail)}</span>
             </span>
           </button>`).join('')}</div>`
-        : '<div class="p-3 bg-accentEmerald/5 border border-accentEmerald/20 rounded-xl text-xs font-semibold text-accentEmerald">✓ Nothing needs escalation right now — no unresolved critical branches, no missed schedules, no unaddressed high-risk branches.</div>';
+        : '<div class="flex items-center gap-2 p-3 bg-accentEmerald/5 border border-accentEmerald/20 rounded-xl text-xs font-semibold text-accentEmerald"><span class="w-2 h-2 rounded-full bg-accentEmerald"></span>Nothing needs escalation right now — no unresolved critical branches, no missed schedules, no unaddressed high-risk branches.</div>';
+
+      // One-line "pulse" strip — a single, honest headline read on the
+      // portfolio (composed only from numbers already computed above), so
+      // management sees where things stand before reading anything else.
+      const pulseTone = highRiskCount > 0 ? 'accentRose' : (overdueCount > 0 ? 'accentAmber' : 'accentEmerald');
+      const pulseHex = TINT_HEX[pulseTone];
+      const pulseText = highRiskCount > 0
+        ? highRiskCount + ' branch' + (highRiskCount === 1 ? '' : 'es') + ' at Critical/High risk need attention'
+        : (overdueCount > 0 ? overdueCount + ' audit' + (overdueCount === 1 ? '' : 's') + ' overdue, nothing at Critical/High risk' : 'Portfolio is on track — no Critical/High risk, nothing overdue');
 
       container.innerHTML = `
-      <div class="space-y-4 pb-2">
+      <div class="space-y-5 pb-2">
+
+        <div class="mx-2 sm:mx-3 flex flex-wrap items-center gap-x-3 gap-y-1 px-3.5 py-2.5 rounded-xl border" style="background:${pulseHex}0d; border-color:${pulseHex}33;">
+          <span class="w-2 h-2 rounded-full flex-shrink-0" style="background:${pulseHex}"></span>
+          <span class="text-[12.5px] font-extrabold text-slate-800">${escapeHTML(pulseText)}</span>
+          <span class="text-[10.5px] text-slate-500">· ${a.totalBranches} branches tracked · ${coveragePct !== null ? coveragePct + '% ever audited' : 'coverage unknown'}</span>
+          <span class="ml-auto text-[9px] font-bold uppercase tracking-wider text-slate-400">Live · reused from the analysis below, not recalculated</span>
+        </div>
+
         <div>
-          <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5 px-2 sm:px-3">Executive Summary</h3>
-          <div class="flex flex-wrap items-center gap-2 px-2 sm:px-3">
-            ${summaryPill(a.totalBranches, 'Total Branches', { neutral: true, active: filterBucket === 'ALL' && !table.chips.some(c => c.kind !== 'bucket') && !cfg.sortField, onClick: `onclick="setAuditAnalysisFilter('ALL')"` })}
-            ${summaryPill(highRiskCount, 'Critical / High Risk', { tint: 'accentRose', active: filterBucket === 'HIGH_RISK', onClick: `onclick="setAuditAnalysisFilter('HIGH_RISK')"` })}
-            ${summaryPill(a.overdueUnscheduled.length + a.riskFlagged.length + a.scheduledPastDue.length, 'Needs Immediate Scheduling', { tint: 'accentAmber', active: filterBucket === 'NEEDS_SCHEDULING', onClick: `onclick="setAuditAnalysisFilter('NEEDS_SCHEDULING')"` })}
-            ${summaryPill(overdueCount, 'Overdue Audits', { tint: 'accentAmber', active: filterBucket === 'OVERDUE', onClick: `onclick="setAuditAnalysisFilter('OVERDUE')"` })}
-            ${summaryPill(a.scheduledUpcoming.length, 'Due Soon', { tint: 'accentBlue', active: filterBucket === 'SCHEDULED_UPCOMING', onClick: `onclick="setAuditAnalysisFilter('SCHEDULED_UPCOMING')"` })}
-            ${summaryPill(a.neverAudited.length, 'Never Audited', { tint: 'accentRose', active: filterBucket === 'NEVER_AUDITED', onClick: `onclick="setAuditAnalysisFilter('NEVER_AUDITED')"` })}
-            ${summaryPill(a.onTrack.length, 'On Track', { tint: 'accentEmerald', active: filterBucket === 'ON_TRACK', onClick: `onclick="setAuditAnalysisFilter('ON_TRACK')"` })}
-            ${summaryPill(a.avgRiskScore !== null ? a.avgRiskScore : '—', 'Avg Risk Score', { tint: 'accentIndigo', active: cfg.sortField === 'risk' && filterBucket === 'ALL', onClick: `onclick="showAuditAnalysisSorted('risk')"` })}
-            ${summaryPill(a.avgIntervalDays !== null ? a.avgIntervalDays + 'd' : '—', 'Avg Days Since Audit', { tint: 'accentIndigo', active: cfg.sortField === 'days' && filterBucket === 'ALL', onClick: `onclick="showAuditAnalysisSorted('days')"` })}
-            ${summaryPill(coveragePct !== null ? coveragePct + '%' : '—', 'Audit Coverage', { tint: 'accentIndigo', active: filterBucket === 'EVER_AUDITED', onClick: `onclick="setAuditAnalysisFilter('EVER_AUDITED')"` })}
+          <div class="flex items-center justify-between px-2 sm:px-3 mb-1.5">
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Executive Summary</h3>
+            <span class="text-[9.5px] text-slate-400 hidden sm:inline">Tap any tile to filter the Priority Audit Queue below</span>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 px-2 sm:px-3">
+            ${kpiCard(a.totalBranches, 'Total Branches', { neutral: true, active: filterBucket === 'ALL' && !table.chips.some(c => c.kind !== 'bucket') && !cfg.sortField, onClick: `onclick="setAuditAnalysisFilter('ALL')"` })}
+            ${kpiCard(highRiskCount, 'Critical / High Risk', { tint: 'accentRose', active: filterBucket === 'HIGH_RISK', onClick: `onclick="setAuditAnalysisFilter('HIGH_RISK')"` })}
+            ${kpiCard(a.overdueUnscheduled.length + a.riskFlagged.length + a.scheduledPastDue.length, 'Needs Scheduling', { tint: 'accentAmber', active: filterBucket === 'NEEDS_SCHEDULING', onClick: `onclick="setAuditAnalysisFilter('NEEDS_SCHEDULING')"` })}
+            ${kpiCard(overdueCount, 'Overdue Audits', { tint: 'accentAmber', active: filterBucket === 'OVERDUE', onClick: `onclick="setAuditAnalysisFilter('OVERDUE')"` })}
+            ${kpiCard(a.scheduledUpcoming.length, 'Due Soon', { tint: 'accentBlue', active: filterBucket === 'SCHEDULED_UPCOMING', onClick: `onclick="setAuditAnalysisFilter('SCHEDULED_UPCOMING')"` })}
+            ${kpiCard(a.neverAudited.length, 'Never Audited', { tint: 'accentRose', active: filterBucket === 'NEVER_AUDITED', onClick: `onclick="setAuditAnalysisFilter('NEVER_AUDITED')"` })}
+            ${kpiCard(a.onTrack.length, 'On Track', { tint: 'accentEmerald', active: filterBucket === 'ON_TRACK', onClick: `onclick="setAuditAnalysisFilter('ON_TRACK')"` })}
+            ${kpiCard(a.avgRiskScore !== null ? a.avgRiskScore : '—', 'Avg Risk Score', { tint: 'accentIndigo', active: cfg.sortField === 'risk' && filterBucket === 'ALL', onClick: `onclick="showAuditAnalysisSorted('risk')"`, sub: 'out of 100' })}
+            ${kpiCard(a.avgIntervalDays !== null ? a.avgIntervalDays + 'd' : '—', 'Avg Days Since Audit', { tint: 'accentIndigo', active: cfg.sortField === 'days' && filterBucket === 'ALL', onClick: `onclick="showAuditAnalysisSorted('days')"` })}
+            ${kpiCard(coveragePct !== null ? coveragePct + '%' : '—', 'Audit Coverage', { tint: 'accentIndigo', active: filterBucket === 'EVER_AUDITED', onClick: `onclick="setAuditAnalysisFilter('EVER_AUDITED')"`, sub: 'ever audited' })}
           </div>
         </div>
 
         <div class="mx-2 sm:mx-3">
-          <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">Management Attention</h3>
-          <p class="text-[10px] text-slate-400 mb-2">The most consequential exceptions right now, worst first — pulled straight from the data below. Tap any item to see the branches behind it.</p>
+          <div class="flex items-center justify-between mb-1.5">
+            <div>
+              <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Management Attention</h3>
+              <p class="text-[10px] text-slate-400 mt-0.5">The most consequential exceptions right now, worst first — pulled straight from the data below. Tap any item to see the branches behind it.</p>
+            </div>
+            ${attention.length ? `<span class="shrink-0 px-2 py-1 rounded-full text-[9.5px] font-extrabold uppercase tracking-wider text-white" style="background:${TINT_HEX.accentRose}">${attention.length} open item${attention.length === 1 ? '' : 's'}</span>` : ''}
+          </div>
           ${attentionHtml}
         </div>
 
-        <details class="mx-2 sm:mx-3 bg-gray-50 border border-coolBorder rounded-xl" ${cfg.settingsOpen ? 'open' : ''} ontoggle="setAuditSettingsOpen(this.open)">
-          <summary class="flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-3 cursor-pointer select-none">
-            <span class="text-[12px] font-bold text-slate-700 uppercase tracking-wider">Scheduling rules &amp; risk scoring</span>
+        <details class="mx-2 sm:mx-3 bg-white border border-coolBorder rounded-xl shadow-sm" ${cfg.settingsOpen ? 'open' : ''} ontoggle="setAuditSettingsOpen(this.open)">
+          <summary class="flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-3 cursor-pointer select-none rounded-xl hover:bg-gray-50">
+            <span class="p-1 rounded-md bg-accentIndigo/10 text-accentIndigo">⚙</span>
+            <span class="text-[12px] font-bold text-slate-700 uppercase tracking-wider">Scoring Configuration</span>
             ${wsBadge}
             <span class="text-[10.5px] font-medium text-slate-400 normal-case tracking-normal">Risk score ≥ ${cfg.minScore} · skip if audited &lt;${cfg.minGapDays}d ago · always after ${cfg.overdueDays}d overdue · ${cfg.spacingDays} biz-day auditor spacing<span class="hidden sm:inline"> — tap to view or adjust</span></span>
           </summary>
@@ -12968,46 +13022,56 @@ html.page-fade-ready body {
           ${notice ? `<div role="status" class="px-4 py-2 border-t border-coolBorder text-[10.5px] font-semibold ${notice.type === 'error' ? 'text-accentRose' : 'text-accentEmerald'}">${notice.type === 'error' ? '⚠ ' : '✓ '}${escapeHTML(notice.text)}</div>` : ''}
         </details>
 
-        <div class="mx-2 sm:mx-3 grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div class="p-3 bg-white border border-coolBorder rounded-xl">
-            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">Risk Distribution</h3>
-            <p class="text-[10px] text-slate-400 mb-2">Branches, % of portfolio and average score per tier. Tap a row to list those branches.</p>
+        <div class="mx-2 sm:mx-3 grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <div class="p-3.5 bg-white border border-coolBorder rounded-xl shadow-sm">
+            <div class="flex items-center justify-between mb-0.5">
+              <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Risk Distribution</h3>
+              <span class="text-[9px] font-bold text-slate-400">${a.totalBranches} branches</span>
+            </div>
+            <p class="text-[10px] text-slate-400 mb-2.5">Branches, % of portfolio and average score per tier. Tap a row to list those branches.</p>
+            <div class="flex h-2.5 w-full rounded-full overflow-hidden mb-2.5 bg-gray-100">${a.riskTiers.map(t => a.totalBranches ? `<div title="${escapeHTML(t.label)}: ${t.count}" style="width:${(t.count / a.totalBranches) * 100}%; background:${TINT_HEX[t.tint] || '#94a3b8'}"></div>` : '').join('')}</div>
             <div class="space-y-1">${tierRows}</div>
           </div>
-          <div class="p-3 bg-white border border-coolBorder rounded-xl lg:col-span-2">
+          <div class="p-3.5 bg-white border border-coolBorder rounded-xl shadow-sm lg:col-span-2">
             <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">Risk Drivers</h3>
-            <p class="text-[10px] text-slate-400 mb-2">Tap a factor to list every branch where it is elevated (60+ risk points), worst first. Bars show average contribution to the score.</p>
-            <div class="space-y-1">${driverRows}</div>
+            <p class="text-[10px] text-slate-400 mb-2.5">What is actually pushing the portfolio's risk up. Tap a factor to list every branch where it is elevated (60+ risk points), worst first. Bars show average contribution to the score.</p>
+            <div class="space-y-1.5">${driverRows}</div>
           </div>
         </div>
 
-        <div class="mx-2 sm:mx-3 grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div class="p-3 bg-white border border-coolBorder rounded-xl">
+        <div class="mx-2 sm:mx-3 grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <div class="p-3.5 bg-white border border-coolBorder rounded-xl shadow-sm">
             <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">Auditor Workload</h3>
-            <p class="text-[10px] text-slate-400 mb-2">Current queue size per auditor. Tap an auditor to list their queue.</p>
-            <div class="space-y-1">${workloadRows}</div>
+            <p class="text-[10px] text-slate-400 mb-2.5">Current queue size per auditor. Tap an auditor to list their queue.</p>
+            <div class="space-y-1.5">${workloadRows}</div>
           </div>
-          <div class="p-3 bg-white border border-coolBorder rounded-xl">
-            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">Audit Schedule Health</h3>
-            <p class="text-[10px] text-slate-400 mb-2">Tap a status to list those branches.</p>
-            <div class="space-y-0.5 text-xs text-slate-600">${statusRows}</div>
+          <div class="p-3.5 bg-white border border-coolBorder rounded-xl shadow-sm">
+            <div class="flex items-center justify-between mb-0.5">
+              <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Audit Schedule Health</h3>
+              ${coveragePct !== null ? `<span class="text-[9px] font-bold" style="color:${TINT_HEX.accentIndigo}">${coveragePct}% coverage</span>` : ''}
+            </div>
+            <p class="text-[10px] text-slate-400 mb-2.5">Whether the audit plan is under control. Tap a status to list those branches.</p>
+            <div class="space-y-1 text-xs text-slate-600">${statusRows}</div>
           </div>
-          <div class="p-3 bg-white border border-coolBorder rounded-xl">
+          <div class="p-3.5 bg-white border border-coolBorder rounded-xl shadow-sm">
             <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">Days Since Last Audit</h3>
-            <p class="text-[10px] text-slate-400 mb-2">Tap a bar to list those branches.</p>
-            <div class="space-y-1">${distributionRows}</div>
+            <p class="text-[10px] text-slate-400 mb-2.5">Tap a bar to list those branches.</p>
+            <div class="space-y-1.5">${distributionRows}</div>
           </div>
         </div>
 
         <div class="mx-2 sm:mx-3">
           <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">Recently Completed Audits</h3>
           <p class="text-[10px] text-slate-400 mb-2">Tap a branch to see its score breakdown.</p>
-          <div class="p-3 bg-white border border-coolBorder rounded-xl">${recentCompletionsHtml}</div>
+          <div class="p-1 bg-white border border-coolBorder rounded-xl shadow-sm divide-y divide-coolBorder/60">${recentCompletionsHtml}</div>
         </div>
 
         <div id="aa-table-section" class="mx-2 sm:mx-3">
-          <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">${escapeHTML(table.title)} (${table.rows.length} branch${table.rows.length === 1 ? '' : 'es'})</h3>
-          <p class="text-[10px] text-slate-500 mb-2">Tap a branch to open its profile, a badge or number to filter by it, a column heading to sort, or a risk score to see how it was calculated.</p>
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-0.5">
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Priority Audit Queue <span class="normal-case font-medium text-slate-400">— ${escapeHTML(table.title)}</span></h3>
+            <span class="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold uppercase tracking-wider text-white" style="background:${TINT_HEX.accentIndigo}">${table.rows.length} branch${table.rows.length === 1 ? '' : 'es'}</span>
+          </div>
+          <p class="text-[10px] text-slate-500 mb-2">Ranked by risk score, highest first. Tap a branch to open its profile, a badge or number to filter by it, a column heading to sort, or a risk score to see how it was calculated.</p>
 
           <div class="flex flex-wrap items-end gap-x-3 gap-y-2 p-3 bg-gray-50 border border-coolBorder rounded-xl mb-2">
             <label class="${fieldLbl}">Search branch
@@ -13025,18 +13089,18 @@ html.page-fade-ready body {
           ${chipsHtml}
 
           ${table.rows.length > 0 ? `
-          <div class="rounded-xl border border-coolBorder max-h-[55vh] overflow-auto custom-scrollbar">
+          <div class="rounded-xl border border-coolBorder max-h-[55vh] overflow-auto custom-scrollbar shadow-sm">
             <table class="w-full min-w-[980px] text-left border-collapse bg-white">
               <thead class="bg-gray-50 border-b border-coolBorder text-[10px] text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-10 shadow-sm">
                 <tr>
-                  <th class="p-1.5 bg-gray-50 text-center w-9 whitespace-nowrap">#</th>
+                  <th class="p-1.5 bg-gray-50 text-center w-9 whitespace-nowrap">Priority</th>
                   ${sortTh('name', 'Branch').replace('text-center', 'text-left')}
-                  ${sortTh('reason', "Why It's Flagged")}
+                  ${sortTh('reason', 'Schedule Status / Reason')}
                   ${sortTh('risk', 'Risk Score')}
                   ${sortTh('last', 'Last Audited')}
                   ${sortTh('days', 'Days Since')}
-                  ${sortTh('auditor', 'Auditor')}
-                  ${sortTh('date', 'Date')}
+                  ${sortTh('auditor', 'Assigned Auditor')}
+                  ${sortTh('date', 'Suggested Date')}
                   <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Action</th>
                 </tr>
               </thead>
@@ -13046,7 +13110,10 @@ html.page-fade-ready body {
         </div>
 
         <div class="mx-2 sm:mx-3 p-3.5 sm:p-4 bg-accentIndigo/5 border border-accentIndigo/20 rounded-xl">
-          <h3 class="text-sm font-bold text-accentIndigo uppercase tracking-wide mb-1.5">How the ranking is decided</h3>
+          <div class="flex items-center gap-2 mb-1.5">
+            <span class="p-1 rounded-md bg-accentIndigo/15 text-accentIndigo text-[11px] font-extrabold">i</span>
+            <h3 class="text-sm font-bold text-accentIndigo uppercase tracking-wide">How the ranking is decided</h3>
+          </div>
           <p class="text-xs sm:text-[13px] text-slate-700 leading-relaxed mb-3">Branches are not ranked on audit interval alone. Each one gets a 0–100 risk score built from everything the dashboard tracks — audit history, findings, collections, efficiency, repo, sales, service and portfolio size — and the suggested schedule is ordered by that score, highest first.</p>
           <div class="overflow-x-auto">
             <table class="w-full text-xs text-left">
