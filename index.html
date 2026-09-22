@@ -6978,6 +6978,74 @@ html.page-fade-ready body {
         </div>`;
     }
 
+    // Executive Summary KPI tiles (Total Branches, Critical/High Risk, etc.)
+    // — instead of filtering the Priority Audit Queue table further down the
+    // page, each tile pops up its own branch list here, styled the same as
+    // the other list popups (e.g. Auditor Workload) rather than the table.
+    function renderAuditKpiListModal(bucket, modalBody) {
+      const cfg = window.auditAnalysisState;
+      const a = computeAuditScheduleAnalysis();
+      let rows = [], title = '', sub = '';
+      if (bucket === 'ALL') {
+        rows = a.rows; title = 'Total Branches'; sub = 'Every branch in the portfolio';
+      } else if (bucket === 'HIGH_RISK') {
+        rows = a.rows.filter(r => auditIsHighRisk(r, cfg)); title = 'Critical / High Risk'; sub = 'Branches in the Critical or High risk tier';
+      } else if (bucket === 'NEEDS_SCHEDULING') {
+        rows = [...a.neverAudited, ...a.riskFlagged, ...a.overdueUnscheduled, ...a.scheduledPastDue]; title = 'Needs Scheduling'; sub = 'Nothing currently scheduled, or a scheduled date has already passed';
+      } else if (bucket === 'OVERDUE') {
+        rows = [...a.overdueUnscheduled, ...a.scheduledPastDue]; title = 'Overdue Audits'; sub = 'Branches past due for an audit';
+      } else if (bucket === 'SCHEDULED_UPCOMING') {
+        rows = a.scheduledUpcoming; title = 'Due Soon'; sub = 'Branches with an audit scheduled in the near future';
+      } else if (bucket === 'NEVER_AUDITED') {
+        rows = a.neverAudited; title = 'Never Audited'; sub = 'No completed audit on record';
+      } else if (bucket === 'ON_TRACK') {
+        rows = a.onTrack; title = 'On Track'; sub = 'No action needed right now';
+      } else if (bucket === 'EVER_AUDITED') {
+        const never = new Set(a.neverAudited.map(r => r.b.name));
+        rows = a.rows.filter(r => !never.has(r.b.name)); title = 'Audit Coverage'; sub = 'Branches audited at least once';
+      } else if (bucket === 'RISK_SORT') {
+        rows = [...a.rows].sort((x, y) => (y.risk && y.risk.score || 0) - (x.risk && x.risk.score || 0)); title = 'Avg Risk Score'; sub = 'All branches, highest risk score first';
+      } else if (bucket === 'DAYS_SORT') {
+        rows = [...a.rows].sort((x, y) => (y.info.intervalDays ?? -1) - (x.info.intervalDays ?? -1)); title = 'Avg Days Since Audit'; sub = 'All branches, longest since last audit first';
+      } else {
+        rows = a.rows; title = 'Branches';
+      }
+
+      const itemsHtml = rows.map(row => {
+        const name = row.b.name;
+        const scoreLabel = row.risk && typeof row.risk.score === 'number' ? row.risk.score + '/100' : '—';
+        const daysLabel = (row.info.intervalDays !== null && row.info.intervalDays !== undefined) ? row.info.intervalDays + 'd since audit' : 'Never audited';
+        return `
+          <button type="button" class="mv-item" data-mv-search="${mvEsc(String(name).toLowerCase())}"
+                  onclick="openModalDetail('${mvArg(name)}')">
+            <span class="mv-item-name"><span class="mv-item-name-text">${mvEsc(name)}</span></span>
+            <span class="mv-item-meta">${mvEsc(scoreLabel)} · ${mvEsc(daysLabel)}</span>
+          </button>`;
+      }).join('');
+
+      const listHtml = rows.length
+          ? `<div class="mv-grid" id="auditKpiList">${itemsHtml}</div>
+             <div class="mv-empty" id="auditKpiList-empty" style="display:none">No branch matches that search.</div>`
+          : `<div class="mv-empty">No branches in this group.</div>`;
+
+      modalBody.classList.add('mv-mode');
+      modalBody.innerHTML = `
+        <div class="mv">
+          <div class="mv-head royal-header-gradient">
+            <div class="mv-head-row">
+              <div class="mv-head-main">
+                <div class="mv-title">${mvEsc(title)}</div>
+                <div class="mv-sub">${mvEsc(sub)}</div>
+              </div>
+              <div class="mv-stats">
+                <div class="mv-stat"><b>${rows.length}</b><span>Branches</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="mv-scroll custom-scrollbar">${listHtml}</div>
+        </div>`;
+    }
+
     function openModal(title, type, filterValue, navOpts) {
       navOpts = navOpts || {};
       const modalEl = document.getElementById('dataModal');
@@ -7043,6 +7111,8 @@ html.page-fade-ready body {
           if (typeof auditSyncEnsurePolling === 'function') auditSyncEnsurePolling();
       } else if (type === 'editAssignment') {
           renderEditAssignmentModal(filterValue, modalBody);
+      } else if (type === 'kpiBucket') {
+          renderAuditKpiListModal(filterValue, modalBody);
       } else if (type === 'auditor') {
           renderAuditorWorkloadModal(filterValue, modalBody);
       } else if (type === 'emergency') {
@@ -12964,19 +13034,19 @@ html.page-fade-ready body {
         <div>
           <div class="flex items-center justify-between px-2 sm:px-3 mb-1.5">
             <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Executive Summary</h3>
-            <span class="text-[9.5px] text-slate-400 hidden sm:inline">Tap any tile to filter the Priority Audit Queue below</span>
+            <span class="text-[9.5px] text-slate-400 hidden sm:inline">Tap any tile to view those branches</span>
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 px-2 sm:px-3">
-            ${kpiCard(a.totalBranches, 'Total Branches', { neutral: true, active: filterBucket === 'ALL' && !table.chips.some(c => c.kind !== 'bucket') && !cfg.sortField, onClick: `onclick="setAuditAnalysisFilter('ALL')"` })}
-            ${kpiCard(highRiskCount, 'Critical / High Risk', { tint: 'accentRose', active: filterBucket === 'HIGH_RISK', onClick: `onclick="setAuditAnalysisFilter('HIGH_RISK')"` })}
-            ${kpiCard(a.overdueUnscheduled.length + a.riskFlagged.length + a.scheduledPastDue.length, 'Needs Scheduling', { tint: 'accentAmber', active: filterBucket === 'NEEDS_SCHEDULING', onClick: `onclick="setAuditAnalysisFilter('NEEDS_SCHEDULING')"` })}
-            ${kpiCard(overdueCount, 'Overdue Audits', { tint: 'accentAmber', active: filterBucket === 'OVERDUE', onClick: `onclick="setAuditAnalysisFilter('OVERDUE')"` })}
-            ${kpiCard(a.scheduledUpcoming.length, 'Due Soon', { tint: 'accentBlue', active: filterBucket === 'SCHEDULED_UPCOMING', onClick: `onclick="setAuditAnalysisFilter('SCHEDULED_UPCOMING')"` })}
-            ${kpiCard(a.neverAudited.length, 'Never Audited', { tint: 'accentRose', active: filterBucket === 'NEVER_AUDITED', onClick: `onclick="setAuditAnalysisFilter('NEVER_AUDITED')"` })}
-            ${kpiCard(a.onTrack.length, 'On Track', { tint: 'accentEmerald', active: filterBucket === 'ON_TRACK', onClick: `onclick="setAuditAnalysisFilter('ON_TRACK')"` })}
-            ${kpiCard(a.avgRiskScore !== null ? a.avgRiskScore : '—', 'Avg Risk Score', { tint: 'accentIndigo', active: cfg.sortField === 'risk' && filterBucket === 'ALL', onClick: `onclick="showAuditAnalysisSorted('risk')"`, sub: 'out of 100' })}
-            ${kpiCard(a.avgIntervalDays !== null ? a.avgIntervalDays + 'd' : '—', 'Avg Days Since Audit', { tint: 'accentIndigo', active: cfg.sortField === 'days' && filterBucket === 'ALL', onClick: `onclick="showAuditAnalysisSorted('days')"` })}
-            ${kpiCard(coveragePct !== null ? coveragePct + '%' : '—', 'Audit Coverage', { tint: 'accentIndigo', active: filterBucket === 'EVER_AUDITED', onClick: `onclick="setAuditAnalysisFilter('EVER_AUDITED')"`, sub: 'ever audited' })}
+            ${kpiCard(a.totalBranches, 'Total Branches', { neutral: true, title: 'Click to view these branches', onClick: `onclick="openModal('Total Branches','kpiBucket','ALL')"` })}
+            ${kpiCard(highRiskCount, 'Critical / High Risk', { tint: 'accentRose', title: 'Click to view these branches', onClick: `onclick="openModal('Critical / High Risk','kpiBucket','HIGH_RISK')"` })}
+            ${kpiCard(a.overdueUnscheduled.length + a.riskFlagged.length + a.scheduledPastDue.length, 'Needs Scheduling', { tint: 'accentAmber', title: 'Click to view these branches', onClick: `onclick="openModal('Needs Scheduling','kpiBucket','NEEDS_SCHEDULING')"` })}
+            ${kpiCard(overdueCount, 'Overdue Audits', { tint: 'accentAmber', title: 'Click to view these branches', onClick: `onclick="openModal('Overdue Audits','kpiBucket','OVERDUE')"` })}
+            ${kpiCard(a.scheduledUpcoming.length, 'Due Soon', { tint: 'accentBlue', title: 'Click to view these branches', onClick: `onclick="openModal('Due Soon','kpiBucket','SCHEDULED_UPCOMING')"` })}
+            ${kpiCard(a.neverAudited.length, 'Never Audited', { tint: 'accentRose', title: 'Click to view these branches', onClick: `onclick="openModal('Never Audited','kpiBucket','NEVER_AUDITED')"` })}
+            ${kpiCard(a.onTrack.length, 'On Track', { tint: 'accentEmerald', title: 'Click to view these branches', onClick: `onclick="openModal('On Track','kpiBucket','ON_TRACK')"` })}
+            ${kpiCard(a.avgRiskScore !== null ? a.avgRiskScore : '—', 'Avg Risk Score', { tint: 'accentIndigo', title: 'Click to view these branches', onClick: `onclick="openModal('Avg Risk Score','kpiBucket','RISK_SORT')"`, sub: 'out of 100' })}
+            ${kpiCard(a.avgIntervalDays !== null ? a.avgIntervalDays + 'd' : '—', 'Avg Days Since Audit', { tint: 'accentIndigo', title: 'Click to view these branches', onClick: `onclick="openModal('Avg Days Since Audit','kpiBucket','DAYS_SORT')"` })}
+            ${kpiCard(coveragePct !== null ? coveragePct + '%' : '—', 'Audit Coverage', { tint: 'accentIndigo', title: 'Click to view these branches', onClick: `onclick="openModal('Audit Coverage','kpiBucket','EVER_AUDITED')"`, sub: 'ever audited' })}
           </div>
         </div>
 
