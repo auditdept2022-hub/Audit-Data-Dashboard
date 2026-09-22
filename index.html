@@ -10818,6 +10818,37 @@ html.page-fade-ready body {
     // Everything that is put on the schedule is then ordered by risk
     // score, highest first.
     const AUDIT_RISK_WEIGHTS_KEY = 'auditDashboard_v1_riskWeights';
+    // Tracks WHY the weights currently in cfg.weights are what they are, so
+    // the panel can tell management "these are data-derived" rather than
+    // silently presenting a number with no provenance. One of:
+    //   'data'    — set (by this device, automatically or via the button)
+    //               from each factor's correlation with real findings.
+    //   'custom'  — a person typed/dragged specific numbers and pressed OK.
+    //   'default' — nobody has ever set anything on this device yet, and
+    //               there isn't enough audit history to derive weights from
+    //               data (see AUDIT_WEIGHTS_MIN_ROWS below); the original
+    //               hand-picked starting numbers are in use for now.
+    const AUDIT_RISK_WEIGHTS_SOURCE_KEY = 'auditDashboard_v1_riskWeightsSource';
+    // Minimum number of scored branches before we trust a correlation
+    // enough to auto-set weights from it. Below this, hand-picked starting
+    // numbers stay in place (and are clearly labeled as such) rather than
+    // locking in a weighting scheme built on noise.
+    const AUDIT_WEIGHTS_MIN_ROWS = 10;
+    function loadSavedAuditRiskWeightsSource() {
+      try {
+        const s = localStorage.getItem(AUDIT_RISK_WEIGHTS_SOURCE_KEY);
+        if (s === 'data' || s === 'custom' || s === 'default') return s;
+      } catch (e) { /* storage unavailable */ }
+      // A device with saved weight numbers but no recorded source predates
+      // this tracking — treat it as a person's own past choice rather than
+      // relabeling it for them.
+      let hasSavedWeights = false;
+      try { hasSavedWeights = localStorage.getItem(AUDIT_RISK_WEIGHTS_KEY) !== null; } catch (e) {}
+      return hasSavedWeights ? 'custom' : 'default';
+    }
+    function saveAuditRiskWeightsSource(source) {
+      try { localStorage.setItem(AUDIT_RISK_WEIGHTS_SOURCE_KEY, source); } catch (e) {}
+    }
 
     // label/how/why are shown verbatim in the methodology panel and the
     // Excel "Risk Methodology" sheet, so the text is written to be read by
@@ -10965,7 +10996,9 @@ html.page-fade-ready body {
       expandBranch: null,   // branch whose score breakdown opens automatically
       notice: null,         // { type: 'ok' | 'error', text } shown once after an OK
       weights: loadSavedAuditRiskWeights(),
-      weightsOpen: false
+      weightsSource: loadSavedAuditRiskWeightsSource(), // 'data' | 'custom' | 'default' — see AUDIT_RISK_WEIGHTS_SOURCE_KEY
+      weightsOpen: false,
+      settingsOpen: false   // the "When to schedule" + "Scoring scale" panel; collapsed by default to keep the view compact
     };
 
     function resetAuditTableFilterState(cfg) {
@@ -11319,7 +11352,9 @@ html.page-fade-ready body {
         cfg.notice = { type: 'error', text: 'At least one factor needs a weight above 0. Nothing was changed.' };
       } else {
         cfg.weights = w;
+        cfg.weightsSource = 'custom';
         try { localStorage.setItem(AUDIT_RISK_WEIGHTS_KEY, JSON.stringify(w)); } catch (e) {}
+        saveAuditRiskWeightsSource('custom');
         cfg.notice = { type: 'ok', text: 'Risk-score weights applied and saved on this device — every score has been recalculated.' };
       }
       cfg.weightsOpen = true;
@@ -11365,24 +11400,55 @@ html.page-fade-ready body {
       } else {
         cfgKeys.forEach(key => { cfg[key] = newCfgVals[key]; });
         cfg.weights = w;
+        cfg.weightsSource = 'custom';
         try { localStorage.setItem(AUDIT_RISK_WEIGHTS_KEY, JSON.stringify(w)); } catch (e) {}
+        saveAuditRiskWeightsSource('custom');
         cfg.notice = { type: 'ok', text: 'Settings applied — scheduling thresholds and risk-score weights are both updated.' };
       }
       cfg.weightsOpen = true;
       refreshAuditAnalysis(false);
     }
 
+    // "Reset" now means back to the evidence, not back to a guess: it
+    // re-derives weights from each factor's current correlation with real
+    // findings (same as the "Suggest weights from data" button). Only if
+    // there truly isn't enough audit history yet does it fall back to the
+    // original hand-picked starting numbers, clearly labeled as such.
     function resetAuditRiskWeights() {
       const cfg = window.auditAnalysisState;
-      cfg.weights = defaultAuditRiskWeights();
+      const branches = activeData.branches || [];
+      const rows = branches.map(b => ({ b, info: getBranchAuditRoundInfo(b) }));
       try { localStorage.removeItem(AUDIT_RISK_WEIGHTS_KEY); } catch (e) {}
-      cfg.notice = { type: 'ok', text: 'Weights reset to the defaults.' };
+      try { localStorage.removeItem(AUDIT_RISK_WEIGHTS_SOURCE_KEY); } catch (e) {}
+      if (rows.length >= AUDIT_WEIGHTS_MIN_ROWS) {
+        computeAuditRiskScores(rows, cfg);
+        const auto = computeDataDrivenAuditRiskWeights(rows, cfg);
+        if (auto.usableFactors >= 2) {
+          cfg.weights = auto.weights;
+          cfg.weightsSource = 'data';
+          try { localStorage.setItem(AUDIT_RISK_WEIGHTS_KEY, JSON.stringify(auto.weights)); } catch (e) {}
+          saveAuditRiskWeightsSource('data');
+          cfg.notice = { type: 'ok', text: 'Weights reset and re-derived from each factor\u2019s correlation with actual findings across ' + rows.length + ' branches.' };
+        } else {
+          cfg.weights = defaultAuditRiskWeights();
+          cfg.weightsSource = 'default';
+          cfg.notice = { type: 'ok', text: 'Weights reset to the original starting numbers — not enough branches have comparable data yet to derive weights from findings.' };
+        }
+      } else {
+        cfg.weights = defaultAuditRiskWeights();
+        cfg.weightsSource = 'default';
+        cfg.notice = { type: 'ok', text: 'Weights reset to the original starting numbers — not enough branches (' + rows.length + ') to derive weights from findings yet.' };
+      }
       cfg.weightsOpen = true;
       refreshAuditAnalysis(false);
     }
 
     function setAuditWeightsOpen(isOpen) {
       window.auditAnalysisState.weightsOpen = !!isOpen;
+    }
+
+    function setAuditSettingsOpen(isOpen) {
+      window.auditAnalysisState.settingsOpen = !!isOpen;
     }
 
     // Filter row above the table (search + tier + auditor): one OK applies
@@ -11585,33 +11651,47 @@ html.page-fade-ready body {
       return out;
     }
 
-    // Sets every factor's weight proportional to how strongly it actually
-    // correlates with a branch's findings history (|r|), instead of leaving
-    // the hand-picked defaults unchecked. The findings factor keeps its own
-    // current weight (correlating it with itself would be circular); every
-    // other factor is rescaled from |r| so the total still sums to 100. A
-    // factor with too little data (fewer than 5 branches) or a near-zero
-    // correlation is left at a small floor rather than zeroed out — one
-    // portfolio snapshot is weak evidence to permanently silence a factor.
-    function suggestAuditRiskWeightsFromData() {
-      const cfg = window.auditAnalysisState;
-      const branches = activeData.branches || [];
-      const rows = branches.map(b => ({ b, info: getBranchAuditRoundInfo(b) }));
-      computeAuditRiskScores(rows, cfg);
+    // Core of the data-driven weighting: sets every factor's weight
+    // proportional to how strongly it actually correlates with a branch's
+    // findings history (|r|), instead of leaving the hand-picked starting
+    // numbers unchecked. The findings factor keeps its own current weight
+    // (correlating it with itself would be circular); every other factor is
+    // rescaled from |r| so the total still sums to 100. A factor with too
+    // little data (fewer than 5 branches) or a near-zero correlation is left
+    // at a small floor rather than zeroed out — one portfolio snapshot is
+    // weak evidence to permanently silence a factor. Pure function: `rows`
+    // must already be scored (computeAuditRiskScores run first) so each
+    // factor's .points exist; does not touch cfg or storage itself.
+    function computeDataDrivenAuditRiskWeights(rows, cfg) {
       const corr = computeAuditFactorCorrelations(rows);
       const findingsWeight = Math.max(0, Number(cfg.weights.findings) || 0) || 25;
       const remaining = Math.max(0, 100 - findingsWeight);
       const others = AUDIT_RISK_FACTORS.filter(f => f.key !== 'findings');
       const floor = 2;
+      let usableFactors = 0;
       const strengths = others.map(f => {
         const c = corr[f.key];
-        return (c && c.r !== null && c.n >= 5) ? Math.max(floor, Math.abs(c.r) * 100) : floor;
+        if (c && c.r !== null && c.n >= 5) { usableFactors++; return Math.max(floor, Math.abs(c.r) * 100); }
+        return floor;
       });
       const sum = strengths.reduce((s, v) => s + v, 0) || 1;
       const w = { findings: findingsWeight };
       others.forEach((f, i) => { w[f.key] = Math.round((strengths[i] / sum) * remaining); });
-      cfg.weights = w;
-      try { localStorage.setItem(AUDIT_RISK_WEIGHTS_KEY, JSON.stringify(w)); } catch (e) {}
+      return { weights: w, corr, usableFactors, n: rows.length };
+    }
+
+    // Button handler: explicitly (re)derive weights from the current
+    // portfolio's correlation with real findings and apply them right away.
+    function suggestAuditRiskWeightsFromData() {
+      const cfg = window.auditAnalysisState;
+      const branches = activeData.branches || [];
+      const rows = branches.map(b => ({ b, info: getBranchAuditRoundInfo(b) }));
+      computeAuditRiskScores(rows, cfg);
+      const result = computeDataDrivenAuditRiskWeights(rows, cfg);
+      cfg.weights = result.weights;
+      cfg.weightsSource = 'data';
+      try { localStorage.setItem(AUDIT_RISK_WEIGHTS_KEY, JSON.stringify(result.weights)); } catch (e) {}
+      saveAuditRiskWeightsSource('data');
       cfg.notice = { type: 'ok', text: 'Weights set from each factor\u2019s correlation with actual findings across ' + rows.length + ' branches (r shown next to each factor below). Review, then press OK to keep them.' };
       cfg.weightsOpen = true;
       refreshAuditAnalysis(false);
@@ -11816,6 +11896,33 @@ html.page-fade-ready body {
       const today = Date.now();
       const branches = activeData.branches || [];
       const rows = branches.map(b => ({ b, info: getBranchAuditRoundInfo(b) }));
+
+      // Data-driven weights BY DEFAULT: if nobody on this device has ever
+      // set or seen a weighting scheme yet (no saved key at all), don't sit
+      // on the hand-picked starting numbers unchecked — silently derive
+      // weights from how well each factor has actually lined up with real
+      // findings, the same method as the "Suggest weights from data"
+      // button, so the very first view already reflects the portfolio's
+      // own evidence rather than a guess. Requires a minimum sample
+      // (AUDIT_WEIGHTS_MIN_ROWS) and at least two factors with enough
+      // per-branch data to correlate; otherwise nothing is saved and this
+      // is retried the next time the analysis is opened (e.g. once more
+      // data has been imported). Once anything is saved — auto-derived,
+      // data-button-derived, or hand-typed — this never overwrites it again
+      // on its own; from then on it's a deliberate action (the button, the
+      // OK button, or "Reset").
+      let hasSavedWeights = false;
+      try { hasSavedWeights = localStorage.getItem(AUDIT_RISK_WEIGHTS_KEY) !== null; } catch (e) {}
+      if (!hasSavedWeights && rows.length >= AUDIT_WEIGHTS_MIN_ROWS) {
+        computeAuditRiskScores(rows, cfg); // populate factor .points (weight-independent) so they can be correlated
+        const auto = computeDataDrivenAuditRiskWeights(rows, cfg);
+        if (auto.usableFactors >= 2) {
+          cfg.weights = auto.weights;
+          cfg.weightsSource = 'data';
+          try { localStorage.setItem(AUDIT_RISK_WEIGHTS_KEY, JSON.stringify(auto.weights)); } catch (e) {}
+          saveAuditRiskWeightsSource('data');
+        }
+      }
       computeAuditRiskScores(rows, cfg);
 
       // -- Bucket every branch into exactly one category --------------
@@ -12405,6 +12512,18 @@ html.page-fade-ready body {
       // dot/text pieces.
       const corrLabel = key => corrInfo(key).text;
 
+      // Small pill telling management (at a glance, even collapsed) WHY the
+      // weights currently in effect are what they are.
+      const wsBadge = (() => {
+        if (cfg.weightsSource === 'data') {
+          return '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide bg-accentEmerald/10 text-accentEmerald border border-accentEmerald/25" title="These weights are set automatically from each factor\'s statistical correlation with real audit findings across the portfolio — not hand-picked.">● Data-derived weights</span>';
+        }
+        if (cfg.weightsSource === 'custom') {
+          return '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide bg-accentAmber/10 text-accentAmber border border-accentAmber/25" title="Someone has manually set these weights. Use \'Suggest weights from data\' below, or Reset, to re-base them on evidence.">● Custom weights</span>';
+        }
+        return '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide bg-slate-200 text-slate-500 border border-slate-300" title="Not enough audit history yet (need at least ' + AUDIT_WEIGHTS_MIN_ROWS + ' scored branches) to derive weights from findings, so the original starting numbers are in use.">● Starting defaults</span>';
+      })();
+
       const weightInputs = AUDIT_RISK_FACTORS.map(f => {
         const val = Number(cfg.weights[f.key]) || 0;
         const pct = Math.round((val / weightSum) * 100);
@@ -12479,9 +12598,14 @@ html.page-fade-ready body {
           ${summaryPill(a.avgIntervalDays !== null ? a.avgIntervalDays + 'd' : '—', 'Avg Days Since Audit', { tint: 'accentIndigo', active: cfg.sortField === 'days' && filterBucket === 'ALL', onClick: `onclick="showAuditAnalysisSorted('days')"` })}
         </div>
 
-        <div class="mx-2 sm:mx-3 bg-gray-50 border border-coolBorder rounded-xl">
-          <div class="p-3">
-          <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">When to put a branch on the schedule</p>
+        <details class="mx-2 sm:mx-3 bg-gray-50 border border-coolBorder rounded-xl" ${cfg.settingsOpen ? 'open' : ''} ontoggle="setAuditSettingsOpen(this.open)">
+          <summary class="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2.5 cursor-pointer select-none">
+            <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Scheduling rules &amp; risk scoring</span>
+            ${wsBadge}
+            <span class="text-[10px] font-medium text-slate-400 normal-case tracking-normal">Risk score ≥ ${cfg.minScore} · skip if audited &lt;${cfg.minGapDays}d ago · always after ${cfg.overdueDays}d overdue · ${cfg.spacingDays} biz-day auditor spacing<span class="hidden sm:inline"> — tap to view or adjust</span></span>
+          </summary>
+          <div class="px-3 pb-3 pt-1 border-t border-coolBorder">
+          <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 mt-2">When to put a branch on the schedule</p>
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div class="rounded-lg border border-coolBorder bg-white p-2.5">
               <p class="text-[10.5px] font-semibold text-slate-600 leading-snug mb-1.5">Schedule a branch once its risk score reaches</p>
@@ -12517,7 +12641,7 @@ html.page-fade-ready body {
           </div>
 
           <details class="border-t border-coolBorder" ${cfg.weightsOpen ? 'open' : ''} ontoggle="setAuditWeightsOpen(this.open)">
-            <summary class="px-3 py-1.5 text-[11px] font-bold text-slate-700 cursor-pointer select-none">Risk score weights — how much each factor counts <span class="font-medium text-slate-500">(tap to adjust; saved on this device)</span></summary>
+            <summary class="flex flex-wrap items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-slate-700 cursor-pointer select-none">Risk score weights — how much each factor counts ${wsBadge} <span class="font-medium text-slate-500 normal-case">(tap to adjust; saved on this device)</span></summary>
             <div class="px-3 pb-2">
               <p class="text-[11px] text-slate-600 leading-relaxed mb-2">Each box below is one factor in the risk score. Raise a number to make that factor count for more of the score, lower it to count for less — you don't need them to add up to 100, they're automatically converted to the percentages shown. The colored line under each factor is a plain-language check on how well it has actually matched real audit findings across your branches so far: <span class="text-accentEmerald font-semibold">Strong</span> is the best evidence for a heavier weight, <span class="text-accentBlue font-semibold">Moderate</span> is decent evidence, <span class="text-slate-400 font-semibold">Weak</span> means the past data hasn't backed it up much (hover it for the exact statistic).</p>
               <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">${weightInputs}</div>
@@ -12526,7 +12650,7 @@ html.page-fade-ready body {
                 <span id="aa-w-hint" class="hidden text-[9px] font-bold text-accentAmber">Preview only — press OK to apply.</span>
                 <span class="ml-auto flex items-center gap-1.5">
                   <button type="button" onclick="suggestAuditRiskWeightsFromData()" title="Set weights proportional to each factor's correlation with actual findings, instead of the hand-picked defaults" class="px-2 py-0.5 text-[10px] font-bold bg-accentIndigo/10 text-accentIndigo border border-accentIndigo/20 rounded-md hover:brightness-95 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Suggest weights from data</button>
-                  <button type="button" onclick="resetAuditRiskWeights()" class="px-2 py-0.5 text-[10px] font-bold bg-white border border-coolBorder rounded-md hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Reset to defaults</button>
+                  <button type="button" onclick="resetAuditRiskWeights()" title="Re-derive weights from findings correlation; falls back to the original starting numbers only if there isn't enough audit history yet" class="px-2 py-0.5 text-[10px] font-bold bg-white border border-coolBorder rounded-md hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Reset to data-derived weights</button>
                   ${okBtn('applyAllAuditAnalysisSettings()', 'Apply all settings (thresholds and weights)')}
                 </span>
               </div>
@@ -12534,7 +12658,7 @@ html.page-fade-ready body {
           </details>
 
           ${notice ? `<div role="status" class="px-3 py-1.5 border-t border-coolBorder text-[10px] font-semibold ${notice.type === 'error' ? 'text-accentRose' : 'text-accentEmerald'}">${notice.type === 'error' ? '⚠ ' : '✓ '}${escapeHTML(notice.text)}</div>` : ''}
-        </div>
+        </details>
 
         <div class="mx-2 sm:mx-3 grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div class="p-3 bg-white border border-coolBorder rounded-xl">
@@ -12634,6 +12758,7 @@ html.page-fade-ready body {
             <li><strong>Whole portfolio, not just what's on screen.</strong> Every branch in the system is scored, regardless of the Overview table's current search or status filter.</li>
             <li><strong>Auditor and date.</strong> Highest priority first. A branch keeps the auditor already queued for it by the rotation; otherwise it goes to whichever auditor is free earliest (ties: lightest queue), and never to the person who did its most recent audit while someone else is available. Each auditor has their own calendar: an audit takes ${cfg.spacingDays} business day(s), never overlaps one they already have scheduled, and skips weekends and holidays.</li>
             <li><strong>Data coverage.</strong> Each score shows how much of the total weight actually had data. Low coverage means low confidence.</li>
+            <li><strong>Weights are set from evidence, not opinion.</strong> By default each factor's weight is derived from its own Pearson correlation with real, historical findings across the portfolio (r-value shown against each factor above) — a factor only counts for more of the score once the data shows it actually predicts findings. Anyone can still type in their own numbers, but doing so is a visible, logged override (shown as "Custom weights" above), not the default state.</li>
             <li><strong>A prioritisation aid, not an audit conclusion.</strong> The score says where to look first. It does not say something is wrong at a branch. Weights and thresholds are adjustable above and every score can be traced line by line.</li>
           </ul>
         </div>
