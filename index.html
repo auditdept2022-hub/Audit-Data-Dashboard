@@ -6980,70 +6980,152 @@ html.page-fade-ready body {
 
     // Executive Summary KPI tiles (Total Branches, Critical/High Risk, etc.)
     // — instead of filtering the Priority Audit Queue table further down the
-    // page, each tile pops up its own branch list here, styled the same as
-    // the other list popups (e.g. Auditor Workload) rather than the table.
-    function renderAuditKpiListModal(bucket, modalBody) {
-      const cfg = window.auditAnalysisState;
-      const a = computeAuditScheduleAnalysis();
-      let rows = [], title = '', sub = '';
-      if (bucket === 'ALL') {
-        rows = a.rows; title = 'Total Branches'; sub = 'Every branch in the portfolio';
-      } else if (bucket === 'HIGH_RISK') {
-        rows = a.rows.filter(r => auditIsHighRisk(r, cfg)); title = 'Critical / High Risk'; sub = 'Branches in the Critical or High risk tier';
-      } else if (bucket === 'NEEDS_SCHEDULING') {
-        rows = [...a.neverAudited, ...a.riskFlagged, ...a.overdueUnscheduled, ...a.scheduledPastDue]; title = 'Needs Scheduling'; sub = 'Nothing currently scheduled, or a scheduled date has already passed';
-      } else if (bucket === 'OVERDUE') {
-        rows = [...a.overdueUnscheduled, ...a.scheduledPastDue]; title = 'Overdue Audits'; sub = 'Branches past due for an audit';
-      } else if (bucket === 'SCHEDULED_UPCOMING') {
-        rows = a.scheduledUpcoming; title = 'Due Soon'; sub = 'Branches with an audit scheduled in the near future';
-      } else if (bucket === 'NEVER_AUDITED') {
-        rows = a.neverAudited; title = 'Never Audited'; sub = 'No completed audit on record';
-      } else if (bucket === 'ON_TRACK') {
-        rows = a.onTrack; title = 'On Track'; sub = 'No action needed right now';
-      } else if (bucket === 'EVER_AUDITED') {
-        const never = new Set(a.neverAudited.map(r => r.b.name));
-        rows = a.rows.filter(r => !never.has(r.b.name)); title = 'Audit Coverage'; sub = 'Branches audited at least once';
-      } else if (bucket === 'RISK_SORT') {
-        rows = [...a.rows].sort((x, y) => (y.risk && y.risk.score || 0) - (x.risk && x.risk.score || 0)); title = 'Avg Risk Score'; sub = 'All branches, highest risk score first';
-      } else if (bucket === 'DAYS_SORT') {
-        rows = [...a.rows].sort((x, y) => (y.info.intervalDays ?? -1) - (x.info.intervalDays ?? -1)); title = 'Avg Days Since Audit'; sub = 'All branches, longest since last audit first';
-      } else {
-        rows = a.rows; title = 'Branches';
-      }
+    // page, each tile pops up its own copy of that same table (same columns,
+    // same row design), scoped to just that tile's branches.
+    function buildAuditKpiQueueTableHtml(rows) {
+      const escapeHTML = str => {
+          if (str === null || str === undefined || str === '') return '';
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+      };
+      const fmtDate = d => d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+      const REASON_TINT = {
+        'Never audited': 'accentRose',
+        'High risk, not yet scheduled': 'accentRose',
+        'Overdue, not yet scheduled': 'accentAmber',
+        'Expected date already passed': 'accentAmber',
+        'Scheduled — upcoming': 'accentBlue',
+        'Monitor — recently audited': 'accentCyan',
+        'On track': 'accentEmerald'
+      };
+      const pointsColor = p => p >= 60 ? 'text-accentRose' : (p >= 35 ? 'text-accentAmber' : 'text-accentEmerald');
 
-      const itemsHtml = rows.map(row => {
-        const name = row.b.name;
-        const scoreLabel = row.risk && typeof row.risk.score === 'number' ? row.risk.score + '/100' : '—';
-        const daysLabel = (row.info.intervalDays !== null && row.info.intervalDays !== undefined) ? row.info.intervalDays + 'd since audit' : 'Never audited';
-        return `
-          <button type="button" class="mv-item" data-mv-search="${mvEsc(String(name).toLowerCase())}"
-                  onclick="openModalDetail('${mvArg(name)}')">
-            <span class="mv-item-name"><span class="mv-item-name-text">${mvEsc(name)}</span></span>
-            <span class="mv-item-meta">${mvEsc(scoreLabel)} · ${mvEsc(daysLabel)}</span>
-          </button>`;
+      const rowsHtml = rows.map((row, idx) => {
+          const isActionable = row.suggestedAuditor !== undefined;
+          const days = row.info.intervalDays;
+          const hasDays = days !== null && days !== undefined;
+          const overdueBadge = (hasDays && days >= window.auditAnalysisState.overdueDays) ? 'text-accentRose' : 'text-slate-600';
+          const tint = REASON_TINT[row.reason] || 'slate-500';
+          const risk = row.risk;
+          const tierTint = risk.tier.tint;
+          const audName = isActionable ? row.suggestedAuditor : row.info.upNextAuditor;
+          const distKey = auditDistKeyOf(row);
+
+          const flagBits = (risk.redFlags || []).map(x => escapeHTML(x.label));
+          const driverBits = risk.drivers.length ? risk.drivers.map(d => escapeHTML(d.short)).join(' · ') : (flagBits.length ? '' : 'No major risk drivers');
+          const driversText = (flagBits.length ? '<span class="font-bold text-accentRose">⚑ ' + flagBits.join(' · ') + '</span>' + (driverBits ? ' · ' : '') : '') + driverBits;
+
+          const audCell = audName
+              ? `<span class="${isActionable ? 'px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-accentEmerald/10 text-accentEmerald rounded-md border border-accentEmerald/20 leading-tight whitespace-nowrap' : 'text-[10px] text-slate-600'}">${escapeHTML(audName)}</span>`
+              : '<span class="text-[10px] text-slate-400">—</span>';
+          const dateCell = isActionable
+              ? `<td class="p-1.5 text-center text-[10px] font-semibold text-slate-700 whitespace-nowrap">${fmtDate(row.suggestedDate)}</td>`
+              : `<td class="p-1.5 text-center text-[10px] font-semibold text-slate-700 whitespace-nowrap">${row.info.expectedAuditDate ? escapeHTML(row.info.expectedAuditDate) : '—'}</td>`;
+          const actionLabel = isActionable ? 'Set Schedule' : 'View';
+
+          const factorRows = risk.factors.map(x => {
+              const fac = AUDIT_RISK_FACTORS.find(ff => ff.key === x.key);
+              return x.available ? `
+                <tr class="border-t border-coolBorder/60">
+                  <td class="py-1 pr-3 text-slate-700 whitespace-nowrap font-semibold">${escapeHTML(fac.label)}</td>
+                  <td class="py-1 pr-3 text-slate-600">${escapeHTML(x.detail)}</td>
+                  <td class="py-1 pr-3 text-center font-bold ${pointsColor(x.points)}">${Math.round(x.points)}</td>
+                  <td class="py-1 pr-3 text-center text-slate-500">${Math.round(x.share * 100)}%</td>
+                  <td class="py-1 text-right font-bold text-slate-700">+${x.contribution.toFixed(1)}</td>
+                </tr>` : `
+                <tr class="border-t border-coolBorder/60">
+                  <td class="py-1 pr-3 text-slate-400 whitespace-nowrap">${escapeHTML(fac.label)}</td>
+                  <td class="py-1 pr-3 text-slate-400 italic" colspan="3">${escapeHTML(x.detail)} — left out of the score, other weights rescaled</td>
+                  <td class="py-1 text-right text-slate-400">—</td>
+                </tr>`;
+          }).join('');
+
+          return `
+          <tr class="${idx % 2 === 1 ? 'bg-gray-50/50' : ''} hover:bg-accentCyan/10 transition-colors">
+            <td class="p-1.5 text-center">${idx < 3 && isActionable ? `<span class="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-extrabold text-white" style="background:${idx === 0 ? '#e11d48' : idx === 1 ? '#d97706' : '#4f46e5'}">${idx + 1}</span>` : `<span class="text-[10px] font-bold text-slate-400">${idx + 1}</span>`}</td>
+            <td class="p-1.5 text-xs leading-tight"><button type="button" data-aa-kind="branch" data-aa-value="${escapeHTML(row.b.name)}" title="Open ${escapeHTML(row.b.name)}'s detailed profile" class="font-bold text-slate-800 text-left break-words hover:text-accentCyan hover:underline underline-offset-2 cursor-pointer">${escapeHTML(row.b.name)}</button></td>
+            <td class="p-1.5 text-center"><span class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-${tint}/10 text-${tint} rounded-md border border-${tint}/20 leading-tight whitespace-nowrap">${escapeHTML(row.reason)}</span></td>
+            <td class="p-1.5 text-center">
+              <button type="button" onclick="toggleAuditRiskDetail('kpi-${idx}')" title="Click to see exactly how this score was calculated" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-${tierTint}/10 border border-${tierTint}/20 text-${tierTint} hover:brightness-95 active:scale-95 transition-all cursor-pointer">
+                <span class="text-xs font-extrabold leading-none">${risk.score.toFixed(0)}</span>
+                <span class="text-[9px] font-bold uppercase tracking-wider leading-none">${escapeHTML(risk.tier.label)}</span>
+                <span class="text-[9px] leading-none">▾</span>
+              </button>
+              <div class="mt-0.5 text-[9px] text-slate-500 leading-tight max-w-[190px] mx-auto">${driversText}</div>
+            </td>
+            <td class="p-1.5 text-center text-[10px] text-slate-600 whitespace-nowrap">${row.info.recentDate ? escapeHTML(row.info.recentDate) : 'Never'}</td>
+            <td class="p-1.5 text-center whitespace-nowrap">${hasDays
+                ? `<span class="text-[10px] font-semibold ${overdueBadge}">${days}d</span>`
+                : (distKey === 'never' ? `<span class="text-[10px] font-semibold text-slate-400">—</span>` : '<span class="text-[10px] text-slate-400">—</span>')}</td>
+            <td class="p-1.5 text-center">${audCell}</td>
+            ${dateCell}
+            <td class="p-1.5 text-center">
+              <button type="button" onclick="event.stopPropagation(); openEditAssignmentModal('${escapeFindingHTML(row.b.name)}')" class="px-2 py-1 text-[10px] font-bold ${isActionable ? 'bg-accentCyan' : 'bg-slate-500'} text-white rounded-lg hover:brightness-95 active:scale-95 transition-all cursor-pointer whitespace-nowrap">${actionLabel}</button>
+            </td>
+          </tr>
+          <tr id="audit-risk-detail-kpi-${idx}" class="hidden bg-slate-50">
+            <td colspan="9" class="p-3">
+              <div class="flex items-center gap-1.5 mb-1">
+                <span class="w-1.5 h-1.5 rounded-full" style="background:${TINT_HEX[tierTint] || '#94a3b8'}"></span>
+                <div class="text-[10px] font-bold uppercase tracking-wider text-accentIndigo">Why this branch needs attention</div>
+              </div>
+              <div class="text-[11px] font-bold text-slate-800 mb-1">${escapeHTML(row.b.name)} — score ${risk.score.toFixed(1)} (${escapeHTML(risk.tier.label)}${risk.escalated ? ', raised from ' + escapeHTML(risk.baseTier.label) + ' by a data red flag' : ''})</div>
+              <div class="text-[11px] text-slate-600 mb-2">${escapeHTML(auditRiskWhyText(row))}</div>
+              ${risk.coverage < 0.999 ? `<div class="text-[10px] font-semibold ${risk.coverage < 0.75 ? 'text-accentRose' : 'text-accentAmber'} mb-2">Data coverage ${Math.round(risk.coverage * 100)}% — ${risk.coverage < 0.75 ? 'low confidence: this score rests on limited data, so check the branch\'s figures before relying on it.' : 'some factors had no data and were left out.'}</div>` : ''}
+              <div class="overflow-x-auto">
+                <table class="w-full text-[10px] text-left">
+                  <thead class="text-slate-500 uppercase tracking-wider font-semibold">
+                    <tr><th class="pb-1 pr-3">Factor</th><th class="pb-1 pr-3">What the data says</th><th class="pb-1 pr-3 text-center">Risk (0–100)</th><th class="pb-1 pr-3 text-center">Weight</th><th class="pb-1 text-right">Adds to score</th></tr>
+                  </thead>
+                  <tbody>${factorRows}
+                    <tr class="border-t-2 border-slate-300"><td class="pt-1 font-extrabold text-slate-800" colspan="4">Total risk score</td><td class="pt-1 text-right font-extrabold text-slate-800">${risk.score.toFixed(1)}</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </td>
+          </tr>`;
       }).join('');
 
-      const listHtml = rows.length
-          ? `<div class="mv-grid" id="auditKpiList">${itemsHtml}</div>
-             <div class="mv-empty" id="auditKpiList-empty" style="display:none">No branch matches that search.</div>`
-          : `<div class="mv-empty">No branches in this group.</div>`;
+      return `
+      <table class="w-full min-w-[980px] text-left border-collapse bg-white">
+        <thead class="bg-gray-50 border-b border-coolBorder text-[10px] text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-10 shadow-sm">
+          <tr>
+            <th class="p-1.5 bg-gray-50 text-center w-9 whitespace-nowrap">Priority</th>
+            <th class="p-1.5 bg-gray-50 text-left whitespace-nowrap">Branch</th>
+            <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Schedule Status / Reason</th>
+            <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Risk Score</th>
+            <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Last Audited</th>
+            <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Days Since</th>
+            <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Assigned Auditor</th>
+            <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Suggested Date</th>
+            <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Action</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-coolBorder text-xs">${rowsHtml}</tbody>
+      </table>`;
+    }
 
-      modalBody.classList.add('mv-mode');
+    function renderAuditKpiListModal(bucket, modalBody) {
+      const a = computeAuditScheduleAnalysis();
+      let table, sub;
+      if (bucket === 'RISK_SORT') { table = getAuditAnalysisTableRows(a, 'ALL', 'risk'); sub = 'All branches, highest risk score first'; }
+      else if (bucket === 'DAYS_SORT') { table = getAuditAnalysisTableRows(a, 'ALL', 'days'); sub = 'All branches, longest since last audit first'; }
+      else { table = getAuditAnalysisTableRows(a, bucket); }
+
+      const tableHtml = table.rows.length
+          ? `<div class="rounded-xl border border-coolBorder overflow-auto custom-scrollbar shadow-sm">${buildAuditKpiQueueTableHtml(table.rows)}</div>`
+          : `<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">No branches in this group.</div>`;
+
+      modalBody.classList.remove('mv-mode');
       modalBody.innerHTML = `
-        <div class="mv">
-          <div class="mv-head royal-header-gradient">
-            <div class="mv-head-row">
-              <div class="mv-head-main">
-                <div class="mv-title">${mvEsc(title)}</div>
-                <div class="mv-sub">${mvEsc(sub)}</div>
-              </div>
-              <div class="mv-stats">
-                <div class="mv-stat"><b>${rows.length}</b><span>Branches</span></div>
-              </div>
-            </div>
+        <div class="p-3 sm:p-3.5">
+          <div class="flex items-center justify-between mb-0.5">
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">${table.title}</h3>
+            <span class="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold uppercase tracking-wider text-white" style="background:${TINT_HEX.accentIndigo}">${table.rows.length} branch${table.rows.length === 1 ? '' : 'es'}</span>
           </div>
-          <div class="mv-scroll custom-scrollbar">${listHtml}</div>
+          ${sub ? `<p class="text-[10px] text-slate-500 mb-2">${sub}</p>` : `<p class="text-[10px] text-slate-500 mb-2">Tap a branch to open its profile, or a risk score to see how it was calculated.</p>`}
+          ${tableHtml}
         </div>`;
+      bindAuditAnalysisClicks(modalBody);
     }
 
     function openModal(title, type, filterValue, navOpts) {
@@ -12476,9 +12558,9 @@ html.page-fade-ready body {
     // auditor, queue, status, days bucket, risk factor), then the chosen
     // sort. Also returns the list of active filters so the view can show
     // them as removable chips ("show what is needed").
-    function getAuditAnalysisTableRows(a) {
+    function getAuditAnalysisTableRows(a, bucketOverride, sortOverride) {
       const cfg = window.auditAnalysisState;
-      const bucket = cfg.filterBucket || 'ATTENTION';
+      const bucket = bucketOverride || (cfg.filterBucket || 'ATTENTION');
       const all = getAuditAnalysisAllRows(a);
       let title, rows;
       switch (bucket) {
@@ -12507,6 +12589,7 @@ html.page-fade-ready body {
       }
       const baseTitle = title;
       const chips = [];
+      if (!bucketOverride) {
       if (bucket !== 'ATTENTION') chips.push({ kind: 'bucket', label: 'View: ' + baseTitle.replace(/, ranked by (risk )?score$/, '') });
       const factorOf = (r, key) => r.risk.factors.find(x => x.key === key);
       const factorLabel = (key) => (AUDIT_RISK_FACTORS.find(f => f.key === key) || {}).label || key;
@@ -12543,9 +12626,12 @@ html.page-fade-ready body {
         rows = rows.filter(r => r.b.name.toLowerCase().includes(q));
         chips.push({ kind: 'search', label: 'Search: \u201c' + cfg.search + '\u201d' });
       }
+      }
 
-      if (cfg.sortField) {
-        const dir = cfg.sortDir === 'asc' ? 1 : -1;
+      const sortField = bucketOverride ? sortOverride : cfg.sortField;
+      if (sortField) {
+        const dir = bucketOverride ? -1 : (cfg.sortDir === 'asc' ? 1 : -1);
+        const factorOf2 = (r, key) => r.risk.factors.find(x => x.key === key);
         const val = {
           name: r => r.b.name.toLowerCase(),
           reason: r => r.reason,
@@ -12554,8 +12640,8 @@ html.page-fade-ready body {
           days: r => (r.info.intervalDays ?? Infinity),
           auditor: r => String(r.suggestedAuditor || r.info.upNextAuditor || '').toLowerCase(),
           date: r => r.suggestedDate ? r.suggestedDate.getTime() : (r.info.expectedAuditDateRaw ?? Infinity),
-          driver: r => { const x = factorOf(r, cfg.driverFilter); return x ? x.contribution : 0; }
-        }[cfg.sortField];
+          driver: r => { const x = factorOf2(r, cfg.driverFilter); return x ? x.contribution : 0; }
+        }[sortField];
         if (val) rows = rows.slice().sort((x, y) => { const p = val(x), q = val(y); return (p < q ? -1 : (p > q ? 1 : 0)) * dir; });
       }
       const filtered = chips.some(c => c.kind !== 'bucket');
