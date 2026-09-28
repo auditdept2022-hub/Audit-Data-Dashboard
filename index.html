@@ -11731,6 +11731,39 @@ html.page-fade-ready body {
       openModal('Audit Risk & Schedule Analysis', 'assignmentAnalysis', null);
     }
 
+    // Headline numbers on the dashboard's Audit Risk & Schedule Analysis card. Lives in its own
+    // function so it can be re-run whenever a setting changes (weights, caps, thresholds, or a
+    // view synced from another device) instead of only when the data is (re)loaded.
+    function updateAuditRiskOverviewCard() {
+      try {
+        const riskAttentionEl = document.getElementById('stat-audit-risk-attention');
+        if (riskAttentionEl) {
+          // Everything here is read from the OVERALL risk rating (0-100 score
+          // -> Critical / High / Medium / Low) of ALL branches — the same
+          // figures as the Audit Risk popup's banner — so the three numbers
+          // and the bar always add up to the total branch count. (Before, the
+          // headline counts came from scheduling status while the popup used
+          // risk tiers, so 44 / 12 never matched 4 / 31 / 7 / 14.)
+          const ra = computeAuditScheduleAnalysis();
+          const tierN = k => ((ra.riskTiers.find(t => t.key === k) || {}).count) || 0;
+          const highCount = tierN('CRITICAL') + tierN('HIGH');
+          const lowCount = tierN('MEDIUM') + tierN('LOW');
+          animateCountUp(riskAttentionEl, highCount);
+          const avgEl = document.getElementById('stat-audit-risk-avg');
+          if (avgEl) avgEl.innerText = (ra.avgRiskScore !== null && ra.avgRiskScore !== undefined) ? ra.avgRiskScore : '—';
+          animateCountUp(document.getElementById('stat-audit-risk-ontrack'), lowCount);
+          const subEl = document.getElementById('stat-audit-risk-sub');
+          const TIER_HEX = { accentRose: '#e11d48', accentAmber: '#d97706', accentBlue: '#2563eb', accentEmerald: '#059669' };
+          if (subEl) {
+            subEl.innerHTML = ra.totalBranches
+              ? ra.riskTiers.map(t => `<span style="display:inline-flex;align-items:center;gap:.4em"><span style="width:.7em;height:.7em;border-radius:50%;flex:none;background:${TIER_HEX[t.tint] || '#64748b'}"></span>${t.count} ${t.label}</span>`).join('')
+              : '';
+            subEl.title = 'Overall risk rating of all ' + ra.totalBranches + ' branches';
+          }
+        }
+      } catch (e) { /* non-fatal — card just keeps its placeholders */ }
+    }
+
     // Re-render in place; optionally scroll the results table into view so
     // that after tapping a bar/pill at the top the person actually sees the
     // branches it selected (the table sits far below on a phone).
@@ -11743,6 +11776,7 @@ html.page-fade-ready body {
       const pending = window.auditAnalysisState.notice;
       if (scrollToTable) window.auditAnalysisState.queueOpen = true;
       renderAssignmentAnalysisModal(body);
+      updateAuditRiskOverviewCard(); // keep the dashboard card in step with the new settings
       auditSyncSchedulePush(); // mirror the new view/settings to the person's other devices
       if (pending && typeof showToast === 'function' && document.getElementById('toast')) {
         try { showToast(pending.text, pending.type === 'error' ? 'error' : 'success'); } catch (e) {}
@@ -11870,6 +11904,7 @@ html.page-fade-ready body {
       const wrap = modal ? modal.querySelector(':scope > div.overflow-y-auto') : null;
       const y1 = body.scrollTop, y2 = wrap ? wrap.scrollTop : 0;
       renderAssignmentAnalysisModal(body);
+      updateAuditRiskOverviewCard();
       body.scrollTop = y1;
       if (wrap) wrap.scrollTop = y2;
     }
@@ -11906,6 +11941,7 @@ html.page-fade-ready body {
         const before = JSON.stringify(auditSyncSnapshot(cfg));
         if (!auditSyncApplyRemote(json.state)) return;
         auditSync.version = ver;
+        if (auditSync.lastJson !== before && !auditSyncIsAnalysisOpen()) { try { updateAuditRiskOverviewCard(); } catch (e) {} }
         if (auditSync.lastJson !== before && auditSyncIsAnalysisOpen()) {
           auditSyncRerender();
           if (!firstSync && typeof showToast === 'function' && document.getElementById('toast')) {
@@ -12053,6 +12089,54 @@ html.page-fade-ready body {
         cfg.notice = { type: 'ok', text: label + ' set to ' + n + ' — analysis updated.' };
       }
       refreshAuditAnalysis(false);
+    }
+
+    // Small popup explaining how one risk factor is scored, opened by tapping its name in the
+    // weights list. Shows the live weight and the live scale in use right now.
+    function closeAuditFactorInfo() {
+      const old = document.getElementById('aa-factor-pop');
+      if (old) old.remove();
+      document.removeEventListener('keydown', auditFactorPopKey, true);
+    }
+    function auditFactorPopKey(e) { if (e.key === 'Escape') { e.stopPropagation(); closeAuditFactorInfo(); } }
+    function showAuditFactorInfo(key, btn) {
+      const f = AUDIT_RISK_FACTORS.find(x => x.key === key);
+      if (!f) return;
+      const cfg = window.auditAnalysisState;
+      const esc = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const w = auditNormalizeWeights100(cfg.weights)[key];
+      const nowLines = [];
+      nowLines.push('Currently counts for <b>' + w + '%</b> of the score.');
+      if (key === 'recency') nowLines.push('Reaches 100 points at <b>' + cfg.overdueDays + ' days</b> since the last audit.');
+      if (key === 'findings' && cfg.findingsCap) nowLines.push('<b>' + cfg.findingsCap + '</b> weighted findings score the full 100.');
+      if (key === 'repo' && cfg.repoCap) nowLines.push('<b>' + cfg.repoCap + '</b> repossessions score the full 100 on the count part.');
+      if (key === 'efficiency' && cfg.shortfallCap) nowLines.push('<b>' + Number(cfg.shortfallCap).toLocaleString() + '</b> accounts not collecting score the full 100 on that part.');
+      if (key === 'size' && cfg.sizeCap) nowLines.push('<b>' + Number(cfg.sizeCap).toLocaleString() + '</b> accounts score the full 100.');
+      const ev = btn && btn.getAttribute ? (btn.getAttribute('data-evidence') || '') : '';
+      closeAuditFactorInfo();
+      const wrap = document.createElement('div');
+      wrap.id = 'aa-factor-pop';
+      wrap.setAttribute('role', 'dialog');
+      wrap.setAttribute('aria-label', f.label + ' — how it is scored');
+      wrap.style.cssText = 'position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(15,23,42,.25)';
+      wrap.innerHTML =
+        '<div style="max-width:340px;width:100%;max-height:80vh;overflow:auto;background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 20px 40px -12px rgba(0,0,0,.3);padding:14px 16px;font-family:inherit">' +
+          '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:6px">' +
+            '<div style="font-size:13px;font-weight:800;color:#0f172a">' + esc(f.label) + '</div>' +
+            '<button type="button" id="aa-factor-pop-x" aria-label="Close" style="border:0;background:transparent;font-size:18px;line-height:1;color:#64748b;cursor:pointer;padding:0 2px">×</button>' +
+          '</div>' +
+          '<div style="font-size:11px;color:#4f46e5;margin-bottom:8px">' + nowLines.join('<br>') + '</div>' +
+          '<div style="font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#64748b;margin-bottom:2px">How it is scored</div>' +
+          '<div style="font-size:11.5px;line-height:1.45;color:#334155;margin-bottom:8px">' + esc(f.how) + '</div>' +
+          '<div style="font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#64748b;margin-bottom:2px">Why it matters</div>' +
+          '<div style="font-size:11.5px;line-height:1.45;color:#334155">' + esc(f.why) + '</div>' +
+          (ev ? '<div style="margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:10.5px;line-height:1.4;color:#64748b">' + esc(ev) + '</div>' : '') +
+        '</div>';
+      wrap.addEventListener('click', function (e) { if (e.target === wrap) closeAuditFactorInfo(); });
+      document.body.appendChild(wrap);
+      const x = document.getElementById('aa-factor-pop-x');
+      if (x) { x.addEventListener('click', closeAuditFactorInfo); x.focus(); }
+      document.addEventListener('keydown', auditFactorPopKey, true);
     }
 
     function readAuditWeightInputs() {
@@ -13674,7 +13758,7 @@ html.page-fade-ready body {
           : (info.text.match(/title="([^"]*)"/) || [])[1] || '';
         return `
           <div class="flex items-center gap-3 px-3 py-1.5" title="${escapeHTML(f.why)}">
-            <span class="text-[11px] font-semibold text-slate-700 w-28 sm:w-40 leading-tight">${escapeHTML(f.label)}</span>
+            <button type="button" onclick="showAuditFactorInfo('${f.key}', this)" data-evidence="${escapeHTML(evidenceTip)}" title="Tap to see how this is scored" class="text-[11px] font-semibold text-slate-700 w-28 sm:w-40 leading-tight text-left cursor-pointer hover:text-accentIndigo underline decoration-dotted decoration-slate-300 underline-offset-2 bg-transparent border-0 p-0">${escapeHTML(f.label)} <span class="text-accentIndigo/70 no-underline">ⓘ</span></button>
             <input id="aa-ws-${f.key}" type="range" min="0" max="100" step="1" value="${val}"
               oninput="document.getElementById('aa-w-${f.key}').value=this.value; previewAuditRiskWeights();"
               title="Drag to change how much this factor counts" class="flex-1 h-1.5 accent-accentIndigo cursor-pointer">
@@ -13862,11 +13946,6 @@ html.page-fade-ready body {
                 <h4 class="text-[9.5px] font-bold text-slate-500 uppercase tracking-wider">How much each factor counts</h4>
                 <span class="text-[9.5px] text-slate-400 normal-case">— set each factor's % of the score; the total must be 100%</span>
               </div>
-              ${(a.overlap && a.overlap.length) ? `
-              <div class="px-2.5 py-1.5 mb-1.5 rounded-lg bg-accentAmber/10 border border-accentAmber/25 text-[9.5px] text-slate-600 leading-relaxed">
-                <span class="font-bold text-accentAmber uppercase tracking-wide">⚠ Overlap</span> —
-                ${a.overlap.map(p => `<span title="Pearson r = ${p.r.toFixed(2)} across ${p.n} branches with data in both factors — how closely these two factors' points moved together, not how either relates to findings.">${escapeHTML(p.labelA)} & ${escapeHTML(p.labelB)} move together (r=${p.r.toFixed(2)}, n=${p.n})</span>`).join('; ')} — consider lowering one or combining them into a single factor.
-              </div>` : ''}
               <div class="divide-y divide-coolBorder border border-coolBorder rounded-lg bg-white overflow-hidden">${weightInputs}</div>
               
               <div class="flex flex-wrap items-center gap-2 pt-1.5">
@@ -19241,33 +19320,7 @@ html.page-fade-ready body {
       // AUDIT RISK & SCHEDULE ANALYSIS overview card — same risk/scheduling
       // engine the modal uses (computeAuditScheduleAnalysis), just read for
       // three headline numbers instead of the full breakdown.
-      try {
-        const riskAttentionEl = document.getElementById('stat-audit-risk-attention');
-        if (riskAttentionEl) {
-          // Everything here is read from the OVERALL risk rating (0-100 score
-          // -> Critical / High / Medium / Low) of ALL branches — the same
-          // figures as the Audit Risk popup's banner — so the three numbers
-          // and the bar always add up to the total branch count. (Before, the
-          // headline counts came from scheduling status while the popup used
-          // risk tiers, so 44 / 12 never matched 4 / 31 / 7 / 14.)
-          const ra = computeAuditScheduleAnalysis();
-          const tierN = k => ((ra.riskTiers.find(t => t.key === k) || {}).count) || 0;
-          const highCount = tierN('CRITICAL') + tierN('HIGH');
-          const lowCount = tierN('MEDIUM') + tierN('LOW');
-          animateCountUp(riskAttentionEl, highCount);
-          const avgEl = document.getElementById('stat-audit-risk-avg');
-          if (avgEl) avgEl.innerText = (ra.avgRiskScore !== null && ra.avgRiskScore !== undefined) ? ra.avgRiskScore : '—';
-          animateCountUp(document.getElementById('stat-audit-risk-ontrack'), lowCount);
-          const subEl = document.getElementById('stat-audit-risk-sub');
-          const TIER_HEX = { accentRose: '#e11d48', accentAmber: '#d97706', accentBlue: '#2563eb', accentEmerald: '#059669' };
-          if (subEl) {
-            subEl.innerHTML = ra.totalBranches
-              ? ra.riskTiers.map(t => `<span style="display:inline-flex;align-items:center;gap:.4em"><span style="width:.7em;height:.7em;border-radius:50%;flex:none;background:${TIER_HEX[t.tint] || '#64748b'}"></span>${t.count} ${t.label}</span>`).join('')
-              : '';
-            subEl.title = 'Overall risk rating of all ' + ra.totalBranches + ' branches';
-          }
-        }
-      } catch (e) { /* non-fatal — card just keeps its placeholders */ }
+      updateAuditRiskOverviewCard();
       
       animateCountUp(document.getElementById('stat-collection-improving'), sum.improvingCollection || 0, { suffixHTML: ' <span class="text-sm font-medium text-slate-500">improving</span>' });
       document.getElementById('stat-collection-sub').innerText = `${sum.decliningCollection || 0} declining · ${sum.stableCollection || 0} stable · ${sum.recoveringCollection || 0} recovering`;
