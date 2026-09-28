@@ -1,11 +1,17 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v6';
+const CACHE_VERSION = 'audit-dashboard-v7';
+// v7: FIXED stale live data. The cross-origin handler used to cache EVERY
+//  cross-origin GET stale-while-revalidate, including api.open-meteo.com
+//  (the weather call in attendance_dashboard.html), so the weather could
+//  show an old reading. Now only a fixed allowlist of static CDN hosts
+//  (scripts / fonts) is cached; every other cross-origin request goes
+//  straight to the network untouched.
 // v6 (this file): FIXED a navigation bug. The old handler treated EVERY
 //  same-origin page navigation as "the dashboard": it answered with the
 //  cached ./index.html and, on refresh, overwrote that cache entry with
 //  whatever page was requested. index.html links to sibling pages
-//  (attendance_dashboard_v35.html, Parts_Request.html, Opex.html, and the
+//  (attendance_dashboard.html, Parts_Request.html, Opex.html, and the
 //  manifest shortcuts point at them too), so those pages could show the
 //  dashboard instead, and could even replace the cached dashboard with
 //  themselves. Only the scope root / index.html use the app-shell logic now;
@@ -33,6 +39,16 @@ const APP_SHELL = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png'
+];
+// Static CDN hosts that are safe to cache (libraries + fonts only).
+const CDN_HOSTS = [
+  'cdn.tailwindcss.com',
+  'cdn.jsdelivr.net',
+  'cdnjs.cloudflare.com',
+  'unpkg.com',
+  'fonts.googleapis.com',
+  'fonts.gstatic.com',
+  'www.gstatic.com'
 ];
 // index.html is the only file the app cannot run without.
 const APP_SHELL_CRITICAL = ['./', './index.html'];
@@ -95,6 +111,12 @@ self.addEventListener('fetch', (event) => {
 
   // Live data: never cache.
   if (url.hostname === 'script.google.com' || url.hostname === 'script.googleusercontent.com') {
+    return;
+  }
+
+  // Cross-origin: only static CDN assets are cached. Anything else (weather
+  // API, Google Docs/Mail links, etc.) is live and passes through untouched.
+  if (url.origin !== self.location.origin && CDN_HOSTS.indexOf(url.hostname) === -1) {
     return;
   }
 
