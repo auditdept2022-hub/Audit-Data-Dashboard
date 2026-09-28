@@ -5181,6 +5181,9 @@ html.page-fade-ready body {
             <button id="modalAddFindingBtn" onclick="openAddFindingModal()" title="Add a finding (raw data entry)" aria-label="Add a finding (raw data entry)" class="hidden p-2 modal-header-icon-btn active:scale-95 rounded-xl transition-all cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path><path d="m15 5 4 4"></path></svg>
             </button>
+            <button id="modalAnalysisSettingsBtn" onclick="toggleAuditSettings()" title="Rating rules &amp; manual settings" aria-label="Rating rules and manual settings" class="hidden p-2 modal-header-icon-btn active:scale-95 rounded-xl transition-all cursor-pointer">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
             <button onclick="openExportPicker('current')" title="Download this data" aria-label="Download this data" class="p-2 modal-header-icon-btn active:scale-95 rounded-xl transition-all cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>
             </button>
@@ -7213,6 +7216,8 @@ html.page-fade-ready body {
       // the 'assignment' branch just below.
       const analysisBtn = document.getElementById('modalAnalysisBtn');
       if (analysisBtn) analysisBtn.classList.add('hidden');
+      const analysisSettingsBtn = document.getElementById('modalAnalysisSettingsBtn');
+      if (analysisSettingsBtn) analysisSettingsBtn.classList.add('hidden');
 
       let branchesToDisplay = [];
 
@@ -7230,6 +7235,8 @@ html.page-fade-ready body {
           if (analysisBtn) analysisBtn.classList.remove('hidden');
       } else if (type === 'assignmentAnalysis') {
           renderAssignmentAnalysisModal(modalBody);
+          const aSetBtn = document.getElementById('modalAnalysisSettingsBtn');
+          if (aSetBtn) aSetBtn.classList.remove('hidden');
           if (typeof auditSyncEnsurePolling === 'function') auditSyncEnsurePolling();
       } else if (type === 'editAssignment') {
           renderEditAssignmentModal(filterValue, modalBody);
@@ -11685,6 +11692,16 @@ html.page-fade-ready body {
       window.auditAnalysisState.weightsOpen = !!isOpen;
     }
 
+    // Gear button in the popup header: show/hide the Rating Rules panel.
+    function toggleAuditSettings() {
+      const cfg = window.auditAnalysisState;
+      const open = !(cfg.settingsOpen || cfg.weightsOpen);
+      cfg.settingsOpen = open; cfg.weightsOpen = open;
+      refreshAuditAnalysis(false);
+      const body = document.getElementById('modalBody');
+      if (open && body) body.scrollTop = 0;
+    }
+
     function setAuditSettingsOpen(isOpen) {
       window.auditAnalysisState.settingsOpen = !!isOpen;
     }
@@ -12391,6 +12408,20 @@ html.page-fade-ready body {
         if (lane && busy[lane] && r.info.expectedAuditDateRaw) {
           occupiedDays(new Date(r.info.expectedAuditDateRaw)).forEach(d => busy[lane].add(auditDayKey(d)));
         }
+      });
+      // Also block every day an auditor already has on ANY future-dated round
+      // (Edit Assignment rounds + rotation sheet), not just the "Up Next" date.
+      const laneKey = v => String(v || '').trim().toUpperCase();
+      rows.forEach(r => {
+        const rounds = [];
+        const own = r.b.assignmentRounds || {};
+        for (let n = 1; n <= 4; n++) if (own[n] && own[n].dateRaw) rounds.push(own[n]);
+        const sch = (activeData.branchAuditSchedule || {})[r.b.name];
+        if (sch && sch.rounds) sch.rounds.forEach(x => { if (x && x.dateRaw) rounds.push(x); });
+        rounds.forEach(x => {
+          const lane = lanes.find(n => laneKey(n) === laneKey(x.auditor));
+          if (lane && x.dateRaw >= today - 86400000) occupiedDays(new Date(x.dateRaw)).forEach(d => busy[lane].add(auditDayKey(d)));
+        });
       });
       const startFrom = new Date(today); startFrom.setDate(startFrom.getDate() + 1); startFrom.setHours(0, 0, 0, 0);
       const firstFreeSlot = (lane) => {
@@ -13176,12 +13207,13 @@ html.page-fade-ready body {
       <div class="space-y-5 pb-2">
         ${bannerHtml}
 
-        <details class="mx-2 sm:mx-3 bg-white border border-coolBorder rounded-xl shadow-sm" ${(cfg.settingsOpen || cfg.weightsOpen) ? 'open' : ''} ontoggle="setAuditSettingsOpen(this.open); setAuditWeightsOpen(this.open);">
-          <summary class="flex flex-wrap items-center gap-x-2 gap-y-1 px-3.5 py-2.5 cursor-pointer select-none rounded-xl hover:bg-gray-50">
+        <div class="mx-2 sm:mx-3 bg-white border border-coolBorder rounded-xl shadow-sm ${(cfg.settingsOpen || cfg.weightsOpen) ? '' : 'hidden'}">
+          <div class="flex flex-wrap items-center gap-x-2 gap-y-1 px-3.5 py-2.5">
             <span class="p-0.5 rounded-md bg-accentIndigo/10 text-accentIndigo text-[11px] leading-none">⚙</span>
             <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Rating Rules &amp; Manual Settings</span>
-            <span class="text-[10px] font-medium text-slate-400 normal-case tracking-normal">Queue at score ${cfg.minScore}+ · longest gap ${cfg.overdueDays}d<span class="hidden sm:inline"> — tap to change the rules</span></span>
-          </summary>
+            <span class="text-[10px] font-medium text-slate-400 normal-case tracking-normal">Queue at score ${cfg.minScore}+ · longest gap ${cfg.overdueDays}d</span>
+            <button type="button" onclick="toggleAuditSettings()" class="ml-auto px-2 py-0.5 text-[10px] font-bold text-slate-500 border border-coolBorder rounded-md hover:bg-gray-100 cursor-pointer">Close ✕</button>
+          </div>
 
           <div class="px-3.5 pb-3.5 pt-2.5 border-t border-coolBorder space-y-3">
 
@@ -13239,7 +13271,7 @@ html.page-fade-ready body {
           </div>
 
           ${notice ? `<div role="status" class="px-3.5 py-2 border-t border-coolBorder text-[10px] font-semibold ${notice.type === 'error' ? 'text-accentRose' : 'text-accentEmerald'}">${notice.type === 'error' ? '⚠ ' : '✓ '}${escapeHTML(notice.text)}</div>` : ''}
-        </details>
+        </div>
 
         <div>
           <div class="flex items-center justify-between px-2 sm:px-3 mb-1.5">
