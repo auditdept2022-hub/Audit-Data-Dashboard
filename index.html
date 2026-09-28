@@ -7011,6 +7011,116 @@ html.page-fade-ready body {
         </div>`;
     }
 
+    // Monthly performance block shown inside the branch popup: the four
+    // trend cards (Efficiency, Repo Rate, No. of Repo, Total Accounts),
+    // Sales Details (INS / COD / CA) and Service Metrics — same numbers and
+    // colour rules as the branch's Detailed Profile.
+    function buildBranchMetricsHtml(b) {
+      if (!b) return '';
+      const esc = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const labels = (activeData.summary && activeData.summary.trendLabels) || ['MARCH', 'APRIL', 'LATEST'];
+      const salesLabels = (activeData.summary && activeData.summary.salesTrendLabels) || labels;
+      const num = v => Number(v) || 0;
+      const sm = b.salesMar || {}, sa = b.salesApr || {}, sy = b.salesMay || {};
+      const g = (o, k) => num(o[k]);
+      const totalIns = g(sm,'ins') + g(sa,'ins') + g(sy,'ins');
+      const totalCod = g(sm,'cod') + g(sa,'cod') + g(sy,'cod');
+      const totalCa  = g(sm,'ca')  + g(sa,'ca')  + g(sy,'ca');
+      const avgSales = totalIns - totalCa;
+      const target = num(b.serviceTarget);
+      const serviceVals = [b.serviceMar, b.serviceApr, b.serviceMay];
+      const effAccent = b.effLatest < 50 ? 'text-accentRose' : (b.effLatest < 70 ? 'text-accentAmber' : 'text-accentEmerald');
+      const repoAccent = b.repoRate > 7 ? 'text-accentRose' : (b.repoRate > 4 ? 'text-accentAmber' : 'text-accentEmerald');
+
+      const card = (label, values, suffix, accent, invert) => {
+        const numeric = values.map(v => parseFloat(v));
+        const delta = Math.round((numeric[numeric.length - 1] - numeric[numeric.length - 2]) * 100) / 100;
+        const good = invert ? delta < 0 : delta > 0;
+        const bad = invert ? delta > 0 : delta < 0;
+        const sfx = suffix || '';
+        const deltaHtml = (good || bad)
+          ? `<span class="inline-flex items-center gap-0.5 text-[10px] font-bold ${good ? 'text-accentEmerald' : 'text-accentRose'}">${delta > 0 ? '▲ +' : '▼ '}${delta}${sfx}</span>`
+          : `<span class="inline-flex items-center gap-0.5 text-[10px] font-bold text-slate-400">— 0${sfx}</span>`;
+        return `
+          <div class="bg-white rounded-xl border border-coolBorder p-2.5 shadow-sm">
+            <div class="flex items-center justify-between mb-1.5">
+              <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">${label}</p>${deltaHtml}
+            </div>
+            <div class="flex items-stretch divide-x divide-coolBorder">
+              ${values.map((v, i) => { const last = i === values.length - 1; return `
+                <div class="flex flex-col items-center flex-1 ${last ? 'bg-slate-50 rounded-lg -my-1 py-1' : ''}">
+                  <span class="text-sm font-bold leading-tight ${last ? accent : 'text-slate-500'}">${esc(v)}${sfx}</span>
+                  <span class="text-[8px] text-slate-400 font-semibold uppercase mt-0.5 tracking-wide truncate max-w-full px-1">${esc(labels[i])}</span>
+                </div>`; }).join('')}
+            </div>
+          </div>`;
+      };
+
+      const salesRow = (name, k, tot) => `
+        <tr>
+          <td class="p-2 text-left font-semibold text-slate-600">${name}</td>
+          <td class="p-2 font-bold text-slate-800">${g(sm,k)}</td>
+          <td class="p-2 font-bold text-slate-800">${g(sa,k)}</td>
+          <td class="p-2 font-bold text-slate-800">${g(sy,k)}</td>
+          <td class="p-2 font-bold text-accentIndigo bg-accentIndigo/5">${tot}</td>
+        </tr>`;
+
+      const serviceRows = serviceVals.map((v, i) => {
+        const pct = target > 0 ? Math.round((num(v) / target) * 100) : 0;
+        const bar = pct >= 100 ? 'bg-accentEmerald' : (pct >= 70 ? 'bg-accentAmber' : 'bg-accentRose');
+        const col = pct >= 100 ? 'text-accentEmerald' : (pct >= 70 ? 'text-accentAmber' : 'text-accentRose');
+        return `
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">${esc(labels[i])}</span>
+              <span class="text-sm text-slate-800">₱${num(v).toLocaleString()} <span class="font-bold ${col}">(${pct}% of target)</span></span>
+            </div>
+            <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden"><div class="${bar} h-full rounded-full" style="width:${Math.min(100, pct)}%"></div></div>
+          </div>`;
+      }).join('');
+
+      const head = (color, icon, title, right) => `
+        <h4 class="text-xs font-bold text-slate-500 uppercase mb-2.5 tracking-wider flex items-center justify-between flex-wrap gap-2">
+          <span class="flex items-center gap-2"><svg class="w-4 h-4 ${color}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icon}</svg>${title}</span>${right}
+        </h4>`;
+
+      return `
+        <div class="space-y-3 mt-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            ${card('Efficiency Rate', [b.effMar, b.effApr, b.effLatest], '%', effAccent)}
+            ${card('Repo Rate', [num(b.repoRateMar ?? b.repoRate).toFixed(2), num(b.repoRateApr ?? b.repoRate).toFixed(2), num(b.repoRateLatest ?? b.repoRate).toFixed(2)], '%', repoAccent, true)}
+            ${card('No. of Repo', [b.noOfRepoMar ?? b.noOfRepo, b.noOfRepoApr ?? b.noOfRepo, b.noOfRepoLatest ?? b.noOfRepo], '', 'text-slate-800', true)}
+            ${card('Total Accounts', [b.accountsMar, b.accountsApr, b.accountsMay], '', 'text-accentBlue')}
+          </div>
+
+          <div class="bg-gray-50 rounded-xl p-3.5 border border-coolBorder shadow-sm">
+            ${head('text-accentIndigo', '<rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line>', 'Sales Details (INS, COD, CA)',
+              `<span class="flex flex-wrap items-center gap-2">
+                <span class="bg-accentAmber/10 text-accentAmber px-2.5 py-1 rounded-lg border border-accentAmber/20 normal-case tracking-normal font-semibold">Expected Sales (INS/COD): <strong class="ml-1">${b.expectedIns || 0} / ${b.expectedCod || 0}</strong></span>
+                <span class="bg-accentIndigo/10 text-accentIndigo px-2.5 py-1 rounded-lg border border-accentIndigo/20 normal-case tracking-normal font-semibold">3-Month Avg Sales (INS − CA): <strong class="ml-1">${avgSales}</strong></span>
+              </span>`)}
+            <div class="overflow-x-auto rounded-xl border border-coolBorder">
+              <table class="w-full min-w-[480px] text-sm text-center border-collapse">
+                <thead class="bg-white text-[10px] uppercase tracking-wider text-slate-500 font-bold">
+                  <tr><th class="p-2 text-left bg-white">Metric</th><th class="p-2 bg-white">${esc(salesLabels[0])}</th><th class="p-2 bg-white">${esc(salesLabels[1])}</th><th class="p-2 bg-white">${esc(salesLabels[2])}</th><th class="p-2 bg-accentIndigo/5 text-accentIndigo">3-Mo Total</th></tr>
+                </thead>
+                <tbody class="divide-y divide-coolBorder bg-white">
+                  ${salesRow('Installment (INS)', 'ins', totalIns)}
+                  ${salesRow('Cash on Delivery (COD)', 'cod', totalCod)}
+                  ${salesRow('Closed Account (CA)', 'ca', totalCa)}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="bg-gray-50 rounded-xl p-3.5 border border-coolBorder shadow-sm">
+            ${head('text-accentCyan', '<circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle>', 'Service Metrics (3-Month Trend)',
+              `<span class="bg-accentCyan/10 text-accentCyan px-2.5 py-1 rounded-lg border border-accentCyan/20 normal-case tracking-normal font-semibold">Monthly Target: <strong class="ml-1">₱${target.toLocaleString()}</strong></span>`)}
+            <div class="bg-white rounded-xl border border-coolBorder p-3 space-y-2.5">${serviceRows}</div>
+          </div>
+        </div>`;
+    }
+
     // ---- Branch risk popup (opened by clicking a branch name in the KPI /
     // Total Branches table). Shows the branch's row summary plus the full
     // "Why this branch needs attention" score breakdown in its own popup on
@@ -7088,6 +7198,12 @@ html.page-fade-ready body {
         // The breakdown itself — the same markup as the table's expandable row.
         var detailHtml = detailTr.firstElementChild ? detailTr.firstElementChild.innerHTML : '';
 
+        var metricsHtml = '';
+        try {
+          var bObj = activeData.branches.find(function (x) { return x.name === branchName; });
+          metricsHtml = buildBranchMetricsHtml(bObj);
+        } catch (err) { console.error('Branch metrics failed:', err); }
+
         var overlay = document.createElement('div');
         overlay.id = 'branchRiskPopup';
         overlay.setAttribute('role', 'dialog');
@@ -7112,6 +7228,7 @@ html.page-fade-ready body {
                 (actionHtml ? '<div style="justify-content:flex-end;margin-left:auto">' + actionHtml + '</div>' : '') +
               '</div>' +
               '<div class="brp-detail">' + detailHtml + '</div>' +
+              metricsHtml +
             '</div>' +
           '</div>';
 
@@ -7220,15 +7337,14 @@ html.page-fade-ready body {
           }).join('');
 
           return `
-          <tr class="${idx % 2 === 1 ? 'bg-gray-50/50' : ''} hover:bg-accentCyan/10 transition-colors">
+          <tr onclick="openBranchRiskPopup('kpi-${idx}')" onkeydown="if((event.key==='Enter'||event.key===' ')&&event.target===this){event.preventDefault();openBranchRiskPopup('kpi-${idx}')}" tabindex="0" title="Click to see why this branch needs attention" class="${idx % 2 === 1 ? 'bg-gray-50/50' : ''} hover:bg-accentCyan/10 transition-colors cursor-pointer">
             <td class="p-1.5 text-center"><span class="text-[10px] font-bold text-slate-400">${idx + 1}</span></td>
-            <td class="p-1.5 text-xs leading-tight"><button type="button" onclick="openBranchRiskPopup('kpi-${idx}')" title="See why ${escapeHTML(row.b.name)} needs attention" class="font-bold text-slate-800 text-left break-words hover:text-accentCyan hover:underline underline-offset-2 cursor-pointer" data-branch-name="${escapeHTML(row.b.name)}">${escapeHTML(row.b.name)}</button></td>
+            <td class="p-1.5 text-xs leading-tight"><button type="button" onclick="event.stopPropagation(); openBranchRiskPopup('kpi-${idx}')" title="See why ${escapeHTML(row.b.name)} needs attention" class="font-bold text-slate-800 text-left break-words hover:text-accentCyan hover:underline underline-offset-2 cursor-pointer" data-branch-name="${escapeHTML(row.b.name)}">${escapeHTML(row.b.name)}</button></td>
             <td class="p-1.5 text-center"><span class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-${tint}/10 text-${tint} rounded-md border border-${tint}/20 leading-tight whitespace-nowrap">${escapeHTML(row.reason)}</span></td>
             <td class="p-1.5 text-center">
-              <button type="button" onclick="toggleAuditRiskDetail('kpi-${idx}')" title="Click to see exactly how this score was calculated" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-${tierTint}/10 border border-${tierTint}/20 text-${tierTint} hover:brightness-95 active:scale-95 transition-all cursor-pointer">
+              <button type="button" onclick="event.stopPropagation(); openBranchRiskPopup('kpi-${idx}')" title="Click to see exactly how this score was calculated" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-${tierTint}/10 border border-${tierTint}/20 text-${tierTint} hover:brightness-95 active:scale-95 transition-all cursor-pointer">
                 <span class="text-xs font-extrabold leading-none">${risk.score.toFixed(0)}</span>
                 <span class="text-[9px] font-bold uppercase tracking-wider leading-none">${escapeHTML(risk.tier.label)}</span>
-                <span class="text-[9px] leading-none">▾</span>
               </button>
               <div class="mt-0.5 text-[9px] text-slate-500 leading-tight max-w-[190px] mx-auto">${driversText}</div>
             </td>
