@@ -19144,10 +19144,15 @@ html.page-fade-ready body {
             ? input
             : XLSX.read(new Uint8Array(input), { type: 'array' });
           
-          let targetSheet = workbook.SheetNames.find(name => name.toUpperCase().replace(/\\s/g, '').includes("DASHBOARDDATA")) || workbook.SheetNames[0];
+          // MAIN sheet is now AUDIT DATA (FINAL) (DASHBOARDDATA is retired).
+          // DASHBOARDDATA is only kept as a fallback for old exports that
+          // still lack an AUDIT DATA (FINAL) tab.
+          let targetSheet = workbook.SheetNames.find(name => name.toUpperCase().replace(/[\s_]/g, '').includes("AUDITDATA"))
+            || workbook.SheetNames.find(name => name.toUpperCase().replace(/[\s_]/g, '').includes("DASHBOARDDATA"))
+            || workbook.SheetNames[0];
           const mainSheet = workbook.Sheets[targetSheet];
           const rawRows = sheetRowsOf(mainSheet);
-          // Findings years <- header cells AH4/AI4/AJ4 of DASHBOARDDATA (falls back to AUDIT DATA (FINAL) below)
+          // Findings years <- header cells AH4/AI4/AJ4 of AUDIT DATA (FINAL)
           window.__fyOk = window.applyFindingYearsFromRows(rawRows);
           
           // Master branch list is built live from this file's own BRANCHES
@@ -19917,7 +19922,7 @@ html.page-fade-ready body {
             initDashboard();
             saveDashboardDataToCache();
           } else {
-            showToast("No matching branches found. Check if DASHBOARDDATA columns match layout.");
+            showToast("No matching branches found. Check if AUDIT DATA (FINAL) columns match layout.");
           }
         } catch (err) {
           console.error(err);
