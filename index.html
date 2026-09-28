@@ -13207,7 +13207,31 @@ html.page-fade-ready body {
         if (val) rows = rows.slice().sort((x, y) => { const p = val(x), q = val(y); return (p < q ? -1 : (p > q ? 1 : 0)) * dir; });
       }
       const filtered = chips.some(c => c.kind !== 'bucket');
-      return { title: (filtered && bucket === 'ALL') ? 'Filtered Branches' : baseTitle, rows, chips };
+      // A single drill-down (tapping a tier bar, an auditor, a status, ...) gets a
+      // specific title like every other entry to this popup, instead of the
+      // generic "Filtered Branches". Several filters at once keep the generic one.
+      let title2 = baseTitle;
+      if (filtered && bucket === 'ALL') {
+        title2 = 'Filtered Branches';
+        const active = chips.filter(c => c.kind !== 'bucket');
+        if (active.length === 1) {
+          const k = active[0].kind;
+          if (k === 'tier') {
+            const ti = AUDIT_RISK_TIERS.findIndex(x => x.key === cfg.tierFilter);
+            if (ti >= 0) {
+              const t = AUDIT_RISK_TIERS[ti];
+              const rng = ti === 0 ? t.min + '+' : (t.key === 'LOW' ? 'under ' + AUDIT_RISK_TIERS[ti - 1].min : t.min + '\u2013' + (AUDIT_RISK_TIERS[ti - 1].min - 1));
+              title2 = t.label + ' risk branches (score ' + rng + '), ranked by score';
+            }
+          }
+          else if (k === 'auditor') title2 = 'Branches assigned to ' + cfg.auditorFilter;
+          else if (k === 'queue') title2 = 'Branches in ' + cfg.queueFilter + '\u2019s queue';
+          else if (k === 'reason') title2 = cfg.reasonFilter + ' branches';
+          else if (k === 'dist') title2 = active[0].label + ' branches';
+          else if (k === 'driver') title2 = active[0].label + ' branches';
+        }
+      }
+      return { title: title2, rows, chips };
     }
 
     // Flat rows for the consolidated Excel export — same data the on-screen
