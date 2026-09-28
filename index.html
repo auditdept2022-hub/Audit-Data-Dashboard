@@ -7121,6 +7121,101 @@ html.page-fade-ready body {
         </div>`;
     }
 
+    // Styles + phone "card" layout for the branch tables used inside the
+    // Audit Risk & Schedule Analysis modal. The tables keep their normal
+    // desktop layout; below 640px each branch row becomes a stacked card.
+    // The tables are rendered as HTML strings, so this tags their cells once
+    // they appear (MutationObserver) instead of changing every template.
+    (function () {
+      function addStyles() {
+        if (document.getElementById('aaResponsiveStyle')) return;
+        var st = document.createElement('style');
+        st.id = 'aaResponsiveStyle';
+        st.textContent = `
+      /* Priority Audit Queue popup */
+      .aaq-overlay{padding:12px}
+      .aaq-card{display:flex;flex-direction:column;width:100%;max-width:1200px;max-height:92vh;background:#fff;border-radius:16px;box-shadow:0 25px 60px rgba(0,0,0,.35);overflow:hidden}
+      .aaq-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #e2e8f0;background:linear-gradient(90deg,#f8fafc,#fff)}
+      .aaq-title{flex:1;min-width:0;display:flex;align-items:baseline;gap:8px}
+      .aaq-h{font-size:13px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#1e293b;white-space:nowrap}
+      .aaq-sub{font-size:11px;font-weight:500;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+      .aaq-count{padding:2px 9px;border-radius:999px;background:#4f46e5;color:#fff;font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+      .aaq-close{width:30px;height:30px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+      .aaq-close:hover{background:#f1f5f9}
+      .aaq-toolbar{display:flex;align-items:center;gap:8px;padding:8px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0}
+      .aaq-search{position:relative;flex:1 1 220px;min-width:0}
+      .aaq-search svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none}
+      .aaq-search input{box-sizing:border-box;width:100%;padding:6px 10px 6px 28px;border:1px solid #e2e8f0;border-radius:10px;font-size:12px;background:#fff;outline:none;color:#334155}
+      .aaq-toolbar select{box-sizing:border-box;padding:6px 8px;border:1px solid #e2e8f0;border-radius:10px;font-size:12px;background:#fff;color:#334155;min-width:0;max-width:170px;outline:none}
+      .aaq-search input:focus,.aaq-toolbar select:focus{border-color:#0ea5c7;box-shadow:0 0 0 2px rgba(14,165,199,.2)}
+      .aaq-btn{padding:6px 12px;border-radius:10px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;border:1px solid transparent;flex:0 0 auto}
+      .aaq-btn:active{transform:scale(.97)}
+      .aaq-btn-p{background:#0ea5c7;color:#fff}
+      .aaq-btn-s{background:#fff;border-color:#e2e8f0;color:#475569}
+      .aaq-chips{display:flex;align-items:center;gap:6px;padding:6px 14px;border-bottom:1px solid #f1f5f9;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+      .aaq-chips::-webkit-scrollbar{display:none}
+      .aaq-hint{padding:6px 14px 0;font-size:10px;color:#94a3b8}
+      .aaq-body{flex:1;min-height:0;overflow:auto;padding:8px 14px 14px}
+      @media (max-width:639px){
+        .aaq-overlay{padding:0}
+        .aaq-card{max-height:100vh;height:100vh;height:100dvh;border-radius:0}
+        .aaq-head{padding:8px 12px}
+        .aaq-sub,.aaq-hint{display:none}
+        .aaq-toolbar{flex-wrap:wrap;padding:8px 12px;gap:6px}
+        .aaq-search{flex:1 1 100%}
+        .aaq-toolbar select{flex:1 1 0;max-width:none}
+        .aaq-chips{padding:6px 12px}
+        .aaq-body{padding:8px}
+      }
+      /* Branch tables (Priority queue + Total Branches lists): cards on phones */
+      @media (max-width:639px){
+        .aa-rtable{min-width:0 !important;width:100%}
+        .aa-rtable thead{display:none}
+        .aa-rtable,.aa-rtable tbody{display:block}
+        .aa-rtable tr.aa-main{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;padding:10px 12px}
+        .aa-rtable tr.aa-main>td{display:block;padding:0 !important;text-align:left !important;min-width:0;white-space:normal !important}
+        .aa-rtable td.aa-c-prio{display:none !important}
+        .aa-rtable td.aa-c-branch{grid-column:1/-1;font-size:14px !important}
+        .aa-rtable td.aa-c-branch::before{content:"#" attr(data-prio);font-size:10px;font-weight:800;color:#94a3b8;margin-right:6px}
+        .aa-rtable td.aa-c-status,.aa-rtable td.aa-c-risk,.aa-rtable td.aa-c-act{grid-column:1/-1}
+        .aa-rtable td.aa-c-risk>div{max-width:none !important;margin:3px 0 0 !important;text-align:left}
+        .aa-rtable td[data-label]::before{content:attr(data-label);display:block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;margin-bottom:2px}
+        .aa-rtable td.aa-c-act button{width:100%;padding:8px 0 !important;font-size:12px !important}
+        .aa-rtable tr.aa-detail{display:block}
+        .aa-rtable tr.aa-detail.hidden{display:none}
+        .aa-rtable tr.aa-detail>td{display:block;padding:10px !important}
+      }
+`;
+        document.head.appendChild(st);
+      }
+      var LABELS = [null, null, 'Status', 'Risk score', 'Last audited', 'Days since', 'Auditor', 'Suggested date', null];
+      var CLS = ['aa-c-prio', 'aa-c-branch', 'aa-c-status', 'aa-c-risk', 'aa-c-last', 'aa-c-days', 'aa-c-aud', 'aa-c-date', 'aa-c-act'];
+      function decorate(root) {
+        root.querySelectorAll('table.aa-rtable:not([data-aa-dec])').forEach(function (t) {
+          t.setAttribute('data-aa-dec', '1');
+          t.querySelectorAll('tbody > tr').forEach(function (tr) {
+            if (tr.id && tr.id.indexOf('audit-risk-detail') === 0) { tr.classList.add('aa-detail'); return; }
+            var td = tr.children;
+            if (td.length !== 9) return;
+            tr.classList.add('aa-main');
+            for (var i = 0; i < 9; i++) {
+              td[i].classList.add(CLS[i]);
+              if (LABELS[i]) td[i].setAttribute('data-label', LABELS[i]);
+            }
+            td[1].setAttribute('data-prio', td[0].textContent.trim());
+          });
+        });
+      }
+      function start() {
+        addStyles();
+        var body = document.getElementById('modalBody');
+        if (!body) return;
+        decorate(body);
+        new MutationObserver(function () { decorate(body); }).observe(body, { childList: true, subtree: true });
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+    })();
+
     // ---- Branch risk popup (opened by clicking a branch name in the KPI /
     // Total Branches table). Shows the branch's row summary plus the full
     // "Why this branch needs attention" score breakdown in its own popup on
@@ -7139,6 +7234,7 @@ html.page-fade-ready body {
           '#branchRiskPopup .brp-dialog{display:flex;flex-direction:column;width:100%;max-width:860px;max-height:88vh;background:#fff;border-radius:16px;box-shadow:0 25px 60px rgba(0,0,0,.35);overflow:hidden;transform:scale(.96);transition:transform .2s ease,max-width .25s ease,max-height .25s ease,border-radius .25s ease}' +
           '#branchRiskPopup.brp-show .brp-dialog{transform:scale(1)}' +
           '#branchRiskPopup.brp-expanded{padding:0}' +
+          '@media (max-width:639px){#branchRiskPopup{padding:0}#branchRiskPopup .brp-dialog{max-width:100vw;height:100vh;height:100dvh;max-height:100vh;border-radius:0}#branchRiskPopup .brp-body{padding:10px 10px 16px}#branchRiskPopup .brp-meta > div{min-width:45%}#branchRiskPopup .brp-title{font-size:16px}#branchRiskPopup [data-brp="expand"]{display:none}}' +
           '#branchRiskPopup.brp-expanded .brp-dialog{max-width:100vw;max-height:100vh;height:100vh;border-radius:0}' +
           '#branchRiskPopup .brp-head{display:flex;align-items:center;gap:10px;padding:12px 16px;color:#fff;background:linear-gradient(90deg,#0b1a44,#16307a)}' +
           '#branchRiskPopup .brp-title{font-size:18px;font-weight:800;line-height:1.1;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
@@ -7404,7 +7500,7 @@ html.page-fade-ready body {
       }).join('');
 
       return `
-      <table class="w-full min-w-[980px] text-left border-collapse bg-white">
+      <table class="aa-rtable w-full min-w-[980px] text-left border-collapse bg-white">
         <thead class="bg-gray-50 border-b border-coolBorder text-[10px] text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-10 shadow-sm">
           <tr>
             <th class="p-1.5 bg-gray-50 text-center w-9 whitespace-nowrap">Priority</th>
@@ -13312,24 +13408,24 @@ html.page-fade-ready body {
         const avg = tierAvgScore(t.key);
         return `
           <div ${drill('tier', t.key, cfg.tierFilter === t.key, 'flex items-center gap-2 px-1 py-0.5 rounded-lg')}>
-            <span class="w-24 shrink-0 text-[11px] font-semibold text-slate-700">${escapeHTML(t.label)} <span class="text-slate-400 font-medium">${tierRanges[t.key]}</span></span>
+            <span class="w-20 sm:w-24 shrink-0 text-[11px] font-semibold text-slate-700">${escapeHTML(t.label)} <span class="text-slate-400 font-medium">${tierRanges[t.key]}</span></span>
             <div class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
               <div class="h-full bg-${t.tint} rounded-full" style="width:${Math.round((t.count / maxTier) * 100)}%"></div>
             </div>
             <span class="w-9 shrink-0 text-right text-[11px] font-bold text-slate-600">${t.count}</span>
             <span class="w-9 shrink-0 text-right text-[10px] text-slate-400">${pct}%</span>
-            <span class="w-16 shrink-0 text-right text-[10px] text-slate-400">avg ${avg !== null ? avg.toFixed(0) : '—'}</span>
+            <span class="hidden sm:block w-16 shrink-0 text-right text-[10px] text-slate-400">avg ${avg !== null ? avg.toFixed(0) : '—'}</span>
           </div>`;
       }).join('');
 
       const maxDriver = Math.max(0.0001, ...a.driverStats.map(d => d.avgContribution));
       const driverRows = a.driverStats.slice().sort((x, y) => y.avgContribution - x.avgContribution).map(d => `
           <div ${drill('driver', d.key, cfg.driverFilter === d.key, 'flex items-center gap-2 px-1 py-0.5 rounded-lg')}>
-            <span class="w-32 shrink-0 text-[11px] font-semibold text-slate-700 truncate">${escapeHTML(d.label)}</span>
+            <span class="w-24 sm:w-32 shrink-0 text-[11px] font-semibold text-slate-700 truncate" title="${escapeHTML(d.label)}">${escapeHTML(d.label)}</span>
             <div class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
               <div class="h-full bg-accentIndigo rounded-full" style="width:${Math.round((d.avgContribution / maxDriver) * 100)}%"></div>
             </div>
-            <span class="w-28 shrink-0 text-right text-[10px] text-slate-500"><span class="font-bold text-slate-700">${d.elevated}</span> elevated · ${d.withData}/${a.totalBranches} data</span>
+            <span class="shrink-0 sm:w-28 text-right text-[10px] text-slate-500"><span class="font-bold text-slate-700">${d.elevated}</span> elevated<span class="hidden sm:inline"> · ${d.withData}/${a.totalBranches} data</span></span>
           </div>`).join('');
 
       const statusDefs = [
@@ -13459,7 +13555,7 @@ html.page-fade-ready body {
       const selectCls = 'px-2 py-1 border border-coolBorder rounded-lg text-xs font-normal normal-case tracking-normal text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-accentCyan';
 
       const chipsHtml = table.chips.length ? `
-          <div class="flex flex-wrap items-center gap-1.5 mb-2">
+          <div class="aaq-chips">
             <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Showing</span>
             ${table.chips.map(c => `<button type="button" data-aa-kind="clear" data-aa-value="${c.kind}" title="Remove this filter" class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold bg-accentIndigo/10 text-accentIndigo border border-accentIndigo/20 rounded-full hover:brightness-95 active:scale-95 cursor-pointer whitespace-nowrap">${escapeHTML(c.label)} <span aria-hidden="true">✕</span></button>`).join('')}
             <button type="button" data-aa-kind="clearall" class="px-2 py-0.5 text-[10px] font-bold bg-white border border-coolBorder rounded-full hover:bg-gray-100 active:scale-95 cursor-pointer whitespace-nowrap">Clear all</button>
@@ -13694,49 +13790,51 @@ html.page-fade-ready body {
           <div class="p-1 bg-white border border-coolBorder rounded-xl shadow-sm divide-y divide-coolBorder/60">${recentCompletionsHtml}</div>
         </div>
 
-        <div role="dialog" aria-modal="true" aria-label="Priority audit queue" onclick="if(event.target===this)toggleAuditQueue()" style="position:fixed;inset:0;z-index:99998;background:rgba(15,23,42,.55);align-items:center;justify-content:center;padding:12px;${cfg.queueOpen ? 'display:flex;' : 'display:none;'}">
-        <div id="aa-table-section" class="bg-white rounded-2xl shadow-2xl w-full p-3.5 sm:p-4" style="max-width:1200px;max-height:92vh;overflow-y:auto">
-          <div class="flex flex-wrap items-center justify-between gap-2 mb-0.5">
-            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Priority Audit Queue <span class="normal-case font-medium text-slate-400">— ${escapeHTML(table.title)}</span></h3>
-            <span class="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold uppercase tracking-wider text-white" style="background:${TINT_HEX.accentIndigo}">${table.rows.length} branch${table.rows.length === 1 ? '' : 'es'}</span>
-            <button type="button" onclick="toggleAuditQueue()" class="px-2 py-0.5 text-[10px] font-bold text-slate-500 border border-coolBorder rounded-md hover:bg-gray-100 cursor-pointer">Close ✕</button>
+        <div role="dialog" aria-modal="true" aria-label="Priority audit queue" class="aaq-overlay" onclick="if(event.target===this)toggleAuditQueue()" style="position:fixed;inset:0;z-index:99998;background:rgba(15,23,42,.55);align-items:center;justify-content:center;${cfg.queueOpen ? 'display:flex;' : 'display:none;'}">
+        <div id="aa-table-section" class="aaq-card">
+          <div class="aaq-head">
+            <div class="aaq-title">
+              <span class="aaq-h">Priority Audit Queue</span>
+              <span class="aaq-sub" title="${escapeHTML(table.title)}">${escapeHTML(table.title)}</span>
+            </div>
+            <span class="aaq-count">${table.rows.length} branch${table.rows.length === 1 ? '' : 'es'}</span>
+            <button type="button" class="aaq-close" onclick="toggleAuditQueue()" aria-label="Close" title="Close"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
           </div>
-          <p class="text-[10px] text-slate-500 mb-2">Ranked by risk score, highest first. Tap a branch to open its profile, a badge or number to filter by it, a column heading to sort, or a risk score to see how it was calculated.</p>
 
-          <div class="flex flex-wrap items-end gap-x-3 gap-y-2 p-3 bg-gray-50 border border-coolBorder rounded-xl mb-2">
-            <label class="${fieldLbl}">Search branch
-              <input id="aa-f-search" type="text" value="${escapeHTML(cfg.search)}" placeholder="Branch name" onkeydown="if(event.key==='Enter'){applyAuditTableFilters()}" class="w-44 px-2 py-1 border border-coolBorder rounded-lg text-xs font-normal normal-case tracking-normal text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan">
-            </label>
-            <label class="${fieldLbl}">Risk tier
-              <select id="aa-f-tier" class="${selectCls}">${tierOptions}</select>
-            </label>
-            <label class="${fieldLbl}">Auditor
-              <select id="aa-f-auditor" class="${selectCls}">${auditorOptions}</select>
-            </label>
-            ${okBtn('applyAuditTableFilters()', 'Apply table filters')}
-            <button type="button" onclick="resetAuditTableFilters()" class="px-2.5 py-1 text-[10px] font-bold bg-white border border-coolBorder rounded-lg hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Reset filters</button>
+          <div class="aaq-toolbar">
+            <div class="aaq-search">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <input id="aa-f-search" type="search" autocomplete="off" value="${escapeHTML(cfg.search)}" placeholder="Search branch…" aria-label="Search branch" onkeydown="if(event.key==='Enter'){applyAuditTableFilters()}">
+            </div>
+            <select id="aa-f-tier" aria-label="Risk tier" onchange="applyAuditTableFilters()">${tierOptions}</select>
+            <select id="aa-f-auditor" aria-label="Auditor" onchange="applyAuditTableFilters()">${auditorOptions}</select>
+            <button type="button" class="aaq-btn aaq-btn-p" onclick="applyAuditTableFilters()" aria-label="Apply table filters">Apply</button>
+            <button type="button" class="aaq-btn aaq-btn-s" onclick="resetAuditTableFilters()">Reset</button>
           </div>
           ${chipsHtml}
+          <div class="aaq-hint">Ranked by risk score, highest first. Tap a branch for its profile, a heading to sort, or a risk score to see how it was calculated.</div>
 
+          <div class="aaq-body custom-scrollbar">
           ${table.rows.length > 0 ? `
-          <div class="rounded-xl border border-coolBorder max-h-[55vh] overflow-auto custom-scrollbar shadow-sm">
-            <table class="w-full min-w-[980px] text-left border-collapse bg-white">
-              <thead class="bg-gray-50 border-b border-coolBorder text-[10px] text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-10 shadow-sm">
-                <tr>
-                  <th class="p-1.5 bg-gray-50 text-center w-9 whitespace-nowrap">Priority</th>
-                  ${sortTh('name', 'Branch').replace('text-center', 'text-left')}
-                  ${sortTh('reason', 'Schedule Status / Reason')}
-                  ${sortTh('risk', 'Risk Score')}
-                  ${sortTh('last', 'Last Audited')}
-                  ${sortTh('days', 'Days Since')}
-                  ${sortTh('auditor', 'Assigned Auditor')}
-                  ${sortTh('date', 'Suggested Date')}
-                  <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Action</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-coolBorder text-xs">${tableRowsHtml}</tbody>
-            </table>
-          </div>` : `<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">${emptyMsg}</div>`}
+            <div class="rounded-xl border border-coolBorder shadow-sm">
+              <table class="aa-rtable w-full min-w-[980px] text-left border-collapse bg-white">
+                <thead class="bg-gray-50 border-b border-coolBorder text-[10px] text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-10 shadow-sm">
+                  <tr>
+                    <th class="p-1.5 bg-gray-50 text-center w-9 whitespace-nowrap">Priority</th>
+                    ${sortTh('name', 'Branch').replace('text-center', 'text-left')}
+                    ${sortTh('reason', 'Schedule Status / Reason')}
+                    ${sortTh('risk', 'Risk Score')}
+                    ${sortTh('last', 'Last Audited')}
+                    ${sortTh('days', 'Days Since')}
+                    ${sortTh('auditor', 'Assigned Auditor')}
+                    ${sortTh('date', 'Suggested Date')}
+                    <th class="p-1.5 bg-gray-50 text-center whitespace-nowrap">Action</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-coolBorder text-xs">${tableRowsHtml}</tbody>
+              </table>
+            </div>` : `<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">${emptyMsg}</div>`}
+          </div>
         </div>
         </div>
 
