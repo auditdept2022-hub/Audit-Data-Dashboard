@@ -31,6 +31,12 @@
        confirm entirely. overscroll-behavior-x only affects the
        horizontal axis, so vertical scroll/bounce elsewhere is unchanged. */
     html, body { overscroll-behavior-x: none; }
+    /* No sideways page scroll, ever. `clip` (unlike `hidden`) does not create a
+       scroll container, so the sticky top header keeps working. Wide tables still
+       scroll inside their own overflow-x:auto boxes. */
+    html, body { overflow-x: clip; max-width: 100%; }
+    /* Page behind the Priority Audit Queue popup must not scroll while it's open */
+    body:has(.aaq-overlay[style*="display:flex"]) { overflow: hidden; }
     body { padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px)); }
     @supports (height: 100dvh) { html, body { min-height: 100dvh; } }
   </style>
@@ -7155,7 +7161,15 @@ html.page-fade-ready body {
       .aaq-chips{display:flex;align-items:center;gap:8px;padding:9px 14px;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none}
       .aaq-chips::-webkit-scrollbar{display:none}
       .aaq-hint{padding:6px 14px 0;font-size:10px;color:#94a3b8}
-      .aaq-body{flex:1;min-height:0;overflow:auto;padding:12px 14px 16px}
+      .aaq-body{flex:1;min-height:0;overflow:auto;padding:0 14px 16px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+      /* Top spacing lives INSIDE the scrolled content (margin), never as scroller
+         padding: a sticky header pins to the scrollport edge and ignores padding,
+         so padding left a strip where rows scrolled visibly ABOVE the header. */
+      .aaq-body>*:first-child{margin-top:12px}
+      .aaq-card,.aaq-overlay{overscroll-behavior:contain}
+      /* Freeze the header on the cells (more reliable than sticky <thead>, esp. iOS Safari) */
+      .aa-rtable thead{position:static !important;box-shadow:none !important}
+      .aa-rtable thead th{position:sticky;top:0;z-index:11;background:#f9fafb !important;box-shadow:0 1px 0 #e5e7eb,0 3px 5px -3px rgba(15,23,42,.18)}
       @media (max-width:639px){
         .aaq-overlay{padding:0}
         .aaq-card{max-height:100vh;height:100vh;height:100dvh;border-radius:0}
@@ -7165,7 +7179,8 @@ html.page-fade-ready body {
         .aaq-search{flex:1 1 100%}
         .aaq-toolbar select{flex:1 1 0;max-width:none}
         .aaq-chips{padding:8px 12px}
-        .aaq-body{padding:10px 8px 14px}
+        .aaq-body{padding:0 8px 14px}
+        .aaq-body>*:first-child{margin-top:10px}
       }
       /* Branch tables (Priority queue + Total Branches lists).
          Wide screens: normal table. Below 1100px the 9 columns get
@@ -13647,13 +13662,6 @@ html.page-fade-ready body {
             </div>
           </div>
           ${topCards ? `<div class="px-3.5 sm:px-4 pb-3.5"><div class="text-[9px] font-bold uppercase tracking-wider text-white/60 mb-1.5 flex items-center justify-between gap-2"><span>Audit these first — top ${Math.min(10, a.suggestions.length)}</span><button type="button" onclick="showAllAuditBranches()" class="px-2 py-1 rounded-md bg-white/15 hover:bg-white/25 text-white text-[10px] font-bold normal-case tracking-normal cursor-pointer">View full queue (${a.totalBranches}) ▸</button></div><div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5">${topCards}</div></div>` : ''}
-          <details class="bg-white/95" open>
-            <summary class="px-3.5 sm:px-4 py-2 cursor-pointer text-[10px] font-bold uppercase tracking-wider text-slate-600 select-none">What the ratings mean</summary>
-            <div class="px-3.5 sm:px-4 pb-2.5">
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">${legendRows}</div>
-              <div class="text-[9px] text-slate-400 mt-1">Score 0–100 blends time since last audit, findings, collection, repossession, sales, service and loan-book size. A data red flag lifts a branch to at least High. Tap any score in the table for the exact math.</div>
-            </div>
-          </details>
         </div>`;
       container.innerHTML = `
       <div class="space-y-5 pb-2">
