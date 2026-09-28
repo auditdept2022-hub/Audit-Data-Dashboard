@@ -6007,18 +6007,18 @@ html.page-fade-ready body {
           <span class="text-xs font-semibold tracking-wider text-slate-500">AUDIT RISK &amp; SCHEDULE ANALYSIS</span>
           <span class="p-1.5 bg-accentIndigo/10 text-accentIndigo rounded-lg group-hover:bg-accentIndigo group-hover:text-white transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M3 3v16a2 2 0 0 0 2 2h16"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg></span>
         </div>
-        <div class="mt-4 grid grid-cols-3 divide-x divide-coolBorder text-center">
+        <div class="mt-4 grid grid-cols-3 divide-x divide-coolBorder text-center" style="margin-top:.5rem;margin-bottom:.5rem">
           <div class="py-1.5">
             <h3 class="text-xl sm:text-2xl font-extrabold tracking-tight text-accentRose" id="stat-audit-risk-attention">—</h3>
             <p class="text-[10px] font-semibold text-slate-400 mt-0.5 uppercase tracking-wide" title="Branches rated Critical or High on the overall risk score">Critical + High</p>
           </div>
           <div class="py-1.5">
-            <h3 class="text-xl sm:text-2xl font-extrabold tracking-tight text-accentIndigo" id="stat-audit-risk-avg">—</h3>
-            <p class="text-[10px] font-semibold text-slate-400 mt-0.5 uppercase tracking-wide" title="Average overall risk score (0–100) across all branches">Avg. Risk Score</p>
+            <h3 class="text-xl sm:text-2xl font-extrabold tracking-tight text-accentEmerald" id="stat-audit-risk-ontrack">—</h3>
+            <p class="text-[10px] font-semibold text-slate-400 mt-0.5 uppercase tracking-wide" title="Branches rated Medium or Low on the overall risk score">Medium + Low</p>
           </div>
           <div class="py-1.5">
-            <h3 class="text-xl sm:text-2xl font-extrabold tracking-tight text-accentEmerald" id="stat-audit-risk-ontrack">—</h3>
-            <p class="text-[10px] font-semibold text-slate-400 mt-0.5 uppercase tracking-wide" title="Branches rated Low on the overall risk score">Low Risk</p>
+            <h3 class="text-xl sm:text-2xl font-extrabold tracking-tight text-accentIndigo" id="stat-audit-risk-avg">—</h3>
+            <p class="text-[10px] font-semibold text-slate-400 mt-0.5 uppercase tracking-wide" title="Average overall risk score (0–100) across all branches">Avg. Risk Score</p>
           </div>
         </div>
         <!-- Tier counts sit in the card's own bottom padding (absolute), so they
@@ -19152,7 +19152,7 @@ html.page-fade-ready body {
           const ra = computeAuditScheduleAnalysis();
           const tierN = k => ((ra.riskTiers.find(t => t.key === k) || {}).count) || 0;
           const highCount = tierN('CRITICAL') + tierN('HIGH');
-          const lowCount = tierN('LOW');
+          const lowCount = tierN('MEDIUM') + tierN('LOW');
           animateCountUp(riskAttentionEl, highCount);
           const avgEl = document.getElementById('stat-audit-risk-avg');
           if (avgEl) avgEl.innerText = (ra.avgRiskScore !== null && ra.avgRiskScore !== undefined) ? ra.avgRiskScore : '—';
