@@ -11122,8 +11122,9 @@ html.page-fade-ready body {
     // Fixed-date ones are listed as MM-DD; National Heroes Day (last Monday of
     // August) is worked out automatically. Movable holidays (Holy Week, Eid)
     // change every year: add them here as 'YYYY-MM-DD' strings.
-    const AUDIT_SCHEDULE_HOLIDAYS_FIXED = ['01-01', '04-09', '05-01', '06-12', '11-30', '12-25', '12-30'];
-    const AUDIT_SCHEDULE_HOLIDAYS_EXTRA = [];
+    const AUDIT_SCHEDULE_HOLIDAYS_FIXED = ['01-01', '02-25', '04-09', '05-01', '06-12', '08-21', '11-01', '11-30', '12-08', '12-24', '12-25', '12-30', '12-31'];
+    // Movable holidays: add each year from the official proclamation (verify these).
+    const AUDIT_SCHEDULE_HOLIDAYS_EXTRA = ['2027-03-25', '2027-03-26'];
     function auditDayKey(d) {
       return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     }
@@ -12014,7 +12015,7 @@ html.page-fade-ready body {
       let usableFactors = 0;
       const strengths = others.map(f => {
         const c = corr[f.key];
-        if (c && c.r !== null && c.n >= 5) { usableFactors++; return Math.max(floor, Math.abs(c.r) * 100); }
+        if (c && c.r !== null && c.n >= 5) { usableFactors++; return Math.max(floor, Math.max(0, c.r) * 100); } // only factors that move WITH findings earn weight; an opposite link is not evidence of risk
         return floor;
       });
       // DEDUPLICATE OVERLAPPING FACTORS before turning strengths into weights.
@@ -12341,7 +12342,7 @@ html.page-fade-ready body {
         const days = info.intervalDays;
         const hasDays = days !== null && days !== undefined;
         const highRisk = auditIsHighRisk(row, cfg);
-        const pastMinGap = !hasDays || days >= cfg.minGapDays;
+        const pastMinGap = !hasDays || days >= Math.min(cfg.minGapDays, row.risk.cycleDays); // rest period can never exceed the rating's own cycle
 
         if (info.roundsCount === 0 && !hasExpected) {
           neverAudited.push(row);
@@ -12669,9 +12670,9 @@ html.page-fade-ready body {
         case 'ON_TRACK':
           title = 'On Track'; rows = all.filter(r => r.reason === 'On track' || r.reason === 'Monitor — recently audited'); break;
         case 'HIGH_RISK':
-          title = 'High-Risk Branches (score ' + cfg.minScore + '+ or a data red flag), ranked by score'; rows = all.filter(r => auditIsHighRisk(r, cfg)); break;
+          title = 'Critical & High risk branches (score 55+ or a data red flag), ranked by score'; rows = all.filter(r => r.risk.tier.key === 'CRITICAL' || r.risk.tier.key === 'HIGH'); break;
         case 'OVERDUE':
-          title = 'Overdue Audits (no audit for ' + cfg.overdueDays + '+ days, or a scheduled date that passed)';
+          title = 'Overdue Audits (past the audit cycle for their risk rating, or a scheduled date that passed)';
           rows = all.filter(r => r.reason === 'Overdue, not yet scheduled' || r.reason === 'Expected date already passed'); break;
         case 'EVER_AUDITED':
           title = 'Branches Audited At Least Once (audit coverage)'; rows = all.filter(r => r.reason !== 'Never audited'); break;
@@ -12798,7 +12799,7 @@ html.page-fade-ready body {
       const a = computeAuditScheduleAnalysis();
       const fmtDate = d => d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
       const filterBucket = cfg.filterBucket || 'ATTENTION';
-      const highRiskCount = a.rows.filter(r => auditIsHighRisk(r, cfg)).length;
+      const highRiskCount = a.rows.filter(r => r.risk.tier.key === 'CRITICAL' || r.risk.tier.key === 'HIGH').length;
       const overdueCount = a.overdueUnscheduled.length + a.scheduledPastDue.length;
       const coveragePct = a.totalBranches ? Math.round(((a.totalBranches - a.neverAudited.length) / a.totalBranches) * 100) : null;
       const attention = computeAuditManagementAttention(a, cfg);
@@ -13034,8 +13035,8 @@ html.page-fade-ready body {
         if (!c || c.r === null || c.n < 5) {
           return { dot: 'bg-slate-200', text: '<span class="text-slate-400" title="Fewer than 5 branches currently have enough data to check this.">Not enough history yet</span>' };
         }
-        const abs = Math.abs(c.r);
-        const strength = abs >= 0.5 ? 'Strong' : (abs >= 0.3 ? 'Moderate' : 'Weak');
+        const abs = Math.max(0, c.r);
+        const strength = c.r <= -0.3 ? 'Opposite' : (abs >= 0.5 ? 'Strong' : (abs >= 0.3 ? 'Moderate' : 'Weak'));
         const dot = abs >= 0.5 ? 'bg-accentEmerald' : (abs >= 0.3 ? 'bg-accentBlue' : 'bg-slate-300');
         const color = abs >= 0.5 ? 'text-accentEmerald' : (abs >= 0.3 ? 'text-accentBlue' : 'text-slate-400');
         const tip = 'Statistically: Pearson r = ' + c.r.toFixed(2) + ', across ' + c.n + ' branches with data. Closer to 1 means this factor has more reliably lined up with real findings in the past.';
@@ -13223,34 +13224,49 @@ html.page-fade-ready body {
 
           <div class="px-3.5 pb-3.5 pt-2.5 border-t border-coolBorder space-y-3">
 
-            <!-- Thresholds + caps: one compact row instead of two separate boxed sections -->
-            <div class="flex flex-wrap items-end gap-x-5 gap-y-2.5 p-2.5 bg-gray-50/70 border border-coolBorder rounded-lg">
-              <label class="flex flex-col gap-1" title="Schedule a branch once its risk score reaches this, out of 100">
-                <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-snug">Queue at risk score of<span class="block normal-case font-medium text-slate-400 tracking-normal max-w-[9rem]">Branch joins the queue once its score reaches this</span></span>
-                <span class="flex items-center gap-1">${cfgInput('minScore', 1, 100)}<span class="text-[9px] text-slate-400">/100</span></span>
-              </label>
-              <label class="flex flex-col gap-1" title="But skip it if it was already audited within this many days">
-                <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-snug">Do not re-audit within<span class="block normal-case font-medium text-slate-400 tracking-normal max-w-[9rem]">Ignores branches audited very recently</span></span>
-                <span class="flex items-center gap-1">${cfgInput('minGapDays', 0, 3650)}<span class="text-[9px] text-slate-400">days</span></span>
-              </label>
-              <label class="flex flex-col gap-1" title="Always schedule any branch with no audit for this long, regardless of score">
-                <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-snug">Longest allowed gap<span class="block normal-case font-medium text-slate-400 tracking-normal max-w-[9rem]">Every branch is queued after this many days</span></span>
-                <span class="flex items-center gap-1">${cfgInput('overdueDays', 1, 3650)}<span class="text-[9px] text-slate-400">days</span></span>
-              </label>
-              <label class="flex flex-col gap-1" title="Space out each auditor's suggested visits by this many business days">
-                <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-snug">Days between visits<span class="block normal-case font-medium text-slate-400 tracking-normal max-w-[9rem]">Gap between one auditor's suggested dates</span></span>
-                <span class="flex items-center gap-1">${cfgInput('spacingDays', 1, 3650)}<span class="text-[9px] text-slate-400">biz d</span></span>
-              </label>
-              <label class="flex flex-col gap-1" title="Weighted findings (3x ${window.FINDING_YEARS[2]}, 2x ${window.FINDING_YEARS[1]}, 1x ${window.FINDING_YEARS[0]}) at or above this score 100 on the findings factor. Fixed — not recalculated from whichever branches are currently loaded.">
-                <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-snug">Findings = max risk<span class="block normal-case font-medium text-slate-400 tracking-normal max-w-[9rem]">Weighted findings that score 100</span></span>
-                <span class="flex items-center gap-1">${cfgInput('findingsCap', 1, 1000)}<span class="text-[9px] text-slate-400">pts</span></span>
-              </label>
-              <label class="flex flex-col gap-1" title="Branches with this many accounts or more score 100 on the portfolio-size factor. Fixed — not recalculated from whichever branches are currently loaded.">
-                <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-snug">Accounts = max risk<span class="block normal-case font-medium text-slate-400 tracking-normal max-w-[9rem]">Loan accounts that score 100</span></span>
-                <span class="flex items-center gap-1">${cfgInput('sizeCap', 1, 10000000)}<span class="text-[9px] text-slate-400">accts</span></span>
-              </label>
-              <button type="button" onclick="resetAuditRiskCaps()" title="Recompute both caps from the current portfolio's 90th percentile, then freeze them again from here" class="px-2 py-1 text-[9.5px] font-bold bg-white border border-coolBorder rounded-md hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap self-center">Recalc caps</button>
+            <!-- Plain-language rules, grouped by what they decide -->
+            <div class="p-2.5 rounded-lg bg-accentIndigo/5 border border-accentIndigo/20 text-[11px] text-slate-700 leading-relaxed">
+              <b>Right now:</b> a branch joins the audit queue when its risk score reaches <b>${cfg.minScore}</b>, or when it goes too long without an audit — <b>${auditTierCycleDays('CRITICAL', cfg)}</b> days if Critical, <b>${auditTierCycleDays('HIGH', cfg)}</b> if High, <b>${auditTierCycleDays('MEDIUM', cfg)}</b> if Medium, <b>${cfg.overdueDays}</b> if Low. Each suggested audit takes <b>${cfg.spacingDays}</b> working day${cfg.spacingDays === 1 ? '' : 's'} of an auditor's calendar.
             </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div class="p-2.5 bg-gray-50/70 border border-coolBorder rounded-lg space-y-2.5">
+                <h4 class="text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">1 · Who gets queued for audit</h4>
+                <label class="flex items-start justify-between gap-3" title="Branches scoring at or above this join the queue, even if they were audited recently enough not to be overdue.">
+                  <span class="text-[11px] text-slate-600 leading-snug"><b class="block text-slate-800">Risk score to queue</b>Branch joins the queue once its 0–100 risk score reaches this.</span>
+                  <span class="flex items-center gap-1 shrink-0">${cfgInput('minScore', 1, 100)}<span class="text-[9px] text-slate-400">/100</span></span>
+                </label>
+                <label class="flex items-start justify-between gap-3" title="Prevents re-auditing a branch that was just audited. It can never be longer than the branch's own rating cycle (Critical 30 / High 45 / Medium 60 days).">
+                  <span class="text-[11px] text-slate-600 leading-snug"><b class="block text-slate-800">Rest period after an audit</b>Don't queue a branch that was audited less than this long ago (never longer than its rating cycle).</span>
+                  <span class="flex items-center gap-1 shrink-0">${cfgInput('minGapDays', 0, 3650)}<span class="text-[9px] text-slate-400">days</span></span>
+                </label>
+                <label class="flex items-start justify-between gap-3" title="The longest a healthy (Low) branch can go without an audit. Riskier ratings have shorter cycles, and none can exceed this.">
+                  <span class="text-[11px] text-slate-600 leading-snug"><b class="block text-slate-800">Longest time without an audit</b>Any branch, even a healthy one, is queued after this many days.</span>
+                  <span class="flex items-center gap-1 shrink-0">${cfgInput('overdueDays', 1, 3650)}<span class="text-[9px] text-slate-400">days</span></span>
+                </label>
+              </div>
+              <div class="p-2.5 bg-gray-50/70 border border-coolBorder rounded-lg space-y-2.5">
+                <h4 class="text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">2 · Suggested dates</h4>
+                <label class="flex items-start justify-between gap-3" title="How many working days (Mon–Fri, no holidays) one branch audit blocks on an auditor's calendar. The next suggested date for the same auditor starts after this.">
+                  <span class="text-[11px] text-slate-600 leading-snug"><b class="block text-slate-800">Working days per branch audit</b>One auditor's next suggested date starts after this many working days. 5 = one branch per week.</span>
+                  <span class="flex items-center gap-1 shrink-0">${cfgInput('spacingDays', 1, 3650)}<span class="text-[9px] text-slate-400">days</span></span>
+                </label>
+              </div>
+            </div>
+            <details class="border border-coolBorder rounded-lg bg-white">
+              <summary class="px-2.5 py-2 cursor-pointer select-none text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">3 · Advanced: scoring scales <span class="normal-case font-medium text-slate-400 tracking-normal">— set automatically from your data, most people never change these</span></summary>
+              <div class="px-2.5 pb-2.5 pt-1 space-y-2.5 border-t border-coolBorder">
+                <p class="text-[10px] text-slate-500 leading-snug">These decide how a branch's raw numbers turn into 0–100 points. A branch at or above the scale scores the full 100 on that factor. They start at the portfolio's 90th percentile, so the top 10% of branches max out.</p>
+                <label class="flex items-start justify-between gap-3" title="Weighted findings: ${window.FINDING_YEARS[2]} ×3, ${window.FINDING_YEARS[1]} ×2, ${window.FINDING_YEARS[0]} ×1.">
+                  <span class="text-[11px] text-slate-600 leading-snug"><b class="block text-slate-800">Findings that count as maximum risk</b>Weighted points (${window.FINDING_YEARS[2]} ×3, ${window.FINDING_YEARS[1]} ×2, ${window.FINDING_YEARS[0]} ×1). ${cfg.findingsCap ? '≈ ' + Math.round(cfg.findingsCap / 3) + ' findings in ' + window.FINDING_YEARS[2] + ' alone.' : ''}</span>
+                  <span class="flex items-center gap-1 shrink-0">${cfgInput('findingsCap', 1, 1000)}<span class="text-[9px] text-slate-400">pts</span></span>
+                </label>
+                <label class="flex items-start justify-between gap-3" title="Branches with this many loan accounts or more score 100 on loan-book size.">
+                  <span class="text-[11px] text-slate-600 leading-snug"><b class="block text-slate-800">Loan accounts that count as maximum size</b>A bigger loan book means more money at stake.</span>
+                  <span class="flex items-center gap-1 shrink-0">${cfgInput('sizeCap', 1, 10000000)}<span class="text-[9px] text-slate-400">accts</span></span>
+                </label>
+                <button type="button" onclick="resetAuditRiskCaps()" title="Recompute both scales from the current portfolio's 90th percentile" class="px-2 py-1 text-[10px] font-bold bg-white border border-coolBorder rounded-md hover:bg-gray-100 active:scale-95 transition-all cursor-pointer">Re-set both automatically from current data</button>
+              </div>
+            </details>
 
             <!-- Weights: shown inline, no second click needed -->
             <div>
@@ -13407,7 +13423,7 @@ html.page-fade-ready body {
           <ul class="mt-3 text-xs sm:text-[13px] text-slate-700 leading-relaxed space-y-1.5 list-disc pl-4">
             <li><strong>Tiers.</strong> Critical 70+, High 55–69, Medium 40–54, Low below 40. A branch with any data red flag (below) is shown as at least High.</li>
             <li><strong>Data red flags.</strong> A weighted average can dilute one severe signal, so these tripwires cannot be averaged away: ${AUDIT_RED_FLAGS.map(x => escapeHTML(x.label)).join('; ')}. Any one qualifies an unscheduled branch for the schedule whatever its overall score.</li>
-            <li><strong>Who gets scheduled, and why.</strong> The primary driver is the risk rule: any unscheduled branch whose own numbers put its risk score at ${cfg.minScore}+ or trip a data red flag (last audited at least ${cfg.minGapDays} days ago) is scheduled because of what its data says — findings, trends, efficiency, repo rate or portfolio size — not because of the calendar. On top of that sit three coverage rules that exist purely as a safety net, not as an evaluation of the branch: branches never audited, branches whose scheduled date passed without being marked Done, and branches with no audit for ${cfg.overdueDays}+ days. These guarantee no branch is skipped forever just because its other numbers look fine, but they are the exception, not the basis, for the ranking.</li>
+            <li><strong>Who gets scheduled, and why.</strong> Every rating has an audit cycle: Critical ${auditTierCycleDays('CRITICAL', cfg)} days, High ${auditTierCycleDays('HIGH', cfg)}, Medium ${auditTierCycleDays('MEDIUM', cfg)}, Low ${cfg.overdueDays}. A branch is queued when (1) its risk score reaches ${cfg.minScore}+ or it trips a data red flag and it was not audited in the last ${Math.min(cfg.minGapDays, cfg.overdueDays)} days or less, (2) it has gone past its own rating's cycle, (3) it was never audited, or (4) its scheduled date passed without being marked Done. Rules 2–4 are safety nets so no branch is skipped just because its other numbers look fine.</li>
             <li><strong>Missing data.</strong> If a branch has no data for a factor, that factor is left out and the others are rescaled to 100% — a branch is never marked up or down for a number that isn't there.</li>
             <li><strong>Consistent with the dashboard.</strong> Efficiency and repo scoring use the same red/amber/green cut-offs already shown on the branch cards (efficiency 70% / 50%, repo 4% / 7%). The Branch Scorecard's Risk column and each branch's profile use this same score, so a branch reads the same everywhere.</li>
             <li><strong>Findings for ${window.FINDING_YEARS[2]}</strong> are year-to-date, which is why recent years are weighted more heavily rather than compared like-for-like.</li>
