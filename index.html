@@ -11244,6 +11244,7 @@ html.page-fade-ready body {
         resetAuditTableFilterState(cfg);
       }
       cfg.expandBranch = null;
+      cfg.queueOpen = false;
       cfg.notice = null;
       openModal('Audit Risk & Schedule Analysis', 'assignmentAnalysis', null);
     }
@@ -11258,14 +11259,11 @@ html.page-fade-ready body {
       // shown as a toast, which stays visible even when the OK that was
       // pressed is far from the message on a small screen.
       const pending = window.auditAnalysisState.notice;
+      if (scrollToTable) window.auditAnalysisState.queueOpen = true;
       renderAssignmentAnalysisModal(body);
       auditSyncSchedulePush(); // mirror the new view/settings to the person's other devices
       if (pending && typeof showToast === 'function' && document.getElementById('toast')) {
         try { showToast(pending.text, pending.type === 'error' ? 'error' : 'success'); } catch (e) {}
-      }
-      if (scrollToTable) {
-        const el = document.getElementById('aa-table-section');
-        if (el && typeof el.scrollIntoView === 'function') setTimeout(function () { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 30);
       }
     }
 
@@ -11699,6 +11697,14 @@ html.page-fade-ready body {
       cfg.settingsOpen = open; cfg.weightsOpen = open;
       refreshAuditAnalysis(false);
       const body = document.getElementById('modalBody');
+    }
+
+    // Priority Audit Queue lives in its own popup: opened by the "View full
+    // queue" button, or automatically by any click-through that filters it.
+    function toggleAuditQueue() {
+      const cfg = window.auditAnalysisState;
+      cfg.queueOpen = !cfg.queueOpen;
+      refreshAuditAnalysis(false);
     }
 
     function setAuditSettingsOpen(isOpen) {
@@ -13193,7 +13199,7 @@ html.page-fade-ready body {
               <div class="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">${tierKey}</div>
             </div>
           </div>
-          ${topCards ? `<div class="px-3.5 sm:px-4 pb-3.5"><div class="text-[9px] font-bold uppercase tracking-wider text-white/60 mb-1.5">Audit these first — top ${Math.min(10, a.suggestions.length)}</div><div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5">${topCards}</div></div>` : ''}
+          ${topCards ? `<div class="px-3.5 sm:px-4 pb-3.5"><div class="text-[9px] font-bold uppercase tracking-wider text-white/60 mb-1.5 flex items-center justify-between gap-2"><span>Audit these first — top ${Math.min(10, a.suggestions.length)}</span><button type="button" onclick="toggleAuditQueue()" class="px-2 py-1 rounded-md bg-white/15 hover:bg-white/25 text-white text-[10px] font-bold normal-case tracking-normal cursor-pointer">View full queue (${table.rows.length}) ▸</button></div><div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5">${topCards}</div></div>` : ''}
           <details class="bg-white/95" open>
             <summary class="px-3.5 sm:px-4 py-2 cursor-pointer text-[10px] font-bold uppercase tracking-wider text-slate-600 select-none">What the ratings mean</summary>
             <div class="px-3.5 sm:px-4 pb-2.5">
@@ -13336,10 +13342,12 @@ html.page-fade-ready body {
           <div class="p-1 bg-white border border-coolBorder rounded-xl shadow-sm divide-y divide-coolBorder/60">${recentCompletionsHtml}</div>
         </div>
 
-        <div id="aa-table-section" class="mx-2 sm:mx-3">
+        <div role="dialog" aria-modal="true" aria-label="Priority audit queue" onclick="if(event.target===this)toggleAuditQueue()" style="position:fixed;inset:0;z-index:99998;background:rgba(15,23,42,.55);align-items:center;justify-content:center;padding:12px;${cfg.queueOpen ? 'display:flex;' : 'display:none;'}">
+        <div id="aa-table-section" class="bg-white rounded-2xl shadow-2xl w-full p-3.5 sm:p-4" style="max-width:1200px;max-height:92vh;overflow-y:auto">
           <div class="flex flex-wrap items-center justify-between gap-2 mb-0.5">
             <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Priority Audit Queue <span class="normal-case font-medium text-slate-400">— ${escapeHTML(table.title)}</span></h3>
             <span class="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold uppercase tracking-wider text-white" style="background:${TINT_HEX.accentIndigo}">${table.rows.length} branch${table.rows.length === 1 ? '' : 'es'}</span>
+            <button type="button" onclick="toggleAuditQueue()" class="px-2 py-0.5 text-[10px] font-bold text-slate-500 border border-coolBorder rounded-md hover:bg-gray-100 cursor-pointer">Close ✕</button>
           </div>
           <p class="text-[10px] text-slate-500 mb-2">Ranked by risk score, highest first. Tap a branch to open its profile, a badge or number to filter by it, a column heading to sort, or a risk score to see how it was calculated.</p>
 
@@ -13377,6 +13385,7 @@ html.page-fade-ready body {
               <tbody class="divide-y divide-coolBorder text-xs">${tableRowsHtml}</tbody>
             </table>
           </div>` : `<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">${emptyMsg}</div>`}
+        </div>
         </div>
 
         <details class="mx-2 sm:mx-3 bg-accentIndigo/5 border border-accentIndigo/20 rounded-xl">
