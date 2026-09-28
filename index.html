@@ -7166,8 +7166,29 @@ html.page-fade-ready body {
       window.openBranchRiskPopup = function (key) {
         var detailTr = document.getElementById('audit-risk-detail-' + key);
         if (!detailTr) return;
-        var mainTr = detailTr.previousElementSibling;
-        if (!mainTr) return;
+        openBranchRiskPopupFromRows(detailTr.previousElementSibling, detailTr);
+      };
+
+      // Opens the same popup from just a branch name (used by the "Audit
+      // these first" cards). It builds the branch's row exactly the way the
+      // Total Branches table does — same rows, same scoring — in a detached
+      // element, then hands it to the popup.
+      window.openBranchRiskPopupByName = function (name) {
+        try {
+          var a = computeAuditScheduleAnalysis();
+          var t = getAuditAnalysisTableRows(a, 'ALL');
+          var row = t.rows.find(function (r) { return r.b.name === name; });
+          if (!row) { if (typeof openModalDetail === 'function') openModalDetail(name); return; }
+          var holder = document.createElement('div');
+          holder.innerHTML = buildAuditKpiQueueTableHtml([row]);
+          var detailTr = holder.querySelector('tr[id^="audit-risk-detail-kpi-"]');
+          if (!detailTr) return;
+          openBranchRiskPopupFromRows(detailTr.previousElementSibling, detailTr);
+        } catch (err) { console.error('Branch popup failed:', err); }
+      };
+
+      function openBranchRiskPopupFromRows(mainTr, detailTr) {
+        if (!mainTr || !detailTr) return;
         var cells = mainTr.children;
         var nameBtn = cells[1] && cells[1].querySelector('button');
         var branchName = nameBtn ? (nameBtn.getAttribute('data-branch-name') || nameBtn.textContent.trim()) : 'Branch';
@@ -7246,7 +7267,7 @@ html.page-fade-ready body {
         });
         document.body.appendChild(overlay);
         requestAnimationFrame(function () { overlay.classList.add('brp-show'); });
-      };
+      }
 
       window.toggleBranchRiskPopupExpand = function () {
         var o = document.getElementById('branchRiskPopup');
@@ -12007,6 +12028,15 @@ html.page-fade-ready body {
 
     // Priority Audit Queue lives in its own popup: opened by the "View full
     // queue" button, or automatically by any click-through that filters it.
+    // "View full queue" button: lists every branch (not just the ones that
+    // still need a schedule), so the count on the button matches the list.
+    function showAllAuditBranches() {
+      const cfg = window.auditAnalysisState;
+      resetAuditTableFilterState(cfg);
+      cfg.filterBucket = 'ALL';
+      refreshAuditAnalysis(true);
+    }
+
     function toggleAuditQueue() {
       const cfg = window.auditAnalysisState;
       cfg.queueOpen = !cfg.queueOpen;
@@ -12143,6 +12173,7 @@ html.page-fade-ready body {
     function dispatchAuditClick(kind, value) {
       switch (kind) {
         case 'branch': openModalDetail(value); break;
+        case 'branchpopup': openBranchRiskPopupByName(value); break;
         case 'sort': setAuditAnalysisSort(value); break;
         case 'clear': clearAuditFilterChip(value); break;
         case 'clearall': resetAuditTableFilters(); break;
@@ -13475,7 +13506,7 @@ html.page-fade-ready body {
       }).join('');
       const tierKey = a.riskTiers.map(t => `<span class="inline-flex items-center gap-1 text-[10px] text-white/80"><span class="w-2 h-2 rounded-full" style="background:${TINT_HEX[t.tint]}"></span>${escapeHTML(t.label)}</span>`).join('');
       const topCards = a.suggestions.slice(0, 10).map((r, i) => `
-        <div ${drill('focus', r.b.name, false, 'rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 p-1.5 text-white min-w-0')}>
+        <div data-aa-kind="branchpopup" data-aa-value="${escapeHTML(r.b.name)}" role="button" tabindex="0" title="Click to see why ${escapeHTML(r.b.name)} needs attention" class="cursor-pointer transition-all active:scale-[0.99] rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 p-1.5 text-white min-w-0">
           <div class="flex items-center justify-between gap-2">
             <span class="text-[8px] font-bold uppercase tracking-wider text-white/60">#${i + 1}</span>
             <span class="px-1 py-px rounded text-[9px] font-extrabold" style="background:${TINT_HEX[r.risk.tier.tint]}">${r.risk.score.toFixed(0)} ${escapeHTML(r.risk.tier.label)}</span>
@@ -13505,7 +13536,7 @@ html.page-fade-ready body {
               <div class="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">${tierKey}</div>
             </div>
           </div>
-          ${topCards ? `<div class="px-3.5 sm:px-4 pb-3.5"><div class="text-[9px] font-bold uppercase tracking-wider text-white/60 mb-1.5 flex items-center justify-between gap-2"><span>Audit these first — top ${Math.min(10, a.suggestions.length)}</span><button type="button" onclick="toggleAuditQueue()" class="px-2 py-1 rounded-md bg-white/15 hover:bg-white/25 text-white text-[10px] font-bold normal-case tracking-normal cursor-pointer">View full queue (${table.rows.length}) ▸</button></div><div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5">${topCards}</div></div>` : ''}
+          ${topCards ? `<div class="px-3.5 sm:px-4 pb-3.5"><div class="text-[9px] font-bold uppercase tracking-wider text-white/60 mb-1.5 flex items-center justify-between gap-2"><span>Audit these first — top ${Math.min(10, a.suggestions.length)}</span><button type="button" onclick="showAllAuditBranches()" class="px-2 py-1 rounded-md bg-white/15 hover:bg-white/25 text-white text-[10px] font-bold normal-case tracking-normal cursor-pointer">View full queue (${a.totalBranches}) ▸</button></div><div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5">${topCards}</div></div>` : ''}
           <details class="bg-white/95" open>
             <summary class="px-3.5 sm:px-4 py-2 cursor-pointer text-[10px] font-bold uppercase tracking-wider text-slate-600 select-none">What the ratings mean</summary>
             <div class="px-3.5 sm:px-4 pb-2.5">
