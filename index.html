@@ -11540,7 +11540,7 @@ html.page-fade-ready body {
     // defaults still sum to 100 together with recency.
     const AUDIT_RISK_FACTORS = [
       { key: 'recency', label: 'Time since last audit', defaultWeight: 10,
-        how: '0 points if audited today, rising evenly to 100 points at the Overdue threshold. Never audited = 100.',
+        how: 'Data-driven: each branch\'s own data score sets how often it should be audited (healthy data = longer, risky data = shorter, around the Overdue setting). Points follow a smooth curve of days since audit vs that due interval: about 50 at the due date, rising gradually after. A risky branch keeps a small base even right after an audit; a healthy one stays near 0. Never audited = 60 + 40% of its data score.',
         why: 'Control depends on branches actually being visited, not only on what their other numbers say, so recency carries a real (if deliberately smaller) share of the score. It is also, separately, what drives the never-audited/overdue coverage rules that guarantee no branch is skipped forever.' },
       { key: 'findings', label: 'Audit findings', defaultWeight: 26,
         how: 'Findings are weighted 3x for the latest tracked year, 2x for the middle year and 1x for the earliest (years come from the sheet), then scaled against a FIXED cap (editable in Settings; starts at the portfolio\'s 90th percentile the first time it\'s computed, never below ' + AUDIT_FINDINGS_MIN_CAP + ' weighted points, then stays put). No findings = 0.',
@@ -11671,7 +11671,7 @@ html.page-fade-ready body {
     }
 
     window.auditAnalysisState = window.auditAnalysisState || {
-      overdueDays: 90,      // coverage backstop AND the day-count where recency risk reaches 100
+      overdueDays: 90,      // coverage backstop AND the base for each branch's data-driven due interval (0.5x-1.75x)
       spacingDays: 3,       // business days between suggested audit dates
       minScore: 55,         // risk score at/above which an un-scheduled branch gets scheduled
       minGapDays: 30,       // don't re-audit a branch audited more recently than this
@@ -12107,7 +12107,7 @@ html.page-fade-ready body {
       const w = auditNormalizeWeights100(cfg.weights)[key];
       const nowLines = [];
       nowLines.push('Currently counts for <b>' + w + '%</b> of the score.');
-      if (key === 'recency') nowLines.push('Reaches 100 points at <b>' + cfg.overdueDays + ' days</b> since the last audit.');
+      if (key === 'recency') nowLines.push('Each branch\u2019s due interval is set by its own data: about <b>' + Math.round(cfg.overdueDays * 0.5) + '</b> days for very risky branches up to <b>' + Math.round(cfg.overdueDays * 1.75) + '</b> days for very healthy ones. About 50 points at that due date.');
       if (key === 'findings' && cfg.findingsCap) nowLines.push('<b>' + cfg.findingsCap + '</b> weighted findings score the full 100.');
       if (key === 'repo' && cfg.repoCap) nowLines.push('<b>' + cfg.repoCap + '</b> repossessions score the full 100 on the count part.');
       if (key === 'efficiency' && cfg.shortfallCap) nowLines.push('<b>' + Number(cfg.shortfallCap).toLocaleString() + '</b> accounts not collecting score the full 100 on that part.');
@@ -12771,11 +12771,9 @@ html.page-fade-ready body {
           f.push({ key, label: def ? def.label : key, available, points: available ? Math.max(0, Math.min(100, points)) : 0, detail, short });
         };
 
+        // 'recency' is scored AFTER the data factors below, because how urgent
+        // "days since last audit" is depends on how healthy the branch's data is.
         const never = info.roundsCount === 0 || info.intervalDays === null || info.intervalDays === undefined;
-        add('recency', true,
-            never ? 100 : (Math.max(0, info.intervalDays) / Math.max(1, cfg.overdueDays)) * 100,
-            never ? 'Never audited' : info.intervalDays + ' days since last audit',
-            never ? 'Never audited' : info.intervalDays + 'd since audit');
 
         const fw = findingsWeighted(b);
         const ftotal = (b.findings2024 || 0) + (b.findings2025 || 0) + (b.findings2026 || 0);
@@ -12855,6 +12853,36 @@ html.page-fade-ready body {
         add('size', hasAcct, (accountsOf(b) / sizeCap) * 100,
             hasAcct ? (accountsOf(b).toLocaleString() + ' accounts') : 'No account data',
             accountsOf(b).toLocaleString() + ' accounts');
+
+        // DATA-DRIVEN RECENCY. Old rule: days / overdueDays x 100 (fresh audit = 0,
+        // anything past the threshold = 100 no matter how healthy the branch is).
+        // New rule: 1) score the branch on its DATA factors only (dataScore 0-100);
+        // 2) that sets THIS branch's own due interval - healthy data = longer
+        // (up to 1.75x the threshold), risky data = shorter (down to 0.5x);
+        // 3) points follow a smooth curve of days / dueDays: 50 at the due date,
+        // rising toward (never abruptly hitting) 100; 4) a floor of 25% of the
+        // data score, so a risky branch is not "0" just because it was audited
+        // yesterday, while a clean branch stays near 0.
+        let dSum = 0, dW = 0;
+        f.forEach(x => { if (x.available) { const w = Math.max(0, Number(weights[x.key]) || 0); dSum += w * x.points; dW += w; } });
+        const dataScore = dW > 0 ? dSum / dW : 50;
+        const baseDue = Math.max(1, cfg.overdueDays);
+        const dueDays = Math.round(baseDue * (1.75 - 1.25 * (dataScore / 100)));
+        const recFloor = 0.25 * dataScore;
+        let recPts, recDetail, recShort;
+        if (never) {
+          recPts = 60 + 0.4 * dataScore;
+          recDetail = 'Never audited (scored from its data: ' + Math.round(dataScore) + '/100)';
+          recShort = 'Never audited';
+        } else {
+          const r = Math.max(0, info.intervalDays) / dueDays;
+          const curve = (r * r) / (1 + r * r);
+          recPts = recFloor + (100 - recFloor) * curve;
+          recDetail = info.intervalDays + ' days since last audit; this branch\u2019s data (' + Math.round(dataScore) + '/100) makes it due about every ' + dueDays + ' days';
+          recShort = info.intervalDays + 'd since audit (due ~' + dueDays + 'd)';
+        }
+        f.unshift({ key: 'recency', label: 'Time since last audit', available: true,
+          points: Math.max(0, Math.min(100, recPts)), detail: recDetail, short: recShort });
 
         let weightSum = 0, weightTotal = 0;
         f.forEach(x => {
