@@ -7152,10 +7152,10 @@ html.page-fade-ready body {
       .aaq-btn:active{transform:scale(.97)}
       .aaq-btn-p{background:#0ea5c7;color:#fff}
       .aaq-btn-s{background:#fff;border-color:#e2e8f0;color:#475569}
-      .aaq-chips{display:flex;align-items:center;gap:6px;padding:6px 14px;border-bottom:1px solid #f1f5f9;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+      .aaq-chips{display:flex;align-items:center;gap:8px;padding:9px 14px;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none}
       .aaq-chips::-webkit-scrollbar{display:none}
       .aaq-hint{padding:6px 14px 0;font-size:10px;color:#94a3b8}
-      .aaq-body{flex:1;min-height:0;overflow:auto;padding:8px 14px 14px}
+      .aaq-body{flex:1;min-height:0;overflow:auto;padding:12px 14px 16px}
       @media (max-width:639px){
         .aaq-overlay{padding:0}
         .aaq-card{max-height:100vh;height:100vh;height:100dvh;border-radius:0}
@@ -7164,26 +7164,40 @@ html.page-fade-ready body {
         .aaq-toolbar{flex-wrap:wrap;padding:8px 12px;gap:6px}
         .aaq-search{flex:1 1 100%}
         .aaq-toolbar select{flex:1 1 0;max-width:none}
-        .aaq-chips{padding:6px 12px}
-        .aaq-body{padding:8px}
+        .aaq-chips{padding:8px 12px}
+        .aaq-body{padding:10px 8px 14px}
       }
-      /* Branch tables (Priority queue + Total Branches lists): cards on phones */
-      @media (max-width:639px){
+      /* Branch tables (Priority queue + Total Branches lists).
+         Wide screens: normal table. Below 1100px the 9 columns get
+         squeezed, so each branch becomes a card instead. */
+      @media (min-width:1100px){
+        .aa-rtable td.aa-c-risk>div{max-width:260px !important}
+      }
+      @media (max-width:1099px){
         .aa-rtable{min-width:0 !important;width:100%}
         .aa-rtable thead{display:none}
         .aa-rtable,.aa-rtable tbody{display:block}
-        .aa-rtable tr.aa-main{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;padding:10px 12px}
+        .aa-rtable tr.aa-main{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-areas:"branch branch status status" "risk risk last days" "aud date act act";gap:10px 14px;align-items:start;padding:12px 14px}
         .aa-rtable tr.aa-main>td{display:block;padding:0 !important;text-align:left !important;min-width:0;white-space:normal !important}
         .aa-rtable td.aa-c-prio{display:none !important}
-        .aa-rtable td.aa-c-branch{grid-column:1/-1;font-size:14px !important}
+        .aa-rtable td.aa-c-branch{grid-area:branch;font-size:14px !important}
         .aa-rtable td.aa-c-branch::before{content:"#" attr(data-prio);font-size:10px;font-weight:800;color:#94a3b8;margin-right:6px}
-        .aa-rtable td.aa-c-status,.aa-rtable td.aa-c-risk,.aa-rtable td.aa-c-act{grid-column:1/-1}
-        .aa-rtable td.aa-c-risk>div{max-width:none !important;margin:3px 0 0 !important;text-align:left}
-        .aa-rtable td[data-label]::before{content:attr(data-label);display:block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;margin-bottom:2px}
+        .aa-rtable td.aa-c-status{grid-area:status}
+        .aa-rtable td.aa-c-risk{grid-area:risk}
+        .aa-rtable td.aa-c-last{grid-area:last}
+        .aa-rtable td.aa-c-days{grid-area:days}
+        .aa-rtable td.aa-c-aud{grid-area:aud}
+        .aa-rtable td.aa-c-date{grid-area:date}
+        .aa-rtable td.aa-c-act{grid-area:act;align-self:end}
+        .aa-rtable td.aa-c-risk>div{max-width:none !important;margin:4px 0 0 !important;text-align:left;font-size:10px !important}
+        .aa-rtable td[data-label]::before{content:attr(data-label);display:block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;margin-bottom:3px}
         .aa-rtable td.aa-c-act button{width:100%;padding:8px 0 !important;font-size:12px !important}
         .aa-rtable tr.aa-detail{display:block}
         .aa-rtable tr.aa-detail.hidden{display:none}
         .aa-rtable tr.aa-detail>td{display:block;padding:10px !important}
+      }
+      @media (max-width:639px){
+        .aa-rtable tr.aa-main{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"branch branch" "status status" "risk risk" "last days" "aud date" "act act"}
       }
 `;
         document.head.appendChild(st);
@@ -11622,7 +11636,7 @@ html.page-fade-ready body {
                              // first time it's computed (see computeAuditRiskScores) so scores stay
                              // comparable over time instead of drifting with the portfolio; editable below
       sizeCap: null,        // accounts value that scores 100 on the portfolio-size factor; same freeze-once rule
-      filterBucket: 'ATTENTION',
+      filterBucket: 'ALL',
       // Table filters. Every one of these can be set by typing in the filter
       // row + pressing OK, OR by clicking any bar/row/badge in the analysis
       // (see dispatchAuditClick).
@@ -11663,7 +11677,7 @@ html.page-fade-ready body {
     function openAssignmentAnalysis() {
       const cfg = window.auditAnalysisState;
       if (auditSync.version === 0 && auditSync.lastJson === null) {
-        cfg.filterBucket = 'ATTENTION';
+        cfg.filterBucket = 'ALL';
         resetAuditTableFilterState(cfg);
       }
       cfg.expandBranch = null;
@@ -11945,7 +11959,7 @@ html.page-fade-ready body {
       if (cfg) {
         cfg.overdueDays = 90; cfg.spacingDays = 3; cfg.minScore = 55; cfg.minGapDays = 30;
         cfg.findingsCap = null; cfg.sizeCap = null;
-        cfg.filterBucket = 'ATTENTION';
+        cfg.filterBucket = 'ALL';
         resetAuditTableFilterState(cfg);
         cfg.weights = loadSavedAuditRiskWeights();
       }
@@ -12155,13 +12169,13 @@ html.page-fade-ready body {
       cfg.auditorFilter = u ? u.value : 'ALL';
       // A search/tier/auditor lookup should look across every branch, not
       // just the ones currently needing a schedule.
-      if (cfg.filterBucket === 'ATTENTION' && (cfg.search || cfg.tierFilter !== 'ALL' || cfg.auditorFilter !== 'ALL')) cfg.filterBucket = 'ALL';
+      if (cfg.filterBucket === 'ATTENTION') cfg.filterBucket = 'ALL';
       refreshAuditAnalysis(true);
     }
 
     function resetAuditTableFilters() {
       const cfg = window.auditAnalysisState;
-      cfg.filterBucket = 'ATTENTION';
+      cfg.filterBucket = 'ALL';
       resetAuditTableFilterState(cfg);
       refreshAuditAnalysis(false);
     }
@@ -12178,10 +12192,10 @@ html.page-fade-ready body {
     // the default schedule view.
     function setAuditAnalysisFilter(bucket) {
       const cfg = window.auditAnalysisState;
-      const cur = cfg.filterBucket || 'ATTENTION';
+      const cur = cfg.filterBucket || 'ALL';
       const wasSame = (cur === bucket) && cfg.sortField === null;
       resetAuditTableFilterState(cfg);
-      cfg.filterBucket = wasSame ? 'ATTENTION' : bucket;
+      cfg.filterBucket = wasSame ? 'ALL' : bucket;
       refreshAuditAnalysis(true);
     }
 
@@ -12191,7 +12205,7 @@ html.page-fade-ready body {
       const cfg = window.auditAnalysisState;
       const wasSame = cfg.filterBucket === 'ALL' && cfg.sortField === field;
       resetAuditTableFilterState(cfg);
-      if (wasSame) { cfg.filterBucket = 'ATTENTION'; }
+      if (wasSame) { cfg.filterBucket = 'ALL'; }
       else { cfg.filterBucket = 'ALL'; cfg.sortField = field; cfg.sortDir = 'desc'; }
       refreshAuditAnalysis(true);
     }
@@ -12206,7 +12220,7 @@ html.page-fade-ready body {
       if (!k) return;
       const isSame = cfg.filterBucket === 'ALL' && cfg[k] === value;
       resetAuditTableFilterState(cfg);
-      if (isSame) { cfg.filterBucket = 'ATTENTION'; }
+      if (isSame) { cfg.filterBucket = 'ALL'; }
       else {
         cfg.filterBucket = 'ALL';
         cfg[k] = value;
@@ -12251,7 +12265,7 @@ html.page-fade-ready body {
     // The ✕ on a filter chip.
     function clearAuditFilterChip(kind) {
       const cfg = window.auditAnalysisState;
-      if (kind === 'bucket') cfg.filterBucket = 'ATTENTION';
+      if (kind === 'bucket') cfg.filterBucket = 'ALL';
       else if (kind === 'tier') cfg.tierFilter = 'ALL';
       else if (kind === 'auditor') cfg.auditorFilter = 'ALL';
       else if (kind === 'queue') cfg.queueFilter = '';
@@ -13087,7 +13101,7 @@ html.page-fade-ready body {
     // them as removable chips ("show what is needed").
     function getAuditAnalysisTableRows(a, bucketOverride, sortOverride) {
       const cfg = window.auditAnalysisState;
-      const bucket = bucketOverride || (cfg.filterBucket || 'ATTENTION');
+      const bucket = bucketOverride || ((cfg.filterBucket && cfg.filterBucket !== 'ATTENTION') ? cfg.filterBucket : 'ALL');
       const all = getAuditAnalysisAllRows(a);
       let title, rows;
       switch (bucket) {
@@ -13117,7 +13131,7 @@ html.page-fade-ready body {
       const baseTitle = title;
       const chips = [];
       if (!bucketOverride) {
-      if (bucket !== 'ATTENTION') chips.push({ kind: 'bucket', label: 'View: ' + baseTitle.replace(/, ranked by (risk )?score$/, '') });
+      if (bucket !== 'ALL') chips.push({ kind: 'bucket', label: 'View: ' + baseTitle.replace(/, ranked by (risk )?score$/, '') });
       const factorOf = (r, key) => r.risk.factors.find(x => x.key === key);
       const factorLabel = (key) => (AUDIT_RISK_FACTORS.find(f => f.key === key) || {}).label || key;
 
@@ -13230,7 +13244,7 @@ html.page-fade-ready body {
       const cfg = window.auditAnalysisState;
       const a = computeAuditScheduleAnalysis();
       const fmtDate = d => d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-      const filterBucket = cfg.filterBucket || 'ATTENTION';
+      const filterBucket = (cfg.filterBucket && cfg.filterBucket !== 'ATTENTION') ? cfg.filterBucket : 'ALL';
       const highRiskCount = a.rows.filter(r => r.risk.tier.key === 'CRITICAL' || r.risk.tier.key === 'HIGH').length;
       const overdueCount = a.overdueUnscheduled.length + a.scheduledPastDue.length;
       const coveragePct = a.totalBranches ? Math.round(((a.totalBranches - a.neverAudited.length) / a.totalBranches) * 100) : null;
@@ -13561,8 +13575,8 @@ html.page-fade-ready body {
             <button type="button" data-aa-kind="clearall" class="px-2 py-0.5 text-[10px] font-bold bg-white border border-coolBorder rounded-full hover:bg-gray-100 active:scale-95 cursor-pointer whitespace-nowrap">Clear all</button>
           </div>` : '';
 
-      const emptyMsg = (filterBucket === 'ATTENTION' && !table.chips.length)
-          ? 'Nothing needs scheduling — every branch is either on track or already scheduled.'
+      const emptyMsg = (filterBucket === 'ALL' && !table.chips.length)
+          ? 'No branches to show yet.'
           : 'No branches match these filters. Remove a filter above to widen the list.';
 
       const attentionHtml = attention.length
@@ -13812,7 +13826,6 @@ html.page-fade-ready body {
             <button type="button" class="aaq-btn aaq-btn-s" onclick="resetAuditTableFilters()">Reset</button>
           </div>
           ${chipsHtml}
-          <div class="aaq-hint">Ranked by risk score, highest first. Tap a branch for its profile, a heading to sort, or a risk score to see how it was calculated.</div>
 
           <div class="aaq-body custom-scrollbar">
           ${table.rows.length > 0 ? `
