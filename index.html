@@ -10627,8 +10627,13 @@ html.page-fade-ready body {
       // AUDIT DATA (FINAL) wins whenever it has at least one dated round;
       // AUDIT ROTATION (FINAL) is only used as a fallback for branches
       // that have never had a round saved through Edit Assignment yet.
-      const dated = ownDated.length > 0 ? ownDated : rotationDated;
       const today = Date.now();
+      // Completed audits only, oldest to newest BY DATE (not by round number). A round dated in
+      // the future is a plan, not an audit: counting it made a branch look "audited today"
+      // (0 recency risk) and pushed its real last audit out of view.
+      const isDoneDate = r => r.dateRaw <= today + 86400000;
+      const datedAll = ownDated.length > 0 ? ownDated : rotationDated;
+      const dated = datedAll.filter(isDoneDate).slice().sort((x, y) => x.dateRaw - y.dateRaw);
 
       // Who's queued for the branch's NEXT audit round — read ONLY from
       // assignedAuditorRaw (AUDIT DATA (FINAL) column AW, "Up Next Auditor"),
@@ -12436,6 +12441,25 @@ html.page-fade-ready body {
     // Pearson correlation coefficient between two equal-length numeric
     // arrays. Returns null when there isn't enough spread or data to say
     // anything ( < 3 points, or no variation in either series ).
+    // Rank (Spearman) correlation: findings and repo counts are skewed, zero-heavy counts, where
+    // a few branches can dominate a Pearson r. Ranks (ties averaged) reflect "does a higher score
+    // go with more findings" without that distortion.
+    function auditRiskRanks(a) {
+      const idx = a.map((v, i) => i).sort((i, j) => a[i] - a[j]);
+      const r = new Array(a.length);
+      for (let k = 0; k < idx.length;) {
+        let m = k;
+        while (m + 1 < idx.length && a[idx[m + 1]] === a[idx[k]]) m++;
+        const avg = (k + m) / 2 + 1;
+        for (let t = k; t <= m; t++) r[idx[t]] = avg;
+        k = m + 1;
+      }
+      return r;
+    }
+    function auditRiskSpearman(xs, ys) {
+      if (xs.length < 3) return null;
+      return auditRiskPearson(auditRiskRanks(xs), auditRiskRanks(ys));
+    }
     function auditRiskPearson(xs, ys) {
       const n = xs.length;
       if (n < 3) return null;
@@ -12467,7 +12491,7 @@ html.page-fade-ready body {
           const x = r.risk && r.risk.factors && r.risk.factors.find(f => f.key === fac.key);
           if (x && x.available) { xs.push(x.points); ys.push(findingsWeighted(r.b)); }
         });
-        out[fac.key] = { r: auditRiskPearson(xs, ys), n: xs.length };
+        out[fac.key] = { r: auditRiskSpearman(xs, ys), n: xs.length };
       });
       return out;
     }
@@ -12525,13 +12549,23 @@ html.page-fade-ready body {
       const corr = computeAuditFactorCorrelations(rows);
       const overlap = computeAuditFactorOverlap(rows);
       const findingsWeight = Math.max(0, Number(cfg.weights.findings) || 0) || 25;
-      const remaining = Math.max(0, 100 - findingsWeight);
-      const others = AUDIT_RISK_FACTORS.filter(f => f.key !== 'findings');
+      // Recency is a POLICY weight, not learned: audits are what discover findings, so a branch
+      // audited recently can show MORE findings, and correlating recency with findings would
+      // reward or punish the audit schedule itself rather than measure risk.
+      const recencyWeight = Math.max(0, Number(cfg.weights.recency) || 0) || 10;
+      const remaining = Math.max(0, 100 - findingsWeight - recencyWeight);
+      const others = AUDIT_RISK_FACTORS.filter(f => f.key !== 'findings' && f.key !== 'recency');
       const floor = 2;
       let usableFactors = 0;
       const strengths = others.map(f => {
         const c = corr[f.key];
-        if (c && c.r !== null && c.n >= 5) { usableFactors++; return Math.max(floor, Math.max(0, c.r) * 100); } // only factors that move WITH findings earn weight; an opposite link is not evidence of risk
+        if (c && c.r !== null && c.n >= 5) {
+          usableFactors++;
+          // Only a link that is clearly above noise earns weight (|r| > ~2/sqrt(n), roughly p<0.05);
+          // a weak or opposite link is not evidence of risk, so it stays at the small floor.
+          const noise = 2 / Math.sqrt(c.n);
+          return c.r > noise ? Math.max(floor, c.r * 100) : floor;
+        }
         return floor;
       });
       // DEDUPLICATE OVERLAPPING FACTORS before turning strengths into weights.
@@ -12558,9 +12592,10 @@ html.page-fade-ready body {
         return size > 1 ? s / Math.sqrt(size) : s;
       });
       const sum = dedupedStrengths.reduce((s, v) => s + v, 0) || 1;
-      const w = { findings: findingsWeight };
+      const w = { findings: findingsWeight, recency: recencyWeight };
       others.forEach((f, i) => { w[f.key] = Math.round((dedupedStrengths[i] / sum) * remaining); });
-      return { weights: w, corr, overlap, usableFactors, n: rows.length };
+      const w100 = auditNormalizeWeights100(w);
+      return { weights: w100, corr, overlap, usableFactors, n: rows.length };
     }
 
     // Button handler: explicitly (re)derive weights from the current
@@ -12683,7 +12718,7 @@ html.page-fade-ready body {
         const effDelta = effNZ.length >= 2 ? effNZ[effNZ.length - 1] - effNZ[0] : null;
         const effTrendPts = (effDelta !== null && effDelta < 0) ? Math.min(100, (-effDelta / 15) * 100) : 0;
         const statusPts = AUDIT_RISK_STATUS_POINTS.collection[b.collection];
-        const hasStatus = statusPts !== undefined && statusPts !== null;
+        const hasStatus = statusPts !== undefined && statusPts !== null && b.collectionKnown !== false; // a blank status cell is missing data, not "Stable"
         // Blend of up to four parts; a part with no data is dropped and the rest rescaled.
         const hasAcctEff = ((b.accountsMay || 0) > 0 ? b.accountsMay : (b.accountsApr || 0)) > 0;
         const shortfall = auditShortfallOf(b);
@@ -12726,10 +12761,10 @@ html.page-fade-ready body {
               + (repoHasTrend ? (', ' + (repoDelta > 0 ? '+' : '') + repoDelta.toFixed(1) + ' pts vs earliest month on record') : '')) : 'No account data',
             'Repo ' + repo.toFixed(1) + '% (' + repoCount + ')' + (repoDelta !== null && repoDelta > 0 ? ' (rising)' : ''));
 
-        add('sales', true, AUDIT_RISK_STATUS_POINTS.sales[b.sales] ?? 20,
+        add('sales', b.salesKnown !== false, AUDIT_RISK_STATUS_POINTS.sales[b.sales] ?? 20,
             'Sales are ' + (b.sales || 'Stable'), 'Sales ' + String(b.sales || 'Stable').toLowerCase());
 
-        add('service', true, AUDIT_RISK_STATUS_POINTS.service[b.service] ?? 0,
+        add('service', b.serviceKnown !== false, AUDIT_RISK_STATUS_POINTS.service[b.service] ?? 0,
             b.service === 'Declining' ? 'Below service target' : 'On service target',
             b.service === 'Declining' ? 'Service below target' : 'Service on target');
 
@@ -13591,7 +13626,7 @@ html.page-fade-ready body {
         const strength = c.r <= -0.3 ? 'Opposite' : (abs >= 0.5 ? 'Strong' : (abs >= 0.3 ? 'Moderate' : 'Weak'));
         const dot = abs >= 0.5 ? 'bg-accentEmerald' : (abs >= 0.3 ? 'bg-accentBlue' : 'bg-slate-300');
         const color = abs >= 0.5 ? 'text-accentEmerald' : (abs >= 0.3 ? 'text-accentBlue' : 'text-slate-400');
-        const tip = 'Statistically: Pearson r = ' + c.r.toFixed(2) + ', across ' + c.n + ' branches with data. Closer to 1 means this factor has more reliably lined up with real findings in the past.';
+        const tip = 'Statistically: rank correlation (Spearman) r = ' + c.r.toFixed(2) + ', across ' + c.n + ' branches with data. Closer to 1 means this factor has more reliably lined up with real findings in the past.';
         return { dot, text: '<span class="' + color + ' font-semibold" title="' + tip + '">' + strength + ' evidence</span>' };
       };
       // Kept for the "How the ranking is decided" methodology table further
@@ -14323,7 +14358,7 @@ html.page-fade-ready body {
     function getAuditPortfolioRiskMap() {
       const cfg = window.auditAnalysisState;
       const branches = (activeData && activeData.branches) || [];
-      const key = branches.length + '|' + JSON.stringify(cfg.weights) + '|' + cfg.overdueDays + '|' + new Date().toDateString();
+      const key = branches.length + '|' + JSON.stringify(cfg.weights) + '|' + [cfg.overdueDays, cfg.findingsCap, cfg.sizeCap, cfg.repoCap, cfg.shortfallCap].join(',') + '|' + new Date().toDateString();
       const c = _auditPortfolioRiskCache;
       if (c.map && c.branches === branches && c.key === key && (Date.now() - c.at) < 1500) return c.map;
       const rows = branches.map(b => ({ b: b, info: getBranchAuditRoundInfo(b) }));
@@ -20241,9 +20276,20 @@ html.page-fade-ready body {
             // fraction. Reuse parseRepoPct()'s ×100-if-under-1 normalization,
             // then round to a whole number since Efficiency is always shown
             // and compared (effAccent, sort, etc.) as an integer percentage.
-            let effMarParsed = Math.round(parseRepoPct(row[11]));   // Column L
-            let effAprParsed = Math.round(parseRepoPct(row[12]));   // Column M
-            let effLatestParsed = Math.round(parseRepoPct(row[13])); // Column N
+            // Efficiency: a cell showing 100% is stored as exactly 1 (or slightly above for
+            // over-collection). parseRepoPct only scales values BELOW 1, so 100% was read as 1%,
+            // which scored as maximum risk and tripped the "efficiency below 50%" red flag.
+            // Efficiency is never realistically 1-2%, so a plain number up to 2 is a fraction.
+            const parseEffPct = (raw) => {
+               if (raw === undefined || raw === null || raw === "") return 0;
+               const hasPct = String(raw).indexOf('%') !== -1;
+               const val = parseFloat(String(raw).replace('%', ''));
+               if (isNaN(val)) return 0;
+               return Math.round((!hasPct && val > 0 && val <= 2) ? val * 100 : val);
+            };
+            let effMarParsed = parseEffPct(row[11]);   // Column L
+            let effAprParsed = parseEffPct(row[12]);   // Column M
+            let effLatestParsed = parseEffPct(row[13]); // Column N
 
             tempBranchesMap[branchName] = {
               name: branchName,
@@ -20263,6 +20309,9 @@ html.page-fade-ready body {
               effLatest: effLatestParsed, 
               collection: finalColStat,
               sales: finalSaleStat,
+              collectionKnown: colStat !== "",
+              salesKnown: saleStat !== "",
+              serviceKnown: servStat !== "",
               serviceTarget: parseInt(row[28]) || 0,
               serviceMar: parseInt(row[29]) || 0,
               serviceApr: parseInt(row[30]) || 0,
