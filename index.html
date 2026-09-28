@@ -11752,7 +11752,7 @@ html.page-fade-ready body {
     //    the analysis inputs (it is picked up on the next poll instead);
     //  - applying a remote view re-renders in place and keeps the scroll
     //    position.
-    const AUDIT_SYNC_POLL_MS = 30 * 1000;
+    const AUDIT_SYNC_POLL_MS = 8 * 1000;
     const AUDIT_SYNC_PUSH_DEBOUNCE_MS = 1200;
     const AUDIT_SYNC_NUM_RULES = { overdueDays: [1, 3650], spacingDays: [1, 3650], minScore: [1, 100], minGapDays: [0, 3650], findingsCap: [1, 1000], sizeCap: [1, 10000000] };
     const AUDIT_SYNC_STR_KEYS = ['filterBucket', 'tierFilter', 'auditorFilter', 'queueFilter', 'search', 'reasonFilter', 'distFilter', 'driverFilter'];
@@ -11763,7 +11763,8 @@ html.page-fade-ready body {
       pushing: false, pulling: false,
       pushTimer: null, pollTimer: null,
       readOnly: false,     // server said this account may not write (team-wide mode, non-editor)
-      everPulled: false,   // has this session made at least one pull attempt yet? see auditSyncSchedulePush
+      everPulled: false,   // has this session made at least one SUCCESSFUL pull yet? see auditSyncSchedulePush
+      serverHasState: false, // the server already holds a saved view (local auto-derivation must never override it)
       deferredPush: false  // a push was requested before everPulled and is waiting to be retried
     };
 
@@ -11776,6 +11777,7 @@ html.page-fade-ready body {
       s.sortDir = cfg.sortDir === 'asc' ? 'asc' : 'desc';
       s.weights = {};
       AUDIT_RISK_FACTORS.forEach(f => { s.weights[f.key] = Number(cfg.weights && cfg.weights[f.key]) || 0; });
+      s.weightsSource = (cfg.weightsSource === 'data' || cfg.weightsSource === 'custom') ? cfg.weightsSource : 'default';
       return s;
     }
 
@@ -11785,8 +11787,8 @@ html.page-fade-ready body {
       if (!raw || typeof raw !== 'object') return null;
       const out = {};
       Object.keys(AUDIT_SYNC_NUM_RULES).forEach(k => {
-        const n = Number(raw[k]), r = AUDIT_SYNC_NUM_RULES[k];
-        if (Number.isInteger(n) && n >= r[0] && n <= r[1]) out[k] = n;
+        const n = Math.round(Number(raw[k])), r = AUDIT_SYNC_NUM_RULES[k];
+        if (Number.isFinite(n) && raw[k] !== null && raw[k] !== '' && n >= r[0] && n <= r[1]) out[k] = n;
       });
       AUDIT_SYNC_STR_KEYS.forEach(k => {
         if (typeof raw[k] === 'string') out[k] = raw[k].slice(0, 200);
@@ -11794,6 +11796,7 @@ html.page-fade-ready body {
       if (out.tierFilter !== undefined && out.tierFilter !== 'ALL' && !AUDIT_RISK_TIERS.some(t => t.key === out.tierFilter)) delete out.tierFilter;
       if (raw.sortField === null || typeof raw.sortField === 'string') out.sortField = raw.sortField ? raw.sortField.slice(0, 40) : null;
       if (raw.sortDir === 'asc' || raw.sortDir === 'desc') out.sortDir = raw.sortDir;
+      if (raw.weightsSource === 'data' || raw.weightsSource === 'custom' || raw.weightsSource === 'default') out.weightsSource = raw.weightsSource;
       if (raw.weights && typeof raw.weights === 'object') {
         const w = defaultAuditRiskWeights();
         let ok = true;
@@ -11815,6 +11818,7 @@ html.page-fade-ready body {
       if (clean.weights) {
         cfg.weights = clean.weights;
         try { localStorage.setItem(AUDIT_RISK_WEIGHTS_KEY, JSON.stringify(clean.weights)); } catch (e) {}
+        if (clean.weightsSource) { try { localStorage.setItem(AUDIT_RISK_WEIGHTS_SOURCE_KEY, clean.weightsSource); } catch (e) {} }
       }
       cfg.expandBranch = null;
       auditSync.lastJson = JSON.stringify(auditSyncSnapshot(cfg));
@@ -11857,13 +11861,18 @@ html.page-fade-ready body {
     async function auditSyncPull() {
       if (auditSync.pulling) return;
       auditSync.pulling = true;
+      let pullOk = false;
       try {
         const url = await auditSyncUrl('getAnalysisState', { sinceVersion: String(auditSync.version || 0) });
         if (!url) return;
         const json = await fetchSheetOnce(url);
-        if (!json || json.error || !json.success || json.unchanged) return; // silent: sync is best-effort
+        if (json && json.error && /unauthor/i.test(String(json.error))) { auditSync.readOnly = true; }
+        if (!json || json.error || !json.success) return; // failed: do NOT mark as pulled, so nothing local can overwrite the server
+        pullOk = true;
         const ver = Number(json.version) || 0;
-        if (!json.state) { auditSync.version = ver; return; } // nothing saved yet
+        if (json.unchanged) { auditSync.serverHasState = true; return; }
+        if (!json.state) { auditSync.version = ver; return; } // server has nothing saved yet -> this device may seed it
+        auditSync.serverHasState = true;
         // Local edits win and will be pushed momentarily; don't clobber a
         // half-typed filter either — try again on the next poll.
         if (auditSync.pendingPush || auditSync.pushing || auditSyncUserIsEditing()) return;
@@ -11897,10 +11906,13 @@ html.page-fade-ready body {
         // have. Fix: no push leaves this device until it has made at least
         // one genuine attempt to learn what the server already has, so a
         // real remote cap always gets first say.
-        if (!auditSync.everPulled) {
+        if (pullOk && !auditSync.everPulled) {
           auditSync.everPulled = true;
-          if (auditSync.deferredPush) { auditSync.deferredPush = false; auditSyncSchedulePush(); }
+          // First real answer from the server is in. If it holds a view, it already
+          // replaced this device's local values above, so nothing stale gets pushed.
+          if (auditSyncIsAnalysisOpen() && auditSync.serverHasState) auditSyncRerender();
         }
+        if (pullOk && auditSync.deferredPush) { auditSync.deferredPush = false; auditSyncSchedulePush(); }
       }
     }
 
@@ -11975,7 +11987,7 @@ html.page-fade-ready body {
       if (auditSync.pushTimer) { clearTimeout(auditSync.pushTimer); auditSync.pushTimer = null; }
       auditSync.version = 0; auditSync.lastJson = null;
       auditSync.pendingPush = false; auditSync.pushing = false; auditSync.pulling = false; auditSync.readOnly = false;
-      auditSync.everPulled = false; auditSync.deferredPush = false;
+      auditSync.everPulled = false; auditSync.deferredPush = false; auditSync.serverHasState = false;
       const cfg = window.auditAnalysisState;
       if (cfg) {
         cfg.overdueDays = 90; cfg.spacingDays = 3; cfg.minScore = 55; cfg.minGapDays = 30;
@@ -12056,7 +12068,7 @@ html.page-fade-ready body {
         cfg.weightsSource = 'custom';
         try { localStorage.setItem(AUDIT_RISK_WEIGHTS_KEY, JSON.stringify(w)); } catch (e) {}
         saveAuditRiskWeightsSource('custom');
-        cfg.notice = { type: 'ok', text: 'Risk-score weights applied and saved on this device — every score has been recalculated.' };
+        cfg.notice = { type: 'ok', text: 'Risk-score weights applied and synced to all your devices — every score has been recalculated.' };
       }
       cfg.weightsOpen = true;
       refreshAuditAnalysis(false);
@@ -12779,7 +12791,9 @@ html.page-fade-ready body {
       // OK button, or "Reset").
       let hasSavedWeights = false;
       try { hasSavedWeights = localStorage.getItem(AUDIT_RISK_WEIGHTS_KEY) !== null; } catch (e) {}
-      if (!hasSavedWeights && rows.length >= AUDIT_WEIGHTS_MIN_ROWS) {
+      // Only seed data-derived weights once the server has answered AND holds no shared view;
+      // otherwise every device would invent its own weights from its own data.
+      if (!hasSavedWeights && auditSync.everPulled && !auditSync.serverHasState && rows.length >= AUDIT_WEIGHTS_MIN_ROWS) {
         computeAuditRiskScores(rows, cfg); // populate factor .points (weight-independent) so they can be correlated
         const auto = computeDataDrivenAuditRiskWeights(rows, cfg);
         if (auto.usableFactors >= 2) {
