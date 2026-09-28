@@ -19333,11 +19333,16 @@ html.page-fade-ready body {
           // into, so reading from it directly can't lag behind a mirror
           // column that may not carry it reliably.
           const auditDataFinalHighlightMap = {};
+          // Findings counts (FY columns AH / AI / AJ, data from row 5 down) read
+          // straight from AUDIT DATA (FINAL) -- the same sheet the year headers
+          // (AH4:AJ4) come from -- so the numbers always move together with the
+          // year labels instead of depending on DASHBOARDDATA's mirror columns.
+          const auditDataFinalFindingsMap = {};
           const auditDataFinalSheetName = workbook.SheetNames.find(n => n.toUpperCase().replace(/[\s_]/g, '').includes("AUDITDATA"));
           if (auditDataFinalSheetName) {
               const auditDataFinalSheet = workbook.Sheets[auditDataFinalSheetName];
               const auditDataFinalRows = sheetRowsOf(auditDataFinalSheet);
-              if (!window.__fyOk) window.__fyOk = window.applyFindingYearsFromRows(auditDataFinalRows);
+              if (window.applyFindingYearsFromRows(auditDataFinalRows)) window.__fyOk = true;
               let adfHeaderRowIndex = 0;
               for (let i = 0; i < Math.min(20, auditDataFinalRows.length); i++) {
                   if (auditDataFinalRows[i] && auditDataFinalRows[i].some(cell => String(cell).toUpperCase().trim() === 'BRANCHES')) {
@@ -19368,6 +19373,11 @@ html.page-fade-ready body {
                   if (!rawBranch) continue;
                   auditDataFinalExpectedMap[normalizeName(rawBranch)] = r[adfExpectedDateColIdx];
                   auditDataFinalHighlightMap[normalizeName(rawBranch)] = String(r[adfHighlightColIdx] || "").trim().toLowerCase();
+                  auditDataFinalFindingsMap[normalizeName(rawBranch)] = [
+                      parseInt(r[33]) || 0,   // Column AH
+                      parseInt(r[34]) || 0,   // Column AI
+                      parseInt(r[35]) || 0    // Column AJ
+                  ];
               }
           }
 
@@ -19533,9 +19543,9 @@ html.page-fade-ready body {
               serviceApr: parseInt(row[30]) || 0,
               serviceMay: parseInt(row[31]) || 0,
               service: finalServStat,
-              findings2024: parseInt(row[33]) || 0,
-              findings2025: parseInt(row[34]) || 0,
-              findings2026: parseInt(row[35]) || 0,
+              findings2024: Object.prototype.hasOwnProperty.call(auditDataFinalFindingsMap, normalizedInput) ? auditDataFinalFindingsMap[normalizedInput][0] : (parseInt(row[33]) || 0),
+              findings2025: Object.prototype.hasOwnProperty.call(auditDataFinalFindingsMap, normalizedInput) ? auditDataFinalFindingsMap[normalizedInput][1] : (parseInt(row[34]) || 0),
+              findings2026: Object.prototype.hasOwnProperty.call(auditDataFinalFindingsMap, normalizedInput) ? auditDataFinalFindingsMap[normalizedInput][2] : (parseInt(row[35]) || 0),
               auditStatus: finalAuditStat,
               auditor: upNextAuditor,
               // Untouched copy of AUDIT DATA (FINAL) column AW ("Up Next
