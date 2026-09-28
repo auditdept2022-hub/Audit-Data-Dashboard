@@ -6010,17 +6010,19 @@ html.page-fade-ready body {
         <div class="mt-4 grid grid-cols-3 divide-x divide-coolBorder text-center">
           <div class="py-1.5">
             <h3 class="text-xl sm:text-2xl font-extrabold tracking-tight text-accentRose" id="stat-audit-risk-attention">—</h3>
-            <p class="text-[10px] font-semibold text-slate-400 mt-0.5 uppercase tracking-wide">Needs Attention</p>
+            <p class="text-[10px] font-semibold text-slate-400 mt-0.5 uppercase tracking-wide" title="Branches rated Critical or High on the overall risk score">Critical + High</p>
           </div>
           <div class="py-1.5">
             <h3 class="text-xl sm:text-2xl font-extrabold tracking-tight text-accentIndigo" id="stat-audit-risk-avg">—</h3>
-            <p class="text-[10px] font-semibold text-slate-400 mt-0.5 uppercase tracking-wide">Avg. Risk Score</p>
+            <p class="text-[10px] font-semibold text-slate-400 mt-0.5 uppercase tracking-wide" title="Average overall risk score (0–100) across all branches">Avg. Risk Score</p>
           </div>
           <div class="py-1.5">
             <h3 class="text-xl sm:text-2xl font-extrabold tracking-tight text-accentEmerald" id="stat-audit-risk-ontrack">—</h3>
-            <p class="text-[10px] font-semibold text-slate-400 mt-0.5 uppercase tracking-wide">On Track</p>
+            <p class="text-[10px] font-semibold text-slate-400 mt-0.5 uppercase tracking-wide" title="Branches rated Low on the overall risk score">Low Risk</p>
           </div>
         </div>
+        <div id="stat-audit-risk-bar" class="mt-3 flex h-1.5 rounded-full overflow-hidden bg-slate-100"></div>
+        <p id="stat-audit-risk-sub" class="mt-1.5 text-[10px] font-semibold text-slate-400 text-center leading-snug">Overall risk rating of all branches</p>
       </div>
 
       <div onclick="openModal('Collection Status Overview', 'collection', 'ALL')" class="bg-coolCard border border-coolBorder rounded-2xl p-4 sm:p-5 hover:border-accentEmerald/50 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all shadow-md cursor-pointer group">
@@ -19109,13 +19111,34 @@ html.page-fade-ready body {
       try {
         const riskAttentionEl = document.getElementById('stat-audit-risk-attention');
         if (riskAttentionEl) {
+          // Everything here is read from the OVERALL risk rating (0-100 score
+          // -> Critical / High / Medium / Low) of ALL branches — the same
+          // figures as the Audit Risk popup's banner — so the three numbers
+          // and the bar always add up to the total branch count. (Before, the
+          // headline counts came from scheduling status while the popup used
+          // risk tiers, so 44 / 12 never matched 4 / 31 / 7 / 14.)
           const ra = computeAuditScheduleAnalysis();
-          const attention = (ra.neverAudited.length + ra.riskFlagged.length + ra.overdueUnscheduled.length + ra.scheduledPastDue.length);
-          const onTrackCount = (ra.onTrack.length + ra.scheduledUpcoming.length);
-          animateCountUp(riskAttentionEl, attention);
+          const tierN = k => ((ra.riskTiers.find(t => t.key === k) || {}).count) || 0;
+          const highCount = tierN('CRITICAL') + tierN('HIGH');
+          const lowCount = tierN('LOW');
+          animateCountUp(riskAttentionEl, highCount);
           const avgEl = document.getElementById('stat-audit-risk-avg');
           if (avgEl) avgEl.innerText = (ra.avgRiskScore !== null && ra.avgRiskScore !== undefined) ? ra.avgRiskScore : '—';
-          animateCountUp(document.getElementById('stat-audit-risk-ontrack'), onTrackCount);
+          animateCountUp(document.getElementById('stat-audit-risk-ontrack'), lowCount);
+          const barEl = document.getElementById('stat-audit-risk-bar');
+          const subEl = document.getElementById('stat-audit-risk-sub');
+          const TIER_HEX = { accentRose: '#e11d48', accentAmber: '#d97706', accentBlue: '#2563eb', accentEmerald: '#059669' };
+          if (barEl && ra.totalBranches) {
+            barEl.innerHTML = ra.riskTiers.filter(t => t.count > 0).map(t =>
+              `<div title="${t.label}: ${t.count} branch${t.count === 1 ? '' : 'es'}" style="width:${(t.count / ra.totalBranches) * 100}%;background:${TIER_HEX[t.tint] || '#64748b'}"></div>`
+            ).join('');
+          }
+          if (subEl) {
+            subEl.textContent = ra.totalBranches
+              ? ra.riskTiers.map(t => t.count + ' ' + t.label).join(' · ')
+              : 'No branches yet';
+            subEl.title = 'Overall risk rating of all ' + ra.totalBranches + ' branches';
+          }
         }
       } catch (e) { /* non-fatal — card just keeps its placeholders */ }
       
