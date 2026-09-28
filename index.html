@@ -7100,7 +7100,8 @@ html.page-fade-ready body {
                 <div class="text-[10px] font-bold uppercase tracking-wider text-accentIndigo">Why this branch needs attention</div>
               </div>
               <div class="text-[11px] font-bold text-slate-800 mb-1">${escapeHTML(row.b.name)} — score ${risk.score.toFixed(1)} (${escapeHTML(risk.tier.label)}${risk.escalated ? ', raised from ' + escapeHTML(risk.baseTier.label) + ' by a data red flag' : ''})</div>
-              <div class="text-[11px] text-slate-600 mb-2">${escapeHTML(auditRiskWhyText(row))}</div>
+              <div class="text-[11px] text-slate-600 mb-1">${escapeHTML(auditRiskWhyText(row))}</div>
+              <div class="text-[10px] font-semibold text-slate-500 mb-2">Rating meaning: ${escapeHTML(AUDIT_TIER_GUIDE[risk.tier.key].meaning)} Target cycle for this rating: every ${risk.cycleDays} days${risk.cycleGap === null ? ' (never audited)' : (risk.cycleGap < 0 ? ' — ' + (-risk.cycleGap) + ' days over' : ' — due in ' + risk.cycleGap + ' days')}.</div>
               ${risk.coverage < 0.999 ? `<div class="text-[10px] font-semibold ${risk.coverage < 0.75 ? 'text-accentRose' : 'text-accentAmber'} mb-2">Data coverage ${Math.round(risk.coverage * 100)}% — ${risk.coverage < 0.75 ? 'low confidence: this score rests on limited data, so check the branch\'s figures before relying on it.' : 'some factors had no data and were left out.'}</div>` : ''}
               <div class="overflow-x-auto">
                 <table class="w-full text-[10px] text-left">
@@ -11069,16 +11070,16 @@ html.page-fade-ready body {
     // points were taken proportionally from the other factors, so their
     // defaults still sum to 100 together with recency.
     const AUDIT_RISK_FACTORS = [
-      { key: 'recency', label: 'Audit recency', defaultWeight: 10,
+      { key: 'recency', label: 'Time since last audit', defaultWeight: 10,
         how: '0 points if audited today, rising evenly to 100 points at the Overdue threshold. Never audited = 100.',
         why: 'Control depends on branches actually being visited, not only on what their other numbers say, so recency carries a real (if deliberately smaller) share of the score. It is also, separately, what drives the never-audited/overdue coverage rules that guarantee no branch is skipped forever.' },
       { key: 'findings', label: 'Audit findings', defaultWeight: 26,
         how: 'Findings are weighted 3x for the latest tracked year, 2x for the middle year and 1x for the earliest (years come from the sheet), then scaled against a FIXED cap (editable in Settings; starts at the portfolio\'s 90th percentile the first time it\'s computed, never below ' + AUDIT_FINDINGS_MIN_CAP + ' weighted points, then stays put). No findings = 0.',
         why: 'Past findings are the strongest sign of where more will be found; recent years count more than old ones. The cap is fixed rather than recalculated on every view so the same findings history always produces the same score, instead of drifting as the portfolio changes.' },
-      { key: 'efficiency', label: 'Collection health (efficiency % + reported status)', defaultWeight: 30,
+      { key: 'efficiency', label: 'Collection health', defaultWeight: 30,
         how: 'One blended factor, no more double-counting: efficiency LEVEL (55%, same 70%/50% cut-offs as the branch cards) + efficiency TREND (20%, up to 100 pts for a 15+ point fall since the earliest month on record) + the separately reported collection STATUS (25%: Declining=100, Recovering=50, Stable=20, Improving=0). If there is no efficiency % on file yet, status alone carries the factor; if there is no status either (rare — it defaults to Stable), level+trend alone carries it.',
         why: 'Collection efficiency (%) and the reported collection status used to be scored as two separate factors, but they both answer the same question — is collection getting better or worse — so weighting both at full strength paid for one signal twice. Blending them into a single factor removes that double-count at the source rather than just flagging it.' },
-      { key: 'repo', label: 'Repo rate', defaultWeight: 16,
+      { key: 'repo', label: 'Repossession rate', defaultWeight: 16,
         how: 'Level (70% of this factor) uses the same 4% / 7% cut-offs as the branch cards: 0% = 0 pts, 4% = 35 pts, 7% = 70 pts, 12% or more = 100 pts. Trend (30%) adds up to 100 pts if the repo rate has risen 3+ points since the earliest month on record; flat or improving adds 0. No account data = excluded.',
         why: 'A high repossession rate points to weaker loan quality or recovery handling, and a rate that is actively rising is a stronger signal than one that is high but stable. Level and trend are blended into this ONE factor (not scored separately) so a worsening repo rate is never counted twice toward the total.' },
       { key: 'sales', label: 'Sales trend', defaultWeight: 6,
@@ -11087,7 +11088,7 @@ html.page-fade-ready body {
       { key: 'service', label: 'Service vs target', defaultWeight: 6,
         how: 'Declining (below target) = 100, on Target = 0.',
         why: 'Missing service targets is a control and customer-experience signal.' },
-      { key: 'size', label: 'Portfolio size', defaultWeight: 6,
+      { key: 'size', label: 'Loan book size', defaultWeight: 6,
         how: 'Number of accounts scaled against a FIXED cap (editable in Settings; starts at the portfolio\'s 90th percentile the first time it\'s computed, then stays put). No data = excluded.',
         why: 'A bigger loan book means more money is at stake if something is wrong (materiality). The cap is fixed rather than recalculated on every view so branch size is scored consistently over time, not relative to whichever branches happen to be loaded right now.' }
     ];
@@ -11131,6 +11132,19 @@ html.page-fade-ready body {
       { key: 'MEDIUM',   label: 'Medium',   min: 40, tint: 'accentBlue' },
       { key: 'LOW',      label: 'Low',      min: -Infinity, tint: 'accentEmerald' }
     ];
+    // What each rating MEANS and how soon it should be audited. The cycle is the
+    // longest a branch of that rating should go between audits; Low uses the
+    // "Longest allowed gap" setting, and no tier may exceed it.
+    const AUDIT_TIER_GUIDE = {
+      CRITICAL: { meaning: 'Serious warning signs in the data.', action: 'Audit as soon as possible', cycle: 30 },
+      HIGH:     { meaning: 'Clear warning signs, or a red-flag tripwire.', action: 'Audit within about 6 weeks', cycle: 45 },
+      MEDIUM:   { meaning: 'Some weak signals worth watching.', action: 'Audit within about 2 months', cycle: 60 },
+      LOW:      { meaning: 'Healthy numbers.', action: 'Routine cycle', cycle: null }
+    };
+    function auditTierCycleDays(tierKey, cfg) {
+      const g = AUDIT_TIER_GUIDE[tierKey] || AUDIT_TIER_GUIDE.LOW;
+      return Math.min(g.cycle || cfg.overdueDays, cfg.overdueDays);
+    }
     const AUDIT_RISK_STATUS_POINTS = {
       collection: { Declining: 100, Recovering: 50, Stable: 20, Improving: 0 },
       sales:      { Declining: 100, Recovering: 50, Stable: 20, Improving: 0 },
@@ -12208,6 +12222,11 @@ html.page-fade-ready body {
           drivers: f.filter(x => x.available && x.points >= 50 && x.contribution > 0)
                     .sort((x, y) => y.contribution - x.contribution).slice(0, 3)
         };
+        // Risk-based audit cycle: riskier branches are due sooner. cycleGap > 0 =
+        // days left before the branch is due; < 0 = days over its cycle.
+        row.risk.cycleDays = auditTierCycleDays(row.risk.tier.key, cfg);
+        row.risk.cycleGap = (info.roundsCount > 0 && info.intervalDays !== null && info.intervalDays !== undefined)
+          ? row.risk.cycleDays - info.intervalDays : null;
       });
       return rows;
     }
@@ -12310,7 +12329,7 @@ html.page-fade-ready body {
           scheduledUpcoming.push(row);
         } else if (!hasExpected && highRisk && pastMinGap) {
           riskFlagged.push(row);
-        } else if (!hasExpected && hasDays && days >= cfg.overdueDays) {
+        } else if (!hasExpected && hasDays && days >= row.risk.cycleDays) {
           overdueUnscheduled.push(row);
         } else {
           onTrack.push(row);
@@ -12814,7 +12833,8 @@ html.page-fade-ready body {
           const isActionable = row.suggestedAuditor !== undefined;
           const days = row.info.intervalDays;
           const hasDays = days !== null && days !== undefined;
-          const overdueBadge = (hasDays && days >= cfg.overdueDays) ? 'text-accentRose' : 'text-slate-600';
+          const risk0 = row.risk;
+          const overdueBadge = (hasDays && days >= risk0.cycleDays) ? 'text-accentRose' : 'text-slate-600';
           const tint = REASON_TINT[row.reason] || 'slate-500';
           const risk = row.risk;
           const tierTint = risk.tier.tint;
@@ -12866,7 +12886,7 @@ html.page-fade-ready body {
             </td>
             <td class="p-1.5 text-center text-[10px] text-slate-600 whitespace-nowrap">${row.info.recentDate ? escapeHTML(row.info.recentDate) : 'Never'}</td>
             <td class="p-1.5 text-center whitespace-nowrap">${hasDays && distKey
-                ? `<button type="button" data-aa-kind="dist" data-aa-value="${distKey}" title="List every branch last audited in this range" class="text-[10px] font-semibold ${overdueBadge} hover:underline underline-offset-2 cursor-pointer">${days}d</button>`
+                ? `<button type="button" data-aa-kind="dist" data-aa-value="${distKey}" title="List every branch last audited in this range" class="text-[10px] font-semibold ${overdueBadge} hover:underline underline-offset-2 cursor-pointer">${days}d</button><span class="block text-[8.5px] font-semibold ${(risk0.cycleGap !== null && risk0.cycleGap < 0) ? 'text-accentRose' : 'text-slate-400'}">${risk0.cycleGap === null ? '' : (risk0.cycleGap < 0 ? 'over by ' + (-risk0.cycleGap) + 'd' : 'due in ' + risk0.cycleGap + 'd')}</span>`
                 : (distKey === 'never' ? `<button type="button" data-aa-kind="dist" data-aa-value="never" title="List every never-audited branch" class="text-[10px] font-semibold text-slate-400 hover:underline cursor-pointer">—</button>` : '<span class="text-[10px] text-slate-400">—</span>')}</td>
             <td class="p-1.5 text-center">${audCell}</td>
             ${dateCell}
@@ -13088,14 +13108,79 @@ html.page-fade-ready body {
           </button>`).join('')}</div>`
         : '<div class="flex items-center gap-2 p-3 bg-accentEmerald/5 border border-accentEmerald/20 rounded-xl text-xs font-semibold text-accentEmerald"><span class="w-2 h-2 rounded-full bg-accentEmerald"></span>Nothing needs escalation right now — no unresolved critical branches, no missed schedules, no unaddressed high-risk branches.</div>';
 
+      const upSet = new Set(a.scheduledUpcoming.map(r => r.b.name));
+      const onCycleN = a.rows.filter(r => upSet.has(r.b.name) || (r.risk.cycleGap !== null && r.risk.cycleGap >= 0)).length;
+      const onCyclePct = a.totalBranches ? Math.round((onCycleN / a.totalBranches) * 100) : null;
+      const needN = a.suggestions.length;
+      const critN = (a.riskTiers.find(x => x.key === 'CRITICAL') || {}).count || 0;
+      const bTone = (critN > 0 || (onCyclePct !== null && onCyclePct < 75)) ? 'accentRose' : ((needN > 0 || (onCyclePct !== null && onCyclePct < 90)) ? 'accentAmber' : 'accentEmerald');
+      const bHex = TINT_HEX[bTone];
+      const topS = a.suggestions[0];
+      const bannerHead = needN ? needN + ' of ' + a.totalBranches + ' branches need an audit decision' : 'Every branch is within its audit cycle';
+      const bannerSub = topS ? 'Top priority: ' + topS.b.name + ' — risk ' + topS.risk.score.toFixed(0) + ' (' + topS.risk.tier.label + '), ' + topS.reason.toLowerCase() + '. Suggested: ' + topS.suggestedAuditor + ', ' + fmtDate(topS.suggestedDate) + '.' : 'Nothing is waiting to be scheduled.';
+      const legendRows = AUDIT_RISK_TIERS.map((t, i) => {
+        const g = AUDIT_TIER_GUIDE[t.key];
+        const n = (a.riskTiers.find(x => x.key === t.key) || {}).count || 0;
+        const rng = i === 0 ? t.min + '+' : (t.key === 'LOW' ? 'under ' + AUDIT_RISK_TIERS[i - 1].min : t.min + '–' + (AUDIT_RISK_TIERS[i - 1].min - 1));
+        const cyc = auditTierCycleDays(t.key, cfg);
+        return `<div class="flex items-start gap-2 py-1"><span class="mt-1 w-2 h-2 rounded-full shrink-0" style="background:${TINT_HEX[t.tint]}"></span><div class="text-[10px] leading-snug"><span class="font-extrabold text-slate-800">${t.label}</span> <span class="text-slate-400">score ${rng}</span> <span class="font-bold text-slate-700">· ${n} branch${n === 1 ? '' : 'es'}</span><div class="text-slate-500">${escapeHTML(g.meaning)} <b class="text-slate-700">${escapeHTML(g.action)}</b> (at most ${cyc} days between audits).</div></div></div>`;
+      }).join('');
+      const ringPct = onCyclePct === null ? 0 : onCyclePct;
+      const ringC = 2 * Math.PI * 26;
+      const tierBar = a.riskTiers.map(t => {
+        const w = a.totalBranches ? (t.count / a.totalBranches) * 100 : 0;
+        return w > 0 ? `<div ${drill('tier', t.key, cfg.tierFilter === t.key, 'h-full flex items-center justify-center text-[10px] font-extrabold text-white')} style="width:${w}%;background:${TINT_HEX[t.tint]}" title="${escapeHTML(t.label)}: ${t.count} branches — click to list">${t.count}</div>` : '';
+      }).join('');
+      const tierKey = a.riskTiers.map(t => `<span class="inline-flex items-center gap-1 text-[10px] text-white/80"><span class="w-2 h-2 rounded-full" style="background:${TINT_HEX[t.tint]}"></span>${escapeHTML(t.label)}</span>`).join('');
+      const topCards = a.suggestions.slice(0, 10).map((r, i) => `
+        <div ${drill('focus', r.b.name, false, 'rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 p-1.5 text-white min-w-0')}>
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[8px] font-bold uppercase tracking-wider text-white/60">#${i + 1}</span>
+            <span class="px-1 py-px rounded text-[9px] font-extrabold" style="background:${TINT_HEX[r.risk.tier.tint]}">${r.risk.score.toFixed(0)} ${escapeHTML(r.risk.tier.label)}</span>
+          </div>
+          <div class="text-[11px] font-extrabold leading-tight mt-0.5 truncate" title="${escapeHTML(r.b.name)}">${escapeHTML(r.b.name)}</div>
+          <div class="text-[8.5px] text-white/70 leading-snug truncate" title="${escapeHTML(r.reason)}">${escapeHTML(r.reason)}</div>
+          <div class="text-[8.5px] font-semibold text-white/90 truncate">${escapeHTML(r.suggestedAuditor)} · ${fmtDate(r.suggestedDate)}</div>
+        </div>`).join('');
+      const bannerHtml = `
+        <div class="mx-2 sm:mx-3 rounded-2xl overflow-hidden shadow-md" style="background:linear-gradient(135deg,#0f2547 0%,#1e3a8a 100%)">
+          <div class="p-3.5 sm:p-4 flex flex-wrap items-center gap-4">
+            <div class="flex items-center gap-3" title="Branches audited within their rating's cycle, or already scheduled">
+              <svg width="72" height="72" viewBox="0 0 64 64" role="img" aria-label="${ringPct}% on audit cycle">
+                <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="7"/>
+                <circle cx="32" cy="32" r="26" fill="none" stroke="${bHex}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${(ringC * ringPct / 100).toFixed(1)} ${ringC.toFixed(1)}" transform="rotate(-90 32 32)"/>
+                <text x="32" y="37" text-anchor="middle" font-size="15" font-weight="800" fill="#fff">${onCyclePct !== null ? onCyclePct + '%' : '—'}</text>
+              </svg>
+              <div>
+                <div class="text-[9px] font-bold uppercase tracking-wider text-white/60">Audit control status</div>
+                <div class="text-sm sm:text-base font-extrabold text-white leading-tight max-w-[15rem]">${escapeHTML(bannerHead)}</div>
+                <div class="text-[10px] text-white/70">${ringPct}% of branches are on their audit cycle</div>
+              </div>
+            </div>
+            <div class="flex-1 min-w-[14rem]">
+              <div class="text-[9px] font-bold uppercase tracking-wider text-white/60 mb-1">Risk rating of all ${a.totalBranches} branches</div>
+              <div class="flex h-6 rounded-lg overflow-hidden bg-white/10">${tierBar}</div>
+              <div class="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">${tierKey}</div>
+            </div>
+          </div>
+          ${topCards ? `<div class="px-3.5 sm:px-4 pb-3.5"><div class="text-[9px] font-bold uppercase tracking-wider text-white/60 mb-1.5">Audit these first — top ${Math.min(10, a.suggestions.length)}</div><div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5">${topCards}</div></div>` : ''}
+          <details class="bg-white/95" open>
+            <summary class="px-3.5 sm:px-4 py-2 cursor-pointer text-[10px] font-bold uppercase tracking-wider text-slate-600 select-none">What the ratings mean</summary>
+            <div class="px-3.5 sm:px-4 pb-2.5">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">${legendRows}</div>
+              <div class="text-[9px] text-slate-400 mt-1">Score 0–100 blends time since last audit, findings, collection, repossession, sales, service and loan-book size. A data red flag lifts a branch to at least High. Tap any score in the table for the exact math.</div>
+            </div>
+          </details>
+        </div>`;
       container.innerHTML = `
       <div class="space-y-5 pb-2">
+        ${bannerHtml}
 
         <details class="mx-2 sm:mx-3 bg-white border border-coolBorder rounded-xl shadow-sm" ${(cfg.settingsOpen || cfg.weightsOpen) ? 'open' : ''} ontoggle="setAuditSettingsOpen(this.open); setAuditWeightsOpen(this.open);">
           <summary class="flex flex-wrap items-center gap-x-2 gap-y-1 px-3.5 py-2.5 cursor-pointer select-none rounded-xl hover:bg-gray-50">
             <span class="p-0.5 rounded-md bg-accentIndigo/10 text-accentIndigo text-[11px] leading-none">⚙</span>
-            <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Scoring Configuration</span>
-            <span class="text-[10px] font-medium text-slate-400 normal-case tracking-normal">Risk ≥ ${cfg.minScore} · skip &lt;${cfg.minGapDays}d · always &gt;${cfg.overdueDays}d · ${cfg.spacingDays}d spacing<span class="hidden sm:inline"> — tap to adjust</span></span>
+            <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Rating Rules &amp; Manual Settings</span>
+            <span class="text-[10px] font-medium text-slate-400 normal-case tracking-normal">Queue at score ${cfg.minScore}+ · longest gap ${cfg.overdueDays}d<span class="hidden sm:inline"> — tap to change the rules</span></span>
           </summary>
 
           <div class="px-3.5 pb-3.5 pt-2.5 border-t border-coolBorder space-y-3">
@@ -13103,27 +13188,27 @@ html.page-fade-ready body {
             <!-- Thresholds + caps: one compact row instead of two separate boxed sections -->
             <div class="flex flex-wrap items-end gap-x-5 gap-y-2.5 p-2.5 bg-gray-50/70 border border-coolBorder rounded-lg">
               <label class="flex flex-col gap-1" title="Schedule a branch once its risk score reaches this, out of 100">
-                <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-snug">Risk ≥</span>
+                <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-snug">Queue at risk score of<span class="block normal-case font-medium text-slate-400 tracking-normal max-w-[9rem]">Branch joins the queue once its score reaches this</span></span>
                 <span class="flex items-center gap-1">${cfgInput('minScore', 1, 100)}<span class="text-[9px] text-slate-400">/100</span></span>
               </label>
               <label class="flex flex-col gap-1" title="But skip it if it was already audited within this many days">
-                <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-snug">Skip if audited &lt;</span>
+                <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-snug">Do not re-audit within<span class="block normal-case font-medium text-slate-400 tracking-normal max-w-[9rem]">Ignores branches audited very recently</span></span>
                 <span class="flex items-center gap-1">${cfgInput('minGapDays', 0, 3650)}<span class="text-[9px] text-slate-400">days</span></span>
               </label>
               <label class="flex flex-col gap-1" title="Always schedule any branch with no audit for this long, regardless of score">
-                <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-snug">Always after</span>
+                <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-snug">Longest allowed gap<span class="block normal-case font-medium text-slate-400 tracking-normal max-w-[9rem]">Every branch is queued after this many days</span></span>
                 <span class="flex items-center gap-1">${cfgInput('overdueDays', 1, 3650)}<span class="text-[9px] text-slate-400">days</span></span>
               </label>
               <label class="flex flex-col gap-1" title="Space out each auditor's suggested visits by this many business days">
-                <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-snug">Auditor spacing</span>
+                <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-snug">Days between visits<span class="block normal-case font-medium text-slate-400 tracking-normal max-w-[9rem]">Gap between one auditor's suggested dates</span></span>
                 <span class="flex items-center gap-1">${cfgInput('spacingDays', 1, 3650)}<span class="text-[9px] text-slate-400">biz d</span></span>
               </label>
               <label class="flex flex-col gap-1" title="Weighted findings (3x ${window.FINDING_YEARS[2]}, 2x ${window.FINDING_YEARS[1]}, 1x ${window.FINDING_YEARS[0]}) at or above this score 100 on the findings factor. Fixed — not recalculated from whichever branches are currently loaded.">
-                <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-snug">Findings cap</span>
+                <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-snug">Findings = max risk<span class="block normal-case font-medium text-slate-400 tracking-normal max-w-[9rem]">Weighted findings that score 100</span></span>
                 <span class="flex items-center gap-1">${cfgInput('findingsCap', 1, 1000)}<span class="text-[9px] text-slate-400">pts</span></span>
               </label>
               <label class="flex flex-col gap-1" title="Branches with this many accounts or more score 100 on the portfolio-size factor. Fixed — not recalculated from whichever branches are currently loaded.">
-                <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-snug">Size cap</span>
+                <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-snug">Accounts = max risk<span class="block normal-case font-medium text-slate-400 tracking-normal max-w-[9rem]">Loan accounts that score 100</span></span>
                 <span class="flex items-center gap-1">${cfgInput('sizeCap', 1, 10000000)}<span class="text-[9px] text-slate-400">accts</span></span>
               </label>
               <button type="button" onclick="resetAuditRiskCaps()" title="Recompute both caps from the current portfolio's 90th percentile, then freeze them again from here" class="px-2 py-1 text-[9.5px] font-bold bg-white border border-coolBorder rounded-md hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap self-center">Recalc caps</button>
@@ -13132,8 +13217,8 @@ html.page-fade-ready body {
             <!-- Weights: shown inline, no second click needed -->
             <div>
               <div class="flex items-center gap-1.5 mb-1">
-                <h4 class="text-[9.5px] font-bold text-slate-500 uppercase tracking-wider">Risk score weights</h4>
-                <span class="text-[9.5px] text-slate-400 normal-case">— hover a factor for why it matters, don't need to sum to 100</span>
+                <h4 class="text-[9.5px] font-bold text-slate-500 uppercase tracking-wider">How much each factor counts</h4>
+                <span class="text-[9.5px] text-slate-400 normal-case">— higher = counts more; the % beside each is calculated for you</span>
               </div>
               ${(a.overlap && a.overlap.length) ? `
               <div class="px-2.5 py-1.5 mb-1.5 rounded-lg bg-accentAmber/10 border border-accentAmber/25 text-[9.5px] text-slate-600 leading-relaxed">
@@ -13173,17 +13258,6 @@ html.page-fade-ready body {
             ${kpiCard(a.avgIntervalDays !== null ? a.avgIntervalDays + 'd' : '—', 'Avg Days Since Audit', { tint: 'accentIndigo', title: 'Click to view these branches', onClick: `onclick="openModal('Avg Days Since Audit','kpiBucket','DAYS_SORT')"` })}
             ${kpiCard(coveragePct !== null ? coveragePct + '%' : '—', 'Audit Coverage', { tint: 'accentIndigo', title: 'Click to view these branches', onClick: `onclick="openModal('Audit Coverage','kpiBucket','EVER_AUDITED')"`, sub: 'ever audited' })}
           </div>
-        </div>
-
-        <div class="mx-2 sm:mx-3">
-          <div class="flex items-center justify-between mb-1.5">
-            <div>
-              <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Management Attention</h3>
-              <p class="text-[10px] text-slate-400 mt-0.5">The most consequential exceptions right now, worst first — pulled straight from the data below. Tap any item to see the branches behind it.</p>
-            </div>
-            ${attention.length ? `<span class="shrink-0 px-2 py-1 rounded-full text-[9.5px] font-extrabold uppercase tracking-wider text-white" style="background:${TINT_HEX.accentRose}">${attention.length} open item${attention.length === 1 ? '' : 's'}</span>` : ''}
-          </div>
-          ${attentionHtml}
         </div>
 
         <div class="mx-2 sm:mx-3 grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -13272,11 +13346,13 @@ html.page-fade-ready body {
           </div>` : `<div class="p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 rounded-xl border border-coolBorder">${emptyMsg}</div>`}
         </div>
 
-        <div class="mx-2 sm:mx-3 p-3.5 sm:p-4 bg-accentIndigo/5 border border-accentIndigo/20 rounded-xl">
-          <div class="flex items-center gap-2 mb-1.5">
+        <details class="mx-2 sm:mx-3 bg-accentIndigo/5 border border-accentIndigo/20 rounded-xl">
+          <summary class="flex items-center gap-2 p-3.5 sm:p-4 cursor-pointer select-none">
             <span class="p-1 rounded-md bg-accentIndigo/15 text-accentIndigo text-[11px] font-extrabold">i</span>
             <h3 class="text-sm font-bold text-accentIndigo uppercase tracking-wide">How the ranking is decided</h3>
-          </div>
+            <span class="ml-auto text-[10px] font-semibold text-slate-400">tap to show / hide</span>
+          </summary>
+          <div class="px-3.5 sm:px-4 pb-3.5 sm:pb-4">
           <p class="text-xs sm:text-[13px] text-slate-700 leading-relaxed mb-3">Branches are not ranked on audit interval alone. Each one gets a 0–100 risk score built from everything the dashboard tracks — audit history, findings, collections, efficiency, repo, sales, service and portfolio size — and the suggested schedule is ordered by that score, highest first.</p>
           <div class="overflow-x-auto">
             <table class="w-full text-xs text-left">
@@ -13299,7 +13375,8 @@ html.page-fade-ready body {
             <li><strong>Weights are set from evidence, not opinion.</strong> By default each factor's weight is derived from its own Pearson correlation with real, historical findings across the portfolio (r-value shown against each factor above) — a factor only counts for more of the score once the data shows it actually predicts findings. Anyone can still type in their own numbers, but doing so is a visible, logged override (shown as "Custom weights" above), not the default state.</li>
             <li><strong>A prioritisation aid, not an audit conclusion.</strong> The score says where to look first. It does not say something is wrong at a branch. Weights and thresholds are adjustable above and every score can be traced line by line.</li>
           </ul>
-        </div>
+          </div>
+        </details>
       </div>`;
     }
 
