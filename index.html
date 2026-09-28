@@ -7264,7 +7264,7 @@ html.page-fade-ready body {
         var st = document.createElement('style');
         st.id = STYLE_ID;
         st.textContent =
-          '#branchRiskPopup{position:fixed;inset:0;z-index:75;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(15,23,42,.55);opacity:0;transition:opacity .2s ease}' +
+          '#branchRiskPopup{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(15,23,42,.55);opacity:0;transition:opacity .2s ease}' +
           '#branchRiskPopup.brp-show{opacity:1}' +
           '#branchRiskPopup .brp-dialog{display:flex;flex-direction:column;width:100%;max-width:860px;max-height:88vh;background:#fff;border-radius:16px;box-shadow:0 25px 60px rgba(0,0,0,.35);overflow:hidden;transform:scale(.96);transition:transform .2s ease,max-width .25s ease,max-height .25s ease,border-radius .25s ease}' +
           '#branchRiskPopup.brp-show .brp-dialog{transform:scale(1)}' +
@@ -12318,6 +12318,10 @@ html.page-fade-ready body {
       const handle = function (e) {
         const t = e.target && e.target.closest ? e.target.closest('[data-aa-kind]') : null;
         if (!t || !container.contains(t)) return;
+        // Whole-row click: buttons/links/inputs inside the row (score pill, Set
+        // Schedule, status, name...) keep their own action instead of also
+        // opening the row popup.
+        if (t.tagName === 'TR' && e.target !== t && e.target.closest && e.target.closest('button, a, input, select, textarea, label')) return;
         if (e.type === 'keydown') {
           // Real <button>s already turn Enter/Space into a click; handling
           // it here too would fire twice (and a toggle would undo itself).
@@ -13400,7 +13404,7 @@ html.page-fade-ready body {
           }).join('');
 
           return `
-          <tr class="${idx % 2 === 1 ? 'bg-gray-50/50' : ''} hover:bg-accentCyan/10 transition-colors">
+          <tr data-aa-kind="branchpopup" data-aa-value="${escapeHTML(row.b.name)}" role="button" tabindex="0" title="Click to see why ${escapeHTML(row.b.name)} needs attention" class="${idx % 2 === 1 ? 'bg-gray-50/50' : ''} hover:bg-accentCyan/10 transition-colors cursor-pointer">
             <td class="p-1.5 text-center"><span class="text-[10px] font-bold text-slate-400">${idx + 1}</span></td>
             <td class="p-1.5 text-xs leading-tight"><button type="button" data-aa-kind="branch" data-aa-value="${escapeHTML(row.b.name)}" title="Open ${escapeHTML(row.b.name)}'s detailed profile" class="font-bold text-slate-800 text-left break-words hover:text-accentCyan hover:underline underline-offset-2 cursor-pointer">${escapeHTML(row.b.name)}</button></td>
             <td class="p-1.5 text-center"><button type="button" data-aa-kind="reason" data-aa-value="${escapeHTML(row.reason)}" title="List every branch with this status" class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-${tint}/10 text-${tint} rounded-md border border-${tint}/20 leading-tight whitespace-nowrap cursor-pointer hover:brightness-95">${escapeHTML(row.reason)}</button></td>
@@ -13849,7 +13853,7 @@ html.page-fade-ready body {
               <span class="aaq-h">Priority Audit Queue</span>
               <span class="aaq-sub" title="${escapeHTML(table.title)}">${escapeHTML(table.title)}</span>
             </div>
-            <span class="aaq-count">${table.rows.length} branch${table.rows.length === 1 ? '' : 'es'}</span>
+            <span class="aaq-count" title="${table.rows.length} shown out of ${a.totalBranches} branches in total">${table.rows.length}${table.rows.length !== a.totalBranches ? ' of ' + a.totalBranches : ''} branch${(table.rows.length !== a.totalBranches ? a.totalBranches : table.rows.length) === 1 ? '' : 'es'}</span>
             <button type="button" class="aaq-close" onclick="toggleAuditQueue()" aria-label="Close" title="Close"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
           </div>
 
