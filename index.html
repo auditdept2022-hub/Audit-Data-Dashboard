@@ -18452,7 +18452,15 @@ html.page-fade-ready body {
     // goodDirection: 'up' (more is good), 'down' (more is bad), or
     // 'neutral' (informational only, e.g. branch count — added branches
     // isn't inherently good or bad, so it's never colored red/green).
-    const STAT_SNAPSHOT_KEY = 'auditDashboard_v1_statSnapshot';
+    // v2: the old v1 key could contain a poisoned all-zero snapshot (saved
+    // while the dashboard was still rendering empty placeholder data), which
+    // made the next real load show a fake "+245". Bumping the key discards it.
+    const STAT_SNAPSHOT_KEY = 'auditDashboard_v2_statSnapshot';
+    // The comparison baseline is read from storage ONCE per page load (the
+    // first render that has real data) so the badge stays stable for the
+    // whole session, even though every re-render also saves a new snapshot
+    // for the NEXT visit.
+    let _statBaseline = null;
     function renderTrendBadge(elId, current, previous, goodDirection) {
       const el = document.getElementById(elId);
       if (!el) return;
@@ -18472,14 +18480,21 @@ html.page-fade-ready body {
       }
       const icon = diff > 0 ? '\u25b2' : '\u25bc';
       const diffLabel = diff > 0 ? `+${diff}` : `\u2212${Math.abs(diff)}`;
-      el.innerHTML = `<span class="${color}">${icon} ${diffLabel}</span>`;
+      el.innerHTML = `<span class="${color}" title="Change since you last opened the dashboard">${icon} ${diffLabel}</span>`;
     }
 
     function updateStatCards() {
       const sum = activeData.summary;
 
-      let prevSnapshot = {};
-      try { prevSnapshot = JSON.parse(localStorage.getItem(STAT_SNAPSHOT_KEY) || '{}') || {}; } catch (e) { prevSnapshot = {}; }
+      // Placeholder/empty data (first paint before the sheet loads) must never
+      // be compared against or saved as a snapshot -- that is what produced
+      // the bogus "+245" (245 real findings vs a saved 0).
+      const hasRealData = (sum.totalBranches || 0) > 0 ||
+        ((sum.findings2024 || 0) + (sum.findings2025 || 0) + (sum.findings2026 || 0)) > 0;
+      if (_statBaseline === null && hasRealData) {
+        try { _statBaseline = JSON.parse(localStorage.getItem(STAT_SNAPSHOT_KEY) || '{}') || {}; } catch (e) { _statBaseline = {}; }
+      }
+      const prevSnapshot = hasRealData ? (_statBaseline || {}) : {};
 
       animateCountUp(document.getElementById('stat-total-branches'), sum.totalBranches || 0);
       renderTrendBadge('stat-total-branches-trend', sum.totalBranches || 0, prevSnapshot.totalBranches, 'neutral');
@@ -18538,7 +18553,7 @@ html.page-fade-ready body {
       // or a full storage quota just mean no trend badge next time, never
       // a broken dashboard.
       try {
-        localStorage.setItem(STAT_SNAPSHOT_KEY, JSON.stringify({
+        if (hasRealData) localStorage.setItem(STAT_SNAPSHOT_KEY, JSON.stringify({
           totalBranches: sum.totalBranches || 0,
           improvingCollection: sum.improvingCollection || 0,
           salesImproving: sum.salesImproving || 0,
