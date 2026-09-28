@@ -11541,10 +11541,10 @@ html.page-fade-ready body {
         how: 'Findings are weighted 3x for the latest tracked year, 2x for the middle year and 1x for the earliest (years come from the sheet), then scaled against a FIXED cap (editable in Settings; starts at the portfolio\'s 90th percentile the first time it\'s computed, never below ' + AUDIT_FINDINGS_MIN_CAP + ' weighted points, then stays put). No findings = 0.',
         why: 'Past findings are the strongest sign of where more will be found; recent years count more than old ones. The cap is fixed rather than recalculated on every view so the same findings history always produces the same score, instead of drifting as the portfolio changes.' },
       { key: 'efficiency', label: 'Collection health', defaultWeight: 30,
-        how: 'One blended factor, no more double-counting: efficiency LEVEL (55%, same 70%/50% cut-offs as the branch cards) + efficiency TREND (20%, up to 100 pts for a 15+ point fall since the earliest month on record) + the separately reported collection STATUS (25%: Declining=100, Recovering=50, Stable=20, Improving=0). If there is no efficiency % on file yet, status alone carries the factor; if there is no status either (rare — it defaults to Stable), level+trend alone carries it.',
+        how: 'One blended factor: efficiency LEVEL (40%, same 70%/50% cut-offs as the branch cards) + efficiency TREND (15%, up to 100 pts for a 15+ point fall since the earliest month on record) + reported collection STATUS (20%: Declining=100, Recovering=50, Stable=20, Improving=0) + accounts NOT collecting (25%: accounts × (100 − efficiency%), scaled against a fixed cap). The last part means the same efficiency % counts for more at a big branch than a tiny one. Any part with no data is left out and the rest are rescaled.',
         why: 'Collection efficiency (%) and the reported collection status used to be scored as two separate factors, but they both answer the same question — is collection getting better or worse — so weighting both at full strength paid for one signal twice. Blending them into a single factor removes that double-count at the source rather than just flagging it.' },
-      { key: 'repo', label: 'Repossession rate', defaultWeight: 16,
-        how: 'Level (70% of this factor) uses the same 4% / 7% cut-offs as the branch cards: 0% = 0 pts, 4% = 35 pts, 7% = 70 pts, 12% or more = 100 pts. Trend (30%) adds up to 100 pts if the repo rate has risen 3+ points since the earliest month on record; flat or improving adds 0. No account data = excluded.',
+      { key: 'repo', label: 'Repossessions', defaultWeight: 16,
+        how: 'Three parts: repo RATE (40%, same 4% / 7% cut-offs as the branch cards: 0% = 0 pts, 4% = 35, 7% = 70, 12%+ = 100), NUMBER of repossessions (30%, scaled against a fixed cap), and repo-rate TREND (30%, up to 100 pts if the rate rose 3+ points since the earliest month). The count stops a tiny branch with one repo from looking as bad as a large branch with many. No account data = excluded.',
         why: 'A high repossession rate points to weaker loan quality or recovery handling, and a rate that is actively rising is a stronger signal than one that is high but stable. Level and trend are blended into this ONE factor (not scored separately) so a worsening repo rate is never counted twice toward the total.' },
       { key: 'sales', label: 'Sales trend', defaultWeight: 6,
         how: 'Declining = 100, Recovering = 50, Stable = 20, Improving = 0.',
@@ -11552,7 +11552,7 @@ html.page-fade-ready body {
       { key: 'service', label: 'Service vs target', defaultWeight: 6,
         how: 'Declining (below target) = 100, on Target = 0.',
         why: 'Missing service targets is a control and customer-experience signal.' },
-      { key: 'size', label: 'Loan book size', defaultWeight: 6,
+      { key: 'size', label: 'Accounts', defaultWeight: 6,
         how: 'Number of accounts scaled against a FIXED cap (editable in Settings; starts at the portfolio\'s 90th percentile the first time it\'s computed, then stays put). No data = excluded.',
         why: 'A bigger loan book means more money is at stake if something is wrong (materiality). The cap is fixed rather than recalculated on every view so branch size is scored consistently over time, not relative to whichever branches happen to be loaded right now.' }
     ];
@@ -11616,6 +11616,23 @@ html.page-fade-ready body {
       service:    { Declining: 100, Target: 0 }
     };
 
+    // Weights are shown and edited as PERCENTAGES that must add up to 100.
+    // Turns any stored set (e.g. rounded data-derived numbers that add to 99 or 101)
+    // into whole percentages summing to exactly 100 (largest-remainder rounding).
+    // Scores only use the ratio between weights, so this never changes a score.
+    function auditNormalizeWeights100(w) {
+      const out = {};
+      const vals = AUDIT_RISK_FACTORS.map(f => Math.max(0, Number(w && w[f.key]) || 0));
+      const sum = vals.reduce((a, b) => a + b, 0);
+      if (sum <= 0) { AUDIT_RISK_FACTORS.forEach(f => { out[f.key] = f.defaultWeight; }); return out; }
+      const raw = vals.map(v => (v / sum) * 100);
+      const floors = raw.map(Math.floor);
+      let left = 100 - floors.reduce((a, b) => a + b, 0);
+      raw.map((v, i) => ({ i, r: v - floors[i] })).sort((a, b) => b.r - a.r).forEach(o => { if (left > 0) { floors[o.i]++; left--; } });
+      AUDIT_RISK_FACTORS.forEach((f, i) => { out[f.key] = floors[i]; });
+      return out;
+    }
+
     function defaultAuditRiskWeights() {
       const w = {};
       AUDIT_RISK_FACTORS.forEach(f => { w[f.key] = f.defaultWeight; });
@@ -11657,6 +11674,8 @@ html.page-fade-ready body {
                              // first time it's computed (see computeAuditRiskScores) so scores stay
                              // comparable over time instead of drifting with the portfolio; editable below
       sizeCap: null,        // accounts value that scores 100 on the portfolio-size factor; same freeze-once rule
+      repoCap: null,        // number of repossessions that scores 100 on the repo-count part; same freeze-once rule
+      shortfallCap: null,   // accounts NOT collecting (accounts x (100 - efficiency%)) that scores 100; same freeze-once rule
       filterBucket: 'ALL',
       // Table filters. Every one of these can be set by typing in the filter
       // row + pressing OK, OR by clicking any bar/row/badge in the analysis
@@ -11754,7 +11773,7 @@ html.page-fade-ready body {
     //    position.
     const AUDIT_SYNC_POLL_MS = 8 * 1000;
     const AUDIT_SYNC_PUSH_DEBOUNCE_MS = 1200;
-    const AUDIT_SYNC_NUM_RULES = { overdueDays: [1, 3650], spacingDays: [1, 3650], minScore: [1, 100], minGapDays: [0, 3650], findingsCap: [1, 1000], sizeCap: [1, 10000000] };
+    const AUDIT_SYNC_NUM_RULES = { overdueDays: [1, 3650], spacingDays: [1, 3650], minScore: [1, 100], minGapDays: [0, 3650], findingsCap: [1, 1000], sizeCap: [1, 10000000], repoCap: [1, 100000], shortfallCap: [1, 10000000] };
     const AUDIT_SYNC_STR_KEYS = ['filterBucket', 'tierFilter', 'auditorFilter', 'queueFilter', 'search', 'reasonFilter', 'distFilter', 'driverFilter'];
     const auditSync = {
       version: 0,          // server version of the last state this device pushed/applied (0 = none yet)
@@ -11991,7 +12010,7 @@ html.page-fade-ready body {
       const cfg = window.auditAnalysisState;
       if (cfg) {
         cfg.overdueDays = 90; cfg.spacingDays = 3; cfg.minScore = 55; cfg.minGapDays = 30;
-        cfg.findingsCap = null; cfg.sizeCap = null;
+        cfg.findingsCap = null; cfg.sizeCap = null; cfg.repoCap = null; cfg.shortfallCap = null;
         cfg.filterBucket = 'ALL';
         resetAuditTableFilterState(cfg);
         cfg.weights = loadSavedAuditRiskWeights();
@@ -12006,13 +12025,13 @@ html.page-fade-ready body {
     const AUDIT_CFG_LABELS = {
       minScore: 'Risk-score threshold', minGapDays: 'Minimum gap since last audit',
       overdueDays: 'Always-schedule limit', spacingDays: 'Spacing between suggestions',
-      findingsCap: 'Findings cap', sizeCap: 'Portfolio-size cap'
+      findingsCap: 'Findings cap', sizeCap: 'Portfolio-size cap', repoCap: 'Repossession-count cap', shortfallCap: 'Not-collecting accounts cap'
     };
     // Shared with AUDIT_SYNC_NUM_RULES's ranges so a value valid here is also
     // valid to sync to other devices.
     const AUDIT_CFG_BOUNDS = {
       minScore: [1, 100], minGapDays: [0, 3650], overdueDays: [1, 3650], spacingDays: [1, 3650],
-      findingsCap: [1, 1000], sizeCap: [1, 10000000]
+      findingsCap: [1, 1000], sizeCap: [1, 10000000], repoCap: [1, 100000], shortfallCap: [1, 10000000]
     };
     function applyAuditAnalysisConfig(key) {
       const cfg = window.auditAnalysisState;
@@ -12045,12 +12064,18 @@ html.page-fade-ready body {
     // applied until OK.
     function previewAuditRiskWeights() {
       const w = readAuditWeightInputs();
-      const vals = AUDIT_RISK_FACTORS.map(f => (isFinite(w[f.key]) && w[f.key] >= 0) ? w[f.key] : 0);
-      const sum = vals.reduce((s, v) => s + v, 0);
-      AUDIT_RISK_FACTORS.forEach((f, i) => {
-        const span = document.getElementById('aa-wpct-' + f.key);
-        if (span) span.textContent = (sum > 0 ? Math.round((vals[i] / sum) * 100) : 0) + '%';
-      });
+      const total = AUDIT_RISK_FACTORS.reduce((sum, f) => sum + ((isFinite(w[f.key]) && w[f.key] >= 0) ? w[f.key] : 0), 0);
+      const el = document.getElementById('aa-w-total');
+      if (el) {
+        const diff = Math.round((100 - total) * 100) / 100;
+        const rounded = Math.round(total * 100) / 100;
+        let cls, msg;
+        if (diff === 0) { cls = 'bg-accentEmerald/10 text-accentEmerald border-accentEmerald/30'; msg = '✓ Total ' + rounded + '% — ready to save'; }
+        else if (diff > 0) { cls = 'bg-accentAmber/10 text-accentAmber border-accentAmber/30'; msg = 'Total ' + rounded + '% — ' + diff + '% left to give'; }
+        else { cls = 'bg-accentRose/10 text-accentRose border-accentRose/30'; msg = 'Total ' + rounded + '% — ' + Math.abs(diff) + '% too much, lower something'; }
+        el.className = 'inline-flex items-center px-2 py-1 rounded-md border text-[10px] font-extrabold whitespace-nowrap ' + cls;
+        el.textContent = msg;
+      }
       const hint = document.getElementById('aa-w-hint');
       if (hint) hint.classList.remove('hidden');
     }
@@ -12061,8 +12086,9 @@ html.page-fade-ready body {
       const bad = AUDIT_RISK_FACTORS.filter(f => !isFinite(w[f.key]) || w[f.key] < 0 || w[f.key] > 100);
       if (bad.length) {
         cfg.notice = { type: 'error', text: 'Weights must be numbers from 0 to 100 (check: ' + bad.map(f => f.label).join(', ') + '). Nothing was changed.' };
-      } else if (!AUDIT_RISK_FACTORS.some(f => w[f.key] > 0)) {
-        cfg.notice = { type: 'error', text: 'At least one factor needs a weight above 0. Nothing was changed.' };
+      } else if (Math.abs(AUDIT_RISK_FACTORS.reduce((t, f) => t + w[f.key], 0) - 100) > 0.001) {
+        const t = Math.round(AUDIT_RISK_FACTORS.reduce((t, f) => t + w[f.key], 0) * 100) / 100;
+        cfg.notice = { type: 'error', text: 'Weights must add up to exactly 100% (now ' + t + '%). Nothing was changed.' };
       } else {
         cfg.weights = w;
         cfg.weightsSource = 'custom';
@@ -12081,7 +12107,7 @@ html.page-fade-ready body {
       const cfg = window.auditAnalysisState;
       const problems = [];
 
-      const cfgKeys = ['minScore', 'minGapDays', 'overdueDays', 'spacingDays', 'findingsCap', 'sizeCap'];
+      const cfgKeys = ['minScore', 'minGapDays', 'overdueDays', 'spacingDays', 'findingsCap', 'sizeCap', 'repoCap', 'shortfallCap'];
       const newCfgVals = {};
       cfgKeys.forEach(key => {
         const el = document.getElementById('aa-cfg-' + key);
@@ -12103,9 +12129,9 @@ html.page-fade-ready body {
       if (badWeights.length) {
         weightsOk = false;
         problems.push('Weights must be numbers from 0 to 100 (check: ' + badWeights.map(f => f.label).join(', ') + ').');
-      } else if (!AUDIT_RISK_FACTORS.some(f => w[f.key] > 0)) {
-        weightsOk = false;
-        problems.push('At least one risk-score weight needs to be above 0.');
+      } else {
+        const t = Math.round(AUDIT_RISK_FACTORS.reduce((t, f) => t + w[f.key], 0) * 100) / 100;
+        if (Math.abs(t - 100) > 0.001) { weightsOk = false; problems.push('Risk-score weights must add up to exactly 100% (now ' + t + '%).'); }
       }
 
       if (problems.length) {
@@ -12370,6 +12396,13 @@ html.page-fade-ready body {
     // globals exist so the new cap-sanity check below is guaranteed to be
     // scoring branches exactly the same way computeAuditRiskScores does.
     function auditFindingsWeighted(b) { return (b.findings2024 || 0) + (b.findings2025 || 0) * 2 + (b.findings2026 || 0) * 3; }
+    // Repossession count (latest month with a figure) and estimated accounts NOT collecting.
+    function auditRepoCountOf(b) { return b.noOfRepoLatest || b.noOfRepoApr || b.noOfRepoMar || 0; }
+    function auditEffNowOf(b) { return (b.effLatest || 0) > 0 ? b.effLatest : ((b.effApr || 0) > 0 ? b.effApr : (b.effMar || 0)); }
+    function auditShortfallOf(b) {
+      const eff = auditEffNowOf(b), acc = (b.accountsMay || 0) > 0 ? b.accountsMay : (b.accountsApr || 0);
+      return (eff > 0 && acc > 0) ? Math.round(acc * Math.max(0, 100 - eff) / 100) : 0;
+    }
     function auditAccountsOf(b) { return (b.accountsMay || 0) > 0 ? b.accountsMay : (b.accountsApr || 0); }
 
     // "Is this cap actually calibrated to the portfolio, or just a stale/
@@ -12558,7 +12591,9 @@ html.page-fade-ready body {
       const cfg = window.auditAnalysisState;
       cfg.findingsCap = null;
       cfg.sizeCap = null;
-      cfg.notice = { type: 'ok', text: 'Findings and portfolio-size caps recalculated from the current portfolio, and frozen from here.' };
+      cfg.repoCap = null;
+      cfg.shortfallCap = null;
+      cfg.notice = { type: 'ok', text: 'All scoring scales recalculated from the current portfolio, and frozen from here.' };
       refreshAuditAnalysis(false);
     }
 
@@ -12593,8 +12628,16 @@ html.page-fade-ready body {
       if (cfg.sizeCap === null || cfg.sizeCap === undefined) {
         cfg.sizeCap = Math.round(auditRiskPercentile(rows.map(r => accountsOf(r.b)), 0.9)) || 1;
       }
+      if (cfg.repoCap === null || cfg.repoCap === undefined) {
+        cfg.repoCap = Math.max(Math.round(auditRiskPercentile(rows.map(r => auditRepoCountOf(r.b)), 0.9)), 3);
+      }
+      if (cfg.shortfallCap === null || cfg.shortfallCap === undefined) {
+        cfg.shortfallCap = Math.max(Math.round(auditRiskPercentile(rows.map(r => auditShortfallOf(r.b)), 0.9)), 1);
+      }
       const findingsCap = cfg.findingsCap;
       const sizeCap = cfg.sizeCap;
+      const repoCap = cfg.repoCap;
+      const shortfallCap = cfg.shortfallCap;
       const highTier = AUDIT_RISK_TIERS.find(t => t.key === 'HIGH');
       const tierRank = t => AUDIT_RISK_TIERS.indexOf(t); // 0 = Critical ... 3 = Low
 
@@ -12641,29 +12684,22 @@ html.page-fade-ready body {
         const effTrendPts = (effDelta !== null && effDelta < 0) ? Math.min(100, (-effDelta / 15) * 100) : 0;
         const statusPts = AUDIT_RISK_STATUS_POINTS.collection[b.collection];
         const hasStatus = statusPts !== undefined && statusPts !== null;
-        let effPts, hasEfficiencyFactor;
-        if (hasEff && effDelta !== null && hasStatus) {
-          effPts = effLevelPts * 0.55 + effTrendPts * 0.20 + statusPts * 0.25;
-          hasEfficiencyFactor = true;
-        } else if (hasEff && hasStatus) {
-          effPts = effLevelPts * 0.75 + statusPts * 0.25;
-          hasEfficiencyFactor = true;
-        } else if (hasEff) {
-          effPts = effDelta !== null ? (effLevelPts * 0.7 + effTrendPts * 0.3) : effLevelPts;
-          hasEfficiencyFactor = true;
-        } else if (hasStatus) {
-          // No % on file yet for this branch — the reported status alone
-          // still tells us something, so it carries the whole factor
-          // instead of the branch losing this weight entirely.
-          effPts = statusPts;
-          hasEfficiencyFactor = true;
-        } else {
-          effPts = 0;
-          hasEfficiencyFactor = false;
-        }
+        // Blend of up to four parts; a part with no data is dropped and the rest rescaled.
+        const hasAcctEff = ((b.accountsMay || 0) > 0 ? b.accountsMay : (b.accountsApr || 0)) > 0;
+        const shortfall = auditShortfallOf(b);
+        const shortfallPts = (shortfall / shortfallCap) * 100;
+        const effParts = [];
+        if (hasEff) effParts.push([effLevelPts, 0.40]);
+        if (hasEff && effDelta !== null) effParts.push([effTrendPts, 0.15]);
+        if (hasStatus) effParts.push([statusPts, 0.20]);
+        if (hasEff && hasAcctEff) effParts.push([Math.min(100, shortfallPts), 0.25]);
+        const effWSum = effParts.reduce((t, x) => t + x[1], 0);
+        const hasEfficiencyFactor = effWSum > 0;
+        const effPts = hasEfficiencyFactor ? effParts.reduce((t, x) => t + x[0] * x[1], 0) / effWSum : 0;
         add('efficiency', hasEfficiencyFactor, effPts,
             (hasEff ? (effNow + '% ' + (effSeries[2] > 0 ? 'latest' : 'most recent available') + ' efficiency'
-              + (effDelta !== null ? (', ' + (effDelta > 0 ? '+' : '') + effDelta + ' pts vs earliest month on record') : '')) : 'No efficiency % on file')
+              + (effDelta !== null ? (', ' + (effDelta > 0 ? '+' : '') + effDelta + ' pts vs earliest month on record') : '')
+              + (shortfall > 0 ? (', ~' + shortfall.toLocaleString() + ' accounts not collecting') : '')) : 'No efficiency % on file')
               + (hasStatus ? '; collection reported as ' + (b.collection || 'Stable') : ''),
             'Efficiency ' + effNow + '%' + (effDelta !== null && effDelta < 0 ? ' (falling)' : '') + ', collection ' + String(b.collection || 'Stable').toLowerCase());
 
@@ -12679,11 +12715,16 @@ html.page-fade-ready body {
         const repoHasTrend = hasAcct && repoSeries[0] > 0;
         const repoDelta = repoHasTrend ? repoSeries[2] - repoSeries[0] : null;
         const repoTrendPts = (repoDelta !== null && repoDelta > 0) ? Math.min(100, (repoDelta / 3) * 100) : 0;
-        const repoPts = repoHasTrend ? (repoLevelPts * 0.7 + repoTrendPts * 0.3) : repoLevelPts;
+        const repoCount = auditRepoCountOf(b);
+        const repoCountPts = Math.min(100, (repoCount / repoCap) * 100);
+        const repoParts = [[repoLevelPts, 0.40], [repoCountPts, 0.30]];
+        if (repoHasTrend) repoParts.push([repoTrendPts, 0.30]);
+        const repoWSum = repoParts.reduce((t, x) => t + x[1], 0);
+        const repoPts = repoParts.reduce((t, x) => t + x[0] * x[1], 0) / repoWSum;
         add('repo', hasAcct, repoPts,
-            hasAcct ? (repo.toFixed(2) + '% latest repo rate'
+            hasAcct ? (repo.toFixed(2) + '% latest repo rate, ' + repoCount + ' repossession' + (repoCount === 1 ? '' : 's')
               + (repoHasTrend ? (', ' + (repoDelta > 0 ? '+' : '') + repoDelta.toFixed(1) + ' pts vs earliest month on record') : '')) : 'No account data',
-            'Repo ' + repo.toFixed(1) + '%' + (repoDelta !== null && repoDelta > 0 ? ' (rising)' : ''));
+            'Repo ' + repo.toFixed(1) + '% (' + repoCount + ')' + (repoDelta !== null && repoDelta > 0 ? ' (rising)' : ''));
 
         add('sales', true, AUDIT_RISK_STATUS_POINTS.sales[b.sales] ?? 20,
             'Sales are ' + (b.sales || 'Stable'), 'Sales ' + String(b.sales || 'Stable').toLowerCase());
@@ -13290,6 +13331,8 @@ html.page-fade-ready body {
         ['', '', '', '', ''],
         ['Findings cap', '', '', cfg.findingsCap + ' weighted points score 100 on the Findings factor. Fixed and editable in Settings (not recalculated from whichever branches happen to be loaded).', ''],
         ['Portfolio-size cap', '', '', cfg.sizeCap + ' accounts score 100 on the Portfolio Size factor. Fixed and editable in Settings, same reason as above.', ''],
+        ['Repossession-count cap', '', '', cfg.repoCap + ' repossessions score 100 on the count part of the Repossessions factor. Fixed and editable in Settings.', ''],
+        ['Not-collecting accounts cap', '', '', cfg.shortfallCap + ' accounts not collecting (accounts x (100 - efficiency %)) score 100 on that part of Collection health. Fixed and editable in Settings.', ''],
         ['Risk tiers', '', '', 'Critical 70+, High 55-69, Medium 40-54, Low below 40. Any data red flag lifts a branch to at least High.', ''],
         ['Data red flags', '', '', AUDIT_RED_FLAGS.map(x => x.label).join('; ') + '. Any one qualifies a branch for scheduling whatever its score.', 'A weighted average can dilute one severe signal; these tripwires cannot be averaged away.'],
         ['Scheduling rules', '', '', 'Coverage rules (always scheduled): never audited; scheduled date passed without Done; no audit for ' + cfg.overdueDays + '+ days. Risk rule: risk score ' + cfg.minScore + '+ or any data red flag, and last audited at least ' + cfg.minGapDays + ' days ago. Suggested auditors never repeat the branch\'s most recent auditor when someone else is available; dates are per auditor, skip weekends/holidays and never overlap an audit they already have scheduled.', ''],
@@ -13586,25 +13629,25 @@ html.page-fade-ready body {
         return '<span class="text-[8.5px] text-accentAmber font-semibold" title="' + escapeHTML(bits.join(' ')) + '">⚠ check this</span>';
       };
 
+      const shownWeights = auditNormalizeWeights100(cfg.weights);
+      const weightsTotalNow = AUDIT_RISK_FACTORS.reduce((t, f) => t + shownWeights[f.key], 0);
       const weightInputs = AUDIT_RISK_FACTORS.map(f => {
-        const val = Number(cfg.weights[f.key]) || 0;
-        const pct = Math.round((val / weightSum) * 100);
+        const val = shownWeights[f.key];
         const info = corrInfo(f.key);
         const evidenceTip = f.key === 'findings'
           ? 'Not shown for Audit findings itself — comparing findings to findings would always show a perfect link, which is not meaningful.'
           : (info.text.match(/title="([^"]*)"/) || [])[1] || '';
         return `
           <div class="flex items-center gap-3 px-3 py-1.5" title="${escapeHTML(f.why)}">
-            <span class="w-2 h-2 rounded-full flex-shrink-0 ${info.dot}" title="${escapeHTML(evidenceTip)}"></span>
             <span class="text-[11px] font-semibold text-slate-700 w-28 sm:w-40 leading-tight">${escapeHTML(f.label)}</span>
             <input id="aa-ws-${f.key}" type="range" min="0" max="100" step="1" value="${val}"
               oninput="document.getElementById('aa-w-${f.key}').value=this.value; previewAuditRiskWeights();"
               title="Drag to change how much this factor counts" class="flex-1 h-1.5 accent-accentIndigo cursor-pointer">
-            <input id="aa-w-${f.key}" type="number" inputmode="decimal" min="0" max="100" step="1" value="${val}"
+            <input id="aa-w-${f.key}" type="number" inputmode="numeric" min="0" max="100" step="1" value="${val}"
               oninput="document.getElementById('aa-ws-${f.key}').value=this.value; previewAuditRiskWeights();"
               onkeydown="if(event.key==='Enter'){applyAllAuditAnalysisSettings()}"
-              title="Weight (points). Higher = counts for more of the score." class="w-11 px-1 py-1 border border-coolBorder rounded-md text-[11px] text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
-            <span id="aa-wpct-${f.key}" class="w-9 text-right text-[11px] font-extrabold text-accentIndigo whitespace-nowrap">${pct}%</span>
+              title="Percent of the score this factor counts for. All factors must add up to 100." class="w-12 px-1 py-1 border border-coolBorder rounded-md text-[11px] text-center focus:outline-none focus:ring-1 focus:ring-accentCyan">
+            <span class="w-5 text-left text-[11px] font-extrabold text-accentIndigo">%</span>
           </div>`;
       }).join('');
 
@@ -13766,7 +13809,15 @@ html.page-fade-ready body {
                   <span class="text-[11px] text-slate-600 leading-snug"><b class="block text-slate-800">Loan accounts that count as maximum size</b>A bigger loan book means more money at stake.</span>
                   <span class="flex items-center gap-1 shrink-0">${cfgInput('sizeCap', 1, 10000000)}<span class="text-[9px] text-slate-400">accts</span></span>
                 </label>
-                <button type="button" onclick="resetAuditRiskCaps()" title="Recompute both scales from the current portfolio's 90th percentile" class="px-2 py-1 text-[10px] font-bold bg-white border border-coolBorder rounded-md hover:bg-gray-100 active:scale-95 transition-all cursor-pointer">Re-set both automatically from current data</button>
+                <label class="flex items-start justify-between gap-3" title="Branches with this many repossessions or more score 100 on the repo-count part of the Repossessions factor.">
+                  <span class="text-[11px] text-slate-600 leading-snug"><b class="block text-slate-800">Repossessions that count as maximum</b>Number of repossessions (latest month) that scores the full 100 on the count part.</span>
+                  <span class="flex items-center gap-1 shrink-0">${cfgInput('repoCap', 1, 100000)}<span class="text-[9px] text-slate-400">repos</span></span>
+                </label>
+                <label class="flex items-start justify-between gap-3" title="Accounts not collecting = accounts × (100 − collection efficiency %).">
+                  <span class="text-[11px] text-slate-600 leading-snug"><b class="block text-slate-800">Accounts not collecting that count as maximum</b>Accounts × (100 − efficiency %). Makes the same efficiency % matter more at a bigger branch.</span>
+                  <span class="flex items-center gap-1 shrink-0">${cfgInput('shortfallCap', 1, 10000000)}<span class="text-[9px] text-slate-400">accts</span></span>
+                </label>
+                <button type="button" onclick="resetAuditRiskCaps()" title="Recompute all scales from the current portfolio's 90th percentile" class="px-2 py-1 text-[10px] font-bold bg-white border border-coolBorder rounded-md hover:bg-gray-100 active:scale-95 transition-all cursor-pointer">Re-set all automatically from current data</button>
               </div>
             </details>
 
@@ -13774,7 +13825,7 @@ html.page-fade-ready body {
             <div>
               <div class="flex items-center gap-1.5 mb-1">
                 <h4 class="text-[9.5px] font-bold text-slate-500 uppercase tracking-wider">How much each factor counts</h4>
-                <span class="text-[9.5px] text-slate-400 normal-case">— higher = counts more; the % beside each is calculated for you</span>
+                <span class="text-[9.5px] text-slate-400 normal-case">— set each factor's % of the score; the total must be 100%</span>
               </div>
               ${(a.overlap && a.overlap.length) ? `
               <div class="px-2.5 py-1.5 mb-1.5 rounded-lg bg-accentAmber/10 border border-accentAmber/25 text-[9.5px] text-slate-600 leading-relaxed">
@@ -13782,9 +13833,10 @@ html.page-fade-ready body {
                 ${a.overlap.map(p => `<span title="Pearson r = ${p.r.toFixed(2)} across ${p.n} branches with data in both factors — how closely these two factors' points moved together, not how either relates to findings.">${escapeHTML(p.labelA)} & ${escapeHTML(p.labelB)} move together (r=${p.r.toFixed(2)}, n=${p.n})</span>`).join('; ')} — consider lowering one or combining them into a single factor.
               </div>` : ''}
               <div class="divide-y divide-coolBorder border border-coolBorder rounded-lg bg-white overflow-hidden">${weightInputs}</div>
-              <p class="text-[9px] text-slate-400 leading-snug px-0.5 mt-1">Dot = match to real findings so far: <span class="text-accentEmerald font-semibold">green</span> strong, <span class="text-accentBlue font-semibold">blue</span> moderate, <span class="text-slate-400 font-semibold">grey</span> weak.</p>
+              
               <div class="flex flex-wrap items-center gap-2 pt-1.5">
-                <span id="aa-w-hint" class="hidden text-[9.5px] font-bold text-accentAmber">Preview only — press Save to apply.</span>
+                <span id="aa-w-total" class="inline-flex items-center px-2 py-1 rounded-md border text-[10px] font-extrabold whitespace-nowrap bg-accentEmerald/10 text-accentEmerald border-accentEmerald/30">✓ Total ${weightsTotalNow}% — ready to save</span>
+                <span id="aa-w-hint" class="hidden text-[9.5px] font-bold text-accentAmber">Not saved yet — press Save.</span>
                 <span class="ml-auto flex items-center gap-2">
                   <button type="button" onclick="suggestAuditRiskWeightsFromData()" title="Set weights proportional to each factor's correlation with actual findings" class="px-2 py-1 text-[9.5px] font-bold bg-accentIndigo/10 text-accentIndigo border border-accentIndigo/20 rounded-md hover:brightness-95 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Suggest from data</button>
                   <button type="button" onclick="resetAuditRiskWeights()" title="Re-derive weights from findings correlation; falls back to the original starting numbers only if there isn't enough audit history yet" class="px-2 py-1 text-[9.5px] font-bold bg-white border border-coolBorder rounded-md hover:bg-gray-100 active:scale-95 transition-all cursor-pointer whitespace-nowrap">Reset</button>
