@@ -7011,6 +7011,152 @@ html.page-fade-ready body {
         </div>`;
     }
 
+    // ---- Branch risk popup (opened by clicking a branch name in the KPI /
+    // Total Branches table). Shows the branch's row summary plus the full
+    // "Why this branch needs attention" score breakdown in its own popup on
+    // top of the list, with an Expand / Restore button and a link through to
+    // the full branch profile. It re-uses the hidden breakdown row that is
+    // already rendered in the table, so the numbers can never disagree.
+    (function () {
+      var STYLE_ID = 'branchRiskPopupStyle';
+      function ensureStyle() {
+        if (document.getElementById(STYLE_ID)) return;
+        var st = document.createElement('style');
+        st.id = STYLE_ID;
+        st.textContent =
+          '#branchRiskPopup{position:fixed;inset:0;z-index:75;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(15,23,42,.55);opacity:0;transition:opacity .2s ease}' +
+          '#branchRiskPopup.brp-show{opacity:1}' +
+          '#branchRiskPopup .brp-dialog{display:flex;flex-direction:column;width:100%;max-width:860px;max-height:88vh;background:#fff;border-radius:16px;box-shadow:0 25px 60px rgba(0,0,0,.35);overflow:hidden;transform:scale(.96);transition:transform .2s ease,max-width .25s ease,max-height .25s ease,border-radius .25s ease}' +
+          '#branchRiskPopup.brp-show .brp-dialog{transform:scale(1)}' +
+          '#branchRiskPopup.brp-expanded{padding:0}' +
+          '#branchRiskPopup.brp-expanded .brp-dialog{max-width:100vw;max-height:100vh;height:100vh;border-radius:0}' +
+          '#branchRiskPopup .brp-head{display:flex;align-items:center;gap:10px;padding:12px 16px;color:#fff;background:linear-gradient(90deg,#0b1a44,#16307a)}' +
+          '#branchRiskPopup .brp-title{font-size:18px;font-weight:800;line-height:1.1;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+          '#branchRiskPopup .brp-ibtn{display:inline-flex;align-items:center;justify-content:center;padding:6px 8px;border-radius:10px;color:#fff;background:transparent;border:0;cursor:pointer;font-size:11px;font-weight:700}' +
+          '#branchRiskPopup .brp-ibtn:hover{background:rgba(255,255,255,.15)}' +
+          '#branchRiskPopup .brp-body{overflow:auto;flex:1;padding:14px 16px;background:#fff}' +
+          '#branchRiskPopup .brp-meta{display:flex;flex-wrap:wrap;gap:8px 18px;padding:10px 12px;margin-bottom:12px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc}' +
+          '#branchRiskPopup .brp-meta > div{display:flex;flex-direction:column;gap:2px;min-width:110px}' +
+          '#branchRiskPopup .brp-meta .k{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#64748b}' +
+          '#branchRiskPopup .brp-meta .v{font-size:12px;font-weight:700;color:#1e293b}' +
+          '#branchRiskPopup .brp-detail{border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;padding:12px}' +
+          '#branchRiskPopup .brp-detail td{font-size:12px}' +
+          '#branchRiskPopup.brp-expanded .brp-body{padding:20px 28px}' +
+          '#branchRiskPopup.brp-expanded .brp-detail{padding:18px}' +
+          '#branchRiskPopup.brp-expanded .brp-detail table{font-size:13px}' +
+          '#branchRiskPopup.brp-expanded .brp-detail table th,#branchRiskPopup.brp-expanded .brp-detail table td{padding-top:8px;padding-bottom:8px}';
+        document.head.appendChild(st);
+      }
+      function esc(t) {
+        return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+      var ICON_EXPAND = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+      var ICON_COLLAPSE = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>';
+
+      window.openBranchRiskPopup = function (key) {
+        var detailTr = document.getElementById('audit-risk-detail-' + key);
+        if (!detailTr) return;
+        var mainTr = detailTr.previousElementSibling;
+        if (!mainTr) return;
+        var cells = mainTr.children;
+        var nameBtn = cells[1] && cells[1].querySelector('button');
+        var branchName = nameBtn ? (nameBtn.getAttribute('data-branch-name') || nameBtn.textContent.trim()) : 'Branch';
+        var txt = function (i) { return cells[i] ? cells[i].textContent.replace(/\s+/g, ' ').trim() : '—'; };
+
+        ensureStyle();
+        closeBranchRiskPopup(true);
+
+        // Score badge (copy of the table's badge, made non-interactive).
+        var badgeHtml = '';
+        var badge = cells[3] && cells[3].querySelector('button');
+        if (badge) {
+          var bc = badge.cloneNode(true);
+          bc.removeAttribute('onclick'); bc.removeAttribute('title'); bc.style.cursor = 'default';
+          var caret = bc.querySelector('span:last-child');
+          if (caret && caret.textContent.trim() === '▾') caret.remove();
+          badgeHtml = bc.outerHTML;
+        }
+        var reasonHtml = cells[2] ? cells[2].innerHTML : '';
+        var actionBtn = cells[8] && cells[8].querySelector('button');
+        var actionHtml = '';
+        if (actionBtn) {
+          var ac = actionBtn.cloneNode(true);
+          ac.setAttribute('onclick', 'closeBranchRiskPopup(true);' + (actionBtn.getAttribute('onclick') || ''));
+          actionHtml = ac.outerHTML;
+        }
+
+        // The breakdown itself — the same markup as the table's expandable row.
+        var detailHtml = detailTr.firstElementChild ? detailTr.firstElementChild.innerHTML : '';
+
+        var overlay = document.createElement('div');
+        overlay.id = 'branchRiskPopup';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-label', branchName + ' risk breakdown');
+        overlay.innerHTML =
+          '<div class="brp-dialog">' +
+            '<div class="brp-head">' +
+              '<div class="brp-title">' + esc(branchName) + '</div>' +
+              '<button type="button" class="brp-ibtn" data-brp="profile" title="Open full branch profile">Full profile</button>' +
+              '<button type="button" class="brp-ibtn" data-brp="expand" title="Expand" aria-label="Expand">' + ICON_EXPAND + '</button>' +
+              '<button type="button" class="brp-ibtn" data-brp="close" title="Close" aria-label="Close"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>' +
+            '</div>' +
+            '<div class="brp-body custom-scrollbar">' +
+              '<div class="brp-meta">' +
+                '<div><span class="k">Risk score</span><span class="v">' + badgeHtml + '</span></div>' +
+                '<div><span class="k">Schedule status</span><span class="v">' + reasonHtml + '</span></div>' +
+                '<div><span class="k">Last audited</span><span class="v">' + esc(txt(4)) + '</span></div>' +
+                '<div><span class="k">Days since</span><span class="v">' + esc(txt(5)) + '</span></div>' +
+                '<div><span class="k">Assigned auditor</span><span class="v">' + esc(txt(6)) + '</span></div>' +
+                '<div><span class="k">Suggested date</span><span class="v">' + esc(txt(7)) + '</span></div>' +
+                (actionHtml ? '<div style="justify-content:flex-end;margin-left:auto">' + actionHtml + '</div>' : '') +
+              '</div>' +
+              '<div class="brp-detail">' + detailHtml + '</div>' +
+            '</div>' +
+          '</div>';
+
+        overlay.addEventListener('click', function (e) {
+          if (e.target === overlay) { closeBranchRiskPopup(); return; }
+          var b = e.target.closest ? e.target.closest('[data-brp]') : null;
+          if (!b) return;
+          var act = b.getAttribute('data-brp');
+          if (act === 'close') closeBranchRiskPopup();
+          else if (act === 'expand') toggleBranchRiskPopupExpand();
+          else if (act === 'profile') {
+            closeBranchRiskPopup(true);
+            if (typeof openModalDetail === 'function') openModalDetail(branchName);
+          }
+        });
+        document.body.appendChild(overlay);
+        requestAnimationFrame(function () { overlay.classList.add('brp-show'); });
+      };
+
+      window.toggleBranchRiskPopupExpand = function () {
+        var o = document.getElementById('branchRiskPopup');
+        if (!o) return;
+        var on = o.classList.toggle('brp-expanded');
+        var b = o.querySelector('[data-brp="expand"]');
+        if (b) { b.innerHTML = on ? ICON_COLLAPSE : ICON_EXPAND; b.title = on ? 'Restore' : 'Expand'; b.setAttribute('aria-label', b.title); }
+      };
+
+      window.closeBranchRiskPopup = function (instant) {
+        var o = document.getElementById('branchRiskPopup');
+        if (!o) return;
+        if (instant === true) { o.remove(); return; }
+        o.classList.remove('brp-show');
+        setTimeout(function () { if (o.parentNode) o.remove(); }, 200);
+      };
+
+      // Escape closes just this popup (capture phase, so the underlying
+      // Total Branches modal stays open).
+      document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        if (!document.getElementById('branchRiskPopup')) return;
+        e.stopImmediatePropagation();
+        closeBranchRiskPopup();
+      }, true);
+    })();
+
     // Executive Summary KPI tiles (Total Branches, Critical/High Risk, etc.)
     // — instead of filtering the Priority Audit Queue table further down the
     // page, each tile pops up its own copy of that same table (same columns,
@@ -7076,7 +7222,7 @@ html.page-fade-ready body {
           return `
           <tr class="${idx % 2 === 1 ? 'bg-gray-50/50' : ''} hover:bg-accentCyan/10 transition-colors">
             <td class="p-1.5 text-center"><span class="text-[10px] font-bold text-slate-400">${idx + 1}</span></td>
-            <td class="p-1.5 text-xs leading-tight"><button type="button" data-aa-kind="branch" data-aa-value="${escapeHTML(row.b.name)}" title="Open ${escapeHTML(row.b.name)}'s detailed profile" class="font-bold text-slate-800 text-left break-words hover:text-accentCyan hover:underline underline-offset-2 cursor-pointer">${escapeHTML(row.b.name)}</button></td>
+            <td class="p-1.5 text-xs leading-tight"><button type="button" onclick="openBranchRiskPopup('kpi-${idx}')" title="See why ${escapeHTML(row.b.name)} needs attention" class="font-bold text-slate-800 text-left break-words hover:text-accentCyan hover:underline underline-offset-2 cursor-pointer" data-branch-name="${escapeHTML(row.b.name)}">${escapeHTML(row.b.name)}</button></td>
             <td class="p-1.5 text-center"><span class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-${tint}/10 text-${tint} rounded-md border border-${tint}/20 leading-tight whitespace-nowrap">${escapeHTML(row.reason)}</span></td>
             <td class="p-1.5 text-center">
               <button type="button" onclick="toggleAuditRiskDetail('kpi-${idx}')" title="Click to see exactly how this score was calculated" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-${tierTint}/10 border border-${tierTint}/20 text-${tierTint} hover:brightness-95 active:scale-95 transition-all cursor-pointer">
@@ -7139,6 +7285,42 @@ html.page-fade-ready body {
       </table>`;
     }
 
+    // Live branch search for the Total Branches / KPI list popup. Hides
+    // non-matching rows (and their expandable breakdown row) in place, so
+    // the original priority numbers stay and the search box keeps focus.
+    function filterKpiBranchRows(query) {
+      const q = String(query || '').trim().toLowerCase();
+      const body = document.getElementById('modalBody') || document;
+      const rows = body.querySelectorAll('tr[id^="audit-risk-detail-kpi-"]');
+      let shown = 0, total = 0;
+      rows.forEach(detailTr => {
+        const mainTr = detailTr.previousElementSibling;
+        if (!mainTr) return;
+        total++;
+        const nameBtn = mainTr.querySelector('[data-branch-name]');
+        const name = (nameBtn ? nameBtn.getAttribute('data-branch-name') : mainTr.children[1].textContent).toLowerCase();
+        const match = !q || name.indexOf(q) !== -1;
+        mainTr.style.display = match ? '' : 'none';
+        detailTr.style.display = match ? '' : 'none';
+        if (match) shown++;
+      });
+      const cnt = document.getElementById('kpiBranchSearchCount');
+      if (cnt) cnt.textContent = q ? shown + ' of ' + total : '';
+      const table = rows.length ? rows[0].closest('table') : null;
+      let empty = document.getElementById('kpiBranchSearchEmpty');
+      if (table && q && shown === 0) {
+        if (!empty) {
+          empty = document.createElement('div');
+          empty.id = 'kpiBranchSearchEmpty';
+          empty.className = 'p-5 text-center text-sm text-slate-500 font-semibold bg-gray-50 border-t border-coolBorder';
+          table.parentNode.appendChild(empty);
+        }
+        empty.textContent = 'No branch matches "' + String(query).trim() + '".';
+      } else if (empty) {
+        empty.remove();
+      }
+    }
+
     function renderAuditKpiListModal(bucket, modalBody) {
       const escapeHTML = str => {
           if (str === null || str === undefined || str === '') return '';
@@ -7156,6 +7338,11 @@ html.page-fade-ready body {
             <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Showing</span>
             <button type="button" onclick="modalGoBack()" title="Back to Executive Summary" class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold bg-accentIndigo/10 text-accentIndigo border border-accentIndigo/20 rounded-full hover:brightness-95 active:scale-95 cursor-pointer whitespace-nowrap">${escapeHTML(chipLabel)} <span aria-hidden="true">✕</span></button>
             <button type="button" onclick="modalGoBack()" class="px-2 py-0.5 text-[10px] font-bold bg-white border border-coolBorder rounded-full hover:bg-gray-100 active:scale-95 cursor-pointer whitespace-nowrap">Clear all</button>
+            <div class="relative ml-auto w-full sm:w-64">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <input id="kpiBranchSearch" type="search" autocomplete="off" placeholder="Search branch…" aria-label="Search branch" oninput="filterKpiBranchRows(this.value)" class="w-full pl-8 pr-2 py-1 text-xs font-semibold text-slate-700 bg-white border border-coolBorder rounded-full focus:outline-none focus:ring-2 focus:ring-accentCyan/40 focus:border-accentCyan" />
+            </div>
+            <span id="kpiBranchSearchCount" class="text-[10px] font-semibold text-slate-500 whitespace-nowrap"></span>
           </div>`;
 
       const tableHtml = table.rows.length
@@ -7169,6 +7356,7 @@ html.page-fade-ready body {
           ${tableHtml}
         </div>`;
       bindAuditAnalysisClicks(modalBody);
+      filterKpiBranchRows('');
     }
 
     function openModal(title, type, filterValue, navOpts) {
@@ -9164,6 +9352,7 @@ html.page-fade-ready body {
     }
 
     function closeModal() {
+      if (typeof closeBranchRiskPopup === 'function') closeBranchRiskPopup(true);
       // Both floating overlays are parented to <body>, not to the modal,
       // so they'd otherwise linger on screen after the popup is dismissed.
       if (typeof closeAssignmentStatusDropdown === 'function') closeAssignmentStatusDropdown();
