@@ -1,6 +1,9 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v21';
+const CACHE_VERSION = 'audit-dashboard-v22';
+// v22: Rating Rules & Manual Settings: nothing changes until "Save changes" is pressed, and saving now
+//  asks for the owner's password (only the account flagged ratingRules in Code.gs can save). Bumped so
+//  installed apps refetch index.html.
 // v21: Rating Rules & Manual Settings: new "Data scales" tab, extra red-flag and queue rules, and faster
 //  live cross-device sync (5 s while open, 20 s in the background, instant on focus/online). Bumped so
 //  installed apps refetch index.html.

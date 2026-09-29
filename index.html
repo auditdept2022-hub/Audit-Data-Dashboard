@@ -5595,6 +5595,36 @@ html.page-fade-ready body {
     </div>
   </div>
 
+  <!-- ================= RATING RULES SAVE — PASSWORD GATE =================
+       "Save changes" in Audit Risk & Schedule Analysis > Rating Rules & Manual Settings asks for
+       the signed-in owner's password first. Sits above the Rating Rules sheet (z-index 99999). -->
+  <div id="ratingRulesPasswordModal" class="fixed inset-0 hidden" style="z-index:100001">
+    <div class="absolute inset-0 bg-slate-900/70"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+      <div class="bg-coolCard w-full max-w-xs rounded-2xl shadow-2xl p-5 pointer-events-auto border border-coolBorder">
+        <div class="flex items-start justify-between gap-3 mb-1">
+          <div class="flex items-center gap-2 min-w-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-royalBlue flex-shrink-0"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            <h3 class="text-sm font-bold text-slate-800 truncate">Confirm Your Password</h3>
+          </div>
+          <button onclick="cancelRatingRulesPassword()" title="Close" aria-label="Close" class="p-2 -mr-2 text-slate-400 hover:text-accentRose hover:bg-accentRose/10 active:scale-95 rounded-xl transition-all cursor-pointer flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+          </button>
+        </div>
+        <p class="text-xs text-slate-500 mb-1">Re-enter your account password to save the rating rules. This changes how every branch is rated on all devices.</p>
+        <p class="text-[11px] text-slate-400 mb-3">Signed in as <span id="ratingRulesPasswordUserLabel" class="font-semibold text-slate-500">\u2014</span></p>
+        <input id="ratingRulesPasswordInput" type="password" autocomplete="current-password" placeholder="Your password" onkeydown="if(event.key==='Enter'){submitRatingRulesPassword();}" class="w-full px-3 py-2 rounded-xl border border-coolBorder text-sm focus:outline-none focus:ring-2 focus:ring-accentBlue/40 mb-1" />
+        <p id="ratingRulesPasswordError" class="text-[11px] text-accentRose mb-1 hidden">Incorrect password. Try again.</p>
+        <div class="flex gap-2 mt-3">
+          <button onclick="cancelRatingRulesPassword()" class="flex-1 text-xs font-semibold text-slate-500 hover:text-slate-700 py-2 rounded-xl border border-coolBorder cursor-pointer">Cancel</button>
+          <button id="ratingRulesPasswordSubmitBtn" onclick="submitRatingRulesPassword()" class="flex-1 text-xs font-semibold text-white bg-royalBlue hover:bg-blue-700 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-60">
+            <span id="ratingRulesPasswordSubmitLabel">Unlock &amp; Save</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ================= CONFIRM / "ARE YOU SURE" MODAL =================
        Reused for two situations:
        1) Clicking Log out (header button or side-menu button)
@@ -12057,6 +12087,9 @@ html.page-fade-ready body {
       deferredPush: false, // a push was requested before everPulled and is waiting to be retried
       bgTimer: null,       // background poll while the popup is closed (see auditSyncStartBackground)
       draftDirty: false,   // the Rating Rules panel holds typed-but-unsaved changes (never overwritten by a remote change)
+      canEditRules: false, // server says THIS account may save the shared rating rules (Code.gs ACCESS_CONFIG ratingRules flag)
+      rulesPush: false,    // the next push is an explicit, password-confirmed "Save changes" of the rating rules
+      draftSource: '',     // where the draft weights came from ('data' / 'default' / '' = typed by hand)
       remoteNotified: false, // already told the person that another device saved while they had a draft
       updatedBy: '',       // who saved the version this device is showing
       lastChangeByMe: false,
@@ -12124,8 +12157,9 @@ html.page-fade-ready body {
         if (clean.weightsSource) { try { localStorage.setItem(AUDIT_RISK_WEIGHTS_SOURCE_KEY, clean.weightsSource); } catch (e) {} }
       }
       cfg.expandBranch = null;
-      auditSync.lastJson = clean.legacy ? '' : JSON.stringify(auditSyncSnapshot(cfg));
-      if (clean.legacy) { setTimeout(function () { try { auditSyncSchedulePush(); } catch (e) {} }, 0); }
+      // Rating rules are only ever written by an explicit, password-confirmed "Save changes",
+      // so an out-of-date shared view is NOT silently re-pushed here.
+      auditSync.lastJson = JSON.stringify(auditSyncSnapshot(cfg));
       return true;
     }
 
@@ -12177,6 +12211,7 @@ html.page-fade-ready body {
         if (json && json.error && /unauthor/i.test(String(json.error))) { auditSync.readOnly = true; }
         if (!json || json.error || !json.success) { auditSync.lastError = (json && json.error) ? String(json.error) : 'no answer'; return; } // failed: do NOT mark as pulled, so nothing local can overwrite the server
         pullOk = true;
+        auditSync.canEditRules = !!json.canEditRules;
         auditSync.lastOkAt = Date.now(); auditSync.lastError = '';
         const ver = Number(json.version) || 0;
         if (json.unchanged) { auditSync.serverHasState = true; return; }
@@ -12253,25 +12288,30 @@ html.page-fade-ready body {
       auditSync.pushTimer = null;
       if (auditSync.pushing) { auditSync.pushTimer = setTimeout(auditSyncPush, AUDIT_SYNC_PUSH_DEBOUNCE_MS); return; }
       const json = JSON.stringify(auditSyncSnapshot(window.auditAnalysisState));
-      if (json === auditSync.lastJson) { auditSync.pendingPush = false; return; }
+      if (json === auditSync.lastJson) { auditSync.pendingPush = false; auditSync.rulesPush = false; return; }
       auditSync.pushing = true;
-      let ok = false, revert = false, retryLater = false;
+      const withRules = !!auditSync.rulesPush;
+      let ok = false, revert = false, retryLater = false, rulesDenied = false, rulesMsg = '';
       try {
-        const url = await auditSyncUrl('saveAnalysisState', { state: json });
+        const extra = { state: json };
+        if (withRules) extra.rules = '1';
+        const url = await auditSyncUrl('saveAnalysisState', extra);
         if (!url) return;
         const res = await fetchSheetOnce(url);
         if (res && res.error) {
-          if (/unauthor/i.test(String(res.error))) { auditSync.readOnly = true; revert = true; } // e.g. team-wide mode + non-editor
+          if (/rating rules/i.test(String(res.error))) { rulesDenied = true; rulesMsg = String(res.error); }
+          else if (/unauthor/i.test(String(res.error))) { auditSync.readOnly = true; revert = true; } // e.g. team-wide mode + non-editor
           throw new Error(res.error);
         }
         if (!res || !res.success) throw new Error('save did not complete');
         auditSync.version = Number(res.version) || auditSync.version;
         auditSync.lastJson = json;
         auditSync.lastOkAt = Date.now(); auditSync.lastError = ''; auditSync.lastChangeByMe = true;
+        if (withRules) auditSync.rulesPush = false;
         ok = true;
       } catch (err) {
         auditSync.lastError = String(err && err.message ? err.message : err);
-        if (!revert) retryLater = true; // network / server hiccup: try again shortly instead of waiting for the next edit
+        if (!revert && !rulesDenied) retryLater = true; // network / server hiccup: try again shortly instead of waiting for the next edit
         console.warn('[analysis-sync] push failed:', err && err.message ? err.message : err);
       } finally {
         auditSync.pushing = false;
@@ -12279,6 +12319,12 @@ html.page-fade-ready body {
         // Changed again while this request was in flight -> send that too.
         if (ok && JSON.stringify(auditSyncSnapshot(window.auditAnalysisState)) !== auditSync.lastJson) auditSyncSchedulePush();
         if (retryLater) setTimeout(function () { try { auditSyncSchedulePush(); } catch (e) {} }, 5000);
+        if (rulesDenied) {
+          // The server refused to change the rating rules: drop the request and show the shared rules again.
+          auditSync.rulesPush = false; auditSync.canEditRules = false; auditSync.lastError = '';
+          try { if (typeof showToast === 'function' && document.getElementById('toast')) showToast(rulesMsg || 'Only the rating-rules owner can save rating rules.', 'error'); } catch (e) {}
+          auditSyncPull(true);
+        }
         if (revert) {
           // This account may not change the shared rules: put the shared version back on screen.
           try { if (typeof showToast === 'function' && document.getElementById('toast')) showToast('Only editor accounts can change the shared rating rules. Your change was not kept.', 'error'); } catch (e) {}
@@ -12291,7 +12337,7 @@ html.page-fade-ready body {
     // Send a saved change right now (Save changes) instead of waiting for the short debounce.
     function auditSyncPushNow() {
       if (auditSync.readOnly || !auditSync.everPulled) { auditSyncSchedulePush(); return; }
-      if (JSON.stringify(auditSyncSnapshot(window.auditAnalysisState)) === auditSync.lastJson) return;
+      if (JSON.stringify(auditSyncSnapshot(window.auditAnalysisState)) === auditSync.lastJson) { auditSync.rulesPush = false; return; }
       auditSync.pendingPush = true;
       if (auditSync.pushTimer) { clearTimeout(auditSync.pushTimer); auditSync.pushTimer = null; }
       auditSyncPush();
@@ -12312,6 +12358,14 @@ html.page-fade-ready body {
       return { k: 'busy', t: 'Connecting\u2026' };
     }
     function auditSyncUpdateStatus() {
+      const sb = document.getElementById('rr-save-btn');
+      if (sb) {
+        const locked = !!(auditSync.readOnly || !auditSync.canEditRules);
+        sb.disabled = locked;
+        sb.title = locked ? 'Only the rating-rules owner account can save rating rules' : 'Save the rating rules (asks for your password)';
+        const lk = document.getElementById('rr-lock');
+        if (lk) lk.style.display = locked ? 'inline-flex' : 'none';
+      }
       const el = document.getElementById('rr-sync');
       if (!el) return;
       const st = auditSyncStatus();
@@ -12378,7 +12432,7 @@ html.page-fade-ready body {
       auditSync.version = 0; auditSync.lastJson = null;
       auditSync.pendingPush = false; auditSync.pushing = false; auditSync.pulling = false; auditSync.readOnly = false;
       auditSync.everPulled = false; auditSync.deferredPush = false; auditSync.serverHasState = false;
-      auditSync.draftDirty = false; auditSync.remoteNotified = false; auditSync.updatedBy = ''; auditSync.lastOkAt = 0; auditSync.lastError = ''; auditSync.lastChangeByMe = false;
+      auditSync.draftDirty = false; auditSync.remoteNotified = false; auditSync.canEditRules = false; auditSync.rulesPush = false; auditSync.draftSource = ''; auditSync.updatedBy = ''; auditSync.lastOkAt = 0; auditSync.lastError = ''; auditSync.lastChangeByMe = false;
       const cfg = window.auditAnalysisState;
       if (cfg) {
         cfg.overdueDays = 365; cfg.spacingDays = 3; cfg.minScore = 55; cfg.minGapDays = 60;
@@ -12486,6 +12540,7 @@ html.page-fade-ready body {
     // Live preview of each factor's % share while typing — nothing is
     // applied until OK.
     function previewAuditRiskWeights() {
+      auditSync.draftSource = ''; // typed by hand (Use recommended / Suggest from data set this again right after)
       const w = readAuditWeightInputs();
       const total = AUDIT_RISK_FACTORS.reduce((sum, f) => sum + ((isFinite(w[f.key]) && w[f.key] >= 0) ? w[f.key] : 0), 0);
       const el = document.getElementById('aa-w-total');
@@ -12601,7 +12656,7 @@ html.page-fade-ready body {
         box.innerHTML = auditPreviewPillsHtml(res.counts, res.queue, now);
       } catch (e) { box.innerHTML = '<span class="rr-prev-msg">Preview is not available right now.</span>'; }
     }
-    function auditDiscardDraft() { auditSync.draftDirty = false; auditSync.remoteNotified = false; refreshAuditAnalysis(false); }
+    function auditDiscardDraft() { auditSync.draftDirty = false; auditSync.remoteNotified = false; auditSync.draftSource = ''; refreshAuditAnalysis(false); }
     function auditDraftChanged() {
       auditSync.draftDirty = true;
       const hint = document.getElementById('aa-w-hint'); if (hint) hint.classList.remove('hidden');
@@ -12613,12 +12668,16 @@ html.page-fade-ready body {
       auditDraftChanged._t = setTimeout(auditRenderDraftPreview, 150);
     }
 
-    // Single "Save changes" applies every number, switch and weight together. If any
-    // field is invalid nothing is changed and all problems are reported at once.
+    // Single "Save changes": nothing in the Rating Rules panel changes any data until this is pressed.
+    // Step 1 (here): check the draft and, if it is valid, ask the owner to confirm their password.
+    // Step 2 (performApplyAllAuditAnalysisSettings): only after the password is confirmed are the
+    // numbers, switches and weights applied and sent to the server, which re-checks that the account
+    // is allowed to change rating rules (Code.gs -> ACCESS_CONFIG "ratingRules").
+    let pendingRatingRules = null; // { vals, w } awaiting password confirmation
     function applyAllAuditAnalysisSettings() {
       const cfg = window.auditAnalysisState;
-      if (auditSync.readOnly) {
-        cfg.notice = { type: 'error', text: 'Only editor accounts can change the shared rating rules. Nothing was changed.' };
+      if (auditSync.readOnly || !auditSync.canEditRules) {
+        cfg.notice = { type: 'error', text: 'Only the rating-rules owner account can save rating rules. Nothing was changed.' };
         cfg.weightsOpen = true;
         auditSync.draftDirty = false;
         refreshAuditAnalysis(false);
@@ -12638,36 +12697,105 @@ html.page-fade-ready body {
       }
 
       if (problems.length) {
-        cfg.notice = { type: 'error', text: problems.join(' ') + ' Nothing was changed.' };
-      } else {
-        Object.keys(rd.vals).forEach(function (k) { cfg[k] = rd.vals[k]; });
-        const before = auditNormalizeWeights100(cfg.weights);
-        const changed = AUDIT_RISK_FACTORS.some(f => Math.abs(w[f.key] - before[f.key]) > 0.001);
-        cfg.weights = w;
-        if (changed) {
-          cfg.weightsSource = 'custom';
-          saveAuditRiskWeightsSource('custom');
-        }
-        try { localStorage.setItem(AUDIT_RISK_WEIGHTS_KEY, JSON.stringify(w)); } catch (e) {}
-        cfg.notice = { type: 'ok', text: 'Saved. Every branch has been re-rated, and your other devices are being updated now.' };
-        auditSync.draftDirty = false; auditSync.remoteNotified = false;
+        // Shown without touching the draft, so nothing typed is lost and nothing is changed.
+        const box = document.getElementById('rr-prev-body');
+        if (typeof showToast === 'function' && document.getElementById('toast')) { try { showToast(problems[0] + ' Nothing was changed.', 'error'); } catch (e) {} }
+        if (box) box.innerHTML = '<span class="rr-prev-msg">' + escapeHTML(problems.join(' ')) + '</span>';
+        return;
       }
-      cfg.weightsOpen = true;
-      refreshAuditAnalysis(false);
-      if (!problems.length) auditSyncPushNow();
+      pendingRatingRules = { vals: rd.vals, w: w };
+      openRatingRulesPasswordGate();
     }
 
-    // "Use recommended" puts back the recommended split (see AUDIT_RISK_FACTORS, adds up to 100%).
-    function resetAuditRiskWeights() {
+    function performApplyAllAuditAnalysisSettings(vals, w) {
       const cfg = window.auditAnalysisState;
-      const w = defaultAuditRiskWeights();
+      Object.keys(vals).forEach(function (k) { cfg[k] = vals[k]; });
+      const before = auditNormalizeWeights100(cfg.weights);
+      const changed = AUDIT_RISK_FACTORS.some(f => Math.abs(w[f.key] - before[f.key]) > 0.001);
       cfg.weights = w;
-      cfg.weightsSource = 'default';
+      if (changed || (auditSync.draftSource && auditSync.draftSource !== cfg.weightsSource)) {
+        const src = auditSync.draftSource || 'custom';
+        cfg.weightsSource = src;
+        saveAuditRiskWeightsSource(src);
+      }
       try { localStorage.setItem(AUDIT_RISK_WEIGHTS_KEY, JSON.stringify(w)); } catch (e) {}
-      saveAuditRiskWeightsSource('default');
-      cfg.notice = { type: 'ok', text: 'Recommended weights restored (they add up to 100%). Every score has been recalculated.' };
+      cfg.notice = { type: 'ok', text: 'Saved. Every branch has been re-rated, and your other devices are being updated now.' };
+      auditSync.draftDirty = false; auditSync.remoteNotified = false; auditSync.draftSource = '';
+      auditSync.rulesPush = true; // this push (and only this kind of push) is allowed to change the shared rating rules
       cfg.weightsOpen = true;
       refreshAuditAnalysis(false);
+      auditSyncPushNow();
+    }
+
+    function ratingRulesPasswordErrorText(reason) {
+      return (typeof editAssignPasswordErrorMessage === 'function') ? editAssignPasswordErrorMessage(reason) : 'Incorrect password. Try again.';
+    }
+    function setRatingRulesPasswordSubmitting(isSubmitting) {
+      const btn = document.getElementById('ratingRulesPasswordSubmitBtn');
+      const label = document.getElementById('ratingRulesPasswordSubmitLabel');
+      const input = document.getElementById('ratingRulesPasswordInput');
+      if (btn) btn.disabled = isSubmitting;
+      if (input) input.disabled = isSubmitting;
+      if (label) label.textContent = isSubmitting ? 'Verifying\u2026' : 'Unlock & Save';
+    }
+    function openRatingRulesPasswordGate() {
+      const modal = document.getElementById('ratingRulesPasswordModal');
+      const input = document.getElementById('ratingRulesPasswordInput');
+      const err = document.getElementById('ratingRulesPasswordError');
+      const userLabel = document.getElementById('ratingRulesPasswordUserLabel');
+      if (!modal || !input) { pendingRatingRules = null; return; }
+      err.classList.add('hidden');
+      input.value = '';
+      if (userLabel) userLabel.textContent = (typeof window.getCurrentUserEmail === 'function' && window.getCurrentUserEmail()) || 'unknown user';
+      setRatingRulesPasswordSubmitting(false);
+      modal.classList.remove('hidden');
+      setTimeout(function () { input.focus(); }, 50);
+    }
+    window.cancelRatingRulesPassword = function () {
+      const modal = document.getElementById('ratingRulesPasswordModal');
+      if (modal) modal.classList.add('hidden');
+      pendingRatingRules = null;
+    };
+    window.submitRatingRulesPassword = async function () {
+      const pending = pendingRatingRules;
+      const input = document.getElementById('ratingRulesPasswordInput');
+      const err = document.getElementById('ratingRulesPasswordError');
+      if (!pending || !input) { window.cancelRatingRulesPassword(); return; }
+      if (typeof window.reauthenticateCurrentUser !== 'function') {
+        err.textContent = 'Password check is unavailable right now.';
+        err.classList.remove('hidden');
+        return;
+      }
+      setRatingRulesPasswordSubmitting(true);
+      const result = await window.reauthenticateCurrentUser(input.value);
+      if (!result || !result.ok) {
+        setRatingRulesPasswordSubmitting(false);
+        err.textContent = ratingRulesPasswordErrorText(result && result.reason);
+        err.classList.remove('hidden');
+        input.value = '';
+        input.focus();
+        return;
+      }
+      const modal = document.getElementById('ratingRulesPasswordModal');
+      if (modal) modal.classList.add('hidden');
+      pendingRatingRules = null;
+      setRatingRulesPasswordSubmitting(false);
+      performApplyAllAuditAnalysisSettings(pending.vals, pending.w);
+    };
+
+    // "Use recommended" only fills the boxes with the recommended split (adds up to 100%).
+    // Nothing is applied or synced until "Save changes" is pressed.
+    function resetAuditRiskWeights() {
+      const w = defaultAuditRiskWeights();
+      AUDIT_RISK_FACTORS.forEach(f => {
+        const n = document.getElementById('aa-w-' + f.key), sl = document.getElementById('aa-ws-' + f.key);
+        if (n) n.value = w[f.key];
+        if (sl) sl.value = w[f.key];
+      });
+      previewAuditRiskWeights();
+      auditDraftChanged();
+      auditSync.draftSource = 'default';
+      try { if (typeof showToast === 'function' && document.getElementById('toast')) showToast('Recommended weights loaded. Press Save changes to apply them.', 'success'); } catch (e) {}
     }
 
     // "Balance to 100%": keeps the proportions you typed and scales them so the total is exactly 100.
@@ -12692,7 +12820,7 @@ html.page-fade-ready body {
     function toggleAuditSettings() {
       const cfg = window.auditAnalysisState;
       const open = !(cfg.settingsOpen || cfg.weightsOpen);
-      auditSync.draftDirty = false; auditSync.remoteNotified = false;
+      auditSync.draftDirty = false; auditSync.remoteNotified = false; auditSync.draftSource = '';
       cfg.settingsOpen = open; cfg.weightsOpen = open;
       refreshAuditAnalysis(false);
       const body = document.getElementById('modalBody');
@@ -13194,21 +13322,21 @@ html.page-fade-ready body {
     // Button handler: explicitly (re)derive weights from the current
     // portfolio's correlation with real findings and apply them right away.
     function suggestAuditRiskWeightsFromData() {
+      // Fills the boxes only. Nothing is applied or synced until "Save changes" is pressed.
       const cfg = window.auditAnalysisState;
       const branches = activeData.branches || [];
       const rows = branches.map(b => ({ b, info: getBranchAuditRoundInfo(b) }));
       computeAuditRiskScores(rows, cfg);
       const result = computeDataDrivenAuditRiskWeights(rows, cfg);
-      cfg.weights = result.weights;
-      cfg.weightsSource = 'data';
-      try { localStorage.setItem(AUDIT_RISK_WEIGHTS_KEY, JSON.stringify(result.weights)); } catch (e) {}
-      saveAuditRiskWeightsSource('data');
-      const overlapNote = (result.overlap && result.overlap.length)
-        ? ' ' + result.overlap.length + ' overlapping pair' + (result.overlap.length > 1 ? 's' : '') + ' (' + result.overlap.map(p => p.labelA + ' \u2194 ' + p.labelB).join(', ') + ') were discounted so that signal isn\u2019t paid for twice \u2014 see the overlap check below.'
-        : '';
-      cfg.notice = { type: 'ok', text: 'Weights set from each factor\u2019s correlation with actual findings across ' + rows.length + ' branches (r shown next to each factor below).' + overlapNote + ' Review, then press OK to keep them.' };
-      cfg.weightsOpen = true;
-      refreshAuditAnalysis(false);
+      AUDIT_RISK_FACTORS.forEach(f => {
+        const n = document.getElementById('aa-w-' + f.key), sl = document.getElementById('aa-ws-' + f.key);
+        if (n) n.value = result.weights[f.key];
+        if (sl) sl.value = result.weights[f.key];
+      });
+      previewAuditRiskWeights();
+      auditDraftChanged();
+      auditSync.draftSource = 'data';
+      try { if (typeof showToast === 'function' && document.getElementById('toast')) showToast('Weights suggested from ' + rows.length + ' branches\u2019 findings. Review them, then press Save changes.', 'success'); } catch (e) {}
     }
 
 
@@ -14691,7 +14819,8 @@ html.page-fade-ready body {
             <span id="aa-w-hint" class="hidden rr-unsaved">Not saved yet</span>
             <span class="rr-foot-btns">
               <button type="button" class="rr-btn" onclick="auditDiscardDraft()">Discard</button>
-              <button type="button" class="rr-btn rr-btn-p" onclick="applyAllAuditAnalysisSettings()" ${auditSync.readOnly ? 'disabled title="Only editor accounts can change the shared rules"' : ''}>Save changes</button>
+              <span id="rr-lock" class="rr-unsaved" style="display:${(auditSync.readOnly || !auditSync.canEditRules) ? 'inline-flex' : 'none'}">🔒 Only the rating-rules owner can save</span>
+              <button type="button" id="rr-save-btn" class="rr-btn rr-btn-p" onclick="applyAllAuditAnalysisSettings()" ${(auditSync.readOnly || !auditSync.canEditRules) ? 'disabled title="Only the rating-rules owner account can save rating rules"' : 'title="Save the rating rules (asks for your password)"'}>Save changes</button>
             </span>
           </div>
         </div>
