@@ -1,6 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v45';
+const CACHE_VERSION = 'audit-dashboard-v46';
+// v46: Audit Risk & Schedule Analysis recalibrated (model v4): data-only evidence score separated from recency/coverage priority, 35% max share per factor, recency weight 10%, thin-data shrinkage, backtest panel. Bumped so installed apps refetch index.html.
 // v45: Fixed broken layout (side menu covering the page) when the Tailwind CDN is blocked/offline: index.html now ships a complete pre-built Tailwind stylesheet instead of a stale partial snapshot.
 // v44: Branch Picker papers are now real folded paper slips (crease, dog-ear, shadow) instead of finger-like rolls; shuffle piles and riffles them like a stack; revealed result is an opened ruled sheet.
 // (v43 note below is unchanged)

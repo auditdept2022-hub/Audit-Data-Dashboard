@@ -7927,7 +7927,7 @@ html.page-fade-ready body {
                 <span class="w-1.5 h-1.5 rounded-full" style="background:${TINT_HEX[tierTint] || '#94a3b8'}"></span>
                 <div class="text-[10px] font-bold uppercase tracking-wider text-accentIndigo">Why this branch needs attention</div>
               </div>
-              <div class="brp-score-line text-[11px] font-bold text-slate-800 mb-1">${escapeHTML(row.b.name)} — score ${risk.score.toFixed(1)} (${escapeHTML(risk.tier.label)}${risk.escalated ? ', raised from ' + escapeHTML(risk.baseTier.label) + ' by a data red flag' : ''})</div>
+              <div class="brp-score-line text-[11px] font-bold text-slate-800 mb-1">${escapeHTML(row.b.name)} — score ${risk.score.toFixed(1)}${risk.evidence !== undefined ? ' · data-only ' + risk.evidence.toFixed(1) : ''} (${escapeHTML(risk.tier.label)}${risk.escalated ? ', raised from ' + escapeHTML(risk.baseTier.label) + ' by a data red flag' : ''})</div>
               <div class="brp-why text-[11px] text-slate-600 mb-1">${escapeHTML(auditRiskWhyText(row))}</div>
               <div class="brp-meaning text-[10px] font-semibold text-slate-500 mb-2" style="border-left-color:${TINT_HEX[tierTint] || '#94a3b8'}">Rating meaning: ${escapeHTML(AUDIT_TIER_GUIDE[risk.tier.key].meaning)} Target cycle for this rating: every ${risk.cycleDays} days${risk.cycleGap === null ? ' (never audited)' : (risk.cycleGap < 0 ? ' — ' + (-risk.cycleGap) + ' days over' : ' — due in ' + risk.cycleGap + ' days')}.</div>
               ${risk.coverage < 0.999 ? `<div class="brp-cov text-[10px] font-semibold ${risk.coverage < 0.75 ? 'text-accentRose' : 'text-accentAmber'} mb-2">Data coverage ${Math.round(risk.coverage * 100)}% — ${risk.coverage < 0.75 ? 'low confidence: this score rests on limited data, so check the branch\'s figures before relying on it.' : 'some factors had no data and were left out.'}</div>` : ''}
@@ -12016,7 +12016,7 @@ html.page-fade-ready body {
     const AUDIT_FINDINGS_MIN_CAP = 6;
     // RATING MODEL VERSION. Bump when the scoring rules change. A shared view saved by an older
     // model (old weights / caps / cycle days) is not reused, so nobody scores on stale settings.
-    const AUDIT_MODEL_VERSION = 3; // v3: peer-relative scoring of efficiency + repo rate, data-driven evidence panel
+    const AUDIT_MODEL_VERSION = 4; // v4: evidence score separated from recency/coverage priority, 35% max share per factor, recalibrated weights, backtest panel
     // Weights are the RECOMMENDED policy split (see AUDIT_RISK_FACTORS). Data-derived weights are
     // only an optional button now, never applied silently.
     const AUDIT_AUTO_DATA_WEIGHTS = false;
@@ -12042,23 +12042,23 @@ html.page-fade-ready body {
     // points were taken proportionally from the other factors, so their
     // defaults still sum to 100 together with recency.
     const AUDIT_RISK_FACTORS = [
-      { key: 'recency', label: 'Time since last audit', defaultWeight: 15,
+      { key: 'recency', label: 'Time since last audit', defaultWeight: 10,
         basis: 'Days since last audit vs. the branch\u2019s own due date',
         how: "Every branch gets its own audit interval from how healthy its numbers are: healthy branches can wait 8 to 12 months, average branches about 6 months, and weak branches are due every 3 to 4 months. The score is low right after an audit, reaches 50 points on the due date, and climbs the longer the branch is overdue. A branch that was never audited gets a high score.",
         why: "A good branch should not be visited as often as a struggling one. Judging the waiting time against each branch's own due date keeps this fair." },
-      { key: 'findings', label: 'Audit findings', defaultWeight: 25,
+      { key: 'findings', label: 'Audit findings', defaultWeight: 29,
         basis: 'Findings in the 3 year columns; newest year counts most',
         how: "The more findings, the higher the score. The newest year counts x3, the middle year x2, the oldest x1. The year columns roll forward by themselves (for example 2025, 2026, 2027). When the newest year is brand new (0 findings and the branch has not been audited yet this year), it is NOT treated as clean: the score is based on the two previous years (x3 and x2) until that branch is audited. 5 or more findings in the newest year always lifts the branch to at least High.",
         why: "Past findings are the best sign of where more problems will be found. A new year with no audit yet says nothing about the branch, so it must not lower the risk." },
-      { key: 'efficiency', label: 'Collection health', defaultWeight: 25,
+      { key: 'efficiency', label: 'Collection health', defaultWeight: 28,
         basis: 'Efficiency rate + number of accounts not collecting',
         how: "Made of four parts: efficiency rate (40%: 0% = 100 points, 100% = 0 points), number of accounts not collecting (35%: accounts x (100 - efficiency %), so the same rate counts more at a bigger branch), whether efficiency is falling (15%), and the reported collection status (10%). Efficiency under 50% always lifts the branch to at least High.",
         why: "Weak or falling collection is an early warning. Counting the actual number of accounts not collecting keeps a small branch and a big branch on a fair footing." },
-      { key: 'repo', label: 'Repossessions', defaultWeight: 15,
+      { key: 'repo', label: 'Repossessions', defaultWeight: 17,
         basis: 'Repo rate + number of repossessions',
         how: "Made of three parts: repo rate (50%: 12% or more = 100 points), number of repossessions (35%: compared with the portfolio scale), and whether the rate is rising (15%). A rate of 7% or higher always lifts the branch to at least High.",
         why: "Many repossessions can mean weak loan quality or weak recovery handling. The rate is fair across branch sizes, the count shows the real volume." },
-      { key: 'sales', label: 'Sales trend', defaultWeight: 8,
+      { key: 'sales', label: 'Sales trend', defaultWeight: 7,
         basis: 'Installment (INS), COD and Closed Accounts (CA)',
         how: "Made of: INS and COD against the expected sales (35%), whether INS + COD sales are growing or shrinking (25%), Closed Accounts (CA) compared with new INS sales (25%), and the reported sales status (15%). Very small sales numbers are not over-judged. Parts with no data are skipped.",
         why: "Sales falling short of expectations while accounts keep closing can mean pressure on the branch." },
@@ -12066,7 +12066,7 @@ html.page-fade-ready body {
         basis: 'Service amount vs. the monthly service target',
         how: "Compares the branch's service amount with its monthly target: 100% or more of target = 0 points, 90% = about 30, 70% = 75, 50% or less = 100. It looks at the latest month (60%) and the average of the reported months (40%), then blends 25% of the reported status. If there are no amounts, the status alone is used.",
         why: "Missing service targets is a warning sign for controls and customer experience." },
-      { key: 'size', label: 'Accounts', defaultWeight: 7,
+      { key: 'size', label: 'Accounts', defaultWeight: 4,
         basis: 'Number of loan accounts, scaled so small and big are both rated fairly',
         how: "The more loan accounts a branch has, the more money is at stake, so the score rises with size. It rises fast at first and then slows down (square-root scale), so a small branch is not rated near zero and only the biggest branches reach 100. No account data = this factor is skipped.",
         why: "A bigger loan book means more money is at risk if something is wrong, but branch size should not overpower the real warning signs." }
@@ -12098,11 +12098,11 @@ html.page-fade-ready body {
       const P = {
         efficiency: {
           basis: 'Efficiency % (fixed line + rank among your branches), accounts not collecting, trend, reported status',
-          how: "Four parts. (1) Efficiency rate, 40%: half from a fixed line (0% = 100 points, 50% = 70, 70% = 35, 100% = 0) and half from the share of your OTHER branches that collect better, so a branch at 78% scores worse when most peers are at 90% than when most are at 70%. (2) Accounts not collecting, 35%: accounts x (100 - efficiency %), scored against the top 10% of your portfolio, so the same rate counts more at a bigger branch. (3) Trend, 15%: efficiency fall since the earliest month (a 15 point fall = 100). (4) Reported collection status, 10%. A part with no data is dropped and the rest rescaled. Efficiency under 50% is also a red flag that lifts the branch to at least High.",
+          how: "Four parts. (1) Efficiency rate, 50%: half from a fixed line (0% = 100 points, 50% = 70, 70% = 35, 100% = 0) and half from the share of your OTHER branches that collect better, so a branch at 78% scores worse when most peers are at 90% than when most are at 70%. (2) Accounts not collecting, 25%: accounts x (100 - efficiency %), scored against the top 10% of your portfolio, so the same rate counts more at a bigger branch. (3) Trend, 15%: efficiency fall since the earliest month (a 15 point fall = 100). (4) Reported collection status, 10%. A part with no data is dropped and the rest rescaled. Efficiency under 50% is also a red flag that lifts the branch to at least High.",
           why: "Collection is the earliest measurable sign of a branch losing control. Combining the rate, the peer position and the real number of accounts affected avoids both over-judging small branches and hiding trouble in big ones." },
         repo: {
           basis: 'Repo rate (fixed line + rank among your branches), number of repossessions, trend',
-          how: "Three parts. (1) Repo rate, 50%: half from a fixed line (0% = 0 points, 4% = 35, 7% = 70, 12%+ = 100) and half from the share of your other branches with a lower repo rate. (2) Number of repossessions, 35%: scored against the top 10% of your portfolio (that count = 100). (3) Trend, 15%: rise in repo rate since the earliest month (+3 points = 100). A repo rate of 7% or more is always a red flag (at least High).",
+          how: "Three parts. (1) Repo rate, 55%: half from a fixed line (0% = 0 points, 4% = 35, 7% = 70, 12%+ = 100) and half from the share of your other branches with a lower repo rate. (2) Number of repossessions, 30%: scored against the top 10% of your portfolio (that count = 100). (3) Trend, 15%: rise in repo rate since the earliest month (+3 points = 100). A repo rate of 7% or more is always a red flag (at least High).",
           why: "A high repo rate can mean weak loan approval or weak recovery handling. The rate is fair across sizes; the count shows the real volume; the peer rank shows whether the branch is out of line with the rest." },
         size: {
           basis: 'Loan accounts vs the top 10% of your branches (square-root scale)',
@@ -12230,6 +12230,11 @@ html.page-fade-ready body {
         if (isFinite(legacyCollectionW) && legacyCollectionW > 0 && !AUDIT_RISK_FACTORS.some(f => f.key === 'collection')) {
           w.efficiency = Math.min(100, (Number(w.efficiency) || 0) + legacyCollectionW);
         }
+        // v4 MIGRATION: a device still holding the untouched v3 default split (recency 15 / findings 25 /
+        // efficiency 25 / repo 15 / sales 8 / service 5 / size 7) moves to the recalibrated defaults.
+        // Any other saved split is a deliberate choice and is kept.
+        const OLD_V3 = { recency: 15, findings: 25, efficiency: 25, repo: 15, sales: 8, service: 5, size: 7 };
+        if (Object.keys(OLD_V3).every(k => Number(w[k]) === OLD_V3[k])) return defaultAuditRiskWeights();
       } catch (e) { /* storage unavailable or corrupt — use defaults */ }
       return w;
     }
@@ -13496,6 +13501,49 @@ html.page-fade-ready body {
       };
     }
 
+    // v4 GUARDRAILS: no single factor may supply more than this share of a branch's score (or of its
+    // evidence score), and the overdue/never-audited bonus in the queue order is capped.
+    const AUDIT_MAX_FACTOR_SHARE = 0.35;
+    const AUDIT_COVERAGE_BONUS_MAX = 5;
+    // Turns weights of the factors that have data into shares that add to 1 with no share above
+    // maxShare (excess is handed to the others in proportion to their weights). excludeRecency=true
+    // gives the data-only "evidence" shares. Too few factors to honour the cap -> plain proportions.
+    function auditFactorShares(items, maxShare, excludeRecency) {
+      const out = items.map(() => 0);
+      const idx = [];
+      items.forEach((x, i) => { if (x.available && x.weight > 0 && !(excludeRecency && x.key === 'recency')) idx.push(i); });
+      const tot = idx.reduce((t, i) => t + items[i].weight, 0);
+      if (!idx.length || tot <= 0) return out;
+      idx.forEach(i => { out[i] = items[i].weight / tot; });
+      if (idx.length * maxShare < 1) return out;
+      const capped = new Set();
+      for (let g = 0; g < idx.length; g++) {
+        let excess = 0;
+        idx.forEach(i => { if (!capped.has(i) && out[i] > maxShare + 1e-9) { excess += out[i] - maxShare; out[i] = maxShare; capped.add(i); } });
+        if (excess <= 1e-9) break;
+        const free = idx.filter(i => !capped.has(i));
+        const fw = free.reduce((t, i) => t + items[i].weight, 0);
+        if (!free.length || fw <= 0) break;
+        free.forEach(i => { out[i] += excess * items[i].weight / fw; });
+      }
+      return out;
+    }
+    // Keeps every weight within [lo, hi] percent and the total at 100.
+    function auditClampWeights(w, lo, hi) {
+      const keys = Object.keys(w), fixed = {};
+      for (let pass = 0; pass < 8; pass++) {
+        const free = keys.filter(k => !(k in fixed));
+        const fixedSum = keys.reduce((t, k) => t + (k in fixed ? fixed[k] : 0), 0);
+        const freeSum = free.reduce((t, k) => t + w[k], 0);
+        if (!free.length || freeSum <= 0) break;
+        let changed = false;
+        free.forEach(k => { const v = w[k] * (100 - fixedSum) / freeSum; if (v > hi) { fixed[k] = hi; changed = true; } else if (v < lo) { fixed[k] = lo; changed = true; } });
+        if (!changed) { free.forEach(k => { fixed[k] = w[k] * (100 - fixedSum) / freeSum; }); break; }
+      }
+      const out = {}; keys.forEach(k => { out[k] = (k in fixed) ? fixed[k] : w[k]; });
+      return out;
+    }
+
     function auditRiskPercentile(values, p) {
       const a = values.filter(v => v > 0).sort((x, y) => x - y);
       if (!a.length) return 0;
@@ -13559,6 +13607,44 @@ html.page-fade-ready body {
         out[fac.key] = { r: auditRiskSpearman(xs, ys), n: xs.length };
       });
       return out;
+    }
+
+
+    // BACKTEST: do higher scores go with more findings LATER? Runs on the live portfolio.
+    // Outcome  = findings in the newest year column (the "later" result).
+    // Predictors = only what was known before it: earlier-year findings, and the operating data
+    // (collection, repo, sales, service, size). The newest-year findings are never fed into the predictor.
+    // Branches NOT audited yet in the newest year are left out: their 0 means "nobody looked", not "clean".
+    function computeAuditBacktest(rows, cfg) {
+      const w = cfg.weights || defaultAuditRiskWeights();
+      const capF = Math.max(1, Number(cfg.findingsCap) || AUDIT_FINDINGS_MIN_CAP);
+      const wN = Number.isFinite(Number(cfg.findNew)) ? Number(cfg.findNew) : 3, wM = Number.isFinite(Number(cfg.findMid)) ? Number(cfg.findMid) : 2;
+      const pts = [], ys = [], opsArr = [], priorArr = [], recArr = [];
+      rows.forEach(r => {
+        const m = auditFindingsModel(r.b, r.info, cfg);
+        if (m.pending || !r.risk || !r.risk.factors) return;
+        const b = r.b;
+        const prior = (b.findings2025 || 0) * wN + (b.findings2024 || 0) * wM;   // the two EARLIER years only
+        const priorPts = Math.min(100, prior / capF * 100);
+        const ops = r.risk.factors.filter(x => x.available && x.key !== 'findings' && x.key !== 'recency');
+        const wsum = ops.reduce((t, x) => t + (Number(w[x.key]) || 0), 0);
+        const opsPts = wsum > 0 ? ops.reduce((t, x) => t + (Number(w[x.key]) || 0) * x.points, 0) / wsum : null;
+        const fw = Number(w.findings) || 0;
+        const combined = (opsPts === null) ? priorPts : ((fw * priorPts + wsum * opsPts) / ((fw + wsum) || 1));
+        const rec = r.risk.factors.find(x => x.key === 'recency');
+        pts.push(combined); ys.push(b.findings2026 || 0); priorArr.push(prior); opsArr.push(opsPts === null ? 0 : opsPts); recArr.push(rec ? rec.points : 0);
+      });
+      const n = ys.length;
+      const order = pts.map((v, i) => i).sort((i, j) => pts[i] - pts[j]);
+      const third = Math.max(1, Math.floor(n / 3));
+      const avg = ix => ix.length ? ix.reduce((t, i) => t + ys[i], 0) / ix.length : null;
+      return {
+        n: n, excluded: rows.length - n,
+        rhoCombined: auditRiskSpearman(pts, ys), rhoPrior: auditRiskSpearman(priorArr, ys),
+        rhoOps: auditRiskSpearman(opsArr, ys), rhoRecency: auditRiskSpearman(recArr, ys),
+        topAvg: n >= 6 ? avg(order.slice(n - third)) : null, botAvg: n >= 6 ? avg(order.slice(0, third)) : null,
+        third: third
+      };
     }
 
     // DOUBLE-COUNTING CHECK: correlates every pair of factors' risk POINTS
@@ -13658,8 +13744,12 @@ html.page-fade-ready body {
       });
       const sum = dedupedStrengths.reduce((s, v) => s + v, 0) || 1;
       const w = { findings: findingsWeight, recency: recencyWeight };
-      others.forEach((f, i) => { w[f.key] = Math.round((dedupedStrengths[i] / sum) * remaining); });
-      const w100 = auditNormalizeWeights100(w);
+      // v4 BOUNDED: one portfolio snapshot is weak evidence, so each data-derived weight is averaged 50/50
+      // with the principled default split, then held between 3% and 32% so no factor can dominate or vanish.
+      const priorTotal = others.reduce((t, o) => t + o.defaultWeight, 0) || 1;
+      others.forEach((f, i) => { w[f.key] = 0.5 * (dedupedStrengths[i] / sum) * remaining + 0.5 * (f.defaultWeight / priorTotal) * remaining; });
+      const wb = auditClampWeights(w, 3, 32);
+      const w100 = auditNormalizeWeights100(wb);
       return { weights: w100, corr, overlap, usableFactors, n: rows.length };
     }
 
@@ -13706,8 +13796,8 @@ html.page-fade-ready body {
         '<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">' +
         step(1, 'Score each factor 0 to 100', 'Findings, collection, repossessions, sales, service, loan-book size and time since the last audit each get 0 (healthy) to 100 (worst). Collection and repo mix a fixed policy line with the branch\u2019s rank among your branches.') +
         step(2, 'Weigh the factors', 'Each factor counts by its weight (table 4). A factor with no data for a branch is left out and the others are rescaled, so missing data never counts as good or bad.') +
-        step(3, 'Add up to a 0\u2013100 risk score', 'The weighted factors are added together. Higher means more reasons to audit that branch soon.') +
-        step(4, 'Place it in a rating level', 'The level depends on the score and on the branch\u2019s position in your portfolio (table 2). A red flag (efficiency under 50%, repo 7%+) lifts a branch to at least High.') +
+        step(3, 'Add up to a 0\u2013100 risk score', 'The weighted factors are added together. Higher means more reasons to audit that branch soon. No factor can supply more than 35% of a score, and time since the last audit counts only 10%. Queue order uses the data-only score (without the time factor) plus a small capped bonus for overdue or never-audited branches, so real risk outranks a branch that is simply overdue.') +
+        step(4, 'Place it in a rating level', 'The level depends on the data-only score (without time since the last audit) and on the branch\u2019s position in your portfolio (table 2). A red flag (efficiency under 50%, repo 7%+) lifts a branch to at least High.') +
         '</div>');
 
       // B. levels
@@ -13749,7 +13839,27 @@ html.page-fade-ready body {
       const evidence = card('4 \u00b7 Weights and the evidence behind them', 'Does a factor really line up with actual audit findings? r is a rank correlation: 0 = no link, 0.3 or more = clear link. Findings only appear where audits happened, so a factor with no clear link can still be a valid early warning.',
         '<div class="overflow-x-auto"><table class="w-full text-[11.5px] leading-relaxed"><thead><tr><th class="' + th + '">Factor</th><th class="' + th + '">Weight now</th><th class="' + th + '">Link with findings</th><th class="' + th + '">Data-suggested</th></tr></thead><tbody>' + evRows + '</tbody></table></div>' + thin);
 
-      return '<div class="space-y-2.5"><h4 class="text-[11px] font-extrabold text-slate-600 uppercase tracking-wider">How branches are rated <span class="normal-case font-medium text-slate-400 tracking-normal">\u2014 built from your ' + c.n + ' branches and recalculated on every data change</span></h4>' + recipe + levels + measures + evidence + '</div>';
+
+      // E. backtest: do higher scores go with more findings later?
+      let btCard = '';
+      try {
+        const bt = computeAuditBacktest(a.rows, cfg);
+        const rv = r => (r === null || r === undefined) ? '<span class="text-slate-400">n/a</span>' : ('<b>' + r.toFixed(2) + '</b>');
+        const lift = (bt.topAvg !== null && bt.botAvg !== null)
+          ? ('Top third of branches by predicted risk: <b>' + bt.topAvg.toFixed(1) + '</b> findings in ' + yr + ' on average; bottom third: <b>' + bt.botAvg.toFixed(1) + '</b>. ' + (bt.topAvg > bt.botAvg ? 'Higher predicted risk did go with more findings.' : 'No lift yet: the score does not separate findings in this sample.'))
+          : 'Too few branches for a top-third vs bottom-third comparison.';
+        btCard = card('5 \u00b7 Backtest: does a higher score mean more findings later?', 'Tested on the ' + bt.n + ' branches audited in ' + yr + (bt.excluded ? ' (' + bt.excluded + ' not audited yet this year are left out: their 0 means nobody looked, not clean)' : '') + '. The score is built only from what was known before (earlier-year findings and operating data), then compared with ' + yr + ' findings. Operating data is a Mar\u2013May snapshot, so part of it overlaps the same year.',
+          '<div class="overflow-x-auto"><table class="w-full text-[11.5px] leading-relaxed"><thead><tr><th class="' + th + '">Predictor</th><th class="' + th + '">Rank link with ' + yr + ' findings (r)</th></tr></thead><tbody>' +
+          mrow('Earlier-year findings alone', rv(bt.rhoPrior), '') .replace(/<td class="[^"]*text-slate-500[^"]*"><\/td>/, '') +
+          mrow('Operating data alone (collection, repo, sales, service, size)', rv(bt.rhoOps), '').replace(/<td class="[^"]*text-slate-500[^"]*"><\/td>/, '') +
+          mrow('Both combined, using the current weights', rv(bt.rhoCombined), '').replace(/<td class="[^"]*text-slate-500[^"]*"><\/td>/, '') +
+          mrow('Time since last audit (not a risk measure, shown for the record)', rv(bt.rhoRecency), '').replace(/<td class="[^"]*text-slate-500[^"]*"><\/td>/, '') +
+          '</tbody></table></div><p class="text-[11px] text-slate-600 leading-relaxed">' + lift + '</p>' +
+          (bt.n < AUDIT_WEIGHTS_MIN_ROWS ? '<p class="text-[11px] text-accentAmber font-semibold">Only ' + bt.n + ' branches: read this as a hint only.</p>' : '') +
+          '<p class="text-[11px] text-slate-500 leading-relaxed">How to use it: if \u201cBoth combined\u201d is clearly above the single predictors, the mix is working. If a predictor is near 0, its weight is not earning its place. Use \u201cSuggest weights from data\u201d to re-balance (it is bounded: each weight stays between 3% and 32%).</p>');
+      } catch (e) { btCard = ''; }
+
+      return '<div class="space-y-2.5"><h4 class="text-[11px] font-extrabold text-slate-600 uppercase tracking-wider">How branches are rated <span class="normal-case font-medium text-slate-400 tracking-normal">\u2014 built from your ' + c.n + ' branches and recalculated on every data change</span></h4>' + recipe + levels + measures + evidence + btCard + '</div>';
     }
 
     // Resets the findings/size caps so they're recomputed fresh from the
@@ -13877,8 +13987,8 @@ html.page-fade-ready body {
         const shortfall = auditShortfallOf(b);
         const shortfallPts = (shortfall / shortfallCap) * 100;
         const effParts = [];
-        if (hasEff) effParts.push([effLevelPts, 0.40]);                                  // efficiency rate
-        if (hasEff && hasAcctEff) effParts.push([Math.min(100, shortfallPts), 0.35]);   // number of accounts not collecting
+        if (hasEff) effParts.push([effLevelPts, 0.50]);                                  // efficiency rate
+        if (hasEff && hasAcctEff) effParts.push([Math.min(100, shortfallPts), 0.25]);   // number of accounts not collecting (size-driven, so kept lower)
         if (hasEff && effDelta !== null) effParts.push([effTrendPts, 0.15]);             // is it falling?
         if (hasStatus) effParts.push([statusPts, 0.10]);                                 // reported status
         const effWSum = effParts.reduce((t, x) => t + x[1], 0);
@@ -13908,7 +14018,7 @@ html.page-fade-ready body {
         const repoTrendPts = (repoDelta !== null && repoDelta > 0) ? Math.min(100, (repoDelta / 3) * 100) : 0;
         const repoCount = auditRepoCountOf(b);
         const repoCountPts = Math.min(100, (repoCount / repoCap) * 100);
-        const repoParts = [[repoLevelPts, 0.50], [repoCountPts, 0.35]];   // repo rate + number of repos
+        const repoParts = [[repoLevelPts, 0.55], [repoCountPts, 0.30]];   // repo rate + number of repos (count is size-driven, so kept lower)
         if (repoHasTrend) repoParts.push([repoTrendPts, 0.15]);
         const repoWSum = repoParts.reduce((t, x) => t + x[1], 0);
         const repoPts = repoParts.reduce((t, x) => t + x[0] * x[1], 0) / repoWSum;
@@ -13943,11 +14053,11 @@ html.page-fade-ready body {
         const dueMinCfg = Math.max(30, Math.min(300, Number(cfg.dueMin) || 75));
         const dueAnchors = AUDIT_DUE_ANCHORS.map(a => [a[0], dueMinCfg + (a[1] - 75) * ((365 - dueMinCfg) / 290)]);
         const dueDays = Math.max(30, Math.min(maxDue, Math.round(auditRiskPiecewise(dataScore, dueAnchors))));
-        const recFloor = 0.25 * dataScore;
+        const recFloor = 0; // v4: recency measures coverage only; the branch's data is already scored by the other factors
         let recPts, recDetail, recShort;
         if (never) {
-          recPts = 60 + 0.4 * dataScore;
-          recDetail = 'Never audited (scored from its data: ' + Math.round(dataScore) + '/100)';
+          recPts = 80;
+          recDetail = 'Never audited (coverage gap; its data scores ' + Math.round(dataScore) + '/100 in the other factors)';
           recShort = 'Never audited';
         } else {
           const r = Math.max(0, info.intervalDays) / dueDays;
@@ -13959,23 +14069,33 @@ html.page-fade-ready body {
         f.unshift({ key: 'recency', label: 'Time since last audit', available: true,
           points: Math.max(0, Math.min(100, recPts)), detail: recDetail, short: recShort });
 
-        let weightSum = 0, weightTotal = 0;
+        let weightSum = 0, weightTotal = 0, evSum = 0, evTotal = 0;
         f.forEach(x => {
           x.weight = Math.max(0, Number(weights[x.key]) || 0);
           weightTotal += x.weight;
           if (x.available) weightSum += x.weight;
+          if (x.key !== 'recency') { evTotal += x.weight; if (x.available) evSum += x.weight; }
         });
+        // v4: no factor may supply more than AUDIT_MAX_FACTOR_SHARE of a score, even when other factors
+        // have no data for this branch (weights are rescaled over what is available, then capped).
+        const shares = auditFactorShares(f, AUDIT_MAX_FACTOR_SHARE, false);
         let score = 0;
-        f.forEach(x => {
-          x.share = (x.available && weightSum > 0) ? x.weight / weightSum : 0;
+        f.forEach((x, i) => {
+          x.share = shares[i];
           x.contribution = x.share * x.points;
           score += x.contribution;
         });
         score = Math.round(score * 10) / 10;
+        // EVIDENCE SCORE: the same factors WITHOUT time-since-audit. This is the risk priority; recency
+        // is coverage priority and is handled separately (see coverageBonus / auditRiskPriority).
+        const evShares = auditFactorShares(f, AUDIT_MAX_FACTOR_SHARE, true);
+        let evidence = 0;
+        f.forEach((x, i) => { x.evShare = evShares[i]; evidence += evShares[i] * x.points; });
+        evidence = evShares.some(v => v > 0) ? Math.round(evidence * 10) / 10 : score;
 
         const flagCtx = { cfg: cfg, b: b, effNow: effNow, hasAcct: hasAcct, repo: repo, effDelta: effDelta, repoDelta: repoDelta, never: never };
         const redFlags = AUDIT_RED_FLAGS.filter(rf => rf.test(flagCtx)).map(rf => ({ key: rf.key, label: rf.label, detail: rf.detail(flagCtx) }));
-        const baseTier = auditRiskTierOf(score);
+        const baseTier = auditRiskTierOf(evidence); // v4: the rating level follows the DATA-ONLY score, so recency cannot change a branch's level
         const escalated = redFlags.length > 0 && tierRank(baseTier) > tierRank(highTier);
 
         row.risk = {
@@ -13986,6 +14106,8 @@ html.page-fade-ready body {
           redFlags: redFlags,
           // Share of the total weight that had data for this branch (1 = complete).
           coverage: weightTotal > 0 ? weightSum / weightTotal : 1,
+          evidence: evidence,
+          evCoverage: evTotal > 0 ? evSum / evTotal : 1,
           factors: f,
           // The (up to) three biggest reasons this branch scored the way it did.
           drivers: f.filter(x => x.available && x.points >= 50 && x.contribution > 0)
@@ -14004,10 +14126,30 @@ html.page-fade-ready body {
       // near the top of YOUR portfolio (Critical: top ~15%, High: top ~40%, Medium: top ~70%).
       // So ratings separate branches even when the whole portfolio scores high, while a red flag
       // still lifts a branch to at least High regardless.
+      // ---- MISSING-DATA SHRINKAGE (v4) ----------------------------------------------
+      // A branch with little reportable data (e.g. no account or collection figures) would otherwise be
+      // scored almost entirely on findings and audit date. Below 70% data coverage its score is pulled
+      // toward the portfolio median in proportion to what is missing, so thin data never makes a branch
+      // look extreme in either direction.
+      (function shrinkThinData() {
+        if (rows.length < 5) return;
+        const med = (arr) => { const a = arr.slice().sort((x, y) => x - y); const m = a.length >> 1; return a.length ? (a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2) : 0; };
+        const full = rows.filter(r => r.risk.evCoverage >= 0.7);
+        const base = full.length >= 3 ? full : rows;
+        const scMed = med(base.map(r => r.risk.score)), evMed = med(base.map(r => r.risk.evidence));
+        rows.forEach(r => {
+          const k = Math.min(1, r.risk.evCoverage / 0.7);
+          if (k >= 1) return;
+          r.risk.scoreRaw = r.risk.score; r.risk.evidenceRaw = r.risk.evidence;
+          r.risk.score = Math.round((k * r.risk.score + (1 - k) * scMed) * 10) / 10;
+          r.risk.evidence = Math.round((k * r.risk.evidence + (1 - k) * evMed) * 10) / 10;
+          r.risk.shrunk = true;
+        });
+      })();
       (function applyAdaptiveTiers() {
         const defs = { CRITICAL: { floor: cfg.critMin, pct: 1 - cfg.critTop / 100 }, HIGH: { floor: cfg.highMin, pct: 1 - cfg.highTop / 100 }, MEDIUM: { floor: cfg.medMin, pct: 1 - cfg.medTop / 100 } };
         const adaptive = rows.length >= auditPeerMinN(cfg);
-        const scores = rows.map(r => r.risk.score);
+        const scores = rows.map(r => r.risk.evidence);
         const used = {};
         AUDIT_RISK_TIERS.forEach(t => {
           const d = defs[t.key];
@@ -14018,7 +14160,7 @@ html.page-fade-ready body {
         });
         rows.forEach(row => {
           const info = row.info, r = row.risk;
-          const baseTier = auditRiskTierOf(r.score);
+          const baseTier = auditRiskTierOf(r.evidence);
           const escalated = r.redFlags.length > 0 && tierRank(baseTier) > tierRank(highTier);
           r.baseTier = baseTier; r.escalated = escalated; r.tier = escalated ? highTier : baseTier;
           r.cycleDays = auditCycleDaysFor(r.tier.key, r.dueDays, cfg);
@@ -14026,17 +14168,35 @@ html.page-fade-ready body {
         });
         cfg.calib.tiers = { adaptive: adaptive, used: used };
       })();
+      // ---- RISK PRIORITY vs COVERAGE PRIORITY (v4) ----------------------------------
+      // priority = data-only evidence score (a red flag floors it at the High level) + a SMALL, capped
+      // coverage bonus (never audited = 5; past its own cycle = 2 up to 5). The bonus can break ties and
+      // stop a healthy branch waiting forever, but it cannot lift an overdue branch over one with
+      // clearly stronger risk evidence (a gap of 5+ points of evidence always wins).
+      const highMinNow = (AUDIT_RISK_TIERS.find(t => t.key === 'HIGH') || { min: 55 }).min;
+      rows.forEach(row => {
+        const r = row.risk, info = row.info;
+        let bonus = 0;
+        if (info.roundsCount === 0 || info.intervalDays === null || info.intervalDays === undefined) bonus = AUDIT_COVERAGE_BONUS_MAX;
+        else if (r.cycleGap !== null && r.cycleGap < 0) bonus = 2 + (AUDIT_COVERAGE_BONUS_MAX - 2) * Math.min(1, -r.cycleGap / Math.max(30, r.cycleDays)); // 2 when just past its cycle, full bonus at 2x its cycle
+        r.coverageBonus = Math.round(bonus * 10) / 10;
+        const base = (r.redFlags && r.redFlags.length) ? Math.max(r.evidence, highMinNow) : r.evidence;
+        r.priority = Math.round((base + r.coverageBonus) * 10) / 10;
+      });
       return rows;
     }
 
     // "Needs a visit on its data alone": score at/above the threshold, OR any
     // hard red flag (see AUDIT_RED_FLAGS).
     function auditIsHighRisk(row, cfg) {
-      return row.risk.score >= cfg.minScore || (row.risk.redFlags && row.risk.redFlags.length > 0);
+      // v4: judged on the DATA-ONLY evidence score, so being overdue cannot by itself make a branch "high risk".
+      const ev = (row.risk.evidence !== undefined && row.risk.evidence !== null) ? row.risk.evidence : row.risk.score;
+      return ev >= cfg.minScore || (row.risk.redFlags && row.risk.redFlags.length > 0);
     }
     // Sort key for queues/rankings. A red-flagged branch never ranks below the
     // High tier floor, so a diluted score cannot bury it at the bottom.
     function auditRiskPriority(row) {
+      if (row.risk.priority !== undefined && row.risk.priority !== null) return row.risk.priority; // v4: evidence + capped coverage bonus
       const highMin = (AUDIT_RISK_TIERS.find(t => t.key === 'HIGH') || { min: 55 }).min;
       return row.risk.escalated ? Math.max(row.risk.score, highMin) : row.risk.score;
     }
@@ -14195,7 +14355,7 @@ html.page-fade-ready body {
         ...riskFlagged.map(r => ({ ...r, reason: 'High risk, not yet scheduled' })),
         ...overdueUnscheduled.map(r => ({ ...r, reason: 'Overdue, not yet scheduled' })),
         ...scheduledPastDue.map(r => ({ ...r, reason: 'Expected date already passed' }))
-      ].sort((x, y) => (auditRiskPriority(y) - auditRiskPriority(x)) || (y.risk.score - x.risk.score) || ((y.info.intervalDays ?? Infinity) - (x.info.intervalDays ?? Infinity)));
+      ].sort((x, y) => ((auditRiskPriority(y) + (y.reason === 'Expected date already passed' ? 2 : 0)) - (auditRiskPriority(x) + (x.reason === 'Expected date already passed' ? 2 : 0))) || (y.risk.evidence - x.risk.evidence) || ((y.info.intervalDays ?? Infinity) - (x.info.intervalDays ?? Infinity)));
 
       // -- Give every queued branch an auditor AND a date, highest priority
       // first. Each auditor works their own calendar ("lane"):
@@ -14416,7 +14576,7 @@ html.page-fade-ready body {
         ? row.risk.redFlags.map(function (x) { return x.label.toLowerCase() + ' (' + x.detail + ')'; }).join(', ')
         : null;
       const lastAuditedNote = '(Last audited ' + (days !== null && days !== undefined ? days + ' days ago' : 'never') + ' — shown for reference only.)';
-      const scoreAtThreshold = row.risk.score >= cfg.minScore;
+      const scoreAtThreshold = row.risk.evidence >= cfg.minScore;
 
       switch (row.reason) {
         case 'Never audited':
@@ -14428,29 +14588,29 @@ html.page-fade-ready body {
         case 'High risk, not yet scheduled': {
           const scorePart = scoreAtThreshold
             ? (driverPhrase
-                ? 'Its own numbers make the case for a visit: ' + driverPhrase + '. That puts its risk score at ' + row.risk.score.toFixed(0) + ', at or above the ' + cfg.minScore + ' threshold, with nothing currently scheduled.'
-                : 'Its risk score (' + row.risk.score.toFixed(0) + ') is at or above the minimum of ' + cfg.minScore + ' and nothing is currently scheduled.')
+                ? 'Its own numbers make the case for a visit: ' + driverPhrase + '. That puts its data-only risk score (which leaves out time since the last audit) at ' + row.risk.evidence.toFixed(0) + ', at or above the ' + cfg.minScore + ' threshold, with nothing currently scheduled.'
+                : 'Its data-only risk score (' + row.risk.evidence.toFixed(0) + ') is at or above the minimum of ' + cfg.minScore + ' and nothing is currently scheduled.')
             : '';
           const flagPart = flagPhrase
-            ? 'Data red flag: ' + flagPhrase + '. A red flag qualifies a branch for scheduling whatever its overall score (' + row.risk.score.toFixed(0) + ') — a weighted average can dilute one severe signal.' + (scoreAtThreshold ? '' : ' Nothing is currently scheduled.')
+            ? 'Data red flag: ' + flagPhrase + '. A red flag qualifies a branch for scheduling whatever its overall score (' + row.risk.evidence.toFixed(0) + ') — a weighted average can dilute one severe signal.' + (scoreAtThreshold ? '' : ' Nothing is currently scheduled.')
             : '';
           return [scorePart, flagPart, lastAuditedNote].filter(Boolean).join(' ');
         }
         case 'Overdue, not yet scheduled':
-          return 'Included as a coverage safety net, not because of its numbers: it has gone ' + days + ' days without an audit (its ' + row.risk.tier.label + ' rating cycle is ' + row.risk.cycleDays + ' days) and nothing is scheduled. Its risk score is ' + row.risk.score.toFixed(0)
+          return 'Included as a coverage safety net, not because of its numbers: it has gone ' + days + ' days without an audit (its ' + row.risk.tier.label + ' rating cycle is ' + row.risk.cycleDays + ' days) and nothing is scheduled. Its data-only risk score is ' + row.risk.evidence.toFixed(0)
             + (driverPhrase ? ', with ' + driverPhrase + ' contributing' : ' — no single data factor is currently elevated for this branch') + '.';
         case 'Scheduled — upcoming':
-          return 'Already has an upcoming audit date, so no action is needed. Its risk score (' + row.risk.score.toFixed(0) + ') is shown for reference.'
+          return 'Already has an upcoming audit date, so no action is needed. Its data-only risk score (' + row.risk.evidence.toFixed(0) + ') is shown for reference.'
             + (flagPhrase ? ' Data red flag on record: ' + flagPhrase + '.' : '');
         case 'Monitor — recently audited':
           return (scoreAtThreshold
               ? (driverPhrase
-                  ? 'Worth watching: ' + driverPhrase + ', putting its risk score at ' + row.risk.score.toFixed(0) + ' (at or above ' + cfg.minScore + ').'
-                  : 'Risk score (' + row.risk.score.toFixed(0) + ') is at or above ' + cfg.minScore + '.')
+                  ? 'Worth watching: ' + driverPhrase + ', putting its data-only risk score at ' + row.risk.evidence.toFixed(0) + ' (at or above ' + cfg.minScore + ').'
+                  : 'Data-only risk score (' + row.risk.evidence.toFixed(0) + ') is at or above ' + cfg.minScore + '.')
               : 'Worth watching — data red flag: ' + flagPhrase + '.')
             + ' It was audited within the last ' + cfg.minGapDays + ' days, so it is not re-scheduled yet.';
         default:
-          return 'Not scheduled: its own numbers are healthy (risk score ' + row.risk.score.toFixed(0) + ', below the ' + cfg.minScore + ' minimum) and it is within its ' + row.risk.cycleDays + '-day audit cycle.';
+          return 'Not scheduled: its own numbers are healthy (data-only risk score ' + row.risk.evidence.toFixed(0) + ', below the ' + cfg.minScore + ' minimum) and it is within its ' + row.risk.cycleDays + '-day audit cycle.';
       }
     }
 
@@ -14784,7 +14944,7 @@ html.page-fade-ready body {
                 <span class="w-1.5 h-1.5 rounded-full" style="background:${TINT_HEX[tierTint] || '#94a3b8'}"></span>
                 <div class="text-[10px] font-bold uppercase tracking-wider text-accentIndigo">Why this branch needs attention</div>
               </div>
-              <div class="text-[11px] font-bold text-slate-800 mb-1">${escapeHTML(row.b.name)} — score ${risk.score.toFixed(1)} (${escapeHTML(risk.tier.label)}${risk.escalated ? ', raised from ' + escapeHTML(risk.baseTier.label) + ' by a data red flag' : ''})</div>
+              <div class="text-[11px] font-bold text-slate-800 mb-1">${escapeHTML(row.b.name)} — score ${risk.score.toFixed(1)}${risk.evidence !== undefined ? ' · data-only ' + risk.evidence.toFixed(1) : ''} (${escapeHTML(risk.tier.label)}${risk.escalated ? ', raised from ' + escapeHTML(risk.baseTier.label) + ' by a data red flag' : ''})</div>
               <div class="text-[11px] text-slate-600 mb-2">${escapeHTML(auditRiskWhyText(row))}</div>
               ${risk.coverage < 0.999 ? `<div class="text-[10px] font-semibold ${risk.coverage < 0.75 ? 'text-accentRose' : 'text-accentAmber'} mb-2">Data coverage ${Math.round(risk.coverage * 100)}% — ${risk.coverage < 0.75 ? 'low confidence: this score rests on limited data, so check the branch\'s figures before relying on it.' : 'some factors had no data and were left out.'}</div>` : ''}
               <div class="overflow-x-auto">
