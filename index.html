@@ -25849,6 +25849,13 @@ html.page-fade-ready body {
       100%{transform:none}
     }
     .bp-count{font-weight:800;color:#1d3f8f}
+    .bp-addrow{display:flex;gap:6px}
+    .bp-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;max-height:190px;overflow-y:auto;padding:2px}
+    .bp-chip{display:inline-flex;align-items:center;gap:4px;background:#eef2ff;border:1px solid #c7d2fe;color:#1e3a8a;font-size:12px;font-weight:700;border-radius:99px;padding:4px 6px 4px 10px}
+    .bp-chip.drawn{background:#f1f5f9;border-color:#e2e8f0;color:#94a3b8;text-decoration:line-through}
+    .bp-chip button{border:0;background:transparent;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0 3px;border-radius:50%}
+    .bp-chip button:hover{background:rgba(0,0,0,.08)}
+    .bp-none{font-size:12px;color:#94a3b8;font-weight:600;padding:6px 2px}
     .bp-hist{display:grid;gap:6px;max-height:150px;overflow-y:auto}
     .bp-hist div{display:flex;justify-content:space-between;gap:8px;font-size:12px;background:#f1f5f9;border-radius:9px;padding:7px 10px}
     .bp-hist b{font-weight:800}.bp-hist span{color:#64748b;font-weight:600;white-space:nowrap}
@@ -25883,10 +25890,15 @@ html.page-fade-ready body {
           <div class="bp-grid">
             <div>
               <div class="bp-lbl"><span>Branches on the papers</span><span class="bp-count" id="bpCount">0</span></div>
-              <textarea id="bpList" class="bp-ta" placeholder="One branch per line…" oninput="bpOnListEdit()"></textarea>
+              <div class="bp-addrow">
+                <input id="bpAdd" class="bp-in" type="text" list="bpSuggest" placeholder="Type a branch, press Enter" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();bpAddFromInput();}">
+                <button class="bp-btn primary" style="padding:9px 14px;font-size:13px" onclick="bpAddFromInput()">Add</button>
+              </div>
+              <datalist id="bpSuggest"></datalist>
+              <div class="bp-chips" id="bpChips"></div>
               <div class="bp-row">
-                <button class="bp-btn" onclick="bpLoadOverview()" title="Branches currently shown in the Overview table">Use Overview list</button>
-                <button class="bp-btn" onclick="bpLoadAll()">All branches</button>
+                <button class="bp-btn" onclick="bpAddOverview()" title="Adds the branches currently shown in the Overview table">+ Overview list</button>
+                <button class="bp-btn" onclick="bpAddAll()">+ All branches</button>
                 <button class="bp-btn" onclick="bpClearList()">Clear</button>
               </div>
               <div style="margin-top:12px">
@@ -25926,18 +25938,21 @@ html.page-fade-ready body {
   </div>
   <script>
   (function () {
-    var bp = { removed: {}, history: [], busy: false, pickedName: null };
+    var bp = { items: [], removed: {}, history: [], busy: false, pickedName: null };
     var $ = function (id) { return document.getElementById(id); };
     var esc = function (t) { return String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
     var key = function (n) { return String(n).trim().toUpperCase(); };
 
-    function parse() {
-      var seen = {}, out = [];
-      $('bpList').value.split(/\r?\n/).forEach(function (l) {
-        var n = l.trim();
-        if (n && !seen[key(n)]) { seen[key(n)] = 1; out.push(n); }
+    function parse() { return bp.items.slice(); }
+    function addNames(list) {
+      var added = 0;
+      list.forEach(function (raw) {
+        var n = String(raw || '').trim().replace(/\s+/g, ' ');
+        if (!n) return;
+        if (bp.items.some(function (x) { return key(x) === key(n); })) { delete bp.removed[key(n)]; return; }
+        bp.items.push(n); added++;
       });
-      return out;
+      return added;
     }
     function pool() { return parse().filter(function (n) { return !bp.removed[key(n)]; }); }
     function rnd(n) { var a = new Uint32Array(1); (window.crypto || window.msCrypto).getRandomValues(a); return a[0] % n; }
@@ -25958,7 +25973,6 @@ html.page-fade-ready body {
     }
     function allNames() { try { return activeData.branches.map(function (b) { return b.name; }); } catch (e) { return []; } }
 
-    function setList(names) { $('bpList').value = names.join('\n'); bp.removed = {}; render(); }
 
     function render(hint) {
       var p = pool(), all = parse().length;
@@ -25968,6 +25982,9 @@ html.page-fade-ready body {
       st.innerHTML = p.length
         ? p.map(function (_, i) { return '<button class="bp-paper" data-i="' + i + '" aria-label="Paper ' + (i + 1) + '" onclick="bpDraw(this)"><i></i></button>'; }).join('')
         : '<div class="bp-empty">' + (all ? 'All branches have been drawn. Press Reset to start over.' : 'No branches yet — add some on the left.') + '</div>';
+      $('bpChips').innerHTML = bp.items.length
+        ? bp.items.map(function (n, i) { return '<span class="bp-chip' + (bp.removed[key(n)] ? ' drawn' : '') + '">' + esc(n) + '<button onclick="bpRemoveItem(' + i + ')" aria-label="Remove ' + esc(n) + '">×</button></span>'; }).join('')
+        : '<div class="bp-none">Nothing added yet.</div>';
       $('bpShuffleBtn').disabled = !p.length;
       $('bpHint').textContent = hint || (p.length ? 'Tap a paper to draw — or shuffle first.' : 'Add branches, then shuffle the papers.');
       renderHist();
@@ -25979,10 +25996,22 @@ html.page-fade-ready body {
       }).join('');
     }
 
-    window.bpOnListEdit = function () { render(); };
-    window.bpLoadOverview = function () { setList(overviewNames()); };
-    window.bpLoadAll = function () { setList(allNames()); };
-    window.bpClearList = function () { $('bpList').value = ''; bp.removed = {}; render(); };
+    window.bpAddFromInput = function () {
+      var el = $('bpAdd');
+      var parts = el.value.split(/[\n,;]+/);
+      var n = addNames(parts);
+      if (!n && el.value.trim() && typeof showToast === 'function') showToast('That branch is already on the papers.');
+      el.value = '';
+      render();
+      el.focus();
+    };
+    window.bpRemoveItem = function (i) {
+      var n = bp.items[i]; if (n == null) return;
+      bp.items.splice(i, 1); delete bp.removed[key(n)]; render();
+    };
+    window.bpAddOverview = function () { addNames(overviewNames()); render(); };
+    window.bpAddAll = function () { addNames(allNames()); render(); };
+    window.bpClearList = function () { bp.items = []; bp.removed = {}; render(); };
     window.bpResetAll = function () { bp.removed = {}; bp.history = []; render('Papers are back in the bowl.'); };
 
     window.bpShuffle = function () {
@@ -26043,9 +26072,10 @@ html.page-fade-ready body {
 
     window.openBranchPicker = function () {
       var m = $('branchPickerModal');
-      if (!parse().length) { $('bpList').value = overviewNames().join('\n'); bp.removed = {}; }
+      $('bpSuggest').innerHTML = allNames().map(function (n) { return '<option value="' + esc(n) + '">'; }).join('');
       render();
       m.classList.remove('hidden'); m.setAttribute('aria-hidden', 'false');
+      setTimeout(function () { try { $('bpAdd').focus(); } catch (e) {} }, 60);
     };
     window.closeBranchPicker = function () {
       var m = $('branchPickerModal');

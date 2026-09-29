@@ -1,6 +1,8 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v39';
+const CACHE_VERSION = 'audit-dashboard-v41';
+// v41: Branch Picker is now add-only: type branches yourself (Enter to add), or add the Overview list / all branches with one tap.
+// v40: Fixed the "new version available" prompt showing on every visit even when nothing changed: the service worker now compares the real index.html content instead of ETag/Last-Modified headers.
 // v39: Assignment Branches Overview: the "Data Analysis" toolbar button is replaced by a Branch Picker (shuffle papers, tap one, it flips up and shows the branch to visit). Bumped so installed apps refetch index.html.
 // v38: Analysis now references the same numbers as Operations Highpoints / Auditor Workload: each auditor row shows branches waiting AND audits done (tap opens the same Auditor Workload popup), and when two auditors are equally free the one with fewer audits done gets the branch. Detailed Profile already shares the same audit-round data. Bumped so installed apps refetch index.html.
 // v37: Connected to the AUDITORS EMERGENCY sheet: emergency audits now count as real audits for their branch (names matched safely, e.g. LAIYA = LAIYA SAN JUAN), and an audit that started a few days ago still blocks that auditor's next days when suggesting dates. Bumped so installed apps refetch index.html.
@@ -151,6 +153,18 @@ function versionOf(res) {
   return res.headers.get('etag') || res.headers.get('last-modified') || res.headers.get('content-length') || '';
 }
 
+// True only when the two responses have different BODY bytes (SHA-256).
+// Any error => false, so a hiccup never produces a false "update" prompt.
+function bodiesDiffer(a, b) {
+  const hash = (res) =>
+    res.arrayBuffer()
+      .then((buf) => crypto.subtle.digest('SHA-256', buf))
+      .then((d) => Array.from(new Uint8Array(d)).map((x) => x.toString(16).padStart(2, '0')).join(''));
+  return Promise.all([hash(a), hash(b)])
+    .then((h) => h[0] !== h[1])
+    .catch(() => false);
+}
+
 function notifyClientsOfUpdate() {
   return self.clients.matchAll({ type: 'window' }).then((clients) => {
     clients.forEach((c) => c.postMessage({ type: 'APP_UPDATE_AVAILABLE' }));
@@ -240,10 +254,20 @@ self.addEventListener('fetch', (event) => {
           const updateCache = fetch(request, { cache: 'no-cache' })
             .then((response) => {
               if (response && response.ok) {
-                const changed = cached && versionOf(cached) !== versionOf(response);
-                return cache.put('./index.html', response.clone()).then(() => {
-                  if (changed) return notifyClientsOfUpdate();
-                }).then(() => response);
+                // Compare the real file CONTENT, not headers: ETag /
+                // Last-Modified can differ between requests (CDN nodes,
+                // weak vs strong ETags) even when index.html is identical,
+                // which used to show the "new version" prompt every time.
+                const fresh = response.clone();
+                const toStore = response.clone();
+                const check = cached
+                  ? bodiesDiffer(cached.clone(), fresh)
+                  : Promise.resolve(false);
+                return check.then((changed) =>
+                  cache.put('./index.html', toStore).then(() => {
+                    if (changed) return notifyClientsOfUpdate();
+                  })
+                ).then(() => response);
               }
               return response;
             });
