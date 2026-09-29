@@ -3478,6 +3478,10 @@ html.page-fade-ready body {
 .rr-step b{font-size:12.5px;color:#0f172a}.rr-step p{font-size:11.5px;color:#64748b;margin:2px 0 0;line-height:1.45}
 .rr-note{padding:8px 16px;font-size:11.5px;font-weight:700;border-top:1px solid #e2e8f0}
 .rr-note.ok{color:#047857;background:#ecfdf5}.rr-note.err{color:#be123c;background:#fff1f2}
+.rr-sync{display:inline-flex;align-items:center;gap:6px;margin-top:7px;padding:3px 9px;border-radius:999px;font-size:10.5px;font-weight:700;background:rgba(255,255,255,.14);color:#e0e7ff}
+.rr-sync::before{content:'';width:7px;height:7px;border-radius:50%;background:#94a3b8;flex:none}
+.rr-sync-live::before{background:#34d399}.rr-sync-busy::before{background:#fbbf24}.rr-sync-off::before{background:#f87171}.rr-sync-view::before{background:#60a5fa}
+.rr-btn[disabled]{opacity:.5;cursor:not-allowed}
 .rr-foot{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 16px;border-top:1px solid #e2e8f0;background:#fff}
 .rr-unsaved{font-size:11px;font-weight:700;color:#b45309}
 .rr-foot-btns{margin-left:auto;display:flex;gap:8px}
@@ -11719,10 +11723,12 @@ html.page-fade-ready body {
       });
       return ((better + tie / 2) / arr.length) * 100;
     }
-    function auditPeerBlend(absPts, value, arr, worseWhenHigher) {
-      if (!arr || arr.length < AUDIT_PEER_MIN_N) return { pts: absPts, peer: null };
+    function auditPeerMinN(cfg) { const n = Number(cfg && cfg.peerMinN); return n >= 3 ? n : AUDIT_PEER_MIN_N; }
+    function auditPeerBlend(absPts, value, arr, worseWhenHigher, cfg) {
+      if (!arr || arr.length < auditPeerMinN(cfg)) return { pts: absPts, peer: null };
       const peer = auditPeerShare(value, arr, worseWhenHigher);
-      return { pts: 0.5 * absPts + 0.5 * peer, peer: peer };
+      const pb = (cfg && Number.isFinite(Number(cfg.peerBlend))) ? Math.max(0, Math.min(100, Number(cfg.peerBlend))) / 100 : 0.5;
+      return { pts: (1 - pb) * absPts + pb * peer, peer: peer };
     }
     (function enrichAuditFactorText() {
       const P = {
@@ -11755,11 +11761,13 @@ html.page-fade-ready body {
       { key: 'findings', get label() { return auditFlagCfg().rfFind + '+ findings in the latest year'; },
         test: c => !!c.cfg.rfFindOn && (c.b.findings2026 || 0) >= c.cfg.rfFind, detail: c => (c.b.findings2026 || 0) + ' findings in ' + window.FINDING_YEARS[2] },
       { key: 'sliding', label: 'Efficiency and repo both deteriorating sharply',
-        test: c => !!c.cfg.rfSlideOn && c.effDelta !== null && c.effDelta <= -10 && c.repoDelta !== null && c.repoDelta >= 2,
+        test: c => !!c.cfg.rfSlideOn && c.effDelta !== null && c.effDelta <= -(c.cfg.rfSlideEff || 10) && c.repoDelta !== null && c.repoDelta >= (c.cfg.rfSlideRepo || 2),
         detail: c => 'efficiency ' + c.effDelta + ' pts, repo +' + c.repoDelta.toFixed(1) + ' pts since the earliest month' },
       { key: 'alldown', label: 'Collection, sales and service all declining',
         test: c => !!c.cfg.rfAllOn && c.b.collection === 'Declining' && c.b.sales === 'Declining' && c.b.service === 'Declining',
-        detail: () => 'all three trends are declining' }
+        detail: () => 'all three trends are declining' },
+      { key: 'never', label: 'Never audited',
+        test: c => !!c.cfg.rfNeverOn && !!c.never, detail: () => 'no completed audit on record' }
     ];
     // Suggested audit dates skip weekends and these Philippine holidays.
     // Fixed-date ones are listed as MM-DD; National Heroes Day (last Monday of
@@ -11871,7 +11879,22 @@ html.page-fade-ready body {
       rfRepoOn:  { def: 1,   min: 0, max: 1,    label: 'Repo red flag' },
       rfFindOn:  { def: 1,   min: 0, max: 1,    label: 'Findings red flag' },
       rfSlideOn: { def: 1,   min: 0, max: 1,    label: 'Sliding red flag' },
-      rfAllOn:   { def: 1,   min: 0, max: 1,    label: 'All-declining red flag' }
+      rfAllOn:   { def: 1,   min: 0, max: 1,    label: 'All-declining red flag' },
+      // ---- added: data scales, extra red-flag controls, queue rules ----
+      peerBlend:   { def: 50,  min: 0, max: 100,  label: 'Share of score from ranking against other branches' },
+      peerMinN:    { def: 10,  min: 3, max: 100,  label: 'Fewest branches needed for ranking' },
+      capPct:      { def: 90,  min: 50, max: 99,  label: 'Scale percentile' },
+      dueMin:      { def: 75,  min: 30, max: 300, label: 'Riskiest branch audit interval' },
+      findNew:     { def: 3,   min: 0, max: 10,   label: 'Findings weight: newest year' },
+      findMid:     { def: 2,   min: 0, max: 10,   label: 'Findings weight: middle year' },
+      findOld:     { def: 1,   min: 0, max: 10,   label: 'Findings weight: oldest year' },
+      rfSlideEff:  { def: 10,  min: 1, max: 100,  label: 'Sliding flag: efficiency drop' },
+      rfSlideRepo: { def: 2,   min: 1, max: 100,  label: 'Sliding flag: repo rise' },
+      rfNeverOn:   { def: 0,   min: 0, max: 1,    label: 'Never-audited red flag' },
+      covNeverOn:  { def: 1,   min: 0, max: 1,    label: 'Queue never-audited branches' },
+      covSlipOn:   { def: 1,   min: 0, max: 1,    label: 'Queue branches with a slipped date' },
+      covOverdueOn:{ def: 1,   min: 0, max: 1,    label: 'Queue branches past their rating cycle' },
+      indepOn:     { def: 1,   min: 0, max: 1,    label: 'Avoid repeating the last auditor' }
     };
     const AUDIT_EXTRA_DEFAULTS = Object.fromEntries(Object.entries(AUDIT_EXTRA_SETTINGS).map(function (e) { return [e[0], e[1].def]; }));
 
@@ -11935,6 +11958,7 @@ html.page-fade-ready body {
       cfg.expandBranch = null;
       cfg.queueOpen = false;
       cfg.notice = null;
+      auditSync.draftDirty = false; auditSync.remoteNotified = false;
       openModal('Audit Risk & Schedule Analysis', 'assignmentAnalysis', null);
     }
 
@@ -12017,8 +12041,8 @@ html.page-fade-ready body {
     //    the analysis inputs (it is picked up on the next poll instead);
     //  - applying a remote view re-renders in place and keeps the scroll
     //    position.
-    const AUDIT_SYNC_POLL_MS = 8 * 1000;
-    const AUDIT_SYNC_PUSH_DEBOUNCE_MS = 1200;
+    const AUDIT_SYNC_POLL_MS = 5 * 1000;   // popup open: check for another device's change every 5 s
+    const AUDIT_SYNC_PUSH_DEBOUNCE_MS = 500;
     const AUDIT_SYNC_NUM_RULES = { overdueDays: [1, 3650], spacingDays: [1, 3650], minScore: [1, 100], minGapDays: [0, 3650], ...Object.fromEntries(Object.entries(AUDIT_EXTRA_SETTINGS).map(function (e) { return [e[0], [e[1].min, e[1].max]]; })) };
     const AUDIT_SYNC_STR_KEYS = ['filterBucket', 'tierFilter', 'auditorFilter', 'queueFilter', 'search', 'reasonFilter', 'distFilter', 'driverFilter'];
     const auditSync = {
@@ -12031,14 +12055,20 @@ html.page-fade-ready body {
       everPulled: false,   // has this session made at least one SUCCESSFUL pull yet? see auditSyncSchedulePush
       serverHasState: false, // the server already holds a saved view (local auto-derivation must never override it)
       deferredPush: false, // a push was requested before everPulled and is waiting to be retried
-      bgTimer: null        // background poll while the popup is closed (see auditSyncStartBackground)
+      bgTimer: null,       // background poll while the popup is closed (see auditSyncStartBackground)
+      draftDirty: false,   // the Rating Rules panel holds typed-but-unsaved changes (never overwritten by a remote change)
+      remoteNotified: false, // already told the person that another device saved while they had a draft
+      updatedBy: '',       // who saved the version this device is showing
+      lastChangeByMe: false,
+      lastOkAt: 0,         // last successful round trip with the server
+      lastError: ''        // last failure (cleared by the next success)
     };
 
     // Fixed key order so two snapshots of the same view always stringify identically.
     function auditSyncSnapshot(cfg) {
       const s = {};
       Object.keys(AUDIT_SYNC_NUM_RULES).forEach(k => { s[k] = cfg[k]; });
-      AUDIT_SYNC_STR_KEYS.forEach(k => { s[k] = String(cfg[k] == null ? '' : cfg[k]).slice(0, 200); });
+      AUDIT_SYNC_STR_KEYS.forEach(k => { s[k] = String(cfg[k] == null ? '' : cfg[k]).slice(0, 80); });
       s.sortField = cfg.sortField ? String(cfg.sortField).slice(0, 40) : null;
       s.sortDir = cfg.sortDir === 'asc' ? 'asc' : 'desc';
       s.weights = {};
@@ -12108,7 +12138,10 @@ html.page-fade-ready body {
 
     function auditSyncUserIsEditing() {
       const el = document.activeElement;
-      return !!(el && el.id && /^aa-/.test(el.id));
+      if (el && el.id && /^aa-/.test(el.id)) return true;
+      // An unsaved draft in the Rating Rules panel must not be wiped by a change from another device.
+      const cfg = window.auditAnalysisState;
+      return !!(auditSync.draftDirty && cfg && (cfg.settingsOpen || cfg.weightsOpen) && auditSyncIsAnalysisOpen());
     }
 
     // Re-render in place WITHOUT going through refreshAuditAnalysis (which
@@ -12133,30 +12166,38 @@ html.page-fade-ready body {
       }) : Promise.resolve(null);
     }
 
-    async function auditSyncPull() {
+    async function auditSyncPull(force) {
       if (auditSync.pulling) return;
       auditSync.pulling = true;
       let pullOk = false;
       try {
-        const url = await auditSyncUrl('getAnalysisState', { sinceVersion: String(auditSync.version || 0) });
+        const url = await auditSyncUrl('getAnalysisState', { sinceVersion: force ? '0' : String(auditSync.version || 0) });
         if (!url) return;
         const json = await fetchSheetOnce(url);
         if (json && json.error && /unauthor/i.test(String(json.error))) { auditSync.readOnly = true; }
-        if (!json || json.error || !json.success) return; // failed: do NOT mark as pulled, so nothing local can overwrite the server
+        if (!json || json.error || !json.success) { auditSync.lastError = (json && json.error) ? String(json.error) : 'no answer'; return; } // failed: do NOT mark as pulled, so nothing local can overwrite the server
         pullOk = true;
+        auditSync.lastOkAt = Date.now(); auditSync.lastError = '';
         const ver = Number(json.version) || 0;
         if (json.unchanged) { auditSync.serverHasState = true; return; }
         if (!json.state) { auditSync.version = ver; return; } // server has nothing saved yet -> this device may seed it
         auditSync.serverHasState = true;
         // Local edits win and will be pushed momentarily; don't clobber a
         // half-typed filter either — try again on the next poll.
-        if (auditSync.pendingPush || auditSync.pushing || auditSyncUserIsEditing()) return;
+        if (auditSync.pendingPush || auditSync.pushing || auditSyncUserIsEditing()) {
+          if (auditSync.draftDirty && !auditSync.remoteNotified && auditSyncIsAnalysisOpen() && typeof showToast === 'function' && document.getElementById('toast')) {
+            auditSync.remoteNotified = true;
+            try { showToast('Another device saved new rules. Save or discard your draft to load them.', 'success'); } catch (e) {}
+          }
+          return;
+        }
 
         const firstSync = auditSync.version === 0;
         const cfg = window.auditAnalysisState;
         const before = JSON.stringify(auditSyncSnapshot(cfg));
         if (!auditSyncApplyRemote(json.state)) return;
         auditSync.version = ver;
+        auditSync.updatedBy = String(json.updatedBy || ''); auditSync.lastChangeByMe = false; auditSync.remoteNotified = false;
         if (auditSync.lastJson !== before && !auditSyncIsAnalysisOpen()) { try { updateAuditRiskOverviewCard(); } catch (e) {} }
         if (auditSync.lastJson !== before && auditSyncIsAnalysisOpen()) {
           auditSyncRerender();
@@ -12165,9 +12206,11 @@ html.page-fade-ready body {
           }
         }
       } catch (err) {
+        auditSync.lastError = String(err && err.message ? err.message : err);
         console.warn('[analysis-sync] pull failed:', err && err.message ? err.message : err);
       } finally {
         auditSync.pulling = false;
+        try { auditSyncUpdateStatus(); } catch (e) {}
         // FIX: findingsCap/sizeCap are meant to be computed ONCE and then
         // frozen forever (see computeAuditRiskScores) — but a device that
         // opens the analysis before its first pull has resolved will find
@@ -12212,31 +12255,73 @@ html.page-fade-ready body {
       const json = JSON.stringify(auditSyncSnapshot(window.auditAnalysisState));
       if (json === auditSync.lastJson) { auditSync.pendingPush = false; return; }
       auditSync.pushing = true;
-      let ok = false;
+      let ok = false, revert = false, retryLater = false;
       try {
         const url = await auditSyncUrl('saveAnalysisState', { state: json });
         if (!url) return;
         const res = await fetchSheetOnce(url);
         if (res && res.error) {
-          if (/unauthor/i.test(String(res.error))) auditSync.readOnly = true; // e.g. team-wide mode + non-editor
+          if (/unauthor/i.test(String(res.error))) { auditSync.readOnly = true; revert = true; } // e.g. team-wide mode + non-editor
           throw new Error(res.error);
         }
         if (!res || !res.success) throw new Error('save did not complete');
         auditSync.version = Number(res.version) || auditSync.version;
         auditSync.lastJson = json;
+        auditSync.lastOkAt = Date.now(); auditSync.lastError = ''; auditSync.lastChangeByMe = true;
         ok = true;
       } catch (err) {
+        auditSync.lastError = String(err && err.message ? err.message : err);
+        if (!revert) retryLater = true; // network / server hiccup: try again shortly instead of waiting for the next edit
         console.warn('[analysis-sync] push failed:', err && err.message ? err.message : err);
       } finally {
         auditSync.pushing = false;
         auditSync.pendingPush = false;
         // Changed again while this request was in flight -> send that too.
         if (ok && JSON.stringify(auditSyncSnapshot(window.auditAnalysisState)) !== auditSync.lastJson) auditSyncSchedulePush();
+        if (retryLater) setTimeout(function () { try { auditSyncSchedulePush(); } catch (e) {} }, 5000);
+        if (revert) {
+          // This account may not change the shared rules: put the shared version back on screen.
+          try { if (typeof showToast === 'function' && document.getElementById('toast')) showToast('Only editor accounts can change the shared rating rules. Your change was not kept.', 'error'); } catch (e) {}
+          auditSyncPull(true);
+        }
+        try { auditSyncUpdateStatus(); } catch (e) {}
       }
+    }
+
+    // Send a saved change right now (Save changes) instead of waiting for the short debounce.
+    function auditSyncPushNow() {
+      if (auditSync.readOnly || !auditSync.everPulled) { auditSyncSchedulePush(); return; }
+      if (JSON.stringify(auditSyncSnapshot(window.auditAnalysisState)) === auditSync.lastJson) return;
+      auditSync.pendingPush = true;
+      if (auditSync.pushTimer) { clearTimeout(auditSync.pushTimer); auditSync.pushTimer = null; }
+      auditSyncPush();
+    }
+
+    // Small status line in the Rating Rules header: tells the person whether their other devices are following.
+    function auditSyncStatus() {
+      const s = auditSync;
+      if (s.readOnly) return { k: 'view', t: 'View only \u00b7 shared rules are set by editors' };
+      if (s.pendingPush || s.pushing) return { k: 'busy', t: 'Syncing to your other devices\u2026' };
+      if (s.lastError) return { k: 'off', t: 'Offline \u00b7 will retry automatically' };
+      if (s.lastOkAt) {
+        const sec = Math.max(0, Math.round((Date.now() - s.lastOkAt) / 1000));
+        const ago = sec < 8 ? 'just now' : (sec < 60 ? sec + 's ago' : Math.round(sec / 60) + ' min ago');
+        const who = s.lastChangeByMe ? 'you' : String(s.updatedBy || '').split('@')[0];
+        return { k: 'live', t: 'Live on all devices \u00b7 checked ' + ago + (who ? ' \u00b7 last change by ' + who : '') };
+      }
+      return { k: 'busy', t: 'Connecting\u2026' };
+    }
+    function auditSyncUpdateStatus() {
+      const el = document.getElementById('rr-sync');
+      if (!el) return;
+      const st = auditSyncStatus();
+      el.className = 'rr-sync rr-sync-' + st.k;
+      el.textContent = st.t;
     }
 
     function auditSyncTick() {
       if (!auditSyncIsAnalysisOpen()) { auditSyncStopPolling(); return; }
+      auditSyncUpdateStatus();
       if (document.hidden) return;
       auditSyncPull();
     }
@@ -12259,6 +12344,14 @@ html.page-fade-ready body {
       }
     });
 
+    // Coming back online or refocusing the window: catch up right away instead of waiting for the next poll.
+    ['online', 'focus', 'pageshow'].forEach(function (ev) {
+      window.addEventListener(ev, function () {
+        if (document.hidden) return;
+        if (auditSyncIsAnalysisOpen() || auditSync.bgTimer) auditSyncPull();
+      });
+    });
+
     // BACKGROUND SYNC: the shared view/settings/weights/caps used to be
     // fetched only when the analysis popup was opened, so the dashboard card,
     // branch profiles and exports on each device were computed from that
@@ -12266,7 +12359,7 @@ html.page-fade-ready body {
     // state is pulled as soon as the dashboard has data, again whenever the
     // tab is looked at, and every AUDIT_SYNC_BG_POLL_MS while the popup is closed
     // (an unchanged view is a tiny cached reply on the server).
-    const AUDIT_SYNC_BG_POLL_MS = 45 * 1000;
+    const AUDIT_SYNC_BG_POLL_MS = 20 * 1000; // popup closed: every 20 s (plus instantly when the tab is looked at again)
     function auditSyncStartBackground() {
       if (auditSync.bgTimer) return;
       auditSync.bgTimer = setInterval(function () {
@@ -12285,9 +12378,11 @@ html.page-fade-ready body {
       auditSync.version = 0; auditSync.lastJson = null;
       auditSync.pendingPush = false; auditSync.pushing = false; auditSync.pulling = false; auditSync.readOnly = false;
       auditSync.everPulled = false; auditSync.deferredPush = false; auditSync.serverHasState = false;
+      auditSync.draftDirty = false; auditSync.remoteNotified = false; auditSync.updatedBy = ''; auditSync.lastOkAt = 0; auditSync.lastError = ''; auditSync.lastChangeByMe = false;
       const cfg = window.auditAnalysisState;
       if (cfg) {
         cfg.overdueDays = 365; cfg.spacingDays = 3; cfg.minScore = 55; cfg.minGapDays = 60;
+        Object.assign(cfg, AUDIT_EXTRA_DEFAULTS);
         cfg.findingsCap = null; cfg.sizeCap = null; cfg.repoCap = null; cfg.shortfallCap = null;
         cfg.filterBucket = 'ALL';
         resetAuditTableFilterState(cfg);
@@ -12434,6 +12529,9 @@ html.page-fade-ready body {
       strict:   { minScore: 45, minGapDays: 45, overdueDays: 300, critMin: 65, highMin: 50, medMin: 35, critTop: 20, highTop: 50, medTop: 75, cycleCrit: 60, cycleHigh: 90, cycleMed: 150, rfEff: 60, rfRepo: 6, rfFind: 4, rfEffOn: 1, rfRepoOn: 1, rfFindOn: 1, rfSlideOn: 1, rfAllOn: 1 },
       relaxed:  { minScore: 65, minGapDays: 90, overdueDays: 365, critMin: 75, highMin: 60, medMin: 45, critTop: 10, highTop: 30, medTop: 60, cycleCrit: 120, cycleHigh: 180, cycleMed: 240, rfEff: 45, rfRepo: 8, rfFind: 6, rfEffOn: 1, rfRepoOn: 1, rfFindOn: 1, rfSlideOn: 1, rfAllOn: 1 }
     };
+    Object.assign(AUDIT_PRESETS.balanced, { peerBlend: 50, peerMinN: 10, capPct: 90, dueMin: 75, findNew: 3, findMid: 2, findOld: 1, rfSlideEff: 10, rfSlideRepo: 2, rfNeverOn: 0, covNeverOn: 1, covSlipOn: 1, covOverdueOn: 1, indepOn: 1 });
+    Object.assign(AUDIT_PRESETS.strict,   { peerBlend: 60, peerMinN: 10, capPct: 85, dueMin: 60, findNew: 3, findMid: 2, findOld: 1, rfSlideEff: 8,  rfSlideRepo: 1, rfNeverOn: 1, covNeverOn: 1, covSlipOn: 1, covOverdueOn: 1, indepOn: 1 });
+    Object.assign(AUDIT_PRESETS.relaxed,  { peerBlend: 40, peerMinN: 10, capPct: 95, dueMin: 90, findNew: 3, findMid: 2, findOld: 1, rfSlideEff: 12, rfSlideRepo: 3, rfNeverOn: 0, covNeverOn: 1, covSlipOn: 1, covOverdueOn: 1, indepOn: 1 });
     function auditSettingKeys() { return ['minScore', 'minGapDays', 'overdueDays', 'spacingDays'].concat(Object.keys(AUDIT_EXTRA_SETTINGS)); }
     function auditReadDraftNumbers() {
       const cfg = window.auditAnalysisState, vals = {}, problems = [];
@@ -12454,6 +12552,7 @@ html.page-fade-ready body {
       if (!(v.critMin > v.highMin && v.highMin > v.medMin)) p.push('Level scores must go down: Critical above High above Medium.');
       if (!(v.critTop < v.highTop && v.highTop < v.medTop)) p.push('"Top %" must grow from Critical to High to Medium (for example 15, 40, 70).');
       if (!(v.cycleCrit <= v.cycleHigh && v.cycleHigh <= v.cycleMed)) p.push('Audit cycles must not get shorter for lower ratings (Critical, then High, then Medium).');
+      if (!(v.findNew > 0 || v.findMid > 0 || v.findOld > 0)) p.push('At least one findings year must count for more than 0.');
       return p;
     }
     function auditApplyPreset(name) {
@@ -12502,7 +12601,9 @@ html.page-fade-ready body {
         box.innerHTML = auditPreviewPillsHtml(res.counts, res.queue, now);
       } catch (e) { box.innerHTML = '<span class="rr-prev-msg">Preview is not available right now.</span>'; }
     }
+    function auditDiscardDraft() { auditSync.draftDirty = false; auditSync.remoteNotified = false; refreshAuditAnalysis(false); }
     function auditDraftChanged() {
+      auditSync.draftDirty = true;
       const hint = document.getElementById('aa-w-hint'); if (hint) hint.classList.remove('hidden');
       const w = readAuditWeightInputs();
       const val = function (f) { return (isFinite(w[f.key]) && w[f.key] > 0) ? w[f.key] : 0; };
@@ -12516,6 +12617,13 @@ html.page-fade-ready body {
     // field is invalid nothing is changed and all problems are reported at once.
     function applyAllAuditAnalysisSettings() {
       const cfg = window.auditAnalysisState;
+      if (auditSync.readOnly) {
+        cfg.notice = { type: 'error', text: 'Only editor accounts can change the shared rating rules. Nothing was changed.' };
+        cfg.weightsOpen = true;
+        auditSync.draftDirty = false;
+        refreshAuditAnalysis(false);
+        return;
+      }
       const rd = auditReadDraftNumbers();
       const problems = rd.problems.slice();
       if (!problems.length) auditCheckDraftOrder(rd.vals).forEach(function (m) { problems.push(m); });
@@ -12541,10 +12649,12 @@ html.page-fade-ready body {
           saveAuditRiskWeightsSource('custom');
         }
         try { localStorage.setItem(AUDIT_RISK_WEIGHTS_KEY, JSON.stringify(w)); } catch (e) {}
-        cfg.notice = { type: 'ok', text: 'Saved. Every branch has been re-rated with your new rules.' };
+        cfg.notice = { type: 'ok', text: 'Saved. Every branch has been re-rated, and your other devices are being updated now.' };
+        auditSync.draftDirty = false; auditSync.remoteNotified = false;
       }
       cfg.weightsOpen = true;
       refreshAuditAnalysis(false);
+      if (!problems.length) auditSyncPushNow();
     }
 
     // "Use recommended" puts back the recommended split (see AUDIT_RISK_FACTORS, adds up to 100%).
@@ -12582,6 +12692,7 @@ html.page-fade-ready body {
     function toggleAuditSettings() {
       const cfg = window.auditAnalysisState;
       const open = !(cfg.settingsOpen || cfg.weightsOpen);
+      auditSync.draftDirty = false; auditSync.remoteNotified = false;
       cfg.settingsOpen = open; cfg.weightsOpen = open;
       refreshAuditAnalysis(false);
       const body = document.getElementById('modalBody');
@@ -12794,7 +12905,7 @@ html.page-fade-ready body {
     // FINDINGS: the 3 year columns roll forward (e.g. 2025/2026/2027). Field names stay findings2024/2025/2026
     // but mean oldest / middle / newest column. A brand-new newest year with 0 findings AND no completed audit
     // in that year is 'pending' (not audited yet), not clean: the two earlier years then carry the weight (x3, x2).
-    function auditFindingsModel(b, info) {
+    function auditFindingsModel(b, info, cfgIn) {
       const yrs = window.FINDING_YEARS || [2024, 2025, 2026];
       const f0 = b.findings2024 || 0, f1 = b.findings2025 || 0, f2 = b.findings2026 || 0;
       let auditedNewest = true;
@@ -12804,7 +12915,10 @@ html.page-fade-ready body {
           || (inf.recentDateRaw != null && new Date(inf.recentDateRaw).getFullYear() === yrs[2]);
       } catch (e) { auditedNewest = true; }
       const pending = f2 === 0 && !auditedNewest && new Date().getFullYear() <= yrs[2];
-      const weighted = pending ? (f1 * 3 + f0 * 2) : (f2 * 3 + f1 * 2 + f0);
+      const fc = cfgIn || window.auditAnalysisState || {};
+      const fw = (v, d) => Number.isFinite(Number(v)) ? Math.max(0, Number(v)) : d;
+      const wN = fw(fc.findNew, 3), wM = fw(fc.findMid, 2), wO = fw(fc.findOld, 1);
+      const weighted = pending ? (f1 * wN + f0 * wM) : (f2 * wN + f1 * wM + f0 * wO);
       return { weighted: weighted, pending: pending, newestYear: yrs[2], usedYears: pending ? [yrs[0], yrs[1]] : yrs.slice() };
     }
     function auditFindingsWeighted(b, info) { return auditFindingsModel(b, info).weighted; }
@@ -13194,7 +13308,8 @@ html.page-fade-ready body {
     // For a single branch use scoreBranchAgainstPortfolio() below.
     function computeAuditRiskScores(rows, cfg) {
       const weights = cfg.weights || defaultAuditRiskWeights();
-      const findingsWeighted = (b, info) => auditFindingsWeighted(b, info);
+      const findingsWeighted = (b, info) => auditFindingsModel(b, info, cfg).weighted;
+      const capQ = (Number.isFinite(Number(cfg.capPct)) ? Math.max(50, Math.min(99, Number(cfg.capPct))) : 90) / 100;
       const accountsOf = b => (b.accountsMay || 0) > 0 ? b.accountsMay : (b.accountsApr || 0);
       // Findings/size are scaled against caps that are computed ONCE and then
       // frozen in cfg, not recalculated on every call from whatever rows
@@ -13209,10 +13324,10 @@ html.page-fade-ready body {
       // Each is the 90th percentile of your branches today (with a small floor so one finding or one
       // repo in a very clean portfolio cannot become a maximum score). A branch at half of it scores
       // 50 points, at or above it 100. Every device reads the same sheet, so every device agrees.
-      cfg.findingsCap = Math.max(Math.round(auditRiskPercentile(rows.map(r => findingsWeighted(r.b, r.info)), 0.9)), AUDIT_FINDINGS_MIN_CAP);
-      cfg.sizeCap = Math.round(auditRiskPercentile(rows.map(r => accountsOf(r.b)), 0.9)) || 1;
-      cfg.repoCap = Math.max(Math.round(auditRiskPercentile(rows.map(r => auditRepoCountOf(r.b)), 0.9)), 3);
-      cfg.shortfallCap = Math.max(Math.round(auditRiskPercentile(rows.map(r => auditShortfallOf(r.b)), 0.9)), 1);
+      cfg.findingsCap = Math.max(Math.round(auditRiskPercentile(rows.map(r => findingsWeighted(r.b, r.info)), capQ)), AUDIT_FINDINGS_MIN_CAP);
+      cfg.sizeCap = Math.round(auditRiskPercentile(rows.map(r => accountsOf(r.b)), capQ)) || 1;
+      cfg.repoCap = Math.max(Math.round(auditRiskPercentile(rows.map(r => auditRepoCountOf(r.b)), capQ)), 3);
+      cfg.shortfallCap = Math.max(Math.round(auditRiskPercentile(rows.map(r => auditShortfallOf(r.b)), capQ)), 1);
       const findingsCap = cfg.findingsCap;
       const sizeCap = cfg.sizeCap;
       const repoCap = cfg.repoCap;
@@ -13235,7 +13350,7 @@ html.page-fade-ready body {
                below50: peerEffArr.filter(v => v < 50).length },
         repoRate: { n: peerRepoArr.length, p50: Math.round(auditRiskPercentile(peerRepoArr, 0.5) * 100) / 100, p75: Math.round(auditRiskPercentile(peerRepoArr, 0.75) * 100) / 100,
                     atOrAbove7: peerRepoArr.filter(v => v >= 7).length },
-        peerActive: peerEffArr.length >= AUDIT_PEER_MIN_N
+        peerActive: peerEffArr.length >= auditPeerMinN(cfg)
       };
       const highTier = AUDIT_RISK_TIERS.find(t => t.key === 'HIGH');
       const tierRank = t => AUDIT_RISK_TIERS.indexOf(t); // 0 = Critical ... 3 = Low
@@ -13255,7 +13370,7 @@ html.page-fade-ready body {
         // "days since last audit" is depends on how healthy the branch's data is.
         const never = info.roundsCount === 0 || info.intervalDays === null || info.intervalDays === undefined;
 
-        const fm = auditFindingsModel(b, info);
+        const fm = auditFindingsModel(b, info, cfg);
         const fw = fm.weighted;
         const ftotal = (b.findings2024 || 0) + (b.findings2025 || 0) + (b.findings2026 || 0);
         const pendNote = fm.pending ? (' \u00b7 ' + window.FINDING_YEARS[2] + ' is new (not audited yet), so the score uses ' + fm.usedYears[0] + '\u2013' + fm.usedYears[1]) : '';
@@ -13278,7 +13393,7 @@ html.page-fade-ready body {
         const effNow = effSeries[2] > 0 ? effSeries[2] : (effSeries[1] > 0 ? effSeries[1] : (effSeries[0] > 0 ? effSeries[0] : 0));
         const hasEff = effNow > 0;
         const effAbsPts = auditRiskPiecewise(effNow, [[0, 100], [50, 70], [70, 35], [100, 0]]);
-        const effBlend = auditPeerBlend(effAbsPts, effNow, peerEffArr, false);
+        const effBlend = auditPeerBlend(effAbsPts, effNow, peerEffArr, false, cfg);
         const effLevelPts = effBlend.pts;
         const effNZ = effSeries.filter(v => v > 0);
         const effDelta = effNZ.length >= 2 ? effNZ[effNZ.length - 1] - effNZ[0] : null;
@@ -13308,7 +13423,7 @@ html.page-fade-ready body {
         const hasAcct = accountsOf(b) > 0;
         const repo = b.repoRateLatest || 0;
         const repoAbsPts = auditRiskPiecewise(repo, [[0, 0], [4, 35], [7, 70], [12, 100]]);
-        const repoBlend = auditPeerBlend(repoAbsPts, repo, peerRepoArr, true);
+        const repoBlend = auditPeerBlend(repoAbsPts, repo, peerRepoArr, true, cfg);
         const repoLevelPts = repoBlend.pts;
         // Same blend for repo: level (70%) + trend since the earliest month
         // (30%), in one factor, for the same reason as efficiency above.
@@ -13353,7 +13468,9 @@ html.page-fade-ready body {
         f.forEach(x => { if (x.available) { const w = Math.max(0, Number(weights[x.key]) || 0); dSum += w * x.points; dW += w; } });
         const dataScore = dW > 0 ? dSum / dW : 50;
         const maxDue = Math.max(1, cfg.overdueDays);
-        const dueDays = Math.max(30, Math.min(maxDue, Math.round(auditRiskPiecewise(dataScore, AUDIT_DUE_ANCHORS))));
+        const dueMinCfg = Math.max(30, Math.min(300, Number(cfg.dueMin) || 75));
+        const dueAnchors = AUDIT_DUE_ANCHORS.map(a => [a[0], dueMinCfg + (a[1] - 75) * ((365 - dueMinCfg) / 290)]);
+        const dueDays = Math.max(30, Math.min(maxDue, Math.round(auditRiskPiecewise(dataScore, dueAnchors))));
         const recFloor = 0.25 * dataScore;
         let recPts, recDetail, recShort;
         if (never) {
@@ -13384,7 +13501,7 @@ html.page-fade-ready body {
         });
         score = Math.round(score * 10) / 10;
 
-        const flagCtx = { cfg: cfg, b: b, effNow: effNow, hasAcct: hasAcct, repo: repo, effDelta: effDelta, repoDelta: repoDelta };
+        const flagCtx = { cfg: cfg, b: b, effNow: effNow, hasAcct: hasAcct, repo: repo, effDelta: effDelta, repoDelta: repoDelta, never: never };
         const redFlags = AUDIT_RED_FLAGS.filter(rf => rf.test(flagCtx)).map(rf => ({ key: rf.key, label: rf.label, detail: rf.detail(flagCtx) }));
         const baseTier = auditRiskTierOf(score);
         const escalated = redFlags.length > 0 && tierRank(baseTier) > tierRank(highTier);
@@ -13417,7 +13534,7 @@ html.page-fade-ready body {
       // still lifts a branch to at least High regardless.
       (function applyAdaptiveTiers() {
         const defs = { CRITICAL: { floor: cfg.critMin, pct: 1 - cfg.critTop / 100 }, HIGH: { floor: cfg.highMin, pct: 1 - cfg.highTop / 100 }, MEDIUM: { floor: cfg.medMin, pct: 1 - cfg.medTop / 100 } };
-        const adaptive = rows.length >= AUDIT_PEER_MIN_N;
+        const adaptive = rows.length >= auditPeerMinN(cfg);
         const scores = rows.map(r => r.risk.score);
         const used = {};
         AUDIT_RISK_TIERS.forEach(t => {
@@ -13532,15 +13649,15 @@ html.page-fade-ready body {
         const highRisk = auditIsHighRisk(row, cfg);
         const pastMinGap = !hasDays || days >= Math.min(cfg.minGapDays, row.risk.cycleDays); // rest period can never exceed the rating's own cycle
 
-        if (info.roundsCount === 0 && !hasExpected) {
+        if (cfg.covNeverOn !== 0 && info.roundsCount === 0 && !hasExpected) {
           neverAudited.push(row);
-        } else if (hasExpected && info.expectedAuditDateRaw < today && !isDone) {
+        } else if (cfg.covSlipOn !== 0 && hasExpected && info.expectedAuditDateRaw < today && !isDone) {
           scheduledPastDue.push(row);
         } else if (hasExpected && info.expectedAuditDateRaw >= today) {
           scheduledUpcoming.push(row);
         } else if (!hasExpected && highRisk && pastMinGap) {
           riskFlagged.push(row);
-        } else if (!hasExpected && hasDays && days >= row.risk.cycleDays) {
+        } else if (cfg.covOverdueOn !== 0 && !hasExpected && hasDays && days >= row.risk.cycleDays) {
           overdueUnscheduled.push(row);
         } else {
           onTrack.push(row);
@@ -13643,7 +13760,7 @@ html.page-fade-ready body {
         if (queued) {
           auditor = queued; alreadyCounted = true;   // already assigned (Up Next) -> keep it, even if they also did the last audit
         } else {
-          const pool = lanes.filter(n => norm(n) !== recentNorm);
+          const pool = cfg.indepOn === 0 ? lanes : lanes.filter(n => norm(n) !== recentNorm);
           const candidates = pool.length ? pool : lanes;
           let best = null, bestDate = null;
           candidates.forEach(n => {
@@ -14474,11 +14591,12 @@ html.page-fade-ready body {
       const rrRow = (title, help, input, unit) => `<div class="rr-srow"><div><b>${title}</b><p>${help}</p></div><div class="rr-sin">${input}<em>${unit}</em></div></div>`;
       const rrStep = (n, t, d) => `<div class="rr-step"><span>${n}</span><div><b>${t}</b><p>${d}</p></div></div>`;
 
+      const rrSyncNow = auditSyncStatus();
       const settingsModalHtml = `
         <div role="dialog" aria-modal="true" aria-label="Rating rules and manual settings" onclick="if(event.target===this)toggleAuditSettings()" style="position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.55);align-items:center;justify-content:center;padding:12px;${(cfg.settingsOpen || cfg.weightsOpen) ? 'display:flex;' : 'display:none;'}">
         <div class="rr-sheet">
           <div class="rr-head">
-            <div><h2>Rating Rules &amp; Manual Settings</h2><p>Choose what counts, how branches are rated, and who gets queued. ${a.totalBranches} branches, re-rated on every data change.</p></div>
+            <div><h2>Rating Rules &amp; Manual Settings</h2><p>Choose what counts, how branches are rated, and who gets queued. ${a.totalBranches} branches, re-rated on every data change.</p><span id="rr-sync" class="rr-sync rr-sync-${rrSyncNow.k}">${escapeHTML(rrSyncNow.t)}</span></div>
             <button type="button" class="rr-x" onclick="toggleAuditSettings()" aria-label="Close">✕</button>
           </div>
           <div class="rr-scroll custom-scrollbar">
@@ -14491,7 +14609,7 @@ html.page-fade-ready body {
               <div class="rr-prev"><span class="rr-prev-h">If you save now</span><div id="rr-prev-body" class="rr-prev-body" data-now="${rrNowJson}">${auditPreviewPillsHtml(rrNowCounts, rrNowQueue, null)}</div></div>
             </div>
 
-            <div class="rr-tabs" role="tablist">${rrTabBtn('weights', 'What counts')}${rrTabBtn('levels', 'Rating levels')}${rrTabBtn('flags', 'Red flags')}${rrTabBtn('schedule', 'Scheduling')}${rrTabBtn('how', 'How it works')}</div>
+            <div class="rr-tabs" role="tablist">${rrTabBtn('weights', 'What counts')}${rrTabBtn('levels', 'Rating levels')}${rrTabBtn('flags', 'Red flags')}${rrTabBtn('schedule', 'Scheduling')}${rrTabBtn('scales', 'Data scales')}${rrTabBtn('how', 'How it works')}</div>
 
             <div ${rrPane('weights')}>
               <div class="rr-wlist">${rrWeightRows}</div>
@@ -14525,8 +14643,9 @@ html.page-fade-ready body {
                 ${rrFlag('rfEffOn', 'eff', 'Efficiency is below ' + rrNum('rfEff') + ' %', 'Collections are falling behind.')}
                 ${rrFlag('rfRepoOn', 'repo', 'Repo rate is ' + rrNum('rfRepo') + ' % or higher', 'Repossessions are unusually high.')}
                 ${rrFlag('rfFindOn', 'findings', rrNum('rfFind') + ' or more findings in ' + rrYr, 'Many findings already this year.')}
-                ${rrFlag('rfSlideOn', 'sliding', 'Efficiency and repo both getting sharply worse', 'Efficiency down 10 points and repo up 2 points since the earliest month.')}
+                ${rrFlag('rfSlideOn', 'sliding', 'Efficiency and repo both getting sharply worse', 'Efficiency down ' + rrNum('rfSlideEff') + ' points and repo up ' + rrNum('rfSlideRepo') + ' points since the earliest month.')}
                 ${rrFlag('rfAllOn', 'alldown', 'Collection, sales and service all declining', 'All three trends point down at once.')}
+                ${rrFlag('rfNeverOn', 'never', 'Branch has never been audited', 'Lifts a branch with no completed audit to at least High. Off by default.')}
               </div>
             </div>
 
@@ -14536,6 +14655,23 @@ html.page-fade-ready body {
                 ${rrRow('Queue a branch at this risk score', 'Branches at or above this score join the queue, even if they were audited recently.', rrNum('minScore'), '/ 100')}
                 ${rrRow('Rest period after an audit', 'Do not queue a branch audited more recently than this. Never longer than its rating cycle.', rrNum('minGapDays'), 'days')}
                 ${rrRow('Working days per branch audit', 'One auditor\'s next suggested date starts after this many working days. 5 means one branch a week.', rrNum('spacingDays'), 'days')}
+                ${rrRow('Queue branches that were never audited', 'A branch with no completed audit and nothing scheduled always joins the queue.', rrSwitch('covNeverOn'), '')}
+                ${rrRow('Queue branches whose planned date slipped', 'The expected audit date passed and the branch is not marked Done.', rrSwitch('covSlipOn'), '')}
+                ${rrRow('Queue branches past their rating cycle', 'No audit for longer than the cycle of the branch\'s rating, and nothing scheduled.', rrSwitch('covOverdueOn'), '')}
+                ${rrRow('Avoid repeating the last auditor', 'Suggest someone other than the person who did the last audit, whenever another auditor is free.', rrSwitch('indepOn'), '')}
+              </div>
+            </div>
+
+            <div ${rrPane('scales')}>
+              <p class="rr-lead">How the data itself is measured. These follow your own branches, so they adjust as your portfolio changes.</p>
+              <div class="rr-srows">
+                ${rrRow('Rank against other branches', 'Share of the efficiency and repo score that comes from how a branch ranks among your branches. The rest comes from the fixed policy line. 0 = fixed line only, 100 = ranking only.', rrNum('peerBlend'), '%')}
+                ${rrRow('Fewest branches for ranking', 'With fewer branches than this that have data, ranking is skipped and only the fixed line is used.', rrNum('peerMinN'), 'branches')}
+                ${rrRow('Scale reaches 100 at this percentile', 'Findings, accounts, repossessions and non-collecting accounts are scored against this point in your portfolio. 90 means the worst 10% of branches score 100.', rrNum('capPct'), 'th')}
+                ${rrRow('Riskiest branch is due every', 'The audit interval for a branch with the worst data. Healthier branches wait longer, up to the Low limit on the Rating levels tab.', rrNum('dueMin'), 'days')}
+                ${rrRow('Findings: newest year counts', 'Each finding in the newest year is worth this many points. Set 0 to ignore the year.', rrNum('findNew'), '×')}
+                ${rrRow('Findings: middle year counts', 'Each finding in the middle year is worth this many points.', rrNum('findMid'), '×')}
+                ${rrRow('Findings: oldest year counts', 'Each finding in the oldest year is worth this many points.', rrNum('findOld'), '×')}
               </div>
             </div>
 
@@ -14554,8 +14690,8 @@ html.page-fade-ready body {
             <span id="aa-w-total" class="inline-flex items-center px-2 py-1 rounded-md border text-[10px] font-extrabold whitespace-nowrap bg-accentEmerald/10 text-accentEmerald border-accentEmerald/30">✓ Total ${weightsTotalNow}% — ready to save</span>
             <span id="aa-w-hint" class="hidden rr-unsaved">Not saved yet</span>
             <span class="rr-foot-btns">
-              <button type="button" class="rr-btn" onclick="refreshAuditAnalysis(false)">Discard</button>
-              <button type="button" class="rr-btn rr-btn-p" onclick="applyAllAuditAnalysisSettings()">Save changes</button>
+              <button type="button" class="rr-btn" onclick="auditDiscardDraft()">Discard</button>
+              <button type="button" class="rr-btn rr-btn-p" onclick="applyAllAuditAnalysisSettings()" ${auditSync.readOnly ? 'disabled title="Only editor accounts can change the shared rules"' : ''}>Save changes</button>
             </span>
           </div>
         </div>

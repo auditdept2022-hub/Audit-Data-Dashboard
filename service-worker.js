@@ -1,6 +1,9 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v20';
+const CACHE_VERSION = 'audit-dashboard-v21';
+// v21: Rating Rules & Manual Settings: new "Data scales" tab, extra red-flag and queue rules, and faster
+//  live cross-device sync (5 s while open, 20 s in the background, instant on focus/online). Bumped so
+//  installed apps refetch index.html.
 // v20: redesigned "Rating Rules & Manual Settings" (tabs, presets, live preview, editable
 //  rating levels, cycles and red flags). Bumped so installed apps refetch index.html.
 // v19: data-driven rating levels (top ~15% Critical / ~40% High, fixed minimums kept),
