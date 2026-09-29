@@ -1,6 +1,9 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v35';
+const CACHE_VERSION = 'audit-dashboard-v38';
+// v38: Analysis now references the same numbers as Operations Highpoints / Auditor Workload: each auditor row shows branches waiting AND audits done (tap opens the same Auditor Workload popup), and when two auditors are equally free the one with fewer audits done gets the branch. Detailed Profile already shares the same audit-round data. Bumped so installed apps refetch index.html.
+// v37: Connected to the AUDITORS EMERGENCY sheet: emergency audits now count as real audits for their branch (names matched safely, e.g. LAIYA = LAIYA SAN JUAN), and an audit that started a few days ago still blocks that auditor's next days when suggesting dates. Bumped so installed apps refetch index.html.
+// v36: Audit schedule fixes: an audit dated TODAY is no longer treated as missed; an audit already done on/after its planned date is no longer queued again; audits planned only as a future-dated round now count as scheduled; suggested dates avoid every day an auditor is already booked (one lane per auditor name, any case). Bumped so installed apps refetch index.html.
 // v35: Loading progress bar + status text is back under the logo on the boot splash (follows the real load). Bumped so installed apps refetch index.html.
 // v34: Audit status banner realigned: headline no longer wraps onto a second line with a lone word, tighter line spacing, more room between the status block and the rating bar. Bumped so installed apps refetch index.html.
 // v33: Audit schedule now uses ONE audit-cycle rule per branch: its own data-based due interval, shortened (never lengthened) by its rating's limit. Before, the score used the branch's due interval but the schedule/overdue/on-track checks used a fixed rating cycle, so the two could disagree. Bumped so installed apps refetch index.html.

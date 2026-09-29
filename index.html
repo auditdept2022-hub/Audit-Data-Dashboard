@@ -11018,6 +11018,32 @@ html.page-fade-ready body {
     // not the gap between the last two rounds. That keeps the column
     // reading as current staleness ("how overdue is this branch right
     // now") rather than a historical, possibly stale, round-to-round gap.
+    // AUDITORS EMERGENCY entries (auditor, branch, date) are real audits. Match each one to a branch
+    // even when the name is written differently ("LAIYA" = "LAIYA SAN JUAN", "CALIT - CALIT" =
+    // "CALIT-CALIT SAN JUAN"): exact name first, else a single unambiguous branch whose name starts with it.
+    let _auditEmergencyIdx = { hist: null, n: -1, br: null, map: null };
+    function auditEmergencyByBranch() {
+      const hist = (activeData && activeData.emergencyHistory) || [];
+      const branches = (activeData && activeData.branches) || [];
+      const c = _auditEmergencyIdx;
+      if (c.map && c.hist === hist && c.n === hist.length && c.br === branches) return c.map;
+      const key = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const keys = branches.map(x => ({ name: x.name, k: key(x.name) }));
+      const map = {};
+      hist.forEach(h => {
+        const hk = key(h && h.branch);
+        if (!hk || !h.details) return;
+        const d = new Date(h.details);
+        if (isNaN(d.getTime())) return;
+        d.setHours(0, 0, 0, 0);
+        let hit = keys.filter(x => x.k === hk);
+        if (!hit.length) hit = keys.filter(x => x.k.indexOf(hk) === 0);
+        if (hit.length !== 1) return; // unknown or ambiguous name: never guess
+        (map[hit[0].name] = map[hit[0].name] || []).push({ auditor: String(h.auditor || '').trim() || 'Unassigned', dateRaw: d.getTime(), emergency: true });
+      });
+      _auditEmergencyIdx = { hist: hist, n: hist.length, br: branches, map: map };
+      return map;
+    }
     function getBranchAuditRoundInfo(b) {
       // AUDIT DATA (FINAL)'s own rounds (AO:AV), sorted 1->4, dated ones
       // only. This is what the Edit Assignment form actually writes to,
@@ -11066,6 +11092,18 @@ html.page-fade-ready body {
               dateRaw: rr.dateRaw
           });
       });
+      // Emergency audits done at this branch (skipped only when it is clearly the same audit already listed).
+      (auditEmergencyByBranch()[b.name] || []).forEach(em => {
+          const dup = merged.some(o =>
+              Math.floor(o.dateRaw / DAY_MS) === Math.floor(em.dateRaw / DAY_MS) ||
+              (norm2(o.auditor) === norm2(em.auditor) && Math.abs(o.dateRaw - em.dateRaw) <= 7 * DAY_MS));
+          if (!dup) merged.push({
+              round: 0,
+              auditor: em.auditor,
+              date: new Date(em.dateRaw).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+              dateRaw: em.dateRaw
+          });
+      });
       const datedAll = merged;
       const dated = datedAll.filter(isDoneDate).slice().sort((x, y) => x.dateRaw - y.dateRaw);
       // Engagement view for the Detailed Profile: EVERY dated engagement, including
@@ -11080,7 +11118,9 @@ html.page-fade-ready body {
           engRecentPlanned: !!(engRecent && !isDoneDate(engRecent)),
           engLastAuditor: engLast ? (engLast.auditor || 'Unassigned') : null,
           engLastDate: engLast ? engLast.date : null,
-          engLastPlanned: !!(engLast && !isDoneDate(engLast))
+          engLastPlanned: !!(engLast && !isDoneDate(engLast)),
+          // Rounds dated in the FUTURE = audits already planned (AUDIT DATA AO:AV / rotation sheet).
+          plannedRounds: datedAll.filter(r => !isDoneDate(r)).map(r => ({ dateRaw: r.dateRaw, auditor: r.auditor || 'Unassigned' })).sort((x, y) => x.dateRaw - y.dateRaw)
       };
 
       // Who's queued for the branch's NEXT audit round — read ONLY from
@@ -14070,24 +14110,46 @@ html.page-fade-ready body {
       //                       (coverage backstop).
       // onTrack             : everything else.
       const neverAudited = [], overdueUnscheduled = [], riskFlagged = [], scheduledPastDue = [], scheduledUpcoming = [], onTrack = [];
+      // Start of TODAY: an audit dated today is still on schedule until the day is over.
+      const sot = new Date(today); sot.setHours(0, 0, 0, 0);
+      const sotMs = sot.getTime();
+      const DAY_MS_A = 86400000;
       rows.forEach(row => {
         const { b, info } = row;
-        const hasExpected = !!(info.expectedAuditDate && info.expectedAuditDateRaw);
-        const isDone = (b.auditStatus || '').toUpperCase() === 'DONE';
+        const expRaw = info.expectedAuditDateRaw;
+        const hasExpected = !!(info.expectedAuditDate && expRaw);
+        // DONE = the sheet says DONE, OR a completed audit is dated on/after the plan (or up to 7 days
+        // before it: an audit done a little early still counts). Then the plan is finished, not "slipped".
+        const doneForPlan = hasExpected && info.recentDateRaw !== null && info.recentDateRaw !== undefined
+          && info.recentDateRaw >= expRaw - 7 * DAY_MS_A;
+        const isDone = (b.auditStatus || '').toUpperCase() === 'DONE' || doneForPlan;
+        // Any audit already planned ahead: the Expected Audit Date OR a future-dated round.
+        const nextPlanned = (info.plannedRounds || []).find(x => x.dateRaw >= sotMs) || null;
+        let upcomingRaw = null;
+        if (hasExpected && expRaw >= sotMs && !doneForPlan) upcomingRaw = expRaw;
+        else if (nextPlanned) upcomingRaw = nextPlanned.dateRaw;
+        if (upcomingRaw !== null && !(hasExpected && expRaw === upcomingRaw)) {
+          // planned only through a dated round: show that date as the expected date everywhere
+          info.expectedAuditDateRaw = upcomingRaw;
+          info.expectedAuditDate = new Date(upcomingRaw).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+          if (!info.upNextAuditor && nextPlanned && nextPlanned.auditor !== 'Unassigned') info.upNextAuditor = nextPlanned.auditor;
+        }
         const days = info.intervalDays;
         const hasDays = days !== null && days !== undefined;
         const highRisk = auditIsHighRisk(row, cfg);
         const pastMinGap = !hasDays || days >= Math.min(cfg.minGapDays, row.risk.cycleDays); // rest period can never exceed the rating's own cycle
+        // A slipped plan that is switched off in settings still blocks the risk rules (unchanged behaviour).
+        const slipped = hasExpected && expRaw < sotMs && !isDone && upcomingRaw === null;
 
-        if (cfg.covNeverOn !== 0 && info.roundsCount === 0 && !hasExpected) {
+        if (cfg.covNeverOn !== 0 && info.roundsCount === 0 && !hasExpected && upcomingRaw === null) {
           neverAudited.push(row);
-        } else if (cfg.covSlipOn !== 0 && hasExpected && info.expectedAuditDateRaw < today && !isDone) {
+        } else if (cfg.covSlipOn !== 0 && slipped) {
           scheduledPastDue.push(row);
-        } else if (hasExpected && info.expectedAuditDateRaw >= today) {
+        } else if (upcomingRaw !== null) {
           scheduledUpcoming.push(row);
-        } else if (!hasExpected && highRisk && pastMinGap) {
+        } else if (!slipped && highRisk && pastMinGap) {
           riskFlagged.push(row);
-        } else if (cfg.covOverdueOn !== 0 && !hasExpected && hasDays && days >= row.risk.cycleDays) {
+        } else if (cfg.covOverdueOn !== 0 && !slipped && hasDays && days >= row.risk.cycleDays) {
           overdueUnscheduled.push(row);
         } else {
           onTrack.push(row);
@@ -14116,6 +14178,13 @@ html.page-fade-ready body {
         });
       } catch (e) { /* list not available -- keep data-derived auditors only */ }
       const auditorNames = Array.from(auditorSet).sort((x, y) => x.localeCompare(y));
+      // Audits already done per auditor = activeData.auditors (rotation sheet), i.e. exactly what the
+      // Operations Highpoints card and the Auditor Workload popup show. Matched ignoring case.
+      const doneCounts = {};
+      auditorNames.forEach(n => {
+        const hit = (activeData.auditors || []).find(x => String(x.name).trim().toUpperCase() === String(n).trim().toUpperCase());
+        doneCounts[n] = hit ? hit.count : 0;
+      });
 
       // -- Priority queue: everything that needs scheduling, highest
       // overall risk score first (ties: longest since last audit). -------
@@ -14150,11 +14219,14 @@ html.page-fade-ready body {
         for (let i = 1; i < spacing; i++) { cur = nextBusinessDay(cur); days.push(new Date(cur)); }
         return days;
       };
-      const lanes = auditorNames.length ? auditorNames.slice() : ['Unassigned'];
+      const _seenLane = new Set();
+      const lanes = (auditorNames.length ? auditorNames.slice() : ['Unassigned']).filter(n => {
+        const k = String(n).trim().toUpperCase(); if (_seenLane.has(k)) return false; _seenLane.add(k); return true;
+      });
       const busy = {}, runningLoad = {};
       lanes.forEach(n => { busy[n] = new Set(); runningLoad[n] = workload[n] || 0; });
       scheduledUpcoming.forEach(r => {
-        const lane = r.info.upNextAuditor;
+        const lane = lanes.find(n => String(n).trim().toUpperCase() === String(r.info.upNextAuditor || '').trim().toUpperCase());
         if (lane && busy[lane] && r.info.expectedAuditDateRaw) {
           occupiedDays(new Date(r.info.expectedAuditDateRaw)).forEach(d => busy[lane].add(auditDayKey(d)));
         }
@@ -14170,7 +14242,7 @@ html.page-fade-ready body {
         if (sch && sch.rounds) sch.rounds.forEach(x => { if (x && x.dateRaw) rounds.push(x); });
         rounds.forEach(x => {
           const lane = lanes.find(n => laneKey(n) === laneKey(x.auditor));
-          if (lane && x.dateRaw >= today - 86400000) occupiedDays(new Date(x.dateRaw)).forEach(d => busy[lane].add(auditDayKey(d)));
+          if (lane && x.dateRaw >= sotMs - 14 * DAY_MS_A) occupiedDays(new Date(x.dateRaw)).forEach(d => busy[lane].add(auditDayKey(d)));
         });
       });
       const startFrom = new Date(today); startFrom.setDate(startFrom.getDate() + 1); startFrom.setHours(0, 0, 0, 0);
@@ -14195,7 +14267,7 @@ html.page-fade-ready body {
           let best = null, bestDate = null;
           candidates.forEach(n => {
             const d = firstFreeSlot(n);
-            if (best === null || d < bestDate || (d.getTime() === bestDate.getTime() && runningLoad[n] < runningLoad[best])) { best = n; bestDate = d; }
+            if (best === null || d < bestDate || (d.getTime() === bestDate.getTime() && (runningLoad[n] < runningLoad[best] || (runningLoad[n] === runningLoad[best] && (doneCounts[n] || 0) < (doneCounts[best] || 0))))) { best = n; bestDate = d; }
           });
           auditor = best;
         }
@@ -14241,7 +14313,7 @@ html.page-fade-ready body {
       return {
         totalBranches: rows.length,
         neverAudited, overdueUnscheduled, riskFlagged, scheduledPastDue, scheduledUpcoming, onTrack,
-        workload, auditorNames, suggestions, avgIntervalDays, avgRiskScore,
+        workload, doneCounts, auditorNames, suggestions, avgIntervalDays, avgRiskScore,
         distribution, recentCompletions, riskTiers, driverStats, rows,
         correlations: computeAuditFactorCorrelations(rows),
         overlap: computeAuditFactorOverlap(rows)
@@ -14611,13 +14683,15 @@ html.page-fade-ready body {
       const workloadRows = a.auditorNames.length ? a.auditorNames.map(name => {
           const count = a.workload[name];
           const pct = Math.round((count / maxLoad) * 100);
+          const done = (a.doneCounts && a.doneCounts[name]) || 0;
+          const safeName = String(name).replace(/[\\']/g, '');
           return `
           <div ${drill('queue', name, cfg.queueFilter === name, 'flex items-center gap-2 px-1 py-0.5 rounded-lg')}>
-            <span class="w-28 shrink-0 text-[11px] font-semibold text-slate-700 truncate" title="${escapeHTML(name)}">${escapeHTML(name)}</span>
+            <span class="w-24 shrink-0 text-[11px] font-semibold text-slate-700 truncate" title="${escapeHTML(name)}">${escapeHTML(name)}</span>
             <div class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
               <div class="h-full bg-accentIndigo rounded-full" style="width:${pct}%"></div>
             </div>
-            <span class="w-6 shrink-0 text-right text-[11px] font-bold text-slate-600">${count}</span>
+            <span class="shrink-0 text-right text-[10px] leading-tight text-slate-500 whitespace-nowrap" title="${count} branch${count === 1 ? '' : 'es'} waiting in ${escapeHTML(name)}'s queue; ${done} audits done so far (same number as Operations Highpoints)"><b class="text-[11px] text-slate-700">${count}</b> waiting<span class="block text-[9px] text-slate-400"><span role="button" tabindex="0" onclick="event.stopPropagation();openModal('Auditor Workload: ${safeName}','auditor','${safeName}')" class="underline cursor-pointer hover:text-accentIndigo">${done} done</span></span></span>
           </div>`;
       }).join('') : '<p class="text-xs text-slate-400 italic">No auditors on record yet.</p>';
 
@@ -15173,7 +15247,7 @@ html.page-fade-ready body {
         <div class="mx-2 sm:mx-3 grid grid-cols-1 lg:grid-cols-3 gap-3">
           <div class="p-3.5 bg-white border border-coolBorder rounded-xl shadow-sm">
             <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">Auditor Workload</h3>
-            <p class="text-[10px] text-slate-400 mb-2.5">Current queue size per auditor. Tap an auditor to list their queue.</p>
+            <p class="text-[10px] text-slate-400 mb-2.5">Waiting = branches in their queue now. Done = audits finished so far (same as Operations Highpoints; tap it for the list). Tap an auditor to list their queue.</p>
             <div class="space-y-1.5">${workloadRows}</div>
           </div>
           <div class="p-3.5 bg-white border border-coolBorder rounded-xl shadow-sm">
