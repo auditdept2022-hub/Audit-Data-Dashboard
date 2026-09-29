@@ -11828,7 +11828,8 @@ html.page-fade-ready body {
       readOnly: false,     // server said this account may not write (team-wide mode, non-editor)
       everPulled: false,   // has this session made at least one SUCCESSFUL pull yet? see auditSyncSchedulePush
       serverHasState: false, // the server already holds a saved view (local auto-derivation must never override it)
-      deferredPush: false  // a push was requested before everPulled and is waiting to be retried
+      deferredPush: false, // a push was requested before everPulled and is waiting to be retried
+      bgTimer: null        // background poll while the popup is closed (see auditSyncStartBackground)
     };
 
     // Fixed key order so two snapshots of the same view always stringify identically.
@@ -12039,16 +12040,37 @@ html.page-fade-ready body {
       auditSyncPull();
     }
     document.addEventListener('visibilitychange', function () {
-      if (!document.hidden && auditSyncIsAnalysisOpen()) {
+      if (document.hidden) return;
+      if (auditSyncIsAnalysisOpen()) {
         if (!auditSync.pollTimer) auditSync.pollTimer = setInterval(auditSyncTick, AUDIT_SYNC_POLL_MS);
         auditSyncPull(); // catch up immediately when this device is looked at again
+      } else if (auditSync.bgTimer) {
+        auditSyncPull(); // popup closed, but the dashboard card still has to match the other devices
       }
     });
+
+    // BACKGROUND SYNC: the shared view/settings/weights/caps used to be
+    // fetched only when the analysis popup was opened, so the dashboard card,
+    // branch profiles and exports on each device were computed from that
+    // device's own leftovers until someone opened the popup. Now the shared
+    // state is pulled as soon as the dashboard has data, again whenever the
+    // tab is looked at, and every AUDIT_SYNC_BG_POLL_MS while the popup is closed
+    // (an unchanged view is a tiny cached reply on the server).
+    const AUDIT_SYNC_BG_POLL_MS = 45 * 1000;
+    function auditSyncStartBackground() {
+      if (auditSync.bgTimer) return;
+      auditSync.bgTimer = setInterval(function () {
+        if (document.hidden || auditSyncIsAnalysisOpen()) return; // popup has its own faster poll
+        auditSyncPull();
+      }, AUDIT_SYNC_BG_POLL_MS);
+      auditSyncPull();
+    }
 
     // Signing out must not leave this account's view behind for the next
     // account that signs in on the same page.
     window.auditSyncReset = function () {
       auditSyncStopPolling();
+      if (auditSync.bgTimer) { clearInterval(auditSync.bgTimer); auditSync.bgTimer = null; }
       if (auditSync.pushTimer) { clearTimeout(auditSync.pushTimer); auditSync.pushTimer = null; }
       auditSync.version = 0; auditSync.lastJson = null;
       auditSync.pendingPush = false; auditSync.pushing = false; auditSync.pulling = false; auditSync.readOnly = false;
@@ -12747,6 +12769,7 @@ html.page-fade-ready body {
       // it silently drifts as branches are added or removed over time. The
       // caps are editable in Settings and can be deliberately recalculated
       // with resetAuditRiskCaps().
+      const capsWereMissing = [cfg.findingsCap, cfg.sizeCap, cfg.repoCap, cfg.shortfallCap].some(v => v === null || v === undefined);
       if (cfg.findingsCap === null || cfg.findingsCap === undefined) {
         cfg.findingsCap = Math.max(Math.round(auditRiskPercentile(rows.map(r => findingsWeighted(r.b)), 0.9)), AUDIT_FINDINGS_MIN_CAP);
       }
@@ -12759,6 +12782,7 @@ html.page-fade-ready body {
       if (cfg.shortfallCap === null || cfg.shortfallCap === undefined) {
         cfg.shortfallCap = Math.max(Math.round(auditRiskPercentile(rows.map(r => auditShortfallOf(r.b)), 0.9)), 1);
       }
+      if (capsWereMissing) { try { auditSyncSchedulePush(); } catch (e) {} } // share the frozen scales so every device scores identically
       const findingsCap = cfg.findingsCap;
       const sizeCap = cfg.sizeCap;
       const repoCap = cfg.repoCap;
@@ -13922,10 +13946,6 @@ html.page-fade-ready body {
 
           <div class="px-3.5 pb-3.5 pt-2.5 border-t border-coolBorder space-y-3">
 
-            <!-- Plain-language rules, grouped by what they decide -->
-            <div class="p-2.5 rounded-lg bg-accentIndigo/5 border border-accentIndigo/20 text-[11px] text-slate-700 leading-relaxed">
-              <b>Right now:</b> a branch joins the audit queue when its risk score reaches <b>${cfg.minScore}</b>, or when it goes too long without an audit — <b>${auditTierCycleDays('CRITICAL', cfg)}</b> days if Critical, <b>${auditTierCycleDays('HIGH', cfg)}</b> if High, <b>${auditTierCycleDays('MEDIUM', cfg)}</b> if Medium, <b>${cfg.overdueDays}</b> if Low. Each suggested audit takes <b>${cfg.spacingDays}</b> working day${cfg.spacingDays === 1 ? '' : 's'} of an auditor's calendar.
-            </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <div class="p-2.5 bg-gray-50/70 border border-coolBorder rounded-lg space-y-2.5">
                 <h4 class="text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">1 · Who gets queued for audit</h4>
@@ -14907,6 +14927,65 @@ html.page-fade-ready body {
     let auditorRemarkFormState = { branchName: null, mode: null, editingRowIndex: null };
     let auditorRemarkSaving = false;
 
+    // ---- DRAFTS ----------------------------------------------------------
+    // Whatever is typed in the New/Edit remark form is saved as a draft in
+    // this device's storage on every keystroke, so it is still there after
+    // closing the profile, switching branches, a data refresh or a reload.
+    // A draft is only removed by a successful Save, by pressing Discard, or
+    // by deleting the remark it belongs to.
+    const AUDITOR_REMARK_DRAFTS_KEY = 'auditDashboard_v1_remarkDrafts';
+    function auditorRemarkDraftKey(branchName, rowIndex) {
+      return String(branchName || '') + '||' + (rowIndex ? String(rowIndex) : 'new');
+    }
+    function readAuditorRemarkDrafts() {
+      try {
+        const o = JSON.parse(localStorage.getItem(AUDITOR_REMARK_DRAFTS_KEY) || '{}');
+        return (o && typeof o === 'object') ? o : {};
+      } catch (e) { return {}; }
+    }
+    function writeAuditorRemarkDrafts(all) {
+      try { localStorage.setItem(AUDITOR_REMARK_DRAFTS_KEY, JSON.stringify(all)); return true; } catch (e) { return false; }
+    }
+    function getAuditorRemarkDraft(branchName, rowIndex) {
+      return readAuditorRemarkDrafts()[auditorRemarkDraftKey(branchName, rowIndex)] || null;
+    }
+    function setAuditorRemarkDraft(branchName, rowIndex, auditor, remark) {
+      const all = readAuditorRemarkDrafts();
+      const key = auditorRemarkDraftKey(branchName, rowIndex);
+      if (!String(remark || '').trim()) { delete all[key]; writeAuditorRemarkDrafts(all); return false; }
+      all[key] = { auditor: auditor || '', remark: String(remark), at: Date.now() };
+      return writeAuditorRemarkDrafts(all);
+    }
+    function clearAuditorRemarkDraft(branchName, rowIndex) {
+      const all = readAuditorRemarkDrafts();
+      const key = auditorRemarkDraftKey(branchName, rowIndex);
+      if (key in all) { delete all[key]; writeAuditorRemarkDrafts(all); }
+    }
+    // Picks the draft (if any) this branch should reopen with: a new-remark
+    // draft first, otherwise an edit draft whose row still exists.
+    function findAuditorRemarkDraftFor(branchName) {
+      const all = readAuditorRemarkDrafts();
+      if (all[auditorRemarkDraftKey(branchName, null)]) return { mode: 'new', editingRowIndex: null };
+      const recs = (activeData.dataAudit && activeData.dataAudit[branchName]) || [];
+      for (let i = 0; i < recs.length; i++) {
+        if (recs[i].rowIndex && all[auditorRemarkDraftKey(branchName, recs[i].rowIndex)]) {
+          return { mode: 'edit', editingRowIndex: Number(recs[i].rowIndex) };
+        }
+      }
+      return null;
+    }
+    function onAuditorRemarkDraftInput(branchName, rowIndex) {
+      const a = document.getElementById('remarkFormAuditorInput');
+      const t = document.getElementById('remarkFormTextInput');
+      const ok = setAuditorRemarkDraft(branchName, rowIndex, a ? a.value : '', t ? t.value : '');
+      const st = document.getElementById('remarkDraftStatus');
+      if (st) st.textContent = (t && t.value.trim()) ? (ok ? 'Draft saved on this device' : 'Could not save draft') : '';
+    }
+    function discardAuditorRemarkDraft(branchName, rowIndex) {
+      clearAuditorRemarkDraft(branchName, rowIndex);
+      cancelAuditorRemarkForm(branchName, true);
+    }
+
     // Sends a remark to the Apps Script backend. Pass rowIndex to update an
     // existing row in AUDIT REPORT, or omit it to append a new row.
     async function saveAuditorRemarkRemote(branchName, auditor, remark, rowIndex) {
@@ -14969,8 +15048,10 @@ html.page-fade-ready body {
 
     function buildAuditorRemarkFormHTML(branchName, existing, errorMsg) {
         const rowIndex = existing ? existing.rowIndex : '';
-        const auditorVal = existing ? (existing.auditor || '') : '';
-        const remarkVal = existing ? escapeFindingHTML(existing.remark || '') : '';
+        const draft = getAuditorRemarkDraft(branchName, rowIndex || null);
+        const auditorVal = draft ? (draft.auditor || '') : (existing ? (existing.auditor || '') : '');
+        const remarkVal = escapeFindingHTML(draft ? draft.remark : (existing ? (existing.remark || '') : ''));
+        const draftArgs = `'${escapeFindingHTML(branchName)}', ${rowIndex ? `'${rowIndex}'` : 'null'}`;
 
         // Dropdown built from the same standing AUDITOR_NAMES list used by
         // the Auditor Next Assignment form. If the remark's saved auditor
@@ -14989,17 +15070,18 @@ html.page-fade-ready body {
 
         return `
             <div class="p-3 bg-accentAmber/5 rounded-xl border-2 border-dashed border-accentAmber/40 shadow-sm mb-2">
-                <p class="text-[10px] font-bold text-accentAmber uppercase mb-1.5 tracking-wider">${existing ? 'Edit Remark' : 'New Remark'}</p>
-                <select id="remarkFormAuditorInput" ${auditorRemarkSaving ? 'disabled' : ''}
+                <p class="text-[10px] font-bold text-accentAmber uppercase mb-1.5 tracking-wider">${existing ? 'Edit Remark' : 'New Remark'} <span id="remarkDraftStatus" class="normal-case tracking-normal font-semibold text-slate-400 ml-1">${draft ? 'Draft restored' : ''}</span></p>
+                <select id="remarkFormAuditorInput" onchange="onAuditorRemarkDraftInput(${draftArgs})" ${auditorRemarkSaving ? 'disabled' : ''}
                     class="w-full mb-2 px-3 py-2 text-sm rounded-lg border border-coolBorder focus:outline-none focus:ring-2 focus:ring-accentAmber/40 disabled:opacity-60 bg-white">
                     ${blankOption}${extraOption}${knownOptions}
                 </select>
-                <textarea id="remarkFormTextInput" rows="3" placeholder="Enter remark…" ${auditorRemarkSaving ? 'disabled' : ''}
+                <textarea id="remarkFormTextInput" rows="3" placeholder="Enter remark…" oninput="onAuditorRemarkDraftInput(${draftArgs})" ${auditorRemarkSaving ? 'disabled' : ''}
                     class="w-full mb-2 px-3 py-2 text-sm rounded-lg border border-coolBorder focus:outline-none focus:ring-2 focus:ring-accentAmber/40 disabled:opacity-60">${remarkVal}</textarea>
                 ${errorMsg ? `<p class="text-xs text-accentRose font-semibold mb-2">${escapeFindingHTML(errorMsg)}</p>` : ''}
                 <div class="flex items-center justify-end gap-2">
-                    <button onclick="cancelAuditorRemarkForm('${escapeFindingHTML(branchName)}')" ${auditorRemarkSaving ? 'disabled' : ''}
-                        class="px-3 py-1.5 text-xs font-bold rounded-lg border border-coolBorder text-slate-500 hover:bg-slate-100 transition-colors disabled:opacity-60">Cancel</button>
+                    <button onclick="discardAuditorRemarkDraft(${draftArgs})" ${auditorRemarkSaving ? 'disabled' : ''}
+                        title="Close this form and delete the draft"
+                        class="px-3 py-1.5 text-xs font-bold rounded-lg border border-coolBorder text-slate-500 hover:bg-slate-100 transition-colors disabled:opacity-60">${draft ? 'Discard draft' : 'Cancel'}</button>
                     <button onclick="saveAuditorRemarkForm('${escapeFindingHTML(branchName)}', ${rowIndex ? `'${rowIndex}'` : 'null'})" ${auditorRemarkSaving ? 'disabled' : ''}
                         class="flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg bg-accentAmber text-white hover:bg-accentAmber/90 transition-colors disabled:opacity-60">
                         ${auditorRemarkSaving
@@ -15013,6 +15095,11 @@ html.page-fade-ready body {
 
     function buildAuditorRemarksSection(branchName, errorMsg) {
         const daRecords = (activeData.dataAudit && activeData.dataAudit[branchName]) || [];
+        // Reopen any unsaved draft for this branch (left open, closed, or refreshed away).
+        if (auditorRemarkFormState.branchName !== branchName && !auditorRemarkSaving) {
+            const pendingDraft = findAuditorRemarkDraftFor(branchName);
+            if (pendingDraft) auditorRemarkFormState = { branchName, mode: pendingDraft.mode, editingRowIndex: pendingDraft.editingRowIndex };
+        }
         const formActive = auditorRemarkFormState.branchName === branchName;
 
         let itemsHtml = '';
@@ -15075,7 +15162,7 @@ html.page-fade-ready body {
         if (input) input.focus();
     }
 
-    function cancelAuditorRemarkForm(branchName) {
+    function cancelAuditorRemarkForm(branchName, draftAlreadyCleared) {
         auditorRemarkFormState = { branchName: null, mode: null, editingRowIndex: null };
         refreshAuditorRemarksSection(branchName);
     }
@@ -15091,6 +15178,7 @@ html.page-fade-ready body {
             return;
         }
 
+        setAuditorRemarkDraft(branchName, rowIndex || null, auditor, remark); // keep it safe until the save is confirmed
         auditorRemarkSaving = true;
         refreshAuditorRemarksSection(branchName);
 
@@ -15110,6 +15198,7 @@ html.page-fade-ready body {
                 activeData.dataAudit[branchName].push({ auditor: auditor || 'Unknown', remark, rowIndex: newRowIndex });
             }
 
+            clearAuditorRemarkDraft(branchName, rowIndex || null);
             auditorRemarkSaving = false;
             auditorRemarkFormState = { branchName: null, mode: null, editingRowIndex: null };
             refreshAuditorRemarksSection(branchName);
@@ -15132,6 +15221,7 @@ html.page-fade-ready body {
 
         try {
             await deleteAuditorRemarkRemote(rowIndex, branchName);
+            clearAuditorRemarkDraft(branchName, rowIndex);
             if (activeData.dataAudit[branchName]) {
                 activeData.dataAudit[branchName] = activeData.dataAudit[branchName].filter(r => String(r.rowIndex) !== String(rowIndex));
             }
@@ -19355,6 +19445,7 @@ html.page-fade-ready body {
       // engine the modal uses (computeAuditScheduleAnalysis), just read for
       // three headline numbers instead of the full breakdown.
       updateAuditRiskOverviewCard();
+      if (typeof auditSyncStartBackground === 'function') auditSyncStartBackground();
       
       animateCountUp(document.getElementById('stat-collection-improving'), sum.improvingCollection || 0, { suffixHTML: ' <span class="text-sm font-medium text-slate-500">improving</span>' });
       document.getElementById('stat-collection-sub').innerText = `${sum.decliningCollection || 0} declining · ${sum.stableCollection || 0} stable · ${sum.recoveringCollection || 0} recovering`;

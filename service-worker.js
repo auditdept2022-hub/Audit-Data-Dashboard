@@ -1,6 +1,8 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v7';
+const CACHE_VERSION = 'audit-dashboard-v8';
+// v8: index.html update (remark drafts, shared Audit Risk analysis sync,
+//  removed the "Right now" rules box). Bumped so installed apps refetch it.
 // v7: FIXED stale live data. The cross-origin handler used to cache EVERY
 //  cross-origin GET stale-while-revalidate, including api.open-meteo.com
 //  (the weather call in attendance_dashboard.html), so the weather could
