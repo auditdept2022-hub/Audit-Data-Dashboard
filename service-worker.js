@@ -1,6 +1,8 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v43';
+const CACHE_VERSION = 'audit-dashboard-v44';
+// v44: Branch Picker papers are now real folded paper slips (crease, dog-ear, shadow) instead of finger-like rolls; shuffle piles and riffles them like a stack; revealed result is an opened ruled sheet.
+// (v43 note below is unchanged)
 // v43: Branch Picker redesigned (stage, rolled papers, confetti reveal) and each auditor now draws once per round - auditors who already drew are skipped.
 // v42: Branch Picker: removed the Overview/All buttons; "Who is drawing?" is now an auditor list with a slot-style up-and-down shuffle that picks one.
 // v41: Branch Picker is now add-only: type branches yourself (Enter to add), or add the Overview list / all branches with one tap.

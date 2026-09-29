@@ -100,7 +100,7 @@
     set('top-findings-title', 'Top 10 Findings in ' + Y[2]);
   };
 </script>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com" crossorigin="anonymous"></script>
   <!-- PERF: apexcharts + lucide are only touched from code that already runs
        on/after DOMContentLoaded (chart rendering, icon replacement), so
        `defer` lets the browser keep parsing/painting the page instead of
@@ -25860,23 +25860,44 @@ html.page-fade-ready body {
     .bp-row1{height:56px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px;color:#fff;letter-spacing:.05em;text-shadow:0 2px 8px rgba(0,0,0,.4)}
     .bp-row1.bp-idle{font-size:13px;font-weight:700;color:rgba(200,214,255,.6);letter-spacing:.02em;text-shadow:none}
     .bp-hint{text-align:center;font-size:13px;font-weight:700;color:#dbe6ff;min-height:20px}
-    .bp-stage{position:relative;display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px 6px;justify-items:center;align-content:start;flex:1;padding:8px 2px;border-radius:16px;background:radial-gradient(ellipse at 50% 100%,rgba(255,255,255,.07),transparent 70%)}
+    .bp-stage{position:relative;display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:14px 8px;justify-items:center;align-content:start;flex:1;padding:8px 2px;border-radius:16px;background:radial-gradient(ellipse at 50% 100%,rgba(255,255,255,.07),transparent 70%)}
     .bp-empty{grid-column:1/-1;align-self:center;text-align:center;color:rgba(200,214,255,.55);font-weight:600;font-size:13px;padding:36px 10px}
-    .bp-paper{position:relative;width:64px;height:52px;border:0;padding:0;cursor:pointer;background:transparent;transform:rotate(var(--rot,0deg));transition:transform .2s cubic-bezier(.3,1.5,.5,1);outline-offset:4px}
-    .bp-paper:hover{transform:translateY(-8px) rotate(calc(var(--rot,0deg) * -1)) scale(1.08)}
-    .bp-paper:focus-visible{outline:3px solid #93c5fd;border-radius:10px}
-    .bp-paper i{position:absolute;left:0;right:0;top:9px;height:34px;border-radius:17px 9px 9px 17px;background:linear-gradient(180deg,#fffbe8 0%,#f7e2a4 45%,#e2bf72 100%);box-shadow:0 10px 12px -6px rgba(0,0,0,.6),inset 0 -3px 4px rgba(150,100,20,.25)}
-    .bp-paper i::before{content:"";position:absolute;left:44%;top:-2px;bottom:-2px;width:7px;border-radius:3px;background:linear-gradient(90deg,#e11d48,#fb7185 50%,#be123c);box-shadow:0 2px 4px rgba(0,0,0,.3)}
-    .bp-paper i::after{content:"";position:absolute;left:5px;top:5px;bottom:5px;width:16px;border-radius:50%;border:2px solid rgba(160,110,30,.35);border-right-color:transparent}
+    /* Folded paper slip: a real chit of paper folded once across the middle,
+       with a paper-grain, a soft crease, a dog-eared corner and a few
+       pencil lines peeking through. filter:drop-shadow is used (not
+       box-shadow) so the shadow follows the clipped corner. */
+    .bp-paper{position:relative;width:50px;height:62px;border:0;padding:0;cursor:pointer;background:transparent;transform:rotate(var(--rot,0deg));transition:transform .2s cubic-bezier(.3,1.5,.5,1),filter .2s;outline-offset:4px;z-index:var(--z,auto);filter:drop-shadow(0 5px 4px rgba(0,0,0,.42)) drop-shadow(0 1px 1px rgba(0,0,0,.35));-webkit-tap-highlight-color:transparent}
+    .bp-paper:hover{transform:translateY(-8px) rotate(calc(var(--rot,0deg) * -1)) scale(1.08);filter:drop-shadow(0 12px 8px rgba(0,0,0,.4)) drop-shadow(0 1px 1px rgba(0,0,0,.35))}
+    .bp-paper:active{transform:translateY(-3px) rotate(0deg) scale(.97)}
+    .bp-paper:focus-visible{outline:3px solid #93c5fd;border-radius:6px}
+    .bp-paper i{position:absolute;inset:0;display:block;
+      clip-path:polygon(0 0,calc(100% - 13px) 0,100% 13px,100% 100%,0 100%);
+      background:
+        linear-gradient(180deg,transparent 0,transparent calc(50% - 1px),rgba(120,90,40,.28) 50%,rgba(255,255,255,.75) calc(50% + 1px),transparent calc(50% + 4px)),
+        repeating-linear-gradient(180deg,transparent 0 7px,rgba(90,110,150,.13) 7px 8px) 0 0/100% 100%,
+        linear-gradient(180deg,#fffef8 0%,#f8f1dc 49.5%,#ece1c2 50.5%,#f7f0da 100%);
+      background-color:var(--tint,#f8f1dc)}
+    .bp-paper i::before{content:"";position:absolute;inset:0;pointer-events:none;
+      background:
+        linear-gradient(180deg,rgba(0,0,0,0) 0,rgba(0,0,0,.05) 46%,rgba(0,0,0,.14) 50%,rgba(255,255,255,.35) 52%,rgba(0,0,0,0) 60%),
+        radial-gradient(circle at 20% 15%,rgba(255,255,255,.55),transparent 55%)}
+    .bp-paper i::after{content:"";position:absolute;top:0;right:0;width:13px;height:13px;
+      background:linear-gradient(225deg,transparent 50%,#d9cba3 50%,#f4ebd0 100%);
+      box-shadow:-1px 1px 2px rgba(0,0,0,.25)}
+    .bp-paper b{position:absolute;left:9px;right:12px;bottom:9px;height:12px;pointer-events:none;opacity:.7;
+      background:linear-gradient(90deg,rgba(60,70,100,.5) 0 70%,transparent 70%) 0 0/100% 1.5px no-repeat,
+                 linear-gradient(90deg,rgba(60,70,100,.5) 0 45%,transparent 45%) 0 6px/100% 1.5px no-repeat,
+                 linear-gradient(90deg,rgba(60,70,100,.5) 0 85%,transparent 85%) 0 11px/100% 1.5px no-repeat}
     .bp-paper.picked{opacity:0;transform:scale(.5) translateY(-20px);pointer-events:none;transition:all .3s}
     .bp-stage.shuffling .bp-paper{pointer-events:none;animation:bpShuffle 1.7s cubic-bezier(.45,.05,.3,1) both;animation-delay:var(--d,0s)}
     @keyframes bpShuffle{
       0%{transform:rotate(var(--rot,0deg))}
-      30%{transform:translate(var(--tx),var(--ty)) rotate(var(--r))}
-      40%{transform:translate(calc(var(--tx) + 12px),calc(var(--ty) - 10px)) rotate(calc(var(--r) * -1))}
-      50%{transform:translate(calc(var(--tx) - 14px),calc(var(--ty) + 8px)) rotate(var(--r))}
-      60%{transform:translate(calc(var(--tx) + 10px),calc(var(--ty) + 10px)) rotate(calc(var(--r) * -1))}
-      70%{transform:translate(var(--tx),var(--ty)) rotate(var(--r))}
+      28%{transform:translate(var(--tx),var(--ty)) rotate(var(--r)) scale(.96)}
+      38%{transform:translate(calc(var(--tx) + 26px),calc(var(--ty) - 6px)) rotate(calc(var(--r) * -1))}
+      48%{transform:translate(calc(var(--tx) - 28px),calc(var(--ty) + 4px)) rotate(var(--r))}
+      58%{transform:translate(calc(var(--tx) + 22px),calc(var(--ty) + 6px)) rotate(calc(var(--r) * -.6))}
+      68%{transform:translate(calc(var(--tx) - 18px),calc(var(--ty) - 4px)) rotate(calc(var(--r) * .8))}
+      78%{transform:translate(var(--tx),var(--ty)) rotate(var(--r)) scale(.96)}
       100%{transform:rotate(var(--rot,0deg))}
     }
     .bp-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
@@ -25884,18 +25905,27 @@ html.page-fade-ready body {
     .bp-hist div{display:flex;align-items:center;gap:8px;font-size:12px;background:#fff;border:1px solid var(--bp-line);border-radius:12px;padding:6px 10px;box-shadow:0 4px 10px -8px rgba(15,23,42,.3)}
     .bp-hist b{font-weight:800;color:#1d3f8f}.bp-hist span{color:var(--bp-mute);font-weight:600}
     /* ---- reveal ---- */
-    .bp-reveal{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:rgba(6,12,30,.82);backdrop-filter:blur(4px);opacity:0;pointer-events:none;transition:opacity .25s;overflow:hidden}
+    .bp-reveal{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:rgba(6,12,30,.82);backdrop-filter:blur(4px);opacity:0;pointer-events:none;transition:opacity .25s;overflow:hidden}
     .bp-reveal.show{opacity:1;pointer-events:auto}
     .bp-card{width:min(260px,70vw);height:min(280px,46vh);perspective:1200px;transform:translateY(70px) scale(.7);transition:transform .6s cubic-bezier(.2,.9,.3,1.2)}
     .bp-reveal.show .bp-card{transform:none}
     .bp-card-in{position:relative;width:100%;height:100%;transform-style:preserve-3d;transition:transform .95s cubic-bezier(.3,.7,.2,1)}
     .bp-card.flipped .bp-card-in{transform:rotateX(180deg)}
     .bp-face{position:absolute;inset:0;border-radius:22px;backface-visibility:hidden;-webkit-backface-visibility:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;box-shadow:0 34px 60px -18px rgba(0,0,0,.7)}
-    .bp-front{background:linear-gradient(160deg,#fffbe8,#f3d998);border:2px solid #e0bd6e;font-size:96px;font-weight:900;color:rgba(160,110,20,.45)}
-    .bp-back{transform:rotateX(180deg);background:radial-gradient(240px 160px at 50% 0%,rgba(255,255,255,.22),transparent 70%),linear-gradient(160deg,#1d3f8f,#3b6be0 55%,#5b4be6);color:#fff;border:2px solid rgba(255,255,255,.4)}
-    .bp-back small{font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;opacity:.8;margin-bottom:12px}
-    .bp-back strong{font-size:clamp(24px,6.5vw,34px);font-weight:900;line-height:1.12;word-break:break-word;text-shadow:0 4px 14px rgba(0,0,0,.35)}
-    .bp-back em{margin-top:16px;font-style:normal;font-size:12px;font-weight:800;background:rgba(255,255,255,.2);padding:5px 14px;border-radius:99px}
+    .bp-front{border-radius:8px;font-size:84px;font-weight:900;color:rgba(120,90,40,.3);
+      background:
+        linear-gradient(180deg,transparent calc(50% - 1px),rgba(120,90,40,.3) 50%,rgba(255,255,255,.7) calc(50% + 1px),transparent calc(50% + 6px)),
+        linear-gradient(90deg,transparent calc(50% - 1px),rgba(120,90,40,.18) 50%,rgba(255,255,255,.5) calc(50% + 1px),transparent calc(50% + 5px)),
+        linear-gradient(160deg,#fffef8,#f1e6c6);
+      border:1px solid #d8c791}
+    .bp-back{transform:rotateX(180deg);border-radius:8px;color:#14275c;border:1px solid #d8c791;align-items:flex-start;text-align:left;padding:26px 22px 20px 44px;
+      background:
+        linear-gradient(90deg,transparent 30px,rgba(225,29,72,.5) 30px 31.5px,transparent 31.5px),
+        repeating-linear-gradient(180deg,transparent 0 31px,rgba(70,100,170,.22) 31px 32px),
+        linear-gradient(160deg,#fffef8,#f6eed4)}
+    .bp-back small{font-size:10.5px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#8a6a2a;margin-bottom:10px}
+    .bp-back strong{font-size:clamp(22px,6vw,30px);font-weight:900;line-height:1.16;word-break:break-word;color:#14275c;letter-spacing:-.01em}
+    .bp-back em{margin-top:18px;font-style:normal;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#be123c;border:2px solid #be123c;padding:3px 10px;border-radius:6px;transform:rotate(-4deg);opacity:.85}
     .bp-rbtns{display:flex;gap:8px;opacity:0;transition:opacity .3s 1s}
     .bp-reveal.show .bp-card.flipped ~ .bp-rbtns{opacity:1}
     .bp-conf{position:absolute;top:-10px;width:8px;height:14px;border-radius:2px;opacity:0;animation:bpFall linear forwards}
@@ -25904,11 +25934,11 @@ html.page-fade-ready body {
   </style>
   <div id="branchPickerModal" class="bp-root hidden" aria-hidden="true">
     <div class="bp-backdrop"></div>
-    <div class="bp-wrap">
+    <div class="bp-wrap" onclick="if(event.target===this)closeBranchPicker()">
       <div class="bp-panel" role="dialog" aria-modal="true" aria-labelledby="bpTitle" onclick="event.stopPropagation()">
         <div class="bp-head">
-          <div class="bp-logo">🎲</div>
-          <div><h3 id="bpTitle">Branch Picker</h3><p>Shuffle the papers, pick one, visit that branch.</p></div>
+          <div class="bp-logo" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg></div>
+          <div><h3 id="bpTitle">Branch Picker</h3><p>Shuffle the folded papers, pick one, visit that branch.</p></div>
           <button class="bp-x" onclick="closeBranchPicker()" aria-label="Close picker">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
           </button>
@@ -26018,7 +26048,7 @@ html.page-fade-ready body {
       var st = $('bpStage');
       st.classList.remove('shuffling');
       st.innerHTML = p.length
-        ? p.map(function (_, i) { return '<button class="bp-paper" style="--rot:' + (((i * 37) % 13) - 6) + 'deg" aria-label="Paper ' + (i + 1) + '" onclick="bpDraw(this)"><i></i></button>'; }).join('')
+        ? p.map(function (_, i) { return '<button type="button" class="bp-paper" style="--rot:' + (((i * 37) % 15) - 7) + 'deg;--z:' + ((i * 7) % 5) + ';--tint:' + ['#f8f1dc','#f6eed6','#faf3df','#f4ecd3'][i % 4] + '" aria-label="Folded paper ' + (i + 1) + '" onclick="bpDraw(this)"><i></i><b></b></button>'; }).join('')
         : '<div class="bp-empty">' + (all ? 'All papers have been drawn.<br>Press “New round” to start again.' : 'Add branches on the left to fill the bowl.') + '</div>';
       $('bpShuffleBtn').disabled = !p.length || bp.busy;
       $('bpSpinBtn').disabled = bp.spinning || !left;
@@ -26085,7 +26115,7 @@ html.page-fade-ready body {
         $('bpWho').value = winner;
         setStrip('<div class="bp-row1">' + esc(winner) + '</div>');
         $('bpReel').classList.add('won');
-        render(winner + ' draws — pick a paper 👆');
+        render(winner + ' draws — pick a paper');
       }, 2700);
     };
 
@@ -26115,7 +26145,7 @@ html.page-fade-ready body {
       }, 850);
       setTimeout(function () {
         st.classList.remove('shuffling'); bp.busy = false; $('bpShuffleBtn').disabled = false;
-        $('bpHint').textContent = 'Now pick one paper 👆';
+        $('bpHint').textContent = 'Now pick one folded paper';
       }, 1900);
     };
 
