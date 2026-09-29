@@ -1,6 +1,8 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v19';
+const CACHE_VERSION = 'audit-dashboard-v20';
+// v20: redesigned "Rating Rules & Manual Settings" (tabs, presets, live preview, editable
+//  rating levels, cycles and red flags). Bumped so installed apps refetch index.html.
 // v19: data-driven rating levels (top ~15% Critical / ~40% High, fixed minimums kept),
 //  rebuilt "How branches are rated" panel. Bumped so installed apps refetch index.html.
 // v18: Audit Risk model v3 (peer-relative efficiency/repo scoring, data-driven
