@@ -1,6 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v42';
+const CACHE_VERSION = 'audit-dashboard-v43';
+// v43: Branch Picker redesigned (stage, rolled papers, confetti reveal) and each auditor now draws once per round - auditors who already drew are skipped.
 // v42: Branch Picker: removed the Overview/All buttons; "Who is drawing?" is now an auditor list with a slot-style up-and-down shuffle that picks one.
 // v41: Branch Picker is now add-only: type branches yourself (Enter to add), or add the Overview list / all branches with one tap.
 // v40: Fixed the "new version available" prompt showing on every visit even when nothing changed: the service worker now compares the real index.html content instead of ETag/Last-Modified headers.
