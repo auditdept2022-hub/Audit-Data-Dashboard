@@ -1,6 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v44';
+const CACHE_VERSION = 'audit-dashboard-v45';
+// v45: Fixed broken layout (side menu covering the page) when the Tailwind CDN is blocked/offline: index.html now ships a complete pre-built Tailwind stylesheet instead of a stale partial snapshot.
 // v44: Branch Picker papers are now real folded paper slips (crease, dog-ear, shadow) instead of finger-like rolls; shuffle piles and riffles them like a stack; revealed result is an opened ruled sheet.
 // (v43 note below is unchanged)
 // v43: Branch Picker redesigned (stage, rolled papers, confetti reveal) and each auditor now draws once per round - auditors who already drew are skipped.
