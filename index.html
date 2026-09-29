@@ -7285,6 +7285,10 @@ html.page-fade-ready body {
               `<span class="bg-accentCyan/10 text-accentCyan px-2.5 py-1 rounded-lg border border-accentCyan/20 normal-case tracking-normal font-semibold">Monthly Target: <strong class="ml-1">₱${target.toLocaleString()}</strong></span>`)}
             <div class="bg-white rounded-xl border border-coolBorder p-3 space-y-2.5">${serviceRows}</div>
           </div>
+
+          <div class="bg-gray-50 rounded-xl p-3.5 border border-coolBorder shadow-sm">
+            <div id="brpFindingsDetail"></div>
+          </div>
         </div>`;
     }
 
@@ -7401,7 +7405,12 @@ html.page-fade-ready body {
         var body = document.getElementById('modalBody');
         if (!body) return;
         decorate(body);
-        new MutationObserver(function () { decorate(body); }).observe(body, { childList: true, subtree: true });
+        var queued = false;
+        new MutationObserver(function () {
+          if (queued) return;
+          queued = true;
+          requestAnimationFrame(function () { queued = false; decorate(body); });
+        }).observe(body, { childList: true, subtree: true });
       }
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
     })();
@@ -7440,7 +7449,29 @@ html.page-fade-ready body {
           '#branchRiskPopup.brp-expanded .brp-body{padding:20px 28px}' +
           '#branchRiskPopup.brp-expanded .brp-detail{padding:18px}' +
           '#branchRiskPopup.brp-expanded .brp-detail table{font-size:13px}' +
-          '#branchRiskPopup.brp-expanded .brp-detail table th,#branchRiskPopup.brp-expanded .brp-detail table td{padding-top:8px;padding-bottom:8px}';
+          '#branchRiskPopup.brp-expanded .brp-detail table th,#branchRiskPopup.brp-expanded .brp-detail table td{padding-top:8px;padding-bottom:8px}' +
+          '#branchRiskPopup,#branchRiskPopup *{box-sizing:border-box}' +
+          '#branchRiskPopup .brp-dialog{min-width:0;overscroll-behavior:contain}' +
+          '#branchRiskPopup .brp-head{flex-shrink:0;min-width:0}' +
+          '#branchRiskPopup .brp-ibtn{flex-shrink:0;white-space:nowrap}' +
+          '#branchRiskPopup .brp-body{min-width:0;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}' +
+          '#branchRiskPopup .brp-body>*{min-width:0;max-width:100%}' +
+          '#branchRiskPopup .brp-meta{gap:10px 16px}' +
+          '#branchRiskPopup .brp-meta>div{flex:1 1 130px;min-width:0}' +
+          '#branchRiskPopup .brp-meta .v{overflow-wrap:anywhere;line-height:1.35}' +
+          '#branchRiskPopup .brp-detail{min-width:0;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}' +
+          '#branchRiskPopup .brp-detail table{max-width:100%}' +
+          '@media (max-width:639px){' +
+            '#branchRiskPopup .brp-head{gap:6px;padding:calc(10px + env(safe-area-inset-top,0px)) 10px 10px}' +
+            '#branchRiskPopup .brp-ibtn{padding:7px 9px;font-size:12px}' +
+            '#branchRiskPopup .brp-body{padding:12px 12px calc(20px + env(safe-area-inset-bottom,0px))}' +
+            '#branchRiskPopup .brp-meta{padding:10px}' +
+            '#branchRiskPopup .brp-meta>div{flex:1 1 42%}' +
+            '#branchRiskPopup .brp-meta>div[style*="margin-left:auto"]{flex:1 1 100%;margin-left:0 !important}' +
+            '#branchRiskPopup .brp-meta>div[style*="margin-left:auto"] button{width:100%;justify-content:center}' +
+            '#branchRiskPopup .brp-detail{padding:10px}' +
+          '}' +
+          '@media (prefers-reduced-motion:reduce){#branchRiskPopup,#branchRiskPopup .brp-dialog{transition:none}}';
         document.head.appendChild(st);
       }
       function esc(t) {
@@ -7459,10 +7490,17 @@ html.page-fade-ready body {
       // these first" cards). It builds the branch's row exactly the way the
       // Total Branches table does — same rows, same scoring — in a detached
       // element, then hands it to the popup.
+      var _brpMemo = { at: 0, data: null, t: null };
       window.openBranchRiskPopupByName = function (name) {
         try {
-          var a = computeAuditScheduleAnalysis();
-          var t = getAuditAnalysisTableRows(a, 'ALL');
+          // Re-scoring every branch is the slow part, so a burst of clicks reuses
+          // the last result for a couple of seconds (same data object only).
+          var now = Date.now();
+          if (!(_brpMemo.t && _brpMemo.data === activeData && now - _brpMemo.at < 2500)) {
+            var a0 = computeAuditScheduleAnalysis();
+            _brpMemo = { at: now, data: activeData, t: getAuditAnalysisTableRows(a0, 'ALL') };
+          }
+          var t = _brpMemo.t;
           var row = t.rows.find(function (r) { return r.b.name === name; });
           if (!row) { if (typeof openModalDetail === 'function') openModalDetail(name); return; }
           var holder = document.createElement('div');
@@ -7553,6 +7591,15 @@ html.page-fade-ready body {
         });
         document.body.appendChild(overlay);
         requestAnimationFrame(function () { overlay.classList.add('brp-show'); });
+        // Audit Findings (AUDIT FINDINGS sheet) — same panel as the full profile,
+        // rendered into this popup's own container so the two never collide.
+        try {
+          if (typeof renderProfileFindingsPanel === 'function') {
+            var fy = getBranchFindingYears(branchName);
+            var ay = getAllowedFindingYears();
+            renderProfileFindingsPanel(branchName, fy.length ? fy[fy.length - 1] : ay[ay.length - 1], 'brpFindingsDetail');
+          }
+        } catch (err) { console.error('Popup findings failed:', err); }
       }
 
       window.toggleBranchRiskPopupExpand = function () {
@@ -16134,8 +16181,9 @@ html.page-fade-ready body {
         return `<span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md border inline-block whitespace-nowrap ${cls}">${escapeFindingHTML(category || 'UNCATEGORIZED')}</span>`;
     }
 
-    function renderProfileFindingsPanel(branchName, year) {
-        const container = document.getElementById('findingsYearDetail');
+    function renderProfileFindingsPanel(branchName, year, containerId) {
+        containerId = containerId || 'findingsYearDetail';
+        const container = document.getElementById(containerId);
         if (!container) return;
 
         const allDetail = (activeData.auditFindingsDetail && activeData.auditFindingsDetail[branchName]) || [];
@@ -16146,8 +16194,8 @@ html.page-fade-ready body {
             const count = allDetail.filter(r => getRecordYear(r) === y).length;
             const active = Number(year) === y;
             return `
-            <button onclick="renderProfileFindingsPanel('${escapeFindingHTML(branchName)}', ${y})"
-                class="px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors inline-flex items-center gap-1 ${active ? 'bg-accentIndigo text-white border-accentIndigo' : 'bg-white text-slate-500 border-coolBorder hover:border-accentIndigo/40'}">
+            <button type="button" data-fb="${escapeFindingHTML(branchName)}" onclick="renderProfileFindingsPanel(this.dataset.fb, ${y}, '${containerId}')"
+                class="px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors inline-flex items-center gap-1 shrink-0 ${active ? 'bg-accentIndigo text-white border-accentIndigo' : 'bg-white text-slate-500 border-coolBorder hover:border-accentIndigo/40'}">
                 <span>${y}</span>
                 <span class="px-1 min-w-[16px] text-center rounded ${active ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-500'} text-[10px] font-bold tabular-nums">${count}</span>
             </button>`;
@@ -16180,8 +16228,8 @@ html.page-fade-ready body {
         container.innerHTML = `
             <div class="bg-white rounded-lg border border-coolBorder overflow-hidden">
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-3 py-2 bg-slate-50 border-b border-coolBorder">
-                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-snug">${branchName} — Audit Findings (source: AUDIT FINDINGS sheet) · FY${year}: ${records.length} finding${records.length === 1 ? '' : 's'}</span>
-                    <div class="flex gap-1.5 overflow-x-auto sm:overflow-visible -mx-1 px-1 sm:mx-0 sm:px-0 shrink-0">${yearTabs}</div>
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-snug">${escapeFindingHTML(branchName)} — Audit Findings (source: AUDIT FINDINGS sheet) · FY${year}: ${records.length} finding${records.length === 1 ? '' : 's'}</span>
+                    <div class="flex gap-1.5 overflow-x-auto sm:flex-wrap sm:overflow-visible -mx-1 px-1 sm:mx-0 sm:px-0 min-w-0 max-w-full">${yearTabs}</div>
                 </div>
                 <div class="max-h-64 overflow-y-auto custom-scrollbar">
                     <div class="sm:hidden divide-y divide-coolBorder">${cardsHtml}</div>
@@ -25399,10 +25447,16 @@ html.page-fade-ready body {
 
     // Watches for popups opening/closing and for re-rendered content, so
     // the right scope's remembered selection is always the one shown.
+    var __kbdQueued = false;
     new MutationObserver(function () {
-      syncHighlightToScope();
-      var cur = document.querySelector('.kbd-nav-active');
-      if (cur && !document.body.contains(cur)) clearHighlightOnly();
+      if (__kbdQueued) return;
+      __kbdQueued = true;
+      requestAnimationFrame(function () {
+        __kbdQueued = false;
+        syncHighlightToScope();
+        var cur = document.querySelector('.kbd-nav-active');
+        if (cur && !document.body.contains(cur)) clearHighlightOnly();
+      });
     }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
   })();
   </script>

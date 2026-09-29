@@ -1,6 +1,9 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v24';
+const CACHE_VERSION = 'audit-dashboard-v25';
+// v25: Branch popup (Audit Risk & Schedule Analysis) now also shows the Audit Findings panel (AUDIT FINDINGS sheet)
+//  under Service, plus popup layout/padding fixes for phone + desktop and less lag (throttled page observers,
+//  no full re-scoring on every popup open). Bumped so installed apps refetch index.html.
 // v24: MOBILE PASS on Audit Risk & Schedule Analysis + Rating Rules (full-screen sheet on phones, wrapped tabs,
 //  stacked footer, no truncated labels). Bumped so installed apps refetch index.html.
 // v23: LIVE DATA. index.html now checks a tiny "dataVersion" endpoint every ~20 s (and instantly on
