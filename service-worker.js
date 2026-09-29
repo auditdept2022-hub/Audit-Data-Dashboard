@@ -1,6 +1,8 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v23';
+const CACHE_VERSION = 'audit-dashboard-v24';
+// v24: MOBILE PASS on Audit Risk & Schedule Analysis + Rating Rules (full-screen sheet on phones, wrapped tabs,
+//  stacked footer, no truncated labels). Bumped so installed apps refetch index.html.
 // v23: LIVE DATA. index.html now checks a tiny "dataVersion" endpoint every ~20 s (and instantly on
 //  focus/online) and only downloads data when the Sheet actually changed; it also keeps an IndexedDB
 //  copy of the dashboard so a new sign-in / cleared browser storage still opens instantly, and wakes

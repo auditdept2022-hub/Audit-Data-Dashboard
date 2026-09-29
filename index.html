@@ -3490,6 +3490,45 @@ html.page-fade-ready body {
 .rr-btn:hover{filter:brightness(.96)}
 .rr-btn:focus-visible,.rr-tab:focus-visible,.rr-presets button:focus-visible{outline:2px solid #6366f1;outline-offset:2px}
 @media (max-width:560px){.rr-wrow{flex-wrap:wrap}.rr-wname{width:100%}.rr-wrow input[type=range]{order:3;flex:1 1 60%}.rr-srow{flex-direction:column;align-items:flex-start}}
+/* ===== Mobile pass: Rating Rules & Manual Settings (Audit Risk & Schedule Analysis) ===== */
+.rr-sheet,.rr-scroll,.rr-wrow,.rr-flag>div,.rr-srow>div{min-width:0}
+.rr-wname b,.rr-wname small,.rr-flag p,.rr-srow p,.rr-lead{overflow-wrap:anywhere}
+.rr-scale div{padding:0 2px;text-align:center}
+.rr-scale b,.rr-scale small{white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:clip}
+@media (max-width:640px){
+  .rr-overlay{padding:0!important;align-items:flex-end!important}
+  .rr-sheet{max-width:100%;max-height:none;height:100vh;height:100dvh;border-radius:0;box-shadow:none}
+  .rr-head{padding:12px 14px;padding-top:calc(12px + env(safe-area-inset-top,0px))}
+  .rr-head h2{font-size:14px;line-height:1.25}
+  .rr-head p{font-size:10.5px}
+  .rr-x{width:36px;height:36px}
+  .rr-scroll{padding:12px 12px 16px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  .rr-presets button{padding:7px 12px}
+  .rr-prev{flex-direction:column;align-items:flex-start}
+  .rr-prev-body{width:100%}
+  .rr-pill{flex:1 1 auto}
+  .rr-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:visible;gap:3px}
+  .rr-tab{white-space:normal;line-height:1.2;padding:9px 4px;font-size:11.5px;text-align:center}
+  .rr-wrow{flex-wrap:wrap;gap:6px 10px;padding:10px}
+  .rr-wname{flex:1 1 calc(100% - 26px);width:auto;min-width:0}
+  .rr-wrow input[type=range]{order:3;flex:1 1 50%;min-width:0}
+  .rr-wnum{order:4}
+  .rr-num{width:3.4rem;padding:7px 6px;font-size:14px}
+  .rr-scale b{font-size:10px}.rr-scale small{font-size:9px}
+  .rr-levels,.rr-steps{grid-template-columns:1fr}
+  .rr-fields label{flex:1 1 7rem}
+  .rr-flag{align-items:flex-start;gap:10px;padding:11px 10px}
+  .rr-flag-t{display:block;line-height:2.3}
+  .rr-flag-t .rr-num{display:inline-block;vertical-align:middle;margin:0 3px}
+  .rr-srow{gap:8px}
+  .rr-tools button{padding:8px 12px}
+  .rr-note{padding:8px 12px}
+  .rr-foot{flex-direction:column;align-items:stretch;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px))}
+  .rr-foot-btns{margin-left:0;width:100%;flex-wrap:wrap;gap:8px}
+  .rr-foot-btns .rr-btn{flex:1 1 0;min-height:44px}
+  #rr-lock{order:-1;flex:1 1 100%;font-size:11px}
+}
+@media (max-width:340px){ .rr-tabs{grid-template-columns:repeat(2,minmax(0,1fr))} }
 </style>
 </head>
 
@@ -14427,7 +14466,7 @@ html.page-fade-ready body {
       const DIST_TINT = { never: 'accentRose', '0-30': 'accentEmerald', '31-60': 'accentEmerald', '61-90': 'accentAmber', '91-180': 'accentAmber', '180+': 'accentRose' };
       const distributionRows = a.distribution.map(d => `
           <div ${drill('dist', d.key, cfg.distFilter === d.key, 'flex items-center gap-2 px-1 py-0.5 rounded-lg')}>
-            <span class="w-20 shrink-0 text-[11px] font-semibold text-slate-700">${escapeHTML(d.label)}</span>
+            <span class="w-24 shrink-0 text-[11px] font-semibold text-slate-700 leading-tight">${escapeHTML(d.label)}</span>
             <div class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
               <div class="h-full bg-${DIST_TINT[d.key] || 'accentIndigo'} rounded-full" style="width:${Math.round((d.count / maxDist) * 100)}%"></div>
             </div>
@@ -14445,7 +14484,7 @@ html.page-fade-ready body {
         const avg = tierAvgScore(t.key);
         return `
           <div ${drill('tier', t.key, cfg.tierFilter === t.key, 'flex items-center gap-2 px-1 py-0.5 rounded-lg')}>
-            <span class="w-20 sm:w-24 shrink-0 text-[11px] font-semibold text-slate-700">${escapeHTML(t.label)} <span class="text-slate-400 font-medium">${tierRanges[t.key]}</span></span>
+            <span class="w-[7rem] sm:w-28 shrink-0 text-[11px] font-semibold text-slate-700 whitespace-nowrap">${escapeHTML(t.label)} <span class="text-slate-400 font-medium">${tierRanges[t.key]}</span></span>
             <div class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
               <div class="h-full bg-${t.tint} rounded-full" style="width:${Math.round((t.count / maxTier) * 100)}%"></div>
             </div>
@@ -14458,7 +14497,7 @@ html.page-fade-ready body {
       const maxDriver = Math.max(0.0001, ...a.driverStats.map(d => d.avgContribution));
       const driverRows = a.driverStats.slice().sort((x, y) => y.avgContribution - x.avgContribution).map(d => `
           <div ${drill('driver', d.key, cfg.driverFilter === d.key, 'flex items-center gap-2 px-1 py-0.5 rounded-lg')}>
-            <span class="w-24 sm:w-32 shrink-0 text-[11px] font-semibold text-slate-700 truncate" title="${escapeHTML(d.label)}">${escapeHTML(d.label)}</span>
+            <span class="w-28 sm:w-36 shrink-0 text-[11px] leading-tight font-semibold text-slate-700 break-words" title="${escapeHTML(d.label)}">${escapeHTML(d.label)}</span>
             <div class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
               <div class="h-full bg-accentIndigo rounded-full" style="width:${Math.round((d.avgContribution / maxDriver) * 100)}%"></div>
             </div>
@@ -14721,7 +14760,7 @@ html.page-fade-ready body {
 
       const rrSyncNow = auditSyncStatus();
       const settingsModalHtml = `
-        <div role="dialog" aria-modal="true" aria-label="Rating rules and manual settings" onclick="if(event.target===this)toggleAuditSettings()" style="position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.55);align-items:center;justify-content:center;padding:12px;${(cfg.settingsOpen || cfg.weightsOpen) ? 'display:flex;' : 'display:none;'}">
+        <div role="dialog" aria-modal="true" aria-label="Rating rules and manual settings" class="rr-overlay" onclick="if(event.target===this)toggleAuditSettings()" style="position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.55);align-items:center;justify-content:center;padding:12px;${(cfg.settingsOpen || cfg.weightsOpen) ? 'display:flex;' : 'display:none;'}">
         <div class="rr-sheet">
           <div class="rr-head">
             <div><h2>Rating Rules &amp; Manual Settings</h2><p>Choose what counts, how branches are rated, and who gets queued. ${a.totalBranches} branches, re-rated on every data change.</p><span id="rr-sync" class="rr-sync rr-sync-${rrSyncNow.k}">${escapeHTML(rrSyncNow.t)}</span></div>
