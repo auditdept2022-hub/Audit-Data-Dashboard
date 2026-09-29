@@ -5393,13 +5393,14 @@ html.page-fade-ready body {
             <button id="modalEditAssignBtn" onclick="openHeaderEditAssignment()" title="Edit assignment" aria-label="Edit assignment" class="hidden p-2 modal-header-icon-btn active:scale-95 rounded-xl transition-all cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path><path d="m15 5 4 4"></path></svg>
             </button>
-            <!-- "Data Analysis" — whole-portfolio audit/scheduling analysis,
-                 only shown on the Assignment Branches Overview popup (type
-                 === 'assignment'). See openAssignmentAnalysis() /
-                 renderAssignmentAnalysisModal(). Shown/hidden per-open
-                 inside openModal(), same pattern as modalAddFindingBtn. -->
-            <button id="modalAnalysisBtn" onclick="openAssignmentAnalysis()" title="Audit Risk &amp; Schedule Analysis" aria-label="Audit Risk and Schedule Analysis" class="hidden p-2 modal-header-icon-btn active:scale-95 rounded-xl transition-all cursor-pointer">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M3 3v16a2 2 0 0 0 2 2h16"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>
+            <!-- "Branch Picker" — replaces the old "Data Analysis" toolbar button.
+                 Only shown on the Assignment Branches Overview popup (type
+                 === 'assignment'). Opens the paper-draw shuffle picker
+                 (#branchPickerModal, see openBranchPicker()). Shown/hidden
+                 per-open inside openModal(). The Audit Risk & Schedule
+                 Analysis is still reachable from the home-page card. -->
+            <button id="modalPickerBtn" onclick="openBranchPicker()" title="Pick a branch (shuffle draw)" aria-label="Pick a branch by shuffle draw" class="hidden p-2 modal-header-icon-btn active:scale-95 rounded-xl transition-all cursor-pointer">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="m18 14 4 4-4 4"></path><path d="m18 2 4 4-4 4"></path><path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22"></path><path d="M2 6h1.972a4 4 0 0 1 3.6 2.2"></path><path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45"></path></svg>
             </button>
             <!-- Pencil button for the Audit Findings Breakdown popup only (type
                  === 'findings'). Opens the standalone "Add Audit Finding" editor
@@ -8076,10 +8077,10 @@ html.page-fade-ready body {
       // a few lines below.
       const addFindingBtn = document.getElementById('modalAddFindingBtn');
       if (addFindingBtn) addFindingBtn.classList.add('hidden');
-      // Same idea for the "Data Analysis" button — only the Assignment
+      // Same idea for the "Branch Picker" button — only the Assignment
       // Branches Overview popup (type === 'assignment') turns it on, in
       // the 'assignment' branch just below.
-      const analysisBtn = document.getElementById('modalAnalysisBtn');
+      const analysisBtn = document.getElementById('modalPickerBtn');
       if (analysisBtn) analysisBtn.classList.add('hidden');
       const analysisSettingsBtn = document.getElementById('modalAnalysisSettingsBtn');
       if (analysisSettingsBtn) analysisSettingsBtn.classList.add('hidden');
@@ -25792,6 +25793,271 @@ html.page-fade-ready body {
         if (cur && !document.body.contains(cur)) clearHighlightOnly();
       });
     }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
+  })();
+  </script>
+
+
+  <!-- ================= Branch Picker (paper-draw shuffle) =================
+       Opened by #modalPickerBtn in the Assignment Branches Overview header.
+       Type/paste branches (or load the ones shown in the Overview), press
+       Shuffle, then tap a rolled-up paper: it flips upward and reveals the
+       branch that auditor draws. Purely client-side; nothing is saved to
+       the Sheet. -->
+  <style>
+    .bp-root{position:fixed;inset:0;z-index:66;display:flex}
+    .bp-root.hidden{display:none !important}
+    .bp-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.72);backdrop-filter:blur(2px)}
+    .bp-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:12px;overflow-y:auto}
+    .bp-panel{position:relative;width:min(920px,100%);max-height:94vh;max-height:94dvh;display:flex;flex-direction:column;background:#fff;border-radius:18px;box-shadow:0 30px 60px -20px rgba(0,0,0,.55);overflow:hidden;font-family:inherit;color:#0f172a}
+    .bp-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 16px;background:linear-gradient(90deg,#0a1a3a 0%,#12295c 30%,#1d3f8f 65%,#2f5fc7 100%);color:#fff}
+    .bp-head h3{margin:0;font-size:16px;font-weight:800;letter-spacing:-.01em}
+    .bp-x{border:0;background:transparent;color:rgba(255,255,255,.8);padding:6px;border-radius:10px;cursor:pointer;line-height:0}
+    .bp-x:hover{background:rgba(255,255,255,.14);color:#fff}
+    .bp-body{padding:14px 16px 16px;overflow-y:auto;display:grid;gap:14px}
+    .bp-grid{display:grid;gap:14px;grid-template-columns:1fr}
+    @media(min-width:760px){.bp-grid{grid-template-columns:300px 1fr}}
+    .bp-lbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
+    .bp-ta{width:100%;min-height:150px;max-height:280px;resize:vertical;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;background:#f8fafc;outline:none}
+    .bp-ta:focus,.bp-in:focus{border-color:#4f6fd8;box-shadow:0 0 0 3px rgba(79,111,216,.18);background:#fff}
+    .bp-in{width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:9px 12px;font-size:13px;font-family:inherit;background:#f8fafc;outline:none}
+    .bp-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+    .bp-btn{border:1px solid #dbe2f0;background:#fff;color:#1e3a8a;font-weight:700;font-size:12px;padding:7px 11px;border-radius:10px;cursor:pointer;transition:transform .12s,background .12s;font-family:inherit}
+    .bp-btn:hover{background:#eef2ff}.bp-btn:active{transform:scale(.96)}
+    .bp-btn.primary{background:linear-gradient(to right,#4f46e5,#2563eb);color:#fff;border-color:transparent;font-size:14px;padding:11px 22px;box-shadow:0 10px 18px -8px rgba(37,99,235,.55)}
+    .bp-btn.primary:hover{filter:brightness(1.08)}
+    .bp-btn[disabled]{opacity:.45;cursor:not-allowed;transform:none}
+    .bp-chk{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#475569;margin-top:10px;cursor:pointer}
+    .bp-stagebox{border:1px dashed #cbd5e1;border-radius:16px;background:linear-gradient(180deg,#f8fafc,#eef2ff);padding:14px;min-height:230px;display:flex;flex-direction:column;gap:10px}
+    .bp-hint{text-align:center;font-size:13px;font-weight:700;color:#334155;min-height:20px}
+    .bp-stage{position:relative;display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:10px;justify-items:center;align-content:start;flex:1;padding:6px 2px}
+    .bp-empty{grid-column:1/-1;align-self:center;text-align:center;color:#94a3b8;font-weight:600;font-size:13px;padding:30px 10px}
+    .bp-paper{position:relative;width:52px;height:70px;border:0;padding:0;cursor:pointer;background:transparent;border-radius:6px;transition:transform .18s;outline-offset:3px}
+    .bp-paper:hover{transform:translateY(-5px) rotate(-3deg)}
+    .bp-paper:focus-visible{outline:3px solid #4f6fd8}
+    .bp-paper i{position:absolute;inset:0;border-radius:6px;background:linear-gradient(135deg,#fff8e1 0%,#fde9b0 100%);border:1px solid #e6c878;box-shadow:0 5px 10px -4px rgba(120,80,0,.4);overflow:hidden}
+    .bp-paper i::before{content:"";position:absolute;left:0;right:0;top:34%;height:2px;background:rgba(190,140,40,.35);box-shadow:0 8px 0 rgba(190,140,40,.25),0 -8px 0 rgba(190,140,40,.25)}
+    .bp-paper i::after{content:"?";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:22px;color:rgba(160,110,20,.55)}
+    .bp-paper.picked{opacity:0;transform:scale(.6);pointer-events:none}
+    .bp-stage.shuffling .bp-paper{pointer-events:none;animation:bpShuffle 1.7s cubic-bezier(.45,.05,.3,1) both;animation-delay:var(--d,0s)}
+    @keyframes bpShuffle{
+      0%{transform:none}
+      30%{transform:translate(var(--tx),var(--ty)) rotate(var(--r))}
+      40%{transform:translate(calc(var(--tx) + 10px),calc(var(--ty) - 8px)) rotate(calc(var(--r) * -1))}
+      50%{transform:translate(calc(var(--tx) - 12px),calc(var(--ty) + 6px)) rotate(var(--r))}
+      60%{transform:translate(calc(var(--tx) + 9px),calc(var(--ty) + 9px)) rotate(calc(var(--r) * -1))}
+      70%{transform:translate(var(--tx),var(--ty)) rotate(var(--r))}
+      100%{transform:none}
+    }
+    .bp-count{font-weight:800;color:#1d3f8f}
+    .bp-hist{display:grid;gap:6px;max-height:150px;overflow-y:auto}
+    .bp-hist div{display:flex;justify-content:space-between;gap:8px;font-size:12px;background:#f1f5f9;border-radius:9px;padding:7px 10px}
+    .bp-hist b{font-weight:800}.bp-hist span{color:#64748b;font-weight:600;white-space:nowrap}
+    /* Reveal overlay */
+    .bp-reveal{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:rgba(10,20,50,.78);backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:opacity .25s}
+    .bp-reveal.show{opacity:1;pointer-events:auto}
+    .bp-card{width:min(280px,72vw);height:min(360px,46vh);perspective:1100px;transform:translateY(60px) scale(.7);transition:transform .55s cubic-bezier(.2,.9,.3,1.2)}
+    .bp-reveal.show .bp-card{transform:translateY(0) scale(1)}
+    .bp-card-in{position:relative;width:100%;height:100%;transform-style:preserve-3d;transition:transform .9s cubic-bezier(.3,.7,.2,1);transform-origin:center}
+    .bp-card.flipped .bp-card-in{transform:rotateX(180deg)}
+    .bp-face{position:absolute;inset:0;border-radius:20px;backface-visibility:hidden;-webkit-backface-visibility:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:18px;box-shadow:0 30px 50px -16px rgba(0,0,0,.6)}
+    .bp-front{background:linear-gradient(135deg,#fff8e1,#fde9b0);border:2px solid #e6c878;font-size:90px;font-weight:900;color:rgba(160,110,20,.5)}
+    .bp-back{transform:rotateX(180deg);background:linear-gradient(160deg,#1d3f8f,#2f5fc7 55%,#4f46e5);color:#fff;border:2px solid rgba(255,255,255,.35)}
+    .bp-back small{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;opacity:.75;margin-bottom:10px}
+    .bp-back strong{font-size:clamp(22px,6vw,32px);font-weight:900;line-height:1.15;word-break:break-word}
+    .bp-back em{margin-top:14px;font-style:normal;font-size:12px;font-weight:700;background:rgba(255,255,255,.18);padding:4px 12px;border-radius:99px}
+    .bp-rbtns{display:flex;gap:8px;opacity:0;transition:opacity .3s .9s}
+    .bp-reveal.show .bp-card.flipped ~ .bp-rbtns{opacity:1}
+    @media(prefers-reduced-motion:reduce){.bp-stage.shuffling .bp-paper{animation-duration:.01s}.bp-card-in,.bp-card{transition-duration:.01s}}
+  </style>
+  <div id="branchPickerModal" class="bp-root hidden" aria-hidden="true">
+    <div class="bp-backdrop"></div>
+    <div class="bp-wrap">
+      <div class="bp-panel" role="dialog" aria-modal="true" aria-labelledby="bpTitle" onclick="event.stopPropagation()">
+        <div class="bp-head">
+          <h3 id="bpTitle">🎲 Branch Picker</h3>
+          <button class="bp-x" onclick="closeBranchPicker()" aria-label="Close picker">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+        </div>
+        <div class="bp-body">
+          <div class="bp-grid">
+            <div>
+              <div class="bp-lbl"><span>Branches on the papers</span><span class="bp-count" id="bpCount">0</span></div>
+              <textarea id="bpList" class="bp-ta" placeholder="One branch per line…" oninput="bpOnListEdit()"></textarea>
+              <div class="bp-row">
+                <button class="bp-btn" onclick="bpLoadOverview()" title="Branches currently shown in the Overview table">Use Overview list</button>
+                <button class="bp-btn" onclick="bpLoadAll()">All branches</button>
+                <button class="bp-btn" onclick="bpClearList()">Clear</button>
+              </div>
+              <div style="margin-top:12px">
+                <div class="bp-lbl"><span>Who is drawing? (optional)</span></div>
+                <input id="bpWho" class="bp-in" type="text" maxlength="40" placeholder="e.g. KARL" autocomplete="off">
+              </div>
+              <label class="bp-chk"><input type="checkbox" id="bpRemove" checked> Take the drawn branch out of the papers</label>
+            </div>
+            <div class="bp-stagebox">
+              <div class="bp-hint" id="bpHint">Add branches, then shuffle the papers.</div>
+              <div class="bp-stage" id="bpStage"></div>
+              <div class="bp-row" style="justify-content:center;margin-top:0">
+                <button class="bp-btn primary" id="bpShuffleBtn" onclick="bpShuffle()">🔀 Shuffle</button>
+                <button class="bp-btn" onclick="bpResetAll()" title="Put every branch back and clear the history">Reset</button>
+              </div>
+            </div>
+          </div>
+          <div id="bpHistWrap" style="display:none">
+            <div class="bp-lbl"><span>Draw history</span></div>
+            <div class="bp-hist" id="bpHist"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="bp-reveal" id="bpReveal" onclick="event.stopPropagation()">
+      <div class="bp-card" id="bpCard">
+        <div class="bp-card-in">
+          <div class="bp-face bp-front">?</div>
+          <div class="bp-face bp-back"><small>Your branch visit</small><strong id="bpName"></strong><em id="bpBy" style="display:none"></em></div>
+        </div>
+      </div>
+      <div class="bp-rbtns">
+        <button class="bp-btn primary" id="bpNextBtn" onclick="bpNext()">Draw next</button>
+        <button class="bp-btn" onclick="bpCloseReveal()">Close</button>
+      </div>
+    </div>
+  </div>
+  <script>
+  (function () {
+    var bp = { removed: {}, history: [], busy: false, pickedName: null };
+    var $ = function (id) { return document.getElementById(id); };
+    var esc = function (t) { return String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
+    var key = function (n) { return String(n).trim().toUpperCase(); };
+
+    function parse() {
+      var seen = {}, out = [];
+      $('bpList').value.split(/\r?\n/).forEach(function (l) {
+        var n = l.trim();
+        if (n && !seen[key(n)]) { seen[key(n)] = 1; out.push(n); }
+      });
+      return out;
+    }
+    function pool() { return parse().filter(function (n) { return !bp.removed[key(n)]; }); }
+    function rnd(n) { var a = new Uint32Array(1); (window.crypto || window.msCrypto).getRandomValues(a); return a[0] % n; }
+
+    function overviewNames() {
+      try {
+        var st = window.assignmentFilterState || {};
+        var list = activeData.branches.slice();
+        if (st.auditor && st.auditor !== 'ALL') list = list.filter(function (b) { return getBranchAuditRoundInfo(b).recentAuditor === st.auditor; });
+        if (st.search) { var q = String(st.search).toLowerCase(); list = list.filter(function (b) { return b.name.toLowerCase().indexOf(q) !== -1; }); }
+        var sel = Array.isArray(st.auditStatus) ? st.auditStatus : (st.auditStatus && st.auditStatus !== 'ALL' ? [st.auditStatus] : []);
+        if (sel.length) list = list.filter(function (b) { return sel.indexOf((b.auditStatus || '').toUpperCase()) !== -1; });
+        var cols = Array.isArray(st.highlightColors) ? st.highlightColors : [];
+        if (cols.length) list = list.filter(function (b) { return cols.indexOf(b.highlightColor || '') !== -1; });
+        else if (st.highlightOnly) list = list.filter(function (b) { return !!b.highlightColor; });
+        return list.map(function (b) { return b.name; });
+      } catch (e) { return allNames(); }
+    }
+    function allNames() { try { return activeData.branches.map(function (b) { return b.name; }); } catch (e) { return []; } }
+
+    function setList(names) { $('bpList').value = names.join('\n'); bp.removed = {}; render(); }
+
+    function render(hint) {
+      var p = pool(), all = parse().length;
+      $('bpCount').textContent = p.length + (p.length !== all ? ' / ' + all : '');
+      var st = $('bpStage');
+      st.classList.remove('shuffling');
+      st.innerHTML = p.length
+        ? p.map(function (_, i) { return '<button class="bp-paper" data-i="' + i + '" aria-label="Paper ' + (i + 1) + '" onclick="bpDraw(this)"><i></i></button>'; }).join('')
+        : '<div class="bp-empty">' + (all ? 'All branches have been drawn. Press Reset to start over.' : 'No branches yet — add some on the left.') + '</div>';
+      $('bpShuffleBtn').disabled = !p.length;
+      $('bpHint').textContent = hint || (p.length ? 'Tap a paper to draw — or shuffle first.' : 'Add branches, then shuffle the papers.');
+      renderHist();
+    }
+    function renderHist() {
+      $('bpHistWrap').style.display = bp.history.length ? '' : 'none';
+      $('bpHist').innerHTML = bp.history.slice().reverse().map(function (h) {
+        return '<div><b>' + esc(h.name) + '</b><span>' + (h.by ? esc(h.by) + ' · ' : '') + esc(h.time) + '</span></div>';
+      }).join('');
+    }
+
+    window.bpOnListEdit = function () { render(); };
+    window.bpLoadOverview = function () { setList(overviewNames()); };
+    window.bpLoadAll = function () { setList(allNames()); };
+    window.bpClearList = function () { $('bpList').value = ''; bp.removed = {}; render(); };
+    window.bpResetAll = function () { bp.removed = {}; bp.history = []; render('Papers are back in the bowl.'); };
+
+    window.bpShuffle = function () {
+      if (bp.busy) return;
+      var st = $('bpStage'), cards = Array.prototype.slice.call(st.querySelectorAll('.bp-paper'));
+      if (!cards.length) return;
+      bp.busy = true;
+      $('bpShuffleBtn').disabled = true;
+      $('bpHint').textContent = 'Shaking the papers…';
+      var box = st.getBoundingClientRect(), cx = box.left + box.width / 2, cy = box.top + Math.min(box.height / 2, 120);
+      cards.forEach(function (c) {
+        var r = c.getBoundingClientRect();
+        c.style.setProperty('--tx', (cx - (r.left + r.width / 2) + (Math.random() * 30 - 15)).toFixed(0) + 'px');
+        c.style.setProperty('--ty', (cy - (r.top + r.height / 2) + (Math.random() * 30 - 15)).toFixed(0) + 'px');
+        c.style.setProperty('--r', (Math.random() * 50 - 25).toFixed(0) + 'deg');
+        c.style.setProperty('--d', (Math.random() * 0.12).toFixed(2) + 's');
+      });
+      st.classList.add('shuffling');
+      setTimeout(function () {                // papers are piled up — reorder unseen
+        for (var i = cards.length - 1; i > 0; i--) { var j = rnd(i + 1); st.insertBefore(cards[j], cards[i]); var t = cards[i]; cards[i] = cards[j]; cards[j] = t; }
+      }, 850);
+      setTimeout(function () {
+        st.classList.remove('shuffling');
+        bp.busy = false;
+        $('bpShuffleBtn').disabled = false;
+        $('bpHint').textContent = 'Now pick one paper 👆';
+      }, 1900);
+    };
+
+    window.bpDraw = function (el) {
+      if (bp.busy) return;
+      var p = pool();
+      if (!p.length) return;
+      var name = p[rnd(p.length)];
+      var who = $('bpWho').value.trim();
+      bp.pickedName = name;
+      if (el) el.classList.add('picked');
+      $('bpName').textContent = name;
+      var by = $('bpBy'); by.style.display = who ? '' : 'none'; by.textContent = who ? 'Drawn by ' + who : '';
+      var card = $('bpCard'), rv = $('bpReveal');
+      card.classList.remove('flipped');
+      rv.classList.add('show');
+      setTimeout(function () { card.classList.add('flipped'); }, 650);
+      var d = new Date();
+      bp.history.push({ name: name, by: who, time: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
+      if ($('bpRemove').checked) bp.removed[key(name)] = 1;
+      $('bpNextBtn').style.display = '';
+    };
+    window.bpCloseReveal = function () {
+      $('bpReveal').classList.remove('show');
+      $('bpCard').classList.remove('flipped');
+      render(bp.pickedName ? 'Last draw: ' + bp.pickedName : null);
+    };
+    window.bpNext = function () {
+      bpCloseReveal();
+      if (pool().length) { $('bpWho').focus(); $('bpWho').select(); }
+    };
+
+    window.openBranchPicker = function () {
+      var m = $('branchPickerModal');
+      if (!parse().length) { $('bpList').value = overviewNames().join('\n'); bp.removed = {}; }
+      render();
+      m.classList.remove('hidden'); m.setAttribute('aria-hidden', 'false');
+    };
+    window.closeBranchPicker = function () {
+      var m = $('branchPickerModal');
+      $('bpReveal').classList.remove('show'); $('bpCard').classList.remove('flipped');
+      m.classList.add('hidden'); m.setAttribute('aria-hidden', 'true');
+    };
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !$('branchPickerModal').classList.contains('hidden')) {
+        e.stopPropagation();
+        if ($('bpReveal').classList.contains('show')) bpCloseReveal(); else closeBranchPicker();
+      }
+    }, true);
   })();
   </script>
 
