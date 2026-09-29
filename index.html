@@ -12119,6 +12119,16 @@ html.page-fade-ready body {
       const own = { CRITICAL: cfg.cycleCrit, HIGH: cfg.cycleHigh, MEDIUM: cfg.cycleMed }[tierKey];
       return Math.min(own || g.cycle || cfg.overdueDays, cfg.overdueDays);
     }
+    // ONE rule for how long a branch may go between audits, so the score, the schedule, the banner,
+    // the popup and the export all agree. The branch's OWN data sets the interval (dueDays: weak data =
+    // shorter, healthy data = longer). A Critical/High/Medium rating can only SHORTEN it to that rating's
+    // limit, never lengthen it, so a red-flagged branch with otherwise healthy numbers is still held to
+    // its rating. Low uses its own due interval (never shorter than 240 days, never past the longest gap).
+    function auditCycleDaysFor(tierKey, dueDays, cfg) {
+      const due = Math.max(30, Math.min(cfg.overdueDays, Math.round(Number(dueDays) || cfg.overdueDays)));
+      if (tierKey === 'LOW') return Math.max(30, Math.min(cfg.overdueDays, Math.max(240, due)));
+      return Math.max(30, Math.min(due, auditTierCycleDays(tierKey, cfg)));
+    }
     const AUDIT_RISK_STATUS_POINTS = {
       collection: { Declining: 100, Recovering: 50, Stable: 20, Improving: 0 },
       sales:      { Declining: 100, Recovering: 50, Stable: 20, Improving: 0 },
@@ -13934,7 +13944,7 @@ html.page-fade-ready body {
         // Risk-based audit cycle: riskier branches are due sooner. cycleGap > 0 =
         // days left before the branch is due; < 0 = days over its cycle.
         row.risk.dueDays = dueDays;
-        row.risk.cycleDays = row.risk.tier.key === 'LOW' ? Math.max(30, Math.min(cfg.overdueDays, Math.max(240, dueDays))) : auditTierCycleDays(row.risk.tier.key, cfg);
+        row.risk.cycleDays = auditCycleDaysFor(row.risk.tier.key, dueDays, cfg);
         row.risk.cycleGap = (info.roundsCount > 0 && info.intervalDays !== null && info.intervalDays !== undefined)
           ? row.risk.cycleDays - info.intervalDays : null;
       });
@@ -13961,7 +13971,7 @@ html.page-fade-ready body {
           const baseTier = auditRiskTierOf(r.score);
           const escalated = r.redFlags.length > 0 && tierRank(baseTier) > tierRank(highTier);
           r.baseTier = baseTier; r.escalated = escalated; r.tier = escalated ? highTier : baseTier;
-          r.cycleDays = r.tier.key === 'LOW' ? Math.max(30, Math.min(cfg.overdueDays, Math.max(240, r.dueDays))) : auditTierCycleDays(r.tier.key, cfg);
+          r.cycleDays = auditCycleDaysFor(r.tier.key, r.dueDays, cfg);
           r.cycleGap = (info.roundsCount > 0 && info.intervalDays !== null && info.intervalDays !== undefined) ? r.cycleDays - info.intervalDays : null;
         });
         cfg.calib.tiers = { adaptive: adaptive, used: used };
@@ -14742,11 +14752,11 @@ html.page-fade-ready body {
       const maxDriver = Math.max(0.0001, ...a.driverStats.map(d => d.avgContribution));
       const driverRows = a.driverStats.slice().sort((x, y) => y.avgContribution - x.avgContribution).map(d => `
           <div ${drill('driver', d.key, cfg.driverFilter === d.key, 'flex items-center gap-2 px-1 py-0.5 rounded-lg')}>
-            <span class="w-28 sm:w-36 shrink-0 text-[11px] leading-tight font-semibold text-slate-700 break-words" title="${escapeHTML(d.label)}">${escapeHTML(d.label)}</span>
-            <div class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+            <span class="w-24 sm:w-36 shrink-0 text-[11px] leading-tight font-semibold text-slate-700 break-words" title="${escapeHTML(d.label)}">${escapeHTML(d.label)}</span>
+            <div class="flex-1 min-w-[40px] h-2.5 bg-gray-100 rounded-full overflow-hidden">
               <div class="h-full bg-accentIndigo rounded-full" style="width:${Math.round((d.avgContribution / maxDriver) * 100)}%"></div>
             </div>
-            <span class="shrink-0 sm:w-28 text-right text-[10px] text-slate-500"><span class="font-bold text-slate-700">${d.elevated}</span> elevated<span class="hidden sm:inline"> · ${d.withData}/${a.totalBranches} data</span></span>
+            <span class="shrink-0 w-[92px] sm:w-32 text-right text-[10px] leading-tight text-slate-500 whitespace-nowrap"><span class="font-bold text-slate-700">${d.elevated}</span> of ${d.withData} branches${d.withData < a.totalBranches ? '<span class="block text-[9px] text-slate-400">' + (a.totalBranches - d.withData) + ' with no data</span>' : ''}</span>
           </div>`).join('');
 
       const statusDefs = [
@@ -14908,7 +14918,7 @@ html.page-fade-ready body {
       const bTone = (critN > 0 || (onCyclePct !== null && onCyclePct < 75)) ? 'accentRose' : ((needN > 0 || (onCyclePct !== null && onCyclePct < 90)) ? 'accentAmber' : 'accentEmerald');
       const bHex = TINT_HEX[bTone];
       const topS = a.suggestions[0];
-      const bannerHead = needN ? needN + ' of ' + a.totalBranches + ' branches need an audit decision' : 'Every branch is within its audit cycle';
+      const bannerHead = needN ? needN + (needN === 1 ? ' branch needs' : ' branches need') + ' an audit plan' : 'All ' + a.totalBranches + ' branches are on track';
       const bannerSub = topS ? 'Top priority: ' + topS.b.name + ' — risk ' + topS.risk.score.toFixed(0) + ' (' + topS.risk.tier.label + '), ' + topS.reason.toLowerCase() + '. Suggested: ' + topS.suggestedAuditor + ', ' + fmtDate(topS.suggestedDate) + '.' : 'Nothing is waiting to be scheduled.';
       const legendRows = AUDIT_RISK_TIERS.map((t, i) => {
         const g = AUDIT_TIER_GUIDE[t.key];
@@ -14937,16 +14947,17 @@ html.page-fade-ready body {
       const bannerHtml = `
         <div class="mx-2 sm:mx-3 rounded-2xl overflow-hidden shadow-md" style="background:linear-gradient(135deg,#0f2547 0%,#1e3a8a 100%)">
           <div class="p-3.5 sm:p-4 flex flex-wrap items-center gap-4">
-            <div class="flex items-center gap-3" title="Branches audited within their rating's cycle, or already scheduled">
-              <svg width="72" height="72" viewBox="0 0 64 64" role="img" aria-label="${ringPct}% on audit cycle">
+            <div class="flex items-center gap-3" title="On track = audited within its rating's cycle, or already scheduled">
+              <svg width="72" height="72" viewBox="0 0 64 64" role="img" aria-label="${ringPct}% of branches on track">
                 <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="7"/>
                 <circle cx="32" cy="32" r="26" fill="none" stroke="${bHex}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${(ringC * ringPct / 100).toFixed(1)} ${ringC.toFixed(1)}" transform="rotate(-90 32 32)"/>
-                <text x="32" y="37" text-anchor="middle" font-size="15" font-weight="800" fill="#fff">${onCyclePct !== null ? onCyclePct + '%' : '—'}</text>
+                <text x="32" y="34" text-anchor="middle" font-size="14" font-weight="800" fill="#fff">${onCyclePct !== null ? onCyclePct + '%' : '—'}</text>
+                <text x="32" y="44" text-anchor="middle" font-size="6.5" font-weight="700" letter-spacing=".4" fill="rgba(255,255,255,.7)">ON TRACK</text>
               </svg>
               <div>
-                <div class="text-[9px] font-bold uppercase tracking-wider text-white/60">Audit control status</div>
+                <div class="text-[9px] font-bold uppercase tracking-wider text-white/60">Audit status</div>
                 <div class="text-sm sm:text-base font-extrabold text-white leading-tight max-w-[15rem]">${escapeHTML(bannerHead)}</div>
-                <div class="text-[10px] text-white/70">${ringPct}% of branches are on their audit cycle</div>
+                <div class="text-[10px] text-white/70">${onCycleN} of ${a.totalBranches} branches are audited on time or already scheduled</div>
               </div>
             </div>
             <div class="flex-1 min-w-[14rem]">
@@ -15146,7 +15157,7 @@ html.page-fade-ready body {
           </div>
           <div class="p-3.5 bg-white border border-coolBorder rounded-xl shadow-sm lg:col-span-2">
             <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-0.5">Risk Drivers</h3>
-            <p class="text-[10px] text-slate-400 mb-2.5">What is actually pushing the portfolio's risk up. Tap a factor to list every branch where it is elevated (60+ risk points), worst first. Bars show average contribution to the score.</p>
+            <p class="text-[10px] text-slate-400 mb-2.5">What is pushing risk up the most. A longer bar means a bigger effect on the score. The number on the right shows how many branches are high risk for that factor. Tap a row to see those branches, worst first.</p>
             <div class="space-y-1.5">${driverRows}</div>
           </div>
         </div>
