@@ -10750,36 +10750,6 @@ html.page-fade-ready body {
       };
     }
 
-    // Shows every audit round found for a branch in BOTH sheets and whether it
-    // counts toward Recent / Last Auditor, so a missing value can be traced
-    // to its cause (no date, future date, duplicate, or not read at all).
-    function buildAuditHistoryDetailsHTML(b, info) {
-      const esc = v => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-      const fmt = ms => new Date(ms).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-      const counted = (info && info.historyRounds) || [];
-      const DAY = 86400000, today = Date.now();
-      const src = [];
-      const own = b.assignmentRounds || {};
-      for (let n = 1; n <= 4; n++) if (own[n] && (own[n].auditor || own[n].dateRaw)) src.push({ from: 'AUDIT DATA (FINAL)', n: n, auditor: own[n].auditor, dateRaw: own[n].dateRaw });
-      const sch = (activeData.branchAuditSchedule || {})[b.name];
-      if (sch && sch.rounds) sch.rounds.forEach(r => src.push({ from: 'AUDIT ROTATION (FINAL)', n: r.round, auditor: r.auditor, dateRaw: r.dateRaw }));
-      const rows = src.map(r => {
-        let status, cls;
-        if (r.dateRaw === null || r.dateRaw === undefined) { status = 'No date - not counted'; cls = 'text-accentRose'; }
-        else if (r.dateRaw > today + DAY) { status = 'Scheduled (future date) - shown in profile, not yet counted as a completed audit'; cls = 'text-accentAmber'; }
-        else if (counted.some(c => c.dateRaw === r.dateRaw && String(c.auditor || '').toUpperCase() === String(r.auditor || '').toUpperCase())) { status = 'Counted'; cls = 'text-accentEmerald'; }
-        else { status = 'Same audit as another round - merged'; cls = 'text-slate-400'; }
-        return `<tr class="border-t border-coolBorder/60"><td class="py-1 pr-3 whitespace-nowrap">${esc(r.from)} · R${r.n}</td><td class="py-1 pr-3 font-semibold">${esc(r.auditor || '—')}</td><td class="py-1 pr-3 whitespace-nowrap">${(r.dateRaw === null || r.dateRaw === undefined) ? '—' : esc(fmt(r.dateRaw))}</td><td class="py-1 font-semibold ${cls}">${status}</td></tr>`;
-      }).join('');
-      return `
-        <details class="bg-white rounded-xl border border-coolBorder shadow-sm px-3 py-2">
-          <summary class="text-[10px] font-bold text-slate-500 uppercase tracking-wider cursor-pointer">Audit history detected (${counted.length} counted) - tap to check Recent / Last Auditor</summary>
-          <div class="overflow-x-auto mt-2">
-            ${rows ? `<table class="w-full text-[10px] text-left text-slate-700"><thead class="text-slate-400 uppercase tracking-wider"><tr><th class="pb-1 pr-3">Source</th><th class="pb-1 pr-3">Auditor</th><th class="pb-1 pr-3">Date</th><th class="pb-1">Status</th></tr></thead><tbody>${rows}</tbody></table>` : '<p class="text-[11px] text-slate-400 italic">No audit rounds were found for this branch in either sheet (check the branch name matches in AUDIT ROTATION (FINAL) column B).</p>'}
-          </div>
-        </details>`;
-    }
-
     // Returns every dated rotation round found for a given branch where the
     // round's auditor matches auditorName, sorted oldest -> newest. Used to
     // show "Assigned Engagements" dates without duplicating a branch row
@@ -14811,7 +14781,6 @@ html.page-fade-ready body {
                   </div>
               </div>
 
-              ${buildAuditHistoryDetailsHTML(b, auditRoundInfo)}
 
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div class="bg-white rounded-xl border border-coolBorder p-3 shadow-sm text-center">

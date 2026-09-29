@@ -1,6 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v13';
+const CACHE_VERSION = 'audit-dashboard-v14';
+// v14: removed the Audit history detected panel.
 // v13: profile Recent/Last use every dated engagement incl. scheduled.
 // v12: profile shows an Audit history detected panel.
 // v11: Recent/Last auditor merge AUDIT DATA + ROTATION rounds.
