@@ -22375,6 +22375,15 @@ html.page-fade-ready body {
       return wakePromiseByBase[base];
     }
     window.wakeBackendNow = function () { return wakeBackendIfIdle(defaultAppsScriptUrl + '?action=x'); };
+    // FAST START: warm the backend (and learn which transport works on this
+    // device) while the sign-in screen / Firebase auth is still working, so
+    // the first real data request does not pay the cold-start wait.
+    // "ping" is answered before any secret/sign-in check and returns nothing.
+    (function () {
+      function early() { try { window.wakeBackendNow(); } catch (e) { /* never block startup */ } }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', early, { once: true });
+      else early();
+    })();
 
     async function fetchSheetOnce(url, timeouts) {
       await wakeBackendIfIdle(url);
@@ -23485,7 +23494,7 @@ html.page-fade-ready body {
               settleRide(function() {
                 updateLastSyncedLabel();
               });
-              prefetchOverallDataInBackground(!isAutoLoad);
+              prefetchOverallDataInBackground(!isAutoLoad || window.__liveVersionTriggered === true);
               return;
             }
 
@@ -23514,7 +23523,7 @@ html.page-fade-ready body {
             // false) this forces a real refetch instead, so the Overall
             // Data Snapshot modal can't keep showing up to 6h-old numbers
             // right after the person explicitly asked for a hard reset.
-            prefetchOverallDataInBackground(!isAutoLoad);
+            prefetchOverallDataInBackground(!isAutoLoad || window.__liveVersionTriggered === true);
             return;
           } catch (error) {
             lastError = error;
@@ -23577,6 +23586,150 @@ html.page-fade-ready body {
     //     OWN separately-scoped cache (empty the first time), and can
     //     never be shown the previous person's cached data, because the
     //     storage key simply doesn't match their email.
+    // ================= LIVE DATA VERSION POLL =================
+    // Asks the backend ONE tiny question ("what version is the Sheet at?")
+    // every LIVE_VERSION_POLL_MS while the app is visible, and again the
+    // instant the app is looked at / comes back online. Only when the answer
+    // differs from what is on screen does it download the data. The old
+    // 5-minute full refresh stays as a safety net.
+    const LIVE_VERSION_POLL_MS = 20 * 1000;
+    let liveVersionTimer = null;
+    let liveVersionBusy = false;
+    let liveVersionUnsupported = false;      // set if the backend has no "dataVersion" action yet
+    let liveVersionLastTrigger = { v: null, at: 0 };
+    let liveVersionLastCheckAt = 0;
+
+    window.liveVersionReady = function () {
+      return !liveVersionUnsupported && lastAppliedDataVersion != null && isDashboardDataUsable();
+    };
+
+    window.liveVersionCheck = async function (fromFocus) {
+      if (liveVersionBusy || liveVersionUnsupported || document.hidden) return;
+      if (isFetchingSheet) return;                        // a full load is already running
+      if (lastAppliedDataVersion == null || !isDashboardDataUsable()) return; // initial load owns that
+      const now = Date.now();
+      if (fromFocus && (now - liveVersionLastCheckAt) < 3000) return;         // collapse rapid focus events
+      liveVersionBusy = true;
+      liveVersionLastCheckAt = now;
+      try {
+        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+        if (!idToken) return;
+        const url = defaultAppsScriptUrl + '?action=dataVersion&secret=' + encodeURIComponent(appsScriptSecret) +
+          '&idToken=' + encodeURIComponent(idToken) + '&t=' + Date.now();
+        const json = await fetchSheetOnce(url);
+        if (!json || json.error) return;                   // quiet: the 5-minute refresh still covers us
+        if (!json.success || json.dataVersion == null) { liveVersionUnsupported = true; return; } // older backend: fall back
+        const v = Number(json.dataVersion);
+        if (!(v > 0)) return;
+        if (v !== Number(lastAppliedDataVersion)) {
+          const justTried = liveVersionLastTrigger.v === v && (Date.now() - liveVersionLastTrigger.at) < 60000;
+          if (!justTried) {
+            liveVersionLastTrigger = { v: v, at: Date.now() };
+            window.__liveVersionTriggered = true;          // also refresh Overall Data (see fetchSheet)
+            try { await fetchSheet(true); }
+            finally { window.__liveVersionTriggered = false; }
+          }
+        }
+      } catch (err) {
+        console.warn('[live] version check skipped:', err && err.message ? err.message : err);
+      } finally {
+        liveVersionBusy = false;
+      }
+    };
+
+    function liveVersionOnWake() {
+      if (!liveVersionTimer || document.hidden) return;
+      window.liveVersionCheck(true);
+    }
+    window.liveVersionStart = function () {
+      if (liveVersionTimer) return;
+      liveVersionUnsupported = false;
+      liveVersionTimer = setInterval(function () { window.liveVersionCheck(false); }, LIVE_VERSION_POLL_MS);
+      window.addEventListener('online', liveVersionOnWake);
+      window.addEventListener('focus', liveVersionOnWake);
+      window.addEventListener('pageshow', liveVersionOnWake);
+    };
+    window.liveVersionStop = function () {
+      if (liveVersionTimer) { clearInterval(liveVersionTimer); liveVersionTimer = null; }
+      window.removeEventListener('online', liveVersionOnWake);
+      window.removeEventListener('focus', liveVersionOnWake);
+      window.removeEventListener('pageshow', liveVersionOnWake);
+      liveVersionBusy = false;
+    };
+
+    // ================= INDEXEDDB COPY OF THE DASHBOARD CACHE =================
+    // localStorage is small (about 5 MB) and browsers can evict it; if the
+    // dashboard JSON does not fit or was cleared, every open used to fall back
+    // to a full wait for the server. IndexedDB has far more room, so a second
+    // copy is kept there and used whenever localStorage has nothing.
+    // Every call is time-boxed and never throws.
+    const DASH_IDB_NAME = 'auditDashboard_cacheDB';
+    const DASH_IDB_STORE = 'kv';
+    function dashIdbOpen() {
+      return new Promise(function (resolve) {
+        try {
+          if (!window.indexedDB) { resolve(null); return; }
+          const req = indexedDB.open(DASH_IDB_NAME, 1);
+          req.onupgradeneeded = function () { try { req.result.createObjectStore(DASH_IDB_STORE); } catch (e) {} };
+          req.onsuccess = function () { resolve(req.result); };
+          req.onerror = function () { resolve(null); };
+          req.onblocked = function () { resolve(null); };
+        } catch (e) { resolve(null); }
+      });
+    }
+    function dashIdbPut(key, value) {
+      return dashIdbOpen().then(function (db) {
+        if (!db) return false;
+        return new Promise(function (resolve) {
+          try {
+            const tx = db.transaction(DASH_IDB_STORE, 'readwrite');
+            tx.objectStore(DASH_IDB_STORE).put(value, key);
+            tx.oncomplete = function () { try { db.close(); } catch (e) {} resolve(true); };
+            tx.onerror = tx.onabort = function () { try { db.close(); } catch (e) {} resolve(false); };
+          } catch (e) { try { db.close(); } catch (e2) {} resolve(false); }
+        });
+      });
+    }
+    function dashIdbGet(key, timeoutMs) {
+      return new Promise(function (resolve) {
+        let done = false;
+        const finish = function (v) { if (!done) { done = true; resolve(v); } };
+        setTimeout(function () { finish(null); }, timeoutMs || 1200);
+        dashIdbOpen().then(function (db) {
+          if (!db) { finish(null); return; }
+          try {
+            const rq = db.transaction(DASH_IDB_STORE, 'readonly').objectStore(DASH_IDB_STORE).get(key);
+            rq.onsuccess = function () { try { db.close(); } catch (e) {} finish(rq.result || null); };
+            rq.onerror = function () { try { db.close(); } catch (e) {} finish(null); };
+          } catch (e) { try { db.close(); } catch (e2) {} finish(null); }
+        });
+      });
+    }
+    function dashIdbClearAll() {
+      return dashIdbOpen().then(function (db) {
+        if (!db) return;
+        try {
+          const tx = db.transaction(DASH_IDB_STORE, 'readwrite');
+          tx.objectStore(DASH_IDB_STORE).clear();
+          tx.oncomplete = tx.onerror = tx.onabort = function () { try { db.close(); } catch (e) {} };
+        } catch (e) { try { db.close(); } catch (e2) {} }
+      });
+    }
+    // Resolves with usable dashboard data from IndexedDB for this email, or null.
+    function loadDashboardDataFromIdb(email) {
+      return dashIdbGet(dashCacheKeyFor(email), 1200).then(function (rec) {
+        try {
+          if (!rec || !rec.json) return null;
+          const parsed = JSON.parse(rec.json);
+          if (parsed && Array.isArray(parsed.branches) && parsed.branches.length > 0) {
+            window.__dashCacheTsMem = rec.ts || '';
+            return parsed;
+          }
+        } catch (e) { console.warn('Could not read IndexedDB dashboard cache:', e); }
+        return null;
+      }).catch(function () { return null; });
+    }
+
     function dashCacheKeyFor(email) {
       const key = String(email || '').toLowerCase().trim();
       return key ? (DASH_CACHE_KEY + ':' + key) : DASH_CACHE_KEY;
@@ -23594,14 +23747,21 @@ html.page-fade-ready body {
     }
 
     function saveDashboardDataToCache() {
+        const email = currentCacheOwnerEmail();
+        const ts = new Date().toISOString();
+        let json = null;
+        try { json = JSON.stringify(activeData); } catch (e) { console.warn('Could not serialize dashboard data for cache:', e); return; }
+        window.__dashCacheTsMem = ts;
         try {
-            const email = currentCacheOwnerEmail();
-            localStorage.setItem(dashCacheKeyFor(email), JSON.stringify(activeData));
-            localStorage.setItem(dashCacheTsKeyFor(email), new Date().toISOString());
-            updateLastSyncedLabel();
+            localStorage.setItem(dashCacheKeyFor(email), json);
+            localStorage.setItem(dashCacheTsKeyFor(email), ts);
         } catch (e) {
-            console.warn('Could not save dashboard data to local cache:', e);
+            // Usually "storage full". IndexedDB below still keeps a copy.
+            console.warn('Could not save dashboard data to localStorage (IndexedDB copy is used instead):', e);
+            try { localStorage.removeItem(dashCacheKeyFor(email)); } catch (e2) {}
         }
+        try { dashIdbPut(dashCacheKeyFor(email), { json: json, ts: ts }); } catch (e) { /* non-fatal */ }
+        updateLastSyncedLabel();
     }
 
     function loadDashboardDataFromCache() {
@@ -23618,7 +23778,9 @@ html.page-fade-ready body {
     }
 
     function updateLastSyncedLabel() {
-        const ts = localStorage.getItem(dashCacheTsKeyFor(currentCacheOwnerEmail()));
+        let ts = null;
+        try { ts = localStorage.getItem(dashCacheTsKeyFor(currentCacheOwnerEmail())); } catch (e) { ts = null; }
+        if (!ts) ts = window.__dashCacheTsMem || null;
         const text = ts ? ('Last synced ' + new Date(ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })) : '';
         // Two elements share this same text: #lastSyncedLabel (desktop/
         // tablet, inside the "Update data" button) and #lastSyncedLabelMobile
@@ -23672,10 +23834,26 @@ html.page-fade-ready body {
     // data. It is now only invoked from the Firebase auth logic, once
     // onAuthStateChanged confirms someone is actually signed in.
     window.loadInitialDashboardData = function() {
+      // Instant path: this browser's localStorage copy (synchronous).
+      const lsCached = loadDashboardDataFromCache();
+      if (lsCached) { startDashboardWithCachedData_(lsCached); return; }
+      // Nothing there (new browser, evicted, or too big for localStorage):
+      // try the IndexedDB copy, time-boxed to ~1 s. If the person signed out
+      // or switched account while waiting, do nothing.
+      const ownerAtStart = currentCacheOwnerEmail();
+      loadDashboardDataFromIdb(ownerAtStart).then(function(idbData) {
+        if (currentCacheOwnerEmail() !== ownerAtStart) return;
+        startDashboardWithCachedData_(idbData || null);
+      }).catch(function() {
+        if (currentCacheOwnerEmail() !== ownerAtStart) return;
+        startDashboardWithCachedData_(null);
+      });
+    };
+
+    function startDashboardWithCachedData_(cachedData) {
       // Load whatever data was last successfully synced/uploaded on this device
       // first, so a page reload keeps showing the CURRENT data. We still
       // auto-fetch fresh data from the sheet right after.
-      const cachedData = loadDashboardDataFromCache();
       if (cachedData) {
           activeData = cachedData;
           updateCalculations();
@@ -23822,7 +24000,7 @@ html.page-fade-ready body {
 
         attemptInitialLoad();
       }
-    };
+    }
 
     // SPEED vs SECURITY — see the big comment above dashCacheKeyFor().
     // Set this to `false` if this dashboard is ever used on a genuinely
@@ -23855,6 +24033,7 @@ html.page-fade-ready body {
             if (k && (k.indexOf(DASH_CACHE_KEY) === 0 || k.indexOf(DASH_CACHE_TS_KEY) === 0)) toRemove.push(k);
           }
           toRemove.forEach(function(k) { localStorage.removeItem(k); });
+          try { dashIdbClearAll(); } catch (e) {}
         }
       } catch (e) {
         console.warn('Could not clear cached dashboard data:', e);
@@ -24564,7 +24743,11 @@ html.page-fade-ready body {
         // One shared wake-up ping first (no-op if the backend was used recently);
         // every request below waits for it inside fetchSheetOnce().
         if (typeof window.wakeBackendNow === 'function') window.wakeBackendNow();
-        silentRefreshTick(); // catch up immediately on return -- cheap, and already dedupes via dataVersion
+        // Catch up immediately on return. When the live version check is available it asks
+        // one tiny question and downloads data only if something changed; otherwise it does
+        // the full (dataVersion-deduped) refresh exactly as before.
+        if (typeof window.liveVersionReady === 'function' && window.liveVersionReady()) window.liveVersionCheck(true);
+        else silentRefreshTick();
         const now = Date.now();
         if (now - lastVisibilityCatchupAt < VISIBILITY_CATCHUP_MIN_GAP_MS) return;
         lastVisibilityCatchupAt = now;
@@ -24587,6 +24770,7 @@ html.page-fade-ready body {
       if (autoRefreshTimer) return; // already running
       autoRefreshTimer = setInterval(silentRefreshTick, AUTO_REFRESH_INTERVAL_MS);
       document.addEventListener('visibilitychange', handleVisibilityChange);
+      if (typeof window.liveVersionStart === 'function') window.liveVersionStart(); // live change detector (20 s)
     }
 
     function stopAutoRefresh() {
@@ -24594,6 +24778,7 @@ html.page-fade-ready body {
       clearInterval(autoRefreshTimer);
       autoRefreshTimer = null;
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (typeof window.liveVersionStop === 'function') window.liveVersionStop();
       if (autoRefreshDot) autoRefreshDot.classList.add('hidden');
     }
 

@@ -1,6 +1,10 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v22';
+const CACHE_VERSION = 'audit-dashboard-v23';
+// v23: LIVE DATA. index.html now checks a tiny "dataVersion" endpoint every ~20 s (and instantly on
+//  focus/online) and only downloads data when the Sheet actually changed; it also keeps an IndexedDB
+//  copy of the dashboard so a new sign-in / cleared browser storage still opens instantly, and wakes
+//  the backend while the sign-in screen is still loading. Bumped so installed apps refetch index.html.
 // v22: Rating Rules & Manual Settings: nothing changes until "Save changes" is pressed, and saving now
 //  asks for the owner's password (only the account flagged ratingRules in Code.gs can save). Bumped so
 //  installed apps refetch index.html.
