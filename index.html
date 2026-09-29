@@ -10638,7 +10638,27 @@ html.page-fade-ready body {
       // the future is a plan, not an audit: counting it made a branch look "audited today"
       // (0 recency risk) and pushed its real last audit out of view.
       const isDoneDate = r => r.dateRaw <= today + 86400000;
-      const datedAll = ownDated.length > 0 ? ownDated : rotationDated;
+      // MERGE both sources instead of letting AUDIT DATA (FINAL) win outright.
+      // Before, a branch with even ONE dated round in AUDIT DATA (FINAL) ignored
+      // every newer round that only existed in AUDIT ROTATION (FINAL), so Recent
+      // showed an old audit and Last stayed blank. A rotation round is skipped
+      // only when it is clearly the same audit as one already there: same day,
+      // or the same auditor within 14 days (a re-dated edit).
+      const DAY_MS = 86400000;
+      const norm2 = v => String(v || '').trim().toUpperCase();
+      const merged = ownDated.slice();
+      rotationDated.forEach(rr => {
+          const dup = merged.some(o =>
+              Math.floor(o.dateRaw / DAY_MS) === Math.floor(rr.dateRaw / DAY_MS) ||
+              (norm2(o.auditor) === norm2(rr.auditor) && norm2(rr.auditor) !== 'UNASSIGNED' && Math.abs(o.dateRaw - rr.dateRaw) <= 14 * DAY_MS));
+          if (!dup) merged.push({
+              round: rr.round,
+              auditor: rr.auditor || 'Unassigned',
+              date: rr.date || new Date(rr.dateRaw).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+              dateRaw: rr.dateRaw
+          });
+      });
+      const datedAll = merged;
       const dated = datedAll.filter(isDoneDate).slice().sort((x, y) => x.dateRaw - y.dateRaw);
 
       // Who's queued for the branch's NEXT audit round — read ONLY from
@@ -20701,6 +20721,15 @@ html.page-fade-ready body {
                   if (dated.length === 0) return;
                   dated.sort((a, b) => b.dateRaw - a.dateRaw);
                   const latest = dated[0];
+                  // AUDIT ROTATION (FINAL) may hold a NEWER audit than this row's own rounds.
+                  const rotLatest = branchLastAudit[branchName];
+                  if (rotLatest && rotLatest.date && rotLatest.date.getTime() > latest.dateRaw &&
+                      Math.floor(rotLatest.date.getTime() / 86400000) !== Math.floor(latest.dateRaw / 86400000)) {
+                      branchObj.auditor = rotLatest.auditor;
+                      branchObj.lastAuditDate = rotLatest.date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+                      branchObj.lastAuditDateRaw = rotLatest.date.getTime();
+                      return;
+                  }
                   branchObj.auditor = latest.auditor;
                   const d = new Date(latest.dateRaw);
                   branchObj.lastAuditDate = d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });

@@ -1,6 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v10';
+const CACHE_VERSION = 'audit-dashboard-v11';
+// v11: Recent/Last auditor merge AUDIT DATA + ROTATION rounds.
 // v10: Priority Queue keeps the already-assigned Up Next auditor.
 // v9: profile Recent/Last auditor + analysis auditor fixes.
 // v8: index.html update (remark drafts, shared Audit Risk analysis sync,
