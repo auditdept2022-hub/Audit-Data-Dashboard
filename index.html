@@ -12469,12 +12469,13 @@ html.page-fade-ready body {
       document.querySelectorAll('[data-rr-pane]').forEach(function (el) { el.style.display = el.getAttribute('data-rr-pane') === name ? 'block' : 'none'; });
       document.querySelectorAll('[data-rr-tab]').forEach(function (el) { el.setAttribute('aria-selected', el.getAttribute('data-rr-tab') === name ? 'true' : 'false'); });
     }
+    const RR_TINT_HEX = { accentRose: '#e11d48', accentAmber: '#d97706', accentBlue: '#2563eb', accentEmerald: '#059669', accentIndigo: '#4f46e5' };
     function auditPreviewPillsHtml(counts, queue, now) {
       const pill = function (n, label, hex, prev, cls) {
         const d = prev === undefined ? 0 : n - prev;
         return '<div class="rr-pill ' + (cls || '') + '" style="--c:' + hex + '"><b>' + n + '</b><span>' + label + '</span>' + (d ? '<i class="' + (d > 0 ? 'up' : 'down') + '">' + (d > 0 ? '+' : '') + d + '</i>' : '') + '</div>';
       };
-      return AUDIT_RISK_TIERS.map(function (t) { return pill(counts[t.key] || 0, t.label, TINT_HEX[t.tint], now ? (now[t.key] || 0) : undefined); }).join('') +
+      return AUDIT_RISK_TIERS.map(function (t) { return pill(counts[t.key] || 0, t.label, RR_TINT_HEX[t.tint], now ? (now[t.key] || 0) : undefined); }).join('') +
         pill(queue, 'need review', '#4f46e5', now ? now.queue : undefined, 'rr-pill-q');
     }
     function auditDraftPreviewCounts(tmp) {
