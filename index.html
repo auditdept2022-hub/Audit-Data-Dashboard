@@ -7314,10 +7314,10 @@ html.page-fade-ready body {
       const salesRow = (name, k, tot) => `
         <tr>
           <td class="p-2 text-left font-semibold text-slate-600">${name}</td>
-          <td class="p-2 font-bold text-slate-800">${g(sm,k)}</td>
-          <td class="p-2 font-bold text-slate-800">${g(sa,k)}</td>
-          <td class="p-2 font-bold text-slate-800">${g(sy,k)}</td>
-          <td class="p-2 font-bold text-accentIndigo bg-accentIndigo/5">${tot}</td>
+          <td data-l="${esc(salesLabels[0])}" class="p-2 font-bold text-slate-800">${g(sm,k)}</td>
+          <td data-l="${esc(salesLabels[1])}" class="p-2 font-bold text-slate-800">${g(sa,k)}</td>
+          <td data-l="${esc(salesLabels[2])}" class="p-2 font-bold text-slate-800">${g(sy,k)}</td>
+          <td data-l="3-Mo total" class="p-2 font-bold text-accentIndigo bg-accentIndigo/5">${tot}</td>
         </tr>`;
 
       const serviceRows = serviceVals.map((v, i) => {
@@ -7335,26 +7335,26 @@ html.page-fade-ready body {
       }).join('');
 
       const head = (color, icon, title, right) => `
-        <h4 class="text-xs font-bold text-slate-500 uppercase mb-2.5 tracking-wider flex items-center justify-between flex-wrap gap-2">
+        <h4 class="brp-h text-xs font-bold text-slate-500 uppercase mb-2.5 tracking-wider flex items-center justify-between flex-wrap gap-2">
           <span class="flex items-center gap-2"><svg class="w-4 h-4 ${color}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icon}</svg>${title}</span>${right}
         </h4>`;
 
       return `
-        <div class="space-y-3 mt-3">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div class="brp-metrics space-y-3 mt-3">
+          <div class="brp-trends grid grid-cols-1 sm:grid-cols-2 gap-2">
             ${card('Efficiency Rate', [b.effMar, b.effApr, b.effLatest], '%', effAccent)}
             ${card('Repo Rate', [num(b.repoRateMar ?? b.repoRate).toFixed(2), num(b.repoRateApr ?? b.repoRate).toFixed(2), num(b.repoRateLatest ?? b.repoRate).toFixed(2)], '%', repoAccent, true)}
             ${card('No. of Repo', [b.noOfRepoMar ?? b.noOfRepo, b.noOfRepoApr ?? b.noOfRepo, b.noOfRepoLatest ?? b.noOfRepo], '', 'text-slate-800', true)}
             ${card('Total Accounts', [b.accountsMar, b.accountsApr, b.accountsMay], '', 'text-accentBlue')}
           </div>
 
-          <div class="bg-gray-50 rounded-xl p-3.5 border border-coolBorder shadow-sm">
+          <div class="brp-sec bg-gray-50 rounded-xl p-3.5 border border-coolBorder shadow-sm">
             ${head('text-accentIndigo', '<rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line>', 'Sales Details (INS, COD, CA)',
               `<span class="flex flex-wrap items-center gap-2">
                 <span class="bg-accentAmber/10 text-accentAmber px-2.5 py-1 rounded-lg border border-accentAmber/20 normal-case tracking-normal font-semibold">Expected Sales (INS/COD): <strong class="ml-1">${b.expectedIns || 0} / ${b.expectedCod || 0}</strong></span>
                 <span class="bg-accentIndigo/10 text-accentIndigo px-2.5 py-1 rounded-lg border border-accentIndigo/20 normal-case tracking-normal font-semibold">3-Month Avg Sales (INS − CA): <strong class="ml-1">${avgSales}</strong></span>
               </span>`)}
-            <div class="overflow-x-auto rounded-xl border border-coolBorder">
+            <div class="brp-sales overflow-x-auto rounded-xl border border-coolBorder">
               <table class="w-full min-w-[480px] text-sm text-center border-collapse">
                 <thead class="bg-white text-[10px] uppercase tracking-wider text-slate-500 font-bold">
                   <tr><th class="p-2 text-left bg-white">Metric</th><th class="p-2 bg-white">${esc(salesLabels[0])}</th><th class="p-2 bg-white">${esc(salesLabels[1])}</th><th class="p-2 bg-white">${esc(salesLabels[2])}</th><th class="p-2 bg-accentIndigo/5 text-accentIndigo">3-Mo Total</th></tr>
@@ -7368,13 +7368,13 @@ html.page-fade-ready body {
             </div>
           </div>
 
-          <div class="bg-gray-50 rounded-xl p-3.5 border border-coolBorder shadow-sm">
+          <div class="brp-sec bg-gray-50 rounded-xl p-3.5 border border-coolBorder shadow-sm">
             ${head('text-accentCyan', '<circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle>', 'Service Metrics (3-Month Trend)',
               `<span class="bg-accentCyan/10 text-accentCyan px-2.5 py-1 rounded-lg border border-accentCyan/20 normal-case tracking-normal font-semibold">Monthly Target: <strong class="ml-1">₱${target.toLocaleString()}</strong></span>`)}
-            <div class="bg-white rounded-xl border border-coolBorder p-3 space-y-2.5">${serviceRows}</div>
+            <div class="brp-svc bg-white rounded-xl border border-coolBorder p-3 space-y-2.5">${serviceRows}</div>
           </div>
 
-          <div class="bg-gray-50 rounded-xl p-3.5 border border-coolBorder shadow-sm">
+          <div class="brp-sec brp-sec-f bg-gray-50 rounded-xl p-3.5 border border-coolBorder shadow-sm">
             <div id="brpFindingsDetail"></div>
           </div>
         </div>`;
@@ -7521,7 +7521,6 @@ html.page-fade-ready body {
           '#branchRiskPopup .brp-dialog{display:flex;flex-direction:column;width:100%;max-width:860px;max-height:88vh;background:#fff;border-radius:16px;box-shadow:0 25px 60px rgba(0,0,0,.35);overflow:hidden;transform:scale(.96);transition:transform .2s ease,max-width .25s ease,max-height .25s ease,border-radius .25s ease}' +
           '#branchRiskPopup.brp-show .brp-dialog{transform:scale(1)}' +
           '#branchRiskPopup.brp-expanded{padding:0}' +
-          '@media (max-width:639px){#branchRiskPopup{padding:0}#branchRiskPopup .brp-dialog{max-width:100vw;height:100vh;height:100dvh;max-height:100vh;border-radius:0}#branchRiskPopup .brp-body{padding:10px 10px 16px}#branchRiskPopup .brp-meta > div{min-width:45%}#branchRiskPopup .brp-title{font-size:16px}#branchRiskPopup [data-brp="expand"]{display:none}}' +
           '#branchRiskPopup.brp-expanded .brp-dialog{max-width:100vw;max-height:100vh;height:100vh;border-radius:0}' +
           '#branchRiskPopup .brp-head{display:flex;align-items:center;gap:10px;padding:12px 16px;color:#fff;background:linear-gradient(90deg,#0b1a44,#16307a)}' +
           '#branchRiskPopup .brp-title{font-size:18px;font-weight:800;line-height:1.1;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
@@ -7557,6 +7556,7 @@ html.page-fade-ready body {
           '#branchRiskPopup .brp-body table[class*=min-w-]{min-width:0 !important}' +
           '#branchRiskPopup .brp-body table th{white-space:nowrap;overflow-wrap:normal;word-break:normal}' +
           '#branchRiskPopup .brp-body table td{overflow-wrap:break-word;word-break:normal}' +
+          '@media (min-width:640px){' +
           '#branchRiskPopup .brp-body{padding:12px 14px}' +
           '#branchRiskPopup .brp-body .space-y-3>:not([hidden])~:not([hidden]){margin-top:8px !important}' +
           '#branchRiskPopup .brp-body .mt-3{margin-top:8px !important}' +
@@ -7564,49 +7564,98 @@ html.page-fade-ready body {
           '#branchRiskPopup .brp-body h4{margin-bottom:6px !important;gap:6px !important}' +
           '#branchRiskPopup .brp-meta{margin-bottom:8px;padding:8px 10px;gap:8px 14px}' +
           '#branchRiskPopup .brp-detail{padding:10px}' +
+          '}' +
           '#branchRiskPopup #brpFindingsDetail .max-h-64{max-height:none !important;overflow:visible !important}' +
           '#branchRiskPopup #brpFindingsDetail thead{position:static !important}' +
           '#branchRiskPopup #brpFindingsDetail .bg-white>div:first-child{flex-direction:column !important;align-items:stretch !important;gap:6px !important;padding:6px 8px !important}' +
           '#branchRiskPopup #brpFindingsDetail .bg-white>div:first-child>div{flex-wrap:wrap !important;overflow:visible !important;margin:0 !important;padding:0 !important}' +
           '#branchRiskPopup .brp-body h4{min-width:0}' +
           '@media (max-width:639px){' +
-            '#branchRiskPopup .brp-head{gap:6px;padding:calc(10px + env(safe-area-inset-top,0px)) 10px 10px}' +
-            '#branchRiskPopup .brp-ibtn{padding:7px 9px;font-size:12px}' +
-            '#branchRiskPopup .brp-body{padding:8px 8px calc(14px + env(safe-area-inset-bottom,0px))}' +
-            '#branchRiskPopup .brp-meta{grid-template-columns:repeat(2,minmax(0,1fr));padding:8px;gap:6px 10px;margin-bottom:6px}' +
-            '#branchRiskPopup .brp-body .space-y-3>:not([hidden])~:not([hidden]){margin-top:6px !important}' +
-            '#branchRiskPopup .brp-body .mt-3{margin-top:6px !important}' +
-            '#branchRiskPopup .brp-body .p-3\\.5,#branchRiskPopup .brp-detail{padding:8px !important}' +
-            '#branchRiskPopup .brp-body .grid.grid-cols-1{grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:6px !important}' +
-            '#branchRiskPopup .brp-body .grid.grid-cols-1>div{padding:6px !important}' +
-            '#branchRiskPopup .brp-body .grid.grid-cols-1 .text-sm{font-size:13px}' +
-            '#branchRiskPopup .brp-body .grid.grid-cols-1 .truncate{overflow:visible;text-overflow:clip}' +
-            '#branchRiskPopup .brp-body .space-y-2\\.5>:not([hidden])~:not([hidden]){margin-top:6px !important}' +
-            '#branchRiskPopup .brp-body .rounded-xl.p-3{padding:8px !important}' +
-            '#branchRiskPopup .brp-body table[class*=min-w-] th,#branchRiskPopup .brp-body table[class*=min-w-] td{padding:5px 3px !important;font-size:12px}' +
-            '#branchRiskPopup .brp-body table[class*=min-w-] th{font-size:9px}' +
-            '#branchRiskPopup .brp-body table[class*=min-w-] td:first-child{font-size:11px;line-height:1.2}' +
-            '#branchRiskPopup .brp-detail .overflow-x-auto{overflow:visible}' +
-            '#branchRiskPopup .brp-detail table,#branchRiskPopup .brp-detail tbody{display:block;width:100%}' +
-            '#branchRiskPopup .brp-detail thead{display:none}' +
-            '#branchRiskPopup .brp-detail tbody tr{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:1px 10px;align-items:baseline;padding:5px 0;border-top:1px solid #e2e8f0}' +
-            '#branchRiskPopup .brp-detail tbody td{display:block;padding:0 !important;text-align:left}' +
-            '#branchRiskPopup .brp-detail tbody td:nth-child(1){grid-column:1;grid-row:1;font-weight:700}' +
-            '#branchRiskPopup .brp-detail tbody td:nth-child(2){grid-column:1/-1;grid-row:2;color:#64748b;line-height:1.3}' +
-            '#branchRiskPopup .brp-detail tbody td:nth-child(3){grid-column:2;grid-row:1}' +
-            '#branchRiskPopup .brp-detail tbody td:nth-child(3)::before{content:"Risk ";font-weight:600;color:#94a3b8}' +
-            '#branchRiskPopup .brp-detail tbody td:nth-child(4){grid-column:3;grid-row:1}' +
-            '#branchRiskPopup .brp-detail tbody td:nth-child(4)::before{content:"Wt ";font-weight:600;color:#94a3b8}' +
-            '#branchRiskPopup .brp-detail tbody td:nth-child(5){grid-column:4;grid-row:1;font-weight:800}' +
-            '#branchRiskPopup .brp-detail tbody td[colspan]{grid-column:1/-1;grid-row:2}' +
-            '#branchRiskPopup .brp-detail tbody tr.brp-total{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:8px 0 2px;border-top:2px solid #cbd5e1}' +
-            '#branchRiskPopup .brp-detail tbody tr.brp-total td{display:block;grid-column:auto;grid-row:auto;color:#1e293b;font-weight:800;font-size:13px;white-space:nowrap !important;text-align:left}' +
-            '#branchRiskPopup .brp-detail tbody tr.brp-total td:last-child{text-align:right;font-size:16px}' +
-            '#branchRiskPopup #brpFindingsDetail .bg-white>div:first-child{padding:6px 8px !important}' +
-            '#branchRiskPopup #brpFindingsDetail .p-2\\.5{padding:6px 8px !important}' +
-            '#branchRiskPopup .brp-meta>div{min-width:0 !important}' +
-            '#branchRiskPopup .brp-meta>div:nth-child(2){grid-column:1/-1}' +
-            '#branchRiskPopup .brp-meta>div[style*=justify-content]{grid-column:1/-1}' +
+          '#branchRiskPopup{padding:0;background:#f1f5f9}' +
+          '#branchRiskPopup .brp-dialog{max-width:100vw;width:100%;height:100vh;height:100dvh;max-height:none;border-radius:0;box-shadow:none;background:#f1f5f9;transform:none}' +
+          '#branchRiskPopup [data-brp="expand"]{display:none}' +
+          '#branchRiskPopup .brp-head{gap:8px;padding:calc(10px + env(safe-area-inset-top,0px)) 10px 10px 16px}' +
+          '#branchRiskPopup .brp-title{font-size:20px;line-height:1.2;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}' +
+          '#branchRiskPopup .brp-ibtn{min-width:44px;min-height:44px;padding:0 12px;border-radius:12px;font-size:14px}' +
+          '#branchRiskPopup .brp-ibtn[data-brp="profile"]{background:rgba(255,255,255,.16);padding:0 14px}' +
+          '#branchRiskPopup .brp-body{padding:12px 12px calc(32px + env(safe-area-inset-bottom,0px));background:#f1f5f9;font-size:14px}' +
+          '#branchRiskPopup .brp-body>*+*{margin-top:12px}' +
+          '#branchRiskPopup .brp-meta,#branchRiskPopup .brp-detail,#branchRiskPopup .brp-sec{background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,.05)}' +
+          '#branchRiskPopup .brp-meta{display:grid;grid-template-columns:1fr 1fr;gap:16px 14px;padding:16px;margin:0}' +
+          '#branchRiskPopup .brp-meta>div{min-width:0}' +
+          '#branchRiskPopup .brp-meta>div:nth-child(2),#branchRiskPopup .brp-meta>div[style*=justify-content]{grid-column:auto}' +
+          '#branchRiskPopup .brp-meta .k{font-size:11px;letter-spacing:.05em;margin-bottom:2px}' +
+          '#branchRiskPopup .brp-meta .v{font-size:15px;line-height:1.3}' +
+          '#branchRiskPopup .brp-meta .v>span:not(.k){font-size:11px;line-height:1.3;padding:4px 8px;border-radius:8px}' +
+          '#branchRiskPopup .brp-meta .v>button{display:inline-flex;align-items:baseline;gap:6px;padding:4px 12px;border-radius:10px}' +
+          '#branchRiskPopup .brp-meta .v>button span:first-child{font-size:24px;line-height:1}' +
+          '#branchRiskPopup .brp-meta .v>button span:last-child{font-size:11px}' +
+          '#branchRiskPopup .brp-meta>div[style*=justify-content]{grid-column:1/-1;display:block;margin:0 !important}' +
+          '#branchRiskPopup .brp-meta>div[style*=justify-content] button{width:100%;min-height:48px;padding:0 16px !important;font-size:15px !important;border-radius:12px !important}' +
+          '#branchRiskPopup .brp-detail{padding:18px 16px}' +
+          '#branchRiskPopup .brp-why-head{margin-bottom:6px !important}' +
+          '#branchRiskPopup .brp-why-head div{font-size:11px !important;letter-spacing:.05em}' +
+          '#branchRiskPopup .brp-score-line{font-size:18px !important;line-height:1.3;font-weight:800;margin-bottom:10px !important}' +
+          '#branchRiskPopup .brp-why{font-size:14px !important;line-height:1.65;color:#475569;margin-bottom:14px !important}' +
+          '#branchRiskPopup .brp-meaning{font-size:13px !important;line-height:1.55;color:#334155;font-weight:600;background:#f8fafc;border-left:4px solid #94a3b8;border-radius:10px;padding:10px 12px;margin-bottom:14px !important}' +
+          '#branchRiskPopup .brp-cov{font-size:13px !important;line-height:1.5;margin-bottom:14px !important}' +
+          '#branchRiskPopup .brp-detail .overflow-x-auto{overflow:visible}' +
+          '#branchRiskPopup .brp-detail table,#branchRiskPopup .brp-detail tbody{display:block;width:100%}' +
+          '#branchRiskPopup .brp-detail thead{display:none}' +
+          '#branchRiskPopup .brp-detail tbody td{display:block;padding:0 !important;text-align:left;font-size:14px}' +
+          '#branchRiskPopup .brp-f{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:14px;row-gap:4px;align-items:baseline;padding:14px 0;border-top:1px solid #e2e8f0}' +
+          '#branchRiskPopup .brp-f td:nth-child(1){grid-column:1;grid-row:1;font-size:15px;font-weight:700;color:#0f172a}' +
+          '#branchRiskPopup .brp-f td:nth-child(5){grid-column:2;grid-row:1;font-size:17px;font-weight:800;text-align:right;color:#0f172a}' +
+          '#branchRiskPopup .brp-f td:nth-child(2){grid-column:1/-1;grid-row:2;font-size:13px;line-height:1.55;color:#64748b}' +
+          '#branchRiskPopup .brp-f::after{content:"";grid-column:1/-1;grid-row:3;height:6px;margin:6px 0 2px;border-radius:99px;background:linear-gradient(90deg,var(--c,#94a3b8) calc(var(--p,0)*1%),#e2e8f0 calc(var(--p,0)*1%))}' +
+          '#branchRiskPopup .brp-f td:nth-child(3){grid-column:1;grid-row:4;font-size:12px;font-weight:800}' +
+          '#branchRiskPopup .brp-f td:nth-child(3)::before{content:"Risk ";font-weight:600;color:#94a3b8}' +
+          '#branchRiskPopup .brp-f td:nth-child(4){grid-column:2;grid-row:4;font-size:12px;font-weight:700;text-align:right}' +
+          '#branchRiskPopup .brp-f td:nth-child(4)::before{content:"Weight ";font-weight:600;color:#94a3b8}' +
+          '#branchRiskPopup .brp-na{padding:12px 0}' +
+          '#branchRiskPopup .brp-na::after{display:none}' +
+          '#branchRiskPopup .brp-na td:nth-child(1){font-size:14px;font-weight:600}' +
+          '#branchRiskPopup .brp-na td:nth-child(2){font-size:13px}' +
+          '#branchRiskPopup .brp-na td:nth-child(3){grid-column:2;grid-row:1;font-size:14px;text-align:right}' +
+          '#branchRiskPopup .brp-na td:nth-child(3)::before{content:none}' +
+          '#branchRiskPopup .brp-detail tbody tr.brp-total{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:16px 0 0;border-top:2px solid #cbd5e1}' +
+          '#branchRiskPopup .brp-detail tbody tr.brp-total::after{display:none}' +
+          '#branchRiskPopup .brp-detail tbody tr.brp-total td{font-size:15px;font-weight:800;color:#1e293b;white-space:nowrap !important}' +
+          '#branchRiskPopup .brp-detail tbody tr.brp-total td:last-child{font-size:24px}' +
+          '#branchRiskPopup .brp-metrics{margin-top:12px}' +
+          '#branchRiskPopup .brp-metrics>*+*{margin-top:12px !important}' +
+          '#branchRiskPopup .brp-trends{grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:10px !important}' +
+          '#branchRiskPopup .brp-trends>div{padding:12px !important;border-radius:14px}' +
+          '#branchRiskPopup .brp-trends>div>div:first-child{flex-wrap:wrap;gap:2px 8px;margin-bottom:10px}' +
+          '#branchRiskPopup .brp-trends p{font-size:11px !important}' +
+          '#branchRiskPopup .brp-trends .text-sm{font-size:16px !important}' +
+          '#branchRiskPopup .brp-trends .truncate{font-size:10px !important;overflow:visible;text-overflow:clip}' +
+          '#branchRiskPopup .brp-sec{padding:16px !important}' +
+          '#branchRiskPopup .brp-h{flex-direction:column;align-items:flex-start !important;gap:10px !important;font-size:12px !important;margin-bottom:12px !important}' +
+          '#branchRiskPopup .brp-h>span:last-child{display:flex;flex-direction:column;align-items:stretch;gap:6px;width:100%}' +
+          '#branchRiskPopup .brp-h>span:last-child>span{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px;padding:8px 12px;border-radius:10px}' +
+          '#branchRiskPopup .brp-sales{overflow:visible;border:0;border-radius:0}' +
+          '#branchRiskPopup .brp-sales table,#branchRiskPopup .brp-sales tbody{display:block;min-width:0 !important;width:100%}' +
+          '#branchRiskPopup .brp-sales thead{display:none}' +
+          '#branchRiskPopup .brp-sales tbody{border:1px solid #e2e8f0;border-radius:12px;overflow:hidden}' +
+          '#branchRiskPopup .brp-sales tr{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding:12px;border-top:1px solid #e2e8f0}' +
+          '#branchRiskPopup .brp-sales tr:first-child{border-top:0}' +
+          '#branchRiskPopup .brp-sales td{display:block;padding:0 !important;text-align:left;font-size:16px;min-width:0}' +
+          '#branchRiskPopup .brp-sales td:first-child{grid-column:1/-1;font-size:14px;font-weight:700;color:#334155}' +
+          '#branchRiskPopup .brp-sales td[data-l]::before{content:attr(data-l);display:block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#94a3b8;margin-bottom:2px}' +
+          '#branchRiskPopup .brp-sales td:last-child{background:#eef2ff;border-radius:8px;padding:4px 8px !important}' +
+          '#branchRiskPopup .brp-svc{padding:14px !important;border-radius:12px}' +
+          '#branchRiskPopup .brp-svc>div>div:first-child{flex-wrap:wrap;gap:2px 10px}' +
+          '#branchRiskPopup .brp-svc .h-2{height:8px}' +
+          '#branchRiskPopup .brp-sec-f{padding:0 !important;background:transparent;border:0;box-shadow:none}' +
+          '#branchRiskPopup #brpFindingsDetail>div{border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,.05)}' +
+          '#branchRiskPopup #brpFindingsDetail .fp-name,#branchRiskPopup #brpFindingsDetail .fp-src{display:none}' +
+          '#branchRiskPopup #brpFindingsDetail .fp-title{font-size:12px;letter-spacing:.04em}' +
+          '#branchRiskPopup #brpFindingsDetail .bg-white>div:first-child{padding:14px !important;gap:10px !important}' +
+          '#branchRiskPopup #brpFindingsDetail .bg-white>div:first-child button{min-height:36px;padding:0 12px;font-size:13px}' +
+          '#branchRiskPopup #brpFindingsDetail .fp-card{padding:14px !important}' +
+          '#branchRiskPopup #brpFindingsDetail .fp-card p{font-size:14px;line-height:1.55}' +
+          '#branchRiskPopup #brpFindingsDetail .fp-date{font-size:12px !important}' +
           '}' +
           '@media (prefers-reduced-motion:reduce){#branchRiskPopup,#branchRiskPopup .brp-dialog{transition:none}}';
         document.head.appendChild(st);
@@ -7826,14 +7875,14 @@ html.page-fade-ready body {
           const factorRows = risk.factors.map(x => {
               const fac = AUDIT_RISK_FACTORS.find(ff => ff.key === x.key);
               return x.available ? `
-                <tr class="border-t border-coolBorder/60">
+                <tr class="brp-f border-t border-coolBorder/60" style="--p:${Math.round(x.points)};--c:${x.points >= 60 ? '#e11d48' : (x.points >= 35 ? '#d97706' : '#059669')}">
                   <td class="py-1 pr-3 text-slate-700 whitespace-nowrap font-semibold">${escapeHTML(fac.label)}</td>
                   <td class="py-1 pr-3 text-slate-600">${escapeHTML(x.detail)}</td>
                   <td class="py-1 pr-3 text-center font-bold ${pointsColor(x.points)}">${Math.round(x.points)}</td>
                   <td class="py-1 pr-3 text-center text-slate-500">${Math.round(x.share * 100)}%</td>
                   <td class="py-1 text-right font-bold text-slate-700">+${x.contribution.toFixed(1)}</td>
                 </tr>` : `
-                <tr class="border-t border-coolBorder/60">
+                <tr class="brp-f brp-na border-t border-coolBorder/60">
                   <td class="py-1 pr-3 text-slate-400 whitespace-nowrap">${escapeHTML(fac.label)}</td>
                   <td class="py-1 pr-3 text-slate-400 italic" colspan="3">${escapeHTML(x.detail)} — left out of the score, other weights rescaled</td>
                   <td class="py-1 text-right text-slate-400">—</td>
@@ -7864,14 +7913,14 @@ html.page-fade-ready body {
           </tr>
           <tr id="audit-risk-detail-kpi-${idx}" class="hidden bg-slate-50">
             <td colspan="9" class="p-3">
-              <div class="flex items-center gap-1.5 mb-1">
+              <div class="brp-why-head flex items-center gap-1.5 mb-1">
                 <span class="w-1.5 h-1.5 rounded-full" style="background:${TINT_HEX[tierTint] || '#94a3b8'}"></span>
                 <div class="text-[10px] font-bold uppercase tracking-wider text-accentIndigo">Why this branch needs attention</div>
               </div>
-              <div class="text-[11px] font-bold text-slate-800 mb-1">${escapeHTML(row.b.name)} — score ${risk.score.toFixed(1)} (${escapeHTML(risk.tier.label)}${risk.escalated ? ', raised from ' + escapeHTML(risk.baseTier.label) + ' by a data red flag' : ''})</div>
-              <div class="text-[11px] text-slate-600 mb-1">${escapeHTML(auditRiskWhyText(row))}</div>
-              <div class="text-[10px] font-semibold text-slate-500 mb-2">Rating meaning: ${escapeHTML(AUDIT_TIER_GUIDE[risk.tier.key].meaning)} Target cycle for this rating: every ${risk.cycleDays} days${risk.cycleGap === null ? ' (never audited)' : (risk.cycleGap < 0 ? ' — ' + (-risk.cycleGap) + ' days over' : ' — due in ' + risk.cycleGap + ' days')}.</div>
-              ${risk.coverage < 0.999 ? `<div class="text-[10px] font-semibold ${risk.coverage < 0.75 ? 'text-accentRose' : 'text-accentAmber'} mb-2">Data coverage ${Math.round(risk.coverage * 100)}% — ${risk.coverage < 0.75 ? 'low confidence: this score rests on limited data, so check the branch\'s figures before relying on it.' : 'some factors had no data and were left out.'}</div>` : ''}
+              <div class="brp-score-line text-[11px] font-bold text-slate-800 mb-1">${escapeHTML(row.b.name)} — score ${risk.score.toFixed(1)} (${escapeHTML(risk.tier.label)}${risk.escalated ? ', raised from ' + escapeHTML(risk.baseTier.label) + ' by a data red flag' : ''})</div>
+              <div class="brp-why text-[11px] text-slate-600 mb-1">${escapeHTML(auditRiskWhyText(row))}</div>
+              <div class="brp-meaning text-[10px] font-semibold text-slate-500 mb-2" style="border-left-color:${TINT_HEX[tierTint] || '#94a3b8'}">Rating meaning: ${escapeHTML(AUDIT_TIER_GUIDE[risk.tier.key].meaning)} Target cycle for this rating: every ${risk.cycleDays} days${risk.cycleGap === null ? ' (never audited)' : (risk.cycleGap < 0 ? ' — ' + (-risk.cycleGap) + ' days over' : ' — due in ' + risk.cycleGap + ' days')}.</div>
+              ${risk.coverage < 0.999 ? `<div class="brp-cov text-[10px] font-semibold ${risk.coverage < 0.75 ? 'text-accentRose' : 'text-accentAmber'} mb-2">Data coverage ${Math.round(risk.coverage * 100)}% — ${risk.coverage < 0.75 ? 'low confidence: this score rests on limited data, so check the branch\'s figures before relying on it.' : 'some factors had no data and were left out.'}</div>` : ''}
               <div class="overflow-x-auto">
                 <table class="w-full text-[10px] text-left">
                   <thead class="text-slate-500 uppercase tracking-wider font-semibold">
@@ -16366,9 +16415,9 @@ html.page-fade-ready body {
         const cardsHtml = records.length === 0
             ? `<div class="p-4 text-center text-xs text-slate-400 italic">No individual findings recorded for FY${year} (from AUDIT FINDINGS sheet).</div>`
             : records.map(r => `
-                <div class="p-2.5 border-t border-coolBorder first:border-t-0">
+                <div class="fp-card p-2.5 border-t border-coolBorder first:border-t-0">
                     <div class="flex items-center justify-between gap-2 mb-1">
-                        <span class="text-[11px] font-semibold text-slate-500 tabular-nums">${formatFindingDate(r.date, r.year)}</span>
+                        <span class="fp-date text-[11px] font-semibold text-slate-500 tabular-nums">${formatFindingDate(r.date, r.year)}</span>
                         ${getFindingCategoryBadge(r.category)}
                     </div>
                     <p class="text-xs text-slate-800 leading-snug break-words">${escapeFindingHTML(r.finding)}</p>
@@ -16377,7 +16426,7 @@ html.page-fade-ready body {
         container.innerHTML = `
             <div class="bg-white rounded-lg border border-coolBorder overflow-hidden">
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-3 py-2 bg-slate-50 border-b border-coolBorder">
-                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-snug">${escapeFindingHTML(branchName)} — Audit Findings (source: AUDIT FINDINGS sheet) · FY${year}: ${records.length} finding${records.length === 1 ? '' : 's'}</span>
+                    <span class="fp-title text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-snug"><span class="fp-name">${escapeFindingHTML(branchName)} — </span>Audit Findings<span class="fp-src"> (source: AUDIT FINDINGS sheet)</span> · FY${year}: ${records.length} finding${records.length === 1 ? '' : 's'}</span>
                     <div class="flex gap-1.5 overflow-x-auto sm:flex-wrap sm:overflow-visible -mx-1 px-1 sm:mx-0 sm:px-0 min-w-0 max-w-full">${yearTabs}</div>
                 </div>
                 <div class="max-h-64 overflow-y-auto custom-scrollbar">
