@@ -8048,7 +8048,12 @@ html.page-fade-ready body {
       const params = new URLSearchParams({ action: 'checkEditorAuth', secret: appsScriptSecret, idToken: idToken });
       const url = defaultAppsScriptUrl + '?' + params.toString();
       let json;
-      try { json = await fetchSheetOnce(url); } catch (e) { /* fall through to unauthorized-style message below */ }
+      try { json = await fetchSheetOnce(url); } catch (e) {
+        // Slow/asleep server is NOT the same as "not allowed". The server
+        // re-checks permission on the real Save anyway, so let them continue.
+        console.warn('Editor pre-check could not reach the server; continuing (server checks on save):', e && e.message ? e.message : e);
+        return true;
+      }
       if (json && json.success) {
         editAssignAuthCache = { ok: true, at: Date.now() };
         return true;
@@ -11540,26 +11545,26 @@ html.page-fade-ready body {
     // defaults still sum to 100 together with recency.
     const AUDIT_RISK_FACTORS = [
       { key: 'recency', label: 'Time since last audit', defaultWeight: 10,
-        how: "CHANGED - now data-driven, not a fixed 90-day line. Step 1: the branch is scored on its other factors (its \"data score\", 0-100, using the weights above). Step 2: that score sets THIS branch's own due interval = Overdue setting x (1.75 - 1.25 x data score/100), so healthy data is due later (up to about 1.75x the Overdue setting) and risky data sooner (down to about 0.5x). Step 3: points = a smooth curve of days since last audit / due interval: about 50 points AT the due date, about 80 at twice the due interval, and never a sudden jump to 100. Step 4: a base of 25% of the data score, so a risky branch is not 0 just because it was audited yesterday, and a clean branch stays near 0. Never audited = 60 + 40% of its data score.",
-        why: "Old rule: 0 the day after an audit and a flat 100 once past the Overdue days, even for a branch with clean numbers. That was unfair to healthy branches (a good branch at 150 days scored as badly as a failing one) and blind to risky branches that were only just visited. Now the calendar counts in proportion to what the branch's own data says. The separate never-audited / overdue queue rules still make sure no branch is skipped forever." },
+        how: "Every branch gets its own due date for the next audit. The longer a branch waits past that date, the more points it gets. A branch with risky numbers is due sooner. A branch with clean numbers is due later. A branch that was never audited gets a high score.",
+        why: "One fixed cut-off is unfair, because a clean branch and a failing branch would score the same. This way the waiting time fits how each branch is really doing." },
       { key: 'findings', label: 'Audit findings', defaultWeight: 26,
-        how: "Findings are weighted 3x for the latest tracked year, 2x for the middle year and 1x for the earliest (years come from the sheet), then divided by a FIXED cap and multiplied by 100 (maximum 100). The cap is editable in Settings; it starts at the portfolio's 90th percentile the first time it is computed, never below " + AUDIT_FINDINGS_MIN_CAP + " weighted points, then stays put. No findings = 0. 5 or more findings in the latest year is also a red flag that lifts the branch to at least High.",
-        why: "Past findings are the strongest sign of where more will be found; recent years count more than old ones. The cap is fixed rather than recalculated on every view so the same findings history always produces the same score, instead of drifting as the portfolio changes." },
+        how: "The more findings a branch has, the higher the score. Newer years count more than older years. No findings = 0 points. 5 or more findings in the latest year always lifts the branch to at least High.",
+        why: "Past findings are the best sign of where more problems will be found. Recent years matter most." },
       { key: 'efficiency', label: 'Collection health', defaultWeight: 30,
-        how: "One blended factor of up to four parts: (1) efficiency LEVEL, 40%: 0% efficiency = 100 pts, 50% = 70, 70% = 35, 100% = 0, in straight lines between; (2) efficiency TREND, 15%: 0 unless the % has fallen since the earliest month on record, reaching 100 pts at a 15+ point fall; (3) reported collection STATUS, 20%: Declining = 100, Recovering = 50, Stable = 20, Improving = 0 (a blank status is left out, not treated as Stable); (4) accounts NOT collecting, 25%: accounts x (100 - efficiency%), against a fixed cap, so the same % counts for more at a big branch. A blank efficiency month is not read as 0%. Any part with no data is dropped and the rest rescaled. Efficiency under 50% is also a red flag (at least High).",
-        why: "Efficiency % and the reported collection status answer the same question - is collection getting better or worse - so they are blended into one factor instead of being paid for twice. The accounts-not-collecting part keeps a tiny branch with a low % from looking as serious as a large branch with the same %." },
+        how: "Lower collection efficiency = more points (0% = 100 points, 100% = 0 points). It also looks at whether efficiency is falling, the reported collection status, and how many accounts are not collecting. Efficiency under 50% always lifts the branch to at least High.",
+        why: "Weak or falling collection is an early warning of bigger problems. Big branches count more, because more accounts are affected." },
       { key: 'repo', label: 'Repossessions', defaultWeight: 16,
-        how: "Three parts: repo RATE, 40%: 0% = 0 pts, 4% = 35, 7% = 70, 12%+ = 100, in straight lines between; NUMBER of repossessions, 30%: count against a fixed cap; repo-rate TREND, 30%: 0 unless the rate has risen since the earliest month, reaching 100 pts at a rise of 3+ points (left out and rescaled when there is no earlier month). No account data = factor excluded. A repo rate of 7% or higher is also a red flag (at least High).",
-        why: "A high repossession rate points to weaker loan quality or recovery handling, and a rate that is actively rising is a stronger signal than one that is high but stable. The count stops a tiny branch with one repo from looking as bad as a large branch with many. Level and trend sit in ONE factor so a worsening rate is not counted twice." },
+        how: "A higher repossession rate = more points (12% or more = 100 points). It also looks at how many repossessions there are and whether the rate is rising. A rate of 7% or higher always lifts the branch to at least High.",
+        why: "Many repossessions can mean weak loan quality or weak recovery handling. A rising rate is a stronger warning than a steady one." },
       { key: 'sales', label: 'Sales trend', defaultWeight: 6,
-        how: "Reported sales status: Declining = 100, Recovering = 50, Stable = 20, Improving = 0. A blank status cell is left out of the score (weights rescaled), not treated as Stable.",
-        why: "Sharp sales drops can signal pressure on the branch and unusual activity." },
+        how: "Based on the reported sales status: Declining = 100, Recovering = 50, Stable = 20, Improving = 0. A blank status is skipped.",
+        why: "Sharp sales drops can mean pressure on the branch." },
       { key: 'service', label: 'Service vs target', defaultWeight: 6,
-        how: "Below target (Declining) = 100, on Target = 0. A blank status cell is left out of the score (weights rescaled).",
-        why: "Missing service targets is a control and customer-experience signal." },
+        how: "Below target = 100 points. On target = 0 points. A blank status is skipped.",
+        why: "Missing service targets is a warning sign for controls and customer experience." },
       { key: 'size', label: 'Accounts', defaultWeight: 6,
-        how: "Number of accounts (latest month that has a figure) divided by a FIXED cap, times 100 (maximum 100). The cap is editable in Settings; it starts at the portfolio's 90th percentile the first time it is computed, then stays put. No account data = factor excluded.",
-        why: "A bigger loan book means more money is at stake if something is wrong (materiality). The cap is fixed rather than recalculated on every view so branch size is scored consistently over time, not relative to whichever branches happen to be loaded right now." }
+        how: "The more accounts a branch has, the higher the score (up to 100). No account data = this factor is skipped.",
+        why: "A bigger loan book means more money is at risk if something is wrong." }
     ];
     // DATA RED FLAGS — hard tripwires that use the same red cut-offs as the
     // branch cards. A weighted average can dilute one severe signal (a branch
@@ -12107,12 +12112,12 @@ html.page-fade-ready body {
       const w = auditNormalizeWeights100(cfg.weights)[key];
       const nowLines = [];
       nowLines.push('Currently counts for <b>' + w + '%</b> of the score.');
-      if (key === 'recency') nowLines.push('Due interval for each branch runs from about <b>' + Math.round(cfg.overdueDays * 0.5) + '</b> days (very risky data) to <b>' + Math.round(cfg.overdueDays * 1.75) + '</b> days (very healthy data), based on the Overdue setting of ' + cfg.overdueDays + ' days. About 50 points at the due date; at most <b>' + (Math.round(w * 10) / 10) + '</b> points added to a branch\u2019s total.');
-      else nowLines.push('A branch at 100 points here adds up to <b>' + w + '</b> points to its total score; the rest is scaled the same way.');
-      if (key === 'findings' && cfg.findingsCap) nowLines.push('<b>' + cfg.findingsCap + '</b> weighted findings score the full 100.');
-      if (key === 'repo' && cfg.repoCap) nowLines.push('<b>' + cfg.repoCap + '</b> repossessions score the full 100 on the count part.');
-      if (key === 'efficiency' && cfg.shortfallCap) nowLines.push('<b>' + Number(cfg.shortfallCap).toLocaleString() + '</b> accounts not collecting score the full 100 on that part.');
-      if (key === 'size' && cfg.sizeCap) nowLines.push('<b>' + Number(cfg.sizeCap).toLocaleString() + '</b> accounts score the full 100.');
+      if (key === 'recency') nowLines.push('Due date: about <b>' + Math.round(cfg.overdueDays * 0.5) + '</b> days after the last audit for risky branches, up to <b>' + Math.round(cfg.overdueDays * 1.75) + '</b> days for clean branches (based on your Overdue setting of ' + cfg.overdueDays + ' days).');
+      else nowLines.push('A branch that scores 100 here adds <b>' + w + '</b> points to its total.');
+      if (key === 'findings' && cfg.findingsCap) nowLines.push('<b>' + cfg.findingsCap + '</b> findings = full 100 points.');
+      if (key === 'repo' && cfg.repoCap) nowLines.push('<b>' + cfg.repoCap + '</b> repossessions = full 100 points on the count part.');
+      if (key === 'efficiency' && cfg.shortfallCap) nowLines.push('<b>' + Number(cfg.shortfallCap).toLocaleString() + '</b> accounts not collecting = full 100 points on that part.');
+      if (key === 'size' && cfg.sizeCap) nowLines.push('<b>' + Number(cfg.sizeCap).toLocaleString() + '</b> accounts = full 100 points.');
       const ev = btn && btn.getAttribute ? (btn.getAttribute('data-evidence') || '') : '';
       closeAuditFactorInfo();
       const wrap = document.createElement('div');
@@ -13739,7 +13744,7 @@ html.page-fade-ready body {
         const strength = c.r <= -0.3 ? 'Opposite' : (abs >= 0.5 ? 'Strong' : (abs >= 0.3 ? 'Moderate' : 'Weak'));
         const dot = abs >= 0.5 ? 'bg-accentEmerald' : (abs >= 0.3 ? 'bg-accentBlue' : 'bg-slate-300');
         const color = abs >= 0.5 ? 'text-accentEmerald' : (abs >= 0.3 ? 'text-accentBlue' : 'text-slate-400');
-        const tip = 'Statistically: rank correlation (Spearman) r = ' + c.r.toFixed(2) + ', across ' + c.n + ' branches with data. Closer to 1 means this factor has more reliably lined up with real findings in the past.';
+        const tip = 'Match with past findings: ' + c.r.toFixed(2) + ' (checked on ' + c.n + ' branches). The closer to 1, the more this factor matched real findings.';
         return { dot, text: '<span class="' + color + ' font-semibold" title="' + tip + '">' + strength + ' evidence</span>' };
       };
       // Kept for the "How the ranking is decided" methodology table further
@@ -20819,7 +20824,7 @@ html.page-fade-ready body {
           if (done) return;
           cleanup(true);
           console.warn('[dashboard-timing] JSONP TIMED OUT after ' + Math.round(performance.now() - __t0) + 'ms (limit ' + (timeoutMs || 8000) + 'ms)');
-          reject(new Error('JSONP timed out'));
+          const te = new Error('JSONP timed out'); te.isTimeout = true; reject(te);
         }, timeoutMs || 8000);
 
         window[callbackName] = function(data) {
@@ -20913,7 +20918,7 @@ html.page-fade-ready body {
             // verbatim to a user-facing toast/alert.
             const isAbort = err && (err.name === 'AbortError' || err.name === 'TimeoutError');
             const friendly = isAbort
-              ? new Error('Request timed out after ' + Math.round(timeoutMs / 1000) + 's \u2014 please try again.')
+              ? (function () { const te = new Error('Request timed out after ' + Math.round(timeoutMs / 1000) + 's \u2014 please try again.'); te.isTimeout = true; return te; })()
               : err;
             console.warn('[dashboard-timing] direct fetch failed after ' + Math.round(performance.now() - __t0) + 'ms: ' + err);
             throw friendly;
@@ -21280,7 +21285,7 @@ html.page-fade-ready body {
     // showing the "Couldn't load the dashboard" error even though the
     // backend would have answered a few seconds later.
     const DIRECT_FETCH_TIMEOUT_MS = 25000;
-    const JSONP_FETCH_TIMEOUT_MS = 28000;
+    const JSONP_FETCH_TIMEOUT_MS = 30000;
 
     // BUG FIX: a previously-LEARNED 'direct' transport (see
     // LEARNED_TRANSPORT_TTL_MS above) used to reuse the full, cold-start-
@@ -21328,7 +21333,7 @@ html.page-fade-ready body {
       return json;
     }
 
-    async function fetchSheetOnce(url, timeouts) {
+    async function fetchSheetTransport(url, timeouts) {
       const directMs = (timeouts && timeouts.directMs) || DIRECT_FETCH_TIMEOUT_MS;
       const jsonpMs = (timeouts && timeouts.jsonpMs) || JSONP_FETCH_TIMEOUT_MS;
 
@@ -21340,6 +21345,10 @@ html.page-fade-ready body {
         try {
           return handleBlockedAccountResponse(await fetchJSONP(url, jsonpMs));
         } catch (err) {
+          // A plain TIMEOUT means the server is slow (asleep), not that JSONP
+          // is blocked -- keep the learned transport and let the retry layer
+          // try again instead of jumping to a second slow request.
+          if (err && err.isTimeout) throw err;
           // The learned transport failed this time (e.g. a network change) —
           // fall back to the other one just for this call, and re-learn.
           setLearnedTransport(null);
@@ -21378,11 +21387,94 @@ html.page-fade-ready body {
         setLearnedTransport('jsonp');
         return handleBlockedAccountResponse(data);
       } catch (jsonpErr) {
+        if (jsonpErr && jsonpErr.isTimeout) throw jsonpErr;
         const data = await fetchDirect(url, directMs);
         setLearnedTransport('direct');
         return handleBlockedAccountResponse(data);
       }
     }
+
+
+    // ================= REQUEST LAYER: wake-up + retry =================
+    // WHY: after the app sits unused for a while, the Apps Script backend
+    // goes to sleep. Coming back, the dashboard used to fire 3+ requests at
+    // once (data refresh, heartbeat, presence) at the sleeping backend; a
+    // Save/Edit tapped right then queued behind them and hit "JSONP timed
+    // out". Now: (1) ONE tiny "ping" wakes the backend first and every other
+    // request waits for it; (2) a timed-out request is retried automatically
+    // when that is safe; (3) errors are readable.
+    const BACKEND_IDLE_WAKE_MS = 3 * 60 * 1000;   // idle longer than this -> ping first
+    const BACKEND_PING_TIMEOUT_MS = 25000;
+    const RETRY_DELAY_MS = 1500;
+    const lastBackendOkAtByBase = {};
+    const wakePromiseByBase = {};
+
+    function backendBaseOf(url) { return String(url).split('?')[0]; }
+    function backendActionOf(url) {
+      const m = /[?&]action=([^&]+)/.exec(url);
+      return m ? decodeURIComponent(m[1]) : '';
+    }
+    // Only actions that give the SAME result if run twice may be retried
+    // automatically. Adding a remark (no rowIndex), deleting a remark, the
+    // emergency-auditor log and Update Sheet must never run twice.
+    function isSafeToRetry(url) {
+      const a = backendActionOf(url);
+      if (a === 'deleteAuditorRemark' || a === 'saveEmergencyAuditor' || a === 'updateOverallData') return false;
+      if (a === 'saveAuditorRemark' && !/[?&]rowIndex=\d/.test(url)) return false;
+      return true;
+    }
+    function friendlyNetworkError(err, retried) {
+      const msg = String((err && err.message) || err || '');
+      if (/timed out|JSONP|failed to load|Failed to fetch|NetworkError|Load failed/i.test(msg)) {
+        return new Error('The server is slow to answer right now (it may have been asleep). ' + (retried ? 'We already tried again. ' : '') + 'Please try again in a moment.');
+      }
+      return err;
+    }
+    function markBackendOk(url) { lastBackendOkAtByBase[backendBaseOf(url)] = Date.now(); }
+
+    // Wakes the main dashboard backend if it has been quiet for a while.
+    // Shared: many callers at once -> one ping. Never throws.
+    function wakeBackendIfIdle(url) {
+      const base = backendBaseOf(url);
+      if (base !== defaultAppsScriptUrl) return Promise.resolve();   // only our own backend has 'ping'
+      if (backendActionOf(url) === 'ping') return Promise.resolve();
+      const last = lastBackendOkAtByBase[base] || 0;
+      if (last && (Date.now() - last) < BACKEND_IDLE_WAKE_MS) return Promise.resolve();
+      if (wakePromiseByBase[base]) return wakePromiseByBase[base];
+      wakePromiseByBase[base] = (async function () {
+        try {
+          const pingUrl = base + '?action=ping&t=' + Date.now();
+          await fetchSheetTransport(pingUrl, { directMs: BACKEND_PING_TIMEOUT_MS, jsonpMs: BACKEND_PING_TIMEOUT_MS });
+          lastBackendOkAtByBase[base] = Date.now();
+        } catch (e) {
+          console.warn('[wake] ping failed (continuing anyway):', e && e.message ? e.message : e);
+        } finally {
+          setTimeout(function () { delete wakePromiseByBase[base]; }, 0);
+        }
+      })();
+      return wakePromiseByBase[base];
+    }
+    window.wakeBackendNow = function () { return wakeBackendIfIdle(defaultAppsScriptUrl + '?action=x'); };
+
+    async function fetchSheetOnce(url, timeouts) {
+      await wakeBackendIfIdle(url);
+      const canRetry = isSafeToRetry(url);
+      const maxAttempts = canRetry ? 3 : 1;
+      let lastErr = null;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const json = await fetchSheetTransport(url, timeouts);
+          markBackendOk(url);
+          return json;
+        } catch (err) {
+          lastErr = err;
+          console.warn('[request] attempt ' + attempt + '/' + maxAttempts + ' failed for action=' + backendActionOf(url) + ': ' + (err && err.message ? err.message : err));
+          if (attempt < maxAttempts) await new Promise(function (r) { setTimeout(r, RETRY_DELAY_MS * attempt); });
+        }
+      }
+      throw friendlyNetworkError(lastErr, maxAttempts > 1);
+    }
+    // ================= END REQUEST LAYER =================
 
     /* ================= OVERALL DATA SNAPSHOT (Collection/Sales/Service
        by month, all branches) =================
@@ -21456,7 +21548,18 @@ html.page-fade-ready body {
         idToken: idToken
       });
       const url = defaultAppsScriptUrl + '?' + params.toString();
-      const json = await fetchSheetOnce(url);
+      let json;
+      try {
+        json = await fetchSheetOnce(url);
+      } catch (netErr) {
+        // Server slow/asleep: show the last copy we already have instead of an error.
+        if (window.overallDataPayload) {
+          console.warn('[overallData] using last loaded copy:', netErr && netErr.message ? netErr.message : netErr);
+          if (typeof showToast === 'function') showToast('Server is slow \u2014 showing the last loaded Overall Data.');
+          return window.overallDataPayload;
+        }
+        throw netErr;
+      }
 
       if (json && json.error) throw new Error(json.error);
       if (!json || !json.success) throw new Error("Couldn't load Overall Data \u2014 please try again.");
@@ -22980,11 +23083,19 @@ html.page-fade-ready body {
     // expiring token, so this always returns a currently-valid one).
     window.getCurrentIdToken = async function() {
       if (!auth.currentUser) return null;
+      const raceTimeout = function (p, ms) {
+        return Promise.race([p, new Promise(function (_, rej) { setTimeout(function () { rej(new Error('token timeout')); }, ms); })]);
+      };
       try {
-        return await auth.currentUser.getIdToken();
+        return await raceTimeout(auth.currentUser.getIdToken(), 15000);
       } catch (err) {
-        console.warn('Could not get Firebase ID token:', err);
-        return null;
+        console.warn('Could not get Firebase ID token, forcing a refresh:', err);
+        try {
+          return await raceTimeout(auth.currentUser.getIdToken(true), 15000);
+        } catch (err2) {
+          console.warn('Forced token refresh also failed:', err2);
+          return null;
+        }
       }
     };
 
@@ -23530,6 +23641,9 @@ html.page-fade-ready body {
     function handleVisibilityChange() {
       if (!autoRefreshTimer) return; // not signed in / not tracking
       if (!document.hidden) {
+        // One shared wake-up ping first (no-op if the backend was used recently);
+        // every request below waits for it inside fetchSheetOnce().
+        if (typeof window.wakeBackendNow === 'function') window.wakeBackendNow();
         silentRefreshTick(); // catch up immediately on return -- cheap, and already dedupes via dataVersion
         const now = Date.now();
         if (now - lastVisibilityCatchupAt < VISIBILITY_CATCHUP_MIN_GAP_MS) return;
