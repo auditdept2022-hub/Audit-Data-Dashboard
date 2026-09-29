@@ -14440,7 +14440,6 @@ html.page-fade-ready body {
       const rrNowQueue = a.rows.filter(r => auditIsHighRisk(r, cfg)).length;
       const rrNowJson = escapeHTML(JSON.stringify(Object.assign({ queue: rrNowQueue }, rrNowCounts)));
 
-      const rrWeightBar = AUDIT_RISK_FACTORS.map((f, i) => `<div id="rr-wseg-${f.key}" style="width:${shownWeights[f.key]}%;background:${rrPalette[i % rrPalette.length]}" title="${escapeHTML(f.label)}"></div>`).join('');
       const rrWeightRows = AUDIT_RISK_FACTORS.map((f, i) => {
         const val = shownWeights[f.key], col = rrPalette[i % rrPalette.length];
         return `<div class="rr-wrow">
@@ -14495,8 +14494,6 @@ html.page-fade-ready body {
             <div class="rr-tabs" role="tablist">${rrTabBtn('weights', 'What counts')}${rrTabBtn('levels', 'Rating levels')}${rrTabBtn('flags', 'Red flags')}${rrTabBtn('schedule', 'Scheduling')}${rrTabBtn('how', 'How it works')}</div>
 
             <div ${rrPane('weights')}>
-              <p class="rr-lead">Each factor gives a branch 0 to 100 points. The share below decides how much it counts. Tap a name to see how it is scored.</p>
-              <div class="rr-bar" aria-hidden="true">${rrWeightBar}</div>
               <div class="rr-wlist">${rrWeightRows}</div>
               <div class="rr-tools">
                 <span class="rr-src">${rrSrc}</span>
