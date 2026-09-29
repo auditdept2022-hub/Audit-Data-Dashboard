@@ -12917,48 +12917,72 @@ html.page-fade-ready body {
     }
 
 
-    // Rich, data-driven explanation of HOW branches are compared. Every number is read from the
-    // live portfolio (cfg.calib is filled by computeAuditRiskScores) so nothing here is generic text.
+    // Rich, data-driven explanation of HOW branches are rated. Every number is read from the live
+    // portfolio (cfg.calib is filled by computeAuditRiskScores); nothing here is generic text.
     function buildAuditCalibrationHTML(a, cfg) {
-      const escapeHTML = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const esc = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
       const c = cfg.calib;
-      if (!c) return '<div class="p-2.5 bg-gray-50/70 border border-coolBorder rounded-lg text-[10.5px] text-slate-500">Scales are calculated as soon as the analysis has scored the portfolio.</div>';
+      if (!c) return '<div class="p-3 bg-gray-50 border border-coolBorder rounded-lg text-[11.5px] text-slate-500">The comparison tables appear as soon as the analysis has scored your branches.</div>';
       const fmt = n => Number(n).toLocaleString();
       const yr = (window.FINDING_YEARS || [2024, 2025, 2026])[2];
       const corr = computeAuditFactorCorrelations(a.rows);
       let dd = null;
       try { dd = computeDataDrivenAuditRiskWeights(a.rows, cfg); } catch (e) { dd = null; }
       const wNow = auditNormalizeWeights100(cfg.weights);
-      const cap = (st, unit) => st.n ? ('median <b>' + fmt(st.p50) + '</b> · top 10% line <b>' + fmt(st.cap) + '</b> ' + unit + ' · ' + st.atMax + ' of ' + st.n + ' at max') : 'no data yet';
-      const row = (k, v, how) => '<tr class="align-top border-t border-coolBorder"><td class="py-1.5 pr-2 font-bold text-slate-700 whitespace-nowrap">' + k + '</td><td class="py-1.5 pr-2 text-slate-600">' + v + '</td><td class="py-1.5 text-slate-500">' + how + '</td></tr>';
-      const scaleRows =
-        row('Findings', cap(c.findings, 'weighted pts'), 'Newest year x3, middle x2, oldest x1 (≈ ' + Math.round((c.findings.cap || 0) / 3) + ' findings in ' + yr + ' = 100). Points = weighted findings / top-10% line x 100. A new year not audited yet is skipped, not counted as clean.') +
-        row('Loan accounts', cap(c.size, 'accounts'), 'Square-root scale: a branch with a quarter of the top-10% size already earns 50 points, so small branches are not rated near zero.') +
-        row('Repossessions', cap(c.repoCount, 'repos'), 'Latest-month count vs the top-10% line, blended with the repo rate itself.') +
-        row('Accounts not collecting', cap(c.shortfall, 'accounts'), 'Accounts x (100 - efficiency %). The same efficiency counts more at a large branch.') +
-        row('Efficiency %', c.eff.n ? ('median <b>' + c.eff.p50 + '%</b> · weakest quarter below <b>' + c.eff.p25 + '%</b> · ' + c.eff.below50 + ' branch' + (c.eff.below50 === 1 ? '' : 'es') + ' under 50%') : 'no data yet',
-            c.peerActive ? 'Half fixed line, half rank among your ' + c.eff.n + ' branches with an efficiency figure.' : 'Fewer than ' + AUDIT_PEER_MIN_N + ' branches with data, so only the fixed line is used for now.') +
-        row('Repo rate', c.repoRate.n ? ('median <b>' + c.repoRate.p50 + '%</b> · worst quarter above <b>' + c.repoRate.p75 + '%</b> · ' + c.repoRate.atOrAbove7 + ' at 7%+') : 'no data yet',
-            c.peerActive ? 'Half fixed line, half rank among your ' + c.repoRate.n + ' branches with accounts.' : 'Fixed line only until enough branches have data.');
-      const verdict = r => (r === null || r === undefined) ? ['not enough data', '#94a3b8'] : (r >= 0.3 ? ['clear link', '#059669'] : (r >= 0.15 ? ['weak link', '#d97706'] : ['no clear link', '#94a3b8']));
-      const evRows = AUDIT_RISK_FACTORS.map(f => {
-        const cr = corr[f.key];
-        let ev;
-        if (f.key === 'findings') ev = '<span class="text-slate-400">is the outcome itself</span>';
-        else if (f.key === 'recency') ev = '<span class="text-slate-400">policy weight (audits cause findings, so it cannot be judged by them)</span>';
-        else { const v = verdict(cr && cr.r); ev = (cr && cr.r !== null ? 'r = ' + cr.r.toFixed(2) + ' over ' + cr.n + ' branches · ' : '') + '<b style="color:' + v[1] + '">' + v[0] + '</b>'; }
-        const sug = dd && dd.weights ? dd.weights[f.key] + '%' : '—';
-        return '<tr class="border-t border-coolBorder align-top"><td class="py-1 pr-2 font-semibold text-slate-700">' + escapeHTML(f.label) + '</td><td class="py-1 pr-2 text-slate-700">' + wNow[f.key] + '%</td><td class="py-1 pr-2 text-slate-500">' + ev + '</td><td class="py-1 text-slate-700">' + sug + '</td></tr>';
+      const th = 'pb-1.5 pr-3 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400';
+      const td = 'py-2 pr-3 align-top border-t border-coolBorder';
+      const card = (title, sub, body) => '<div class="p-3 bg-white border border-coolBorder rounded-lg space-y-2"><div><h5 class="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">' + title + '</h5>' + (sub ? '<p class="text-[11px] text-slate-500 leading-relaxed mt-0.5">' + sub + '</p>' : '') + '</div>' + body + '</div>';
+
+      // A. the recipe
+      const step = (n, t, d) => '<div class="p-2.5 rounded-lg bg-gray-50 border border-coolBorder"><div class="text-[10px] font-extrabold text-brandIndigo uppercase tracking-wider">Step ' + n + '</div><div class="text-[12px] font-bold text-slate-700 mt-0.5">' + t + '</div><p class="text-[11px] text-slate-500 leading-relaxed mt-1">' + d + '</p></div>';
+      const recipe = card('1 \u00b7 How a rating is made', 'Every branch goes through the same four steps, using only its own figures and how it compares with your other branches.',
+        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">' +
+        step(1, 'Score each factor 0 to 100', 'Findings, collection, repossessions, sales, service, loan-book size and time since the last audit each get 0 (healthy) to 100 (worst). Collection and repo mix a fixed policy line with the branch\u2019s rank among your branches.') +
+        step(2, 'Weigh the factors', 'Each factor counts by its weight (table 4). A factor with no data for a branch is left out and the others are rescaled, so missing data never counts as good or bad.') +
+        step(3, 'Add up to a 0\u2013100 risk score', 'The weighted factors are added together. Higher means more reasons to audit that branch soon.') +
+        step(4, 'Place it in a rating level', 'The level depends on the score and on the branch\u2019s position in your portfolio (table 2). A red flag (efficiency under 50%, repo 7%+) lifts a branch to at least High.') +
+        '</div>');
+
+      // B. levels
+      const tiers = c.tiers || { adaptive: false, used: {} };
+      const counts = {}; a.rows.forEach(r => { counts[r.risk.tier.key] = (counts[r.risk.tier.key] || 0) + 1; });
+      const lvlRows = AUDIT_RISK_TIERS.map((t, i) => {
+        const u = tiers.used[t.key];
+        const need = t.key === 'LOW' ? 'below ' + AUDIT_RISK_TIERS[i - 1].min : (u && u.peer !== null && u.peer > u.floor ? t.min + '+ <span class="text-slate-400">(raised from ' + u.floor + ': only your top ' + (t.key === 'CRITICAL' ? '15%' : (t.key === 'HIGH' ? '40%' : '70%')) + ' qualify)</span>' : t.min + '+ <span class="text-slate-400">(fixed minimum)</span>');
+        const g = AUDIT_TIER_GUIDE[t.key];
+        return '<tr><td class="' + td + ' font-bold text-slate-700 whitespace-nowrap">' + t.label + '</td><td class="' + td + ' text-slate-700">' + need + '</td><td class="' + td + ' font-bold text-slate-700">' + (counts[t.key] || 0) + '</td><td class="' + td + ' text-slate-500">' + g.meaning + ' ' + g.action + '.</td></tr>';
       }).join('');
-      const thin = c.n < AUDIT_WEIGHTS_MIN_ROWS ? '<p class="text-[10px] text-accentAmber font-semibold">Only ' + c.n + ' branches: too few for reliable statistics, treat the evidence column as indicative.</p>' : '';
-      return '<div class="p-2.5 bg-gray-50/70 border border-coolBorder rounded-lg space-y-2">' +
-        '<h4 class="text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">3 · How branches are compared <span class="normal-case font-medium text-slate-400 tracking-normal">— built from your ' + c.n + ' branches, recalculated on every data change</span></h4>' +
-        '<p class="text-[10.5px] text-slate-600 leading-snug">A rating uses <b>three layers</b>. <b>Layer 1, fixed policy lines</b> (e.g. efficiency under 50%, repo 7%+) are red flags that lift a branch to at least High no matter what its average says. <b>Layer 2, peer comparison</b>: each measure is judged against where your own branches sit today, so a score answers "how unusual is this branch?" as well as "is the number bad?". <b>Layer 3, evidence</b>: the table further down tests whether each factor really lines up with actual audit findings, so weights are backed by data instead of opinion.</p>' +
-        '<div class="overflow-x-auto"><table class="w-full text-[10.5px] leading-snug"><thead><tr class="text-left text-[9px] uppercase tracking-wider text-slate-400"><th class="pb-1 pr-2">Measure</th><th class="pb-1 pr-2">Your portfolio today</th><th class="pb-1">How points are given</th></tr></thead><tbody>' + scaleRows + '</tbody></table></div>' +
-        '<h5 class="text-[9.5px] font-bold text-slate-500 uppercase tracking-wider pt-1">Evidence check: does each factor predict findings?</h5>' +
-        '<div class="overflow-x-auto"><table class="w-full text-[10.5px] leading-snug"><thead><tr class="text-left text-[9px] uppercase tracking-wider text-slate-400"><th class="pb-1 pr-2">Factor</th><th class="pb-1 pr-2">Weight now</th><th class="pb-1 pr-2">Link with findings (rank correlation)</th><th class="pb-1">Data-suggested</th></tr></thead><tbody>' + evRows + '</tbody></table></div>' +
-        '<p class="text-[10px] text-slate-500 leading-snug">r near 0 means no link, 0.3+ is a clear link. A factor with no clear link can still be a valid warning (findings are only found when an audit happens), so use "Suggest from data" below to compare, and keep the recommended split unless the evidence is strong.</p>' + thin +
-        '</div>';
+      const levels = card('2 \u00b7 Rating levels for your portfolio today',
+        tiers.adaptive ? 'A level needs a fixed minimum score AND a place near the top of your own ' + c.n + ' branches. This keeps ratings meaningful: if most branches score high, only the worst are called Critical.' : 'Fewer than ' + AUDIT_PEER_MIN_N + ' branches have data, so only the fixed minimum scores are used for now.',
+        '<div class="overflow-x-auto"><table class="w-full text-[11.5px] leading-relaxed"><thead><tr><th class="' + th + '">Level</th><th class="' + th + '">Score needed</th><th class="' + th + '">Branches</th><th class="' + th + '">Meaning and audit frequency</th></tr></thead><tbody>' + lvlRows + '</tbody></table></div>');
+
+      // C. measures
+      const cap = (st, unit) => st.n ? ('median <b>' + fmt(st.p50) + '</b> \u00b7 100 points at <b>' + fmt(st.cap) + '</b> ' + unit + ' \u00b7 ' + st.atMax + ' of ' + st.n + ' branches at the maximum') : 'no data yet';
+      const mrow = (k, v, how) => '<tr><td class="' + td + ' font-bold text-slate-700 whitespace-nowrap">' + k + '</td><td class="' + td + ' text-slate-600">' + v + '</td><td class="' + td + ' text-slate-500">' + how + '</td></tr>';
+      const measures = card('3 \u00b7 What each measure looks like across your branches', 'Scales are recalculated from your data each time, so nothing is a guess. "100 points" is set at the level of your top 10% of branches.',
+        '<div class="overflow-x-auto"><table class="w-full text-[11.5px] leading-relaxed"><thead><tr><th class="' + th + '">Measure</th><th class="' + th + '">Your portfolio today</th><th class="' + th + '">How points are given</th></tr></thead><tbody>' +
+        mrow('Findings', cap(c.findings, 'weighted findings'), 'Newest year counts x3, middle x2, oldest x1 (about ' + Math.round((c.findings.cap || 0) / 3) + ' findings in ' + yr + ' = 100). A new year not yet audited is skipped, not counted as clean.') +
+        mrow('Loan accounts', cap(c.size, 'accounts'), 'Square-root scale, so a small branch is not rated near zero.') +
+        mrow('Repossessions', cap(c.repoCount, 'repos'), 'Latest-month count against the top-10% line, blended with the repo rate.') +
+        mrow('Accounts not collecting', cap(c.shortfall, 'accounts'), 'Accounts x (100 \u2212 efficiency %), so the same rate weighs more at a large branch.') +
+        mrow('Efficiency %', c.eff.n ? ('median <b>' + c.eff.p50 + '%</b> \u00b7 weakest quarter below <b>' + c.eff.p25 + '%</b> \u00b7 ' + c.eff.below50 + ' under 50%') : 'no data yet', c.peerActive ? 'Half fixed line, half rank among your ' + c.eff.n + ' branches.' : 'Fixed line only until ' + AUDIT_PEER_MIN_N + ' branches have data.') +
+        mrow('Repo rate', c.repoRate.n ? ('median <b>' + c.repoRate.p50 + '%</b> \u00b7 worst quarter above <b>' + c.repoRate.p75 + '%</b> \u00b7 ' + c.repoRate.atOrAbove7 + ' at 7%+') : 'no data yet', c.peerActive ? 'Half fixed line, half rank among your ' + c.repoRate.n + ' branches.' : 'Fixed line only until enough data.') +
+        '</tbody></table></div>');
+
+      // D. evidence
+      const verdict = r => (r === null || r === undefined) ? ['not enough data', '#94a3b8'] : (r >= 0.3 ? ['clear link with findings', '#059669'] : (r >= 0.15 ? ['weak link', '#d97706'] : ['no clear link yet', '#94a3b8']));
+      const evRows = AUDIT_RISK_FACTORS.map(f => {
+        const cr = corr[f.key]; let ev;
+        if (f.key === 'findings') ev = '<span class="text-slate-400">This is the outcome the others are tested against.</span>';
+        else if (f.key === 'recency') ev = '<span class="text-slate-400">Policy factor: audits create findings, so it can\u2019t be tested this way.</span>';
+        else { const v = verdict(cr && cr.r); ev = (cr && cr.r !== null ? 'r = ' + cr.r.toFixed(2) + ' across ' + cr.n + ' branches: ' : '') + '<b style="color:' + v[1] + '">' + v[0] + '</b>'; }
+        return '<tr><td class="' + td + ' font-semibold text-slate-700">' + esc(f.label) + '</td><td class="' + td + ' font-bold text-slate-700">' + wNow[f.key] + '%</td><td class="' + td + ' text-slate-500">' + ev + '</td><td class="' + td + ' text-slate-700">' + (dd && dd.weights ? dd.weights[f.key] + '%' : '\u2014') + '</td></tr>';
+      }).join('');
+      const thin = c.n < AUDIT_WEIGHTS_MIN_ROWS ? '<p class="text-[11px] text-accentAmber font-semibold">Only ' + c.n + ' branches: too few for reliable statistics, read this table as a hint only.</p>' : '';
+      const evidence = card('4 \u00b7 Weights and the evidence behind them', 'Does a factor really line up with actual audit findings? r is a rank correlation: 0 = no link, 0.3 or more = clear link. Findings only appear where audits happened, so a factor with no clear link can still be a valid early warning.',
+        '<div class="overflow-x-auto"><table class="w-full text-[11.5px] leading-relaxed"><thead><tr><th class="' + th + '">Factor</th><th class="' + th + '">Weight now</th><th class="' + th + '">Link with findings</th><th class="' + th + '">Data-suggested</th></tr></thead><tbody>' + evRows + '</tbody></table></div>' + thin);
+
+      return '<div class="space-y-2.5"><h4 class="text-[11px] font-extrabold text-slate-600 uppercase tracking-wider">How branches are rated <span class="normal-case font-medium text-slate-400 tracking-normal">\u2014 built from your ' + c.n + ' branches and recalculated on every data change</span></h4>' + recipe + levels + measures + evidence + '</div>';
     }
 
     // Resets the findings/size caps so they're recomputed fresh from the
@@ -13204,6 +13228,34 @@ html.page-fade-ready body {
         row.risk.cycleGap = (info.roundsCount > 0 && info.intervalDays !== null && info.intervalDays !== undefined)
           ? row.risk.cycleDays - info.intervalDays : null;
       });
+
+      // ---- DATA-DRIVEN RATING LEVELS ------------------------------------------------
+      // A level needs BOTH a fixed minimum score (nobody is Critical below 70) AND a place
+      // near the top of YOUR portfolio (Critical: top ~15%, High: top ~40%, Medium: top ~70%).
+      // So ratings separate branches even when the whole portfolio scores high, while a red flag
+      // still lifts a branch to at least High regardless.
+      (function applyAdaptiveTiers() {
+        const defs = { CRITICAL: { floor: 70, pct: 0.85 }, HIGH: { floor: 55, pct: 0.60 }, MEDIUM: { floor: 40, pct: 0.30 } };
+        const adaptive = rows.length >= AUDIT_PEER_MIN_N;
+        const scores = rows.map(r => r.risk.score);
+        const used = {};
+        AUDIT_RISK_TIERS.forEach(t => {
+          const d = defs[t.key];
+          if (!d) return;
+          const peer = adaptive ? Math.round(auditRiskPercentile(scores, d.pct) * 10) / 10 : null;
+          t.min = adaptive ? Math.max(d.floor, peer) : d.floor;
+          used[t.key] = { floor: d.floor, peer: peer, min: t.min };
+        });
+        rows.forEach(row => {
+          const info = row.info, r = row.risk;
+          const baseTier = auditRiskTierOf(r.score);
+          const escalated = r.redFlags.length > 0 && tierRank(baseTier) > tierRank(highTier);
+          r.baseTier = baseTier; r.escalated = escalated; r.tier = escalated ? highTier : baseTier;
+          r.cycleDays = r.tier.key === 'LOW' ? Math.max(30, Math.min(cfg.overdueDays, Math.max(240, r.dueDays))) : auditTierCycleDays(r.tier.key, cfg);
+          r.cycleGap = (info.roundsCount > 0 && info.intervalDays !== null && info.intervalDays !== undefined) ? r.cycleDays - info.intervalDays : null;
+        });
+        cfg.calib.tiers = { adaptive: adaptive, used: used };
+      })();
       return rows;
     }
 
