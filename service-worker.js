@@ -1,6 +1,8 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v14';
+const CACHE_VERSION = 'audit-dashboard-v15';
+// v15: new Audit Risk rating model (risk-based audit cycles, findings for a new year,
+//  INS/COD/CA sales, service vs target amount, fairer account-size scale, new default weights).
 // v14: removed the Audit history detected panel.
 // v13: profile Recent/Last use every dated engagement incl. scheduled.
 // v12: profile shows an Audit history detected panel.
