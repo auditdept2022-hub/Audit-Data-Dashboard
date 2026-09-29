@@ -3555,20 +3555,9 @@ html.page-fade-ready body {
        loading (the app's own #loadingScreen, further down, takes over the
        "preparing your dashboard" progress step from there). -->
   <div id="bootSplash" style="position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0f2547;transition:opacity .4s ease;">
+    <!-- Plain cover shown only for the split second before sign-in status is known.
+         The real loader is the rider scene (#loadingScreen), which follows the load. -->
     <img src="icons/icon-512.png" alt="" style="width:104px;height:104px;border-radius:24px;background:#fff;padding:4px;box-shadow:0 10px 40px -8px rgba(0,0,0,.45);" />
-    <!-- Real progress: this bar is driven by window.__bootProgress, which the
-         app moves forward at each ACTUAL load step (app ready -> session
-         checked -> saved data read -> latest records requested/received ->
-         dashboard built). It is not a timer. -->
-    <div style="margin-top:22px;width:200px;max-width:70vw;">
-      <div style="height:6px;border-radius:9999px;background:rgba(255,255,255,.2);overflow:hidden;">
-        <div id="bootBarFill" style="width:0%;height:100%;border-radius:9999px;background:linear-gradient(90deg,#60a5fa,#34d399);transition:width .35s ease;"></div>
-      </div>
-      <div style="display:flex;justify-content:space-between;margin-top:8px;font:600 11px/1.2 system-ui,sans-serif;color:rgba(255,255,255,.75);">
-        <span id="bootLabel">Starting&hellip;</span>
-        <span id="bootPct" style="font-variant-numeric:tabular-nums;">0%</span>
-      </div>
-    </div>
   </div>
   <script>
     // Real-load progress controller, shared by the boot splash (page refresh)
@@ -3579,12 +3568,29 @@ html.page-fade-ready body {
     (function () {
       var pct = 0, done = false, splashGone = false, creepTimer = null;
       function el(id) { return document.getElementById(id); }
+      // The rider scene's CSS animations (sky pan, sun/moon, stars, storm,
+      // rider crossing the road) are 0.9s one-shot animations. Instead of
+      // letting them play on a timer, pause them and set their playhead to the
+      // REAL load progress, so the rider is at 40% of the road when the load
+      // is 40% done, and reaches the end exactly when the data is ready.
+      var SCENE_ANIMS = { skyRise:1, starTwinkle:1, sunPath:1, moonPath:1, loadingRainStorm:1,
+        loadingLightningFlash:1, loadingRigCruise:1, loadingRigLightSync:1, loadingStormClear:1 };
+      function driveScene(r) {
+        if (!window.__loadingRealMode || !document.getAnimations) return;
+        var t = Math.max(0, Math.min(1, r / 100)) * 899;
+        var anims = document.getElementById('loadingScreen');
+        if (!anims) return;
+        document.getAnimations().forEach(function (a) {
+          if (SCENE_ANIMS[a.animationName] && a.effect && a.effect.target && anims.contains(a.effect.target)) {
+            if (a.playState !== 'paused') a.pause();
+            a.currentTime = t;
+          }
+        });
+      }
+      window.__driveLoadingScene = function () { driveScene(pct); };
       function paint(label) {
         var r = Math.round(pct);
-        var f = el('bootBarFill'), p = el('bootPct'), l = el('bootLabel');
-        if (f) f.style.width = r + '%';
-        if (p) p.textContent = r + '%';
-        if (l && label) l.textContent = label;
+        driveScene(r);
         var lf = el('loadingProgressFill'), lp = el('loadingProgressPct');
         if (lf) lf.style.width = r + '%';
         if (lp) lp.textContent = r + '%';
@@ -5057,20 +5063,7 @@ html.page-fade-ready body {
 
       window.__runDashboardLoadingSequence = function() {
         const bp = window.__bootProgress;
-        // Page refresh of an already-signed-in user: the boot splash (logo +
-        // real progress bar) IS the loader, so it stays up until the data is
-        // ready instead of fading to a second, different loading screen.
-        if (bp && bp.splashVisible()) {
-          const splashToken = openBlankCover();
-          window.dashboardDataReady.then(function(success) {
-            if (splashToken !== generation) return;
-            if (success) {
-              bp.finish('Ready');
-              closeBlankCover(splashToken);
-            }
-          });
-          return;
-        }
+        if (bp) bp.hide(); // logo cover steps aside; the rider scene is the loader for refresh AND sign-in
         // Fresh sign-in: the storm/sunrise card shows the same real progress.
         window.__loadingRealMode = true;
         if (skipLoadingAnimation) {
@@ -5103,11 +5096,13 @@ html.page-fade-ready body {
             settled = true; // hand off the reveal to waitThenSettle below
             loadingCore.classList.remove('hidden');
             const newToken = openLoadingScreen();
+            if (window.__driveLoadingScene) requestAnimationFrame(window.__driveLoadingScene);
             waitThenSettle(window.dashboardDataReady, Date.now(), newToken);
           }, REASSURANCE_INTERVAL_MS);
           return;
         }
         const token = openLoadingScreen();
+        if (window.__driveLoadingScene) { window.__driveLoadingScene(); requestAnimationFrame(window.__driveLoadingScene); }
         waitThenSettle(window.dashboardDataReady, Date.now(), token);
       };
 
@@ -7604,6 +7599,9 @@ html.page-fade-ready body {
             '#branchRiskPopup .brp-detail tbody td:nth-child(4)::before{content:"Wt ";font-weight:600;color:#94a3b8}' +
             '#branchRiskPopup .brp-detail tbody td:nth-child(5){grid-column:4;grid-row:1;font-weight:800}' +
             '#branchRiskPopup .brp-detail tbody td[colspan]{grid-column:1/-1;grid-row:2}' +
+            '#branchRiskPopup .brp-detail tbody tr.brp-total{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:8px 0 2px;border-top:2px solid #cbd5e1}' +
+            '#branchRiskPopup .brp-detail tbody tr.brp-total td{display:block;grid-column:auto;grid-row:auto;color:#1e293b;font-weight:800;font-size:13px;white-space:nowrap !important;text-align:left}' +
+            '#branchRiskPopup .brp-detail tbody tr.brp-total td:last-child{text-align:right;font-size:16px}' +
             '#branchRiskPopup #brpFindingsDetail .bg-white>div:first-child{padding:6px 8px !important}' +
             '#branchRiskPopup #brpFindingsDetail .p-2\\.5{padding:6px 8px !important}' +
             '#branchRiskPopup .brp-meta>div{min-width:0 !important}' +
@@ -7880,7 +7878,7 @@ html.page-fade-ready body {
                     <tr><th class="pb-1 pr-3">Factor</th><th class="pb-1 pr-3">What the data says</th><th class="pb-1 pr-3 text-center">Risk (0–100)</th><th class="pb-1 pr-3 text-center">Weight</th><th class="pb-1 text-right">Adds to score</th></tr>
                   </thead>
                   <tbody>${factorRows}
-                    <tr class="border-t-2 border-slate-300"><td class="pt-1 font-extrabold text-slate-800" colspan="4">Total risk score</td><td class="pt-1 text-right font-extrabold text-slate-800">${risk.score.toFixed(1)}</td></tr>
+                    <tr class="brp-total border-t-2 border-slate-300"><td class="pt-1 font-extrabold text-slate-800 whitespace-nowrap" colspan="4">Total risk score</td><td class="pt-1 text-right font-extrabold text-slate-800 whitespace-nowrap">${risk.score.toFixed(1)}</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -14652,7 +14650,7 @@ html.page-fade-ready body {
                     <tr><th class="pb-1 pr-3">Factor</th><th class="pb-1 pr-3">What the data says</th><th class="pb-1 pr-3 text-center">Risk (0–100)</th><th class="pb-1 pr-3 text-center">Weight</th><th class="pb-1 text-right">Adds to score</th></tr>
                   </thead>
                   <tbody>${factorRows}
-                    <tr class="border-t-2 border-slate-300"><td class="pt-1 font-extrabold text-slate-800" colspan="4">Total risk score</td><td class="pt-1 text-right font-extrabold text-slate-800">${risk.score.toFixed(1)}</td></tr>
+                    <tr class="brp-total border-t-2 border-slate-300"><td class="pt-1 font-extrabold text-slate-800 whitespace-nowrap" colspan="4">Total risk score</td><td class="pt-1 text-right font-extrabold text-slate-800 whitespace-nowrap">${risk.score.toFixed(1)}</td></tr>
                   </tbody>
                 </table>
               </div>
