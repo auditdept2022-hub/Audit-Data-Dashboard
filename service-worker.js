@@ -1,6 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v33';
+const CACHE_VERSION = 'audit-dashboard-v34';
+// v34: Audit status banner realigned: headline no longer wraps onto a second line with a lone word, tighter line spacing, more room between the status block and the rating bar. Bumped so installed apps refetch index.html.
 // v33: Audit schedule now uses ONE audit-cycle rule per branch: its own data-based due interval, shortened (never lengthened) by its rating's limit. Before, the score used the branch's due interval but the schedule/overdue/on-track checks used a fixed rating cycle, so the two could disagree. Bumped so installed apps refetch index.html.
 // v32: Audit status banner: plainer wording ("23 branches need an audit plan", "39 of 56 branches are audited on time or already scheduled"), "ON TRACK" label inside the ring. Bumped so installed apps refetch index.html.
 // v31: Risk Drivers panel: right-hand counts no longer squeezed/wrapped (wider fixed column, no wrapping), simpler wording ("28 of 56 branches"), plainer subtitle. Bumped so installed apps refetch index.html.
