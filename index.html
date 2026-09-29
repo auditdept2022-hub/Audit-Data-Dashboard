@@ -12920,6 +12920,7 @@ html.page-fade-ready body {
     // Rich, data-driven explanation of HOW branches are compared. Every number is read from the
     // live portfolio (cfg.calib is filled by computeAuditRiskScores) so nothing here is generic text.
     function buildAuditCalibrationHTML(a, cfg) {
+      const escapeHTML = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
       const c = cfg.calib;
       if (!c) return '<div class="p-2.5 bg-gray-50/70 border border-coolBorder rounded-lg text-[10.5px] text-slate-500">Scales are calculated as soon as the analysis has scored the portfolio.</div>';
       const fmt = n => Number(n).toLocaleString();
