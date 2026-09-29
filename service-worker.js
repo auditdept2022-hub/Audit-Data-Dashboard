@@ -1,6 +1,8 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v17';
+const CACHE_VERSION = 'audit-dashboard-v18';
+// v18: Audit Risk model v3 (peer-relative efficiency/repo scoring, data-driven
+//  "How branches are compared" panel with evidence table). Bumped so installed apps refetch.
 // v17: scoring scales are now fully automatic (no manual caps).
 // v16: clearer Advanced scoring scales panel (calibration checks shown).
 // v15: new Audit Risk rating model (risk-based audit cycles, findings for a new year,

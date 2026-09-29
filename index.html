@@ -11566,7 +11566,7 @@ html.page-fade-ready body {
     const AUDIT_FINDINGS_MIN_CAP = 6;
     // RATING MODEL VERSION. Bump when the scoring rules change. A shared view saved by an older
     // model (old weights / caps / cycle days) is not reused, so nobody scores on stale settings.
-    const AUDIT_MODEL_VERSION = 2;
+    const AUDIT_MODEL_VERSION = 3; // v3: peer-relative scoring of efficiency + repo rate, data-driven evidence panel
     // Weights are the RECOMMENDED policy split (see AUDIT_RISK_FACTORS). Data-derived weights are
     // only an optional button now, never applied silently.
     const AUDIT_AUTO_DATA_WEIGHTS = false;
@@ -11621,6 +11621,44 @@ html.page-fade-ready body {
         how: "The more loan accounts a branch has, the more money is at stake, so the score rises with size. It rises fast at first and then slows down (square-root scale), so a small branch is not rated near zero and only the biggest branches reach 100. No account data = this factor is skipped.",
         why: "A bigger loan book means more money is at risk if something is wrong, but branch size should not overpower the real warning signs." }
     ];
+
+    // ---- PEER-RELATIVE SCORING (data-driven) ---------------------------------
+    // A fixed cut-off (e.g. "70% efficiency = 35 points") says nothing about how the
+    // branch compares with the others. Efficiency and repo rate are therefore scored
+    // half on the fixed policy line and half on where the branch STANDS AMONG YOUR
+    // OWN BRANCHES today (share of peers it is worse than). Needs a minimum sample.
+    const AUDIT_PEER_MIN_N = 10;
+    function auditPeerShare(value, arr, worseWhenHigher) {
+      if (!arr || !arr.length) return null;
+      let better = 0, tie = 0;
+      arr.forEach(v => {
+        if (worseWhenHigher ? v < value : v > value) better++;
+        else if (v === value) tie++;
+      });
+      return ((better + tie / 2) / arr.length) * 100;
+    }
+    function auditPeerBlend(absPts, value, arr, worseWhenHigher) {
+      if (!arr || arr.length < AUDIT_PEER_MIN_N) return { pts: absPts, peer: null };
+      const peer = auditPeerShare(value, arr, worseWhenHigher);
+      return { pts: 0.5 * absPts + 0.5 * peer, peer: peer };
+    }
+    (function enrichAuditFactorText() {
+      const P = {
+        efficiency: {
+          basis: 'Efficiency % (fixed line + rank among your branches), accounts not collecting, trend, reported status',
+          how: "Four parts. (1) Efficiency rate, 40%: half from a fixed line (0% = 100 points, 50% = 70, 70% = 35, 100% = 0) and half from the share of your OTHER branches that collect better, so a branch at 78% scores worse when most peers are at 90% than when most are at 70%. (2) Accounts not collecting, 35%: accounts x (100 - efficiency %), scored against the top 10% of your portfolio, so the same rate counts more at a bigger branch. (3) Trend, 15%: efficiency fall since the earliest month (a 15 point fall = 100). (4) Reported collection status, 10%. A part with no data is dropped and the rest rescaled. Efficiency under 50% is also a red flag that lifts the branch to at least High.",
+          why: "Collection is the earliest measurable sign of a branch losing control. Combining the rate, the peer position and the real number of accounts affected avoids both over-judging small branches and hiding trouble in big ones." },
+        repo: {
+          basis: 'Repo rate (fixed line + rank among your branches), number of repossessions, trend',
+          how: "Three parts. (1) Repo rate, 50%: half from a fixed line (0% = 0 points, 4% = 35, 7% = 70, 12%+ = 100) and half from the share of your other branches with a lower repo rate. (2) Number of repossessions, 35%: scored against the top 10% of your portfolio (that count = 100). (3) Trend, 15%: rise in repo rate since the earliest month (+3 points = 100). A repo rate of 7% or more is always a red flag (at least High).",
+          why: "A high repo rate can mean weak loan approval or weak recovery handling. The rate is fair across sizes; the count shows the real volume; the peer rank shows whether the branch is out of line with the rest." },
+        size: {
+          basis: 'Loan accounts vs the top 10% of your branches (square-root scale)',
+          how: "Points = 100 x square root of (accounts / the top-10% account count), maximum 100. The square root makes points rise fast at first and slow near the top, so a small branch is not rated near zero and only the largest branches reach 100. The top-10% line is recalculated from your data every time.",
+          why: "A bigger loan book means more money at stake if something is wrong, but size alone must not outweigh real warning signs, which is why it carries a small weight." }
+      };
+      AUDIT_RISK_FACTORS.forEach(f => { if (P[f.key]) Object.assign(f, P[f.key]); });
+    })();
     // DATA RED FLAGS — hard tripwires that use the same red cut-offs as the
     // branch cards. A weighted average can dilute one severe signal (a branch
     // at 45% efficiency can still average out as "Low" if everything else is
@@ -12878,6 +12916,50 @@ html.page-fade-ready body {
       refreshAuditAnalysis(false);
     }
 
+
+    // Rich, data-driven explanation of HOW branches are compared. Every number is read from the
+    // live portfolio (cfg.calib is filled by computeAuditRiskScores) so nothing here is generic text.
+    function buildAuditCalibrationHTML(a, cfg) {
+      const c = cfg.calib;
+      if (!c) return '<div class="p-2.5 bg-gray-50/70 border border-coolBorder rounded-lg text-[10.5px] text-slate-500">Scales are calculated as soon as the analysis has scored the portfolio.</div>';
+      const fmt = n => Number(n).toLocaleString();
+      const yr = (window.FINDING_YEARS || [2024, 2025, 2026])[2];
+      const corr = computeAuditFactorCorrelations(a.rows);
+      let dd = null;
+      try { dd = computeDataDrivenAuditRiskWeights(a.rows, cfg); } catch (e) { dd = null; }
+      const wNow = auditNormalizeWeights100(cfg.weights);
+      const cap = (st, unit) => st.n ? ('median <b>' + fmt(st.p50) + '</b> · top 10% line <b>' + fmt(st.cap) + '</b> ' + unit + ' · ' + st.atMax + ' of ' + st.n + ' at max') : 'no data yet';
+      const row = (k, v, how) => '<tr class="align-top border-t border-coolBorder"><td class="py-1.5 pr-2 font-bold text-slate-700 whitespace-nowrap">' + k + '</td><td class="py-1.5 pr-2 text-slate-600">' + v + '</td><td class="py-1.5 text-slate-500">' + how + '</td></tr>';
+      const scaleRows =
+        row('Findings', cap(c.findings, 'weighted pts'), 'Newest year x3, middle x2, oldest x1 (≈ ' + Math.round((c.findings.cap || 0) / 3) + ' findings in ' + yr + ' = 100). Points = weighted findings / top-10% line x 100. A new year not audited yet is skipped, not counted as clean.') +
+        row('Loan accounts', cap(c.size, 'accounts'), 'Square-root scale: a branch with a quarter of the top-10% size already earns 50 points, so small branches are not rated near zero.') +
+        row('Repossessions', cap(c.repoCount, 'repos'), 'Latest-month count vs the top-10% line, blended with the repo rate itself.') +
+        row('Accounts not collecting', cap(c.shortfall, 'accounts'), 'Accounts x (100 - efficiency %). The same efficiency counts more at a large branch.') +
+        row('Efficiency %', c.eff.n ? ('median <b>' + c.eff.p50 + '%</b> · weakest quarter below <b>' + c.eff.p25 + '%</b> · ' + c.eff.below50 + ' branch' + (c.eff.below50 === 1 ? '' : 'es') + ' under 50%') : 'no data yet',
+            c.peerActive ? 'Half fixed line, half rank among your ' + c.eff.n + ' branches with an efficiency figure.' : 'Fewer than ' + AUDIT_PEER_MIN_N + ' branches with data, so only the fixed line is used for now.') +
+        row('Repo rate', c.repoRate.n ? ('median <b>' + c.repoRate.p50 + '%</b> · worst quarter above <b>' + c.repoRate.p75 + '%</b> · ' + c.repoRate.atOrAbove7 + ' at 7%+') : 'no data yet',
+            c.peerActive ? 'Half fixed line, half rank among your ' + c.repoRate.n + ' branches with accounts.' : 'Fixed line only until enough branches have data.');
+      const verdict = r => (r === null || r === undefined) ? ['not enough data', '#94a3b8'] : (r >= 0.3 ? ['clear link', '#059669'] : (r >= 0.15 ? ['weak link', '#d97706'] : ['no clear link', '#94a3b8']));
+      const evRows = AUDIT_RISK_FACTORS.map(f => {
+        const cr = corr[f.key];
+        let ev;
+        if (f.key === 'findings') ev = '<span class="text-slate-400">is the outcome itself</span>';
+        else if (f.key === 'recency') ev = '<span class="text-slate-400">policy weight (audits cause findings, so it cannot be judged by them)</span>';
+        else { const v = verdict(cr && cr.r); ev = (cr && cr.r !== null ? 'r = ' + cr.r.toFixed(2) + ' over ' + cr.n + ' branches · ' : '') + '<b style="color:' + v[1] + '">' + v[0] + '</b>'; }
+        const sug = dd && dd.weights ? dd.weights[f.key] + '%' : '—';
+        return '<tr class="border-t border-coolBorder align-top"><td class="py-1 pr-2 font-semibold text-slate-700">' + escapeHTML(f.label) + '</td><td class="py-1 pr-2 text-slate-700">' + wNow[f.key] + '%</td><td class="py-1 pr-2 text-slate-500">' + ev + '</td><td class="py-1 text-slate-700">' + sug + '</td></tr>';
+      }).join('');
+      const thin = c.n < AUDIT_WEIGHTS_MIN_ROWS ? '<p class="text-[10px] text-accentAmber font-semibold">Only ' + c.n + ' branches: too few for reliable statistics, treat the evidence column as indicative.</p>' : '';
+      return '<div class="p-2.5 bg-gray-50/70 border border-coolBorder rounded-lg space-y-2">' +
+        '<h4 class="text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">3 · How branches are compared <span class="normal-case font-medium text-slate-400 tracking-normal">— built from your ' + c.n + ' branches, recalculated on every data change</span></h4>' +
+        '<p class="text-[10.5px] text-slate-600 leading-snug">A rating uses <b>three layers</b>. <b>Layer 1, fixed policy lines</b> (e.g. efficiency under 50%, repo 7%+) are red flags that lift a branch to at least High no matter what its average says. <b>Layer 2, peer comparison</b>: each measure is judged against where your own branches sit today, so a score answers "how unusual is this branch?" as well as "is the number bad?". <b>Layer 3, evidence</b>: the table further down tests whether each factor really lines up with actual audit findings, so weights are backed by data instead of opinion.</p>' +
+        '<div class="overflow-x-auto"><table class="w-full text-[10.5px] leading-snug"><thead><tr class="text-left text-[9px] uppercase tracking-wider text-slate-400"><th class="pb-1 pr-2">Measure</th><th class="pb-1 pr-2">Your portfolio today</th><th class="pb-1">How points are given</th></tr></thead><tbody>' + scaleRows + '</tbody></table></div>' +
+        '<h5 class="text-[9.5px] font-bold text-slate-500 uppercase tracking-wider pt-1">Evidence check: does each factor predict findings?</h5>' +
+        '<div class="overflow-x-auto"><table class="w-full text-[10.5px] leading-snug"><thead><tr class="text-left text-[9px] uppercase tracking-wider text-slate-400"><th class="pb-1 pr-2">Factor</th><th class="pb-1 pr-2">Weight now</th><th class="pb-1 pr-2">Link with findings (rank correlation)</th><th class="pb-1">Data-suggested</th></tr></thead><tbody>' + evRows + '</tbody></table></div>' +
+        '<p class="text-[10px] text-slate-500 leading-snug">r near 0 means no link, 0.3+ is a clear link. A factor with no clear link can still be a valid warning (findings are only found when an audit happens), so use "Suggest from data" below to compare, and keep the recommended split unless the evidence is strong.</p>' + thin +
+        '</div>';
+    }
+
     // Resets the findings/size caps so they're recomputed fresh from the
     // CURRENT portfolio's 90th percentile, then frozen again from that point
     // on. Use this deliberately (e.g. after a known shift in the book), not
@@ -12929,6 +13011,26 @@ html.page-fade-ready body {
       const sizeCap = cfg.sizeCap;
       const repoCap = cfg.repoCap;
       const shortfallCap = cfg.shortfallCap;
+      // Peer distributions (whole portfolio) used by auditPeerBlend and shown in the panel.
+      const peerEffArr = rows.map(r => auditEffNowOf(r.b)).filter(v => v > 0);
+      const peerRepoArr = rows.filter(r => accountsOf(r.b) > 0).map(r => r.b.repoRateLatest || 0);
+      const _capStat = (vals, cap) => {
+        const pos = vals.filter(v => v > 0);
+        return { p50: Math.round(auditRiskPercentile(vals, 0.5) * 10) / 10, p90: Math.round(auditRiskPercentile(vals, 0.9) * 10) / 10,
+                 cap: cap, n: pos.length, atMax: pos.filter(v => v >= cap).length };
+      };
+      cfg.calib = {
+        n: rows.length,
+        findings: _capStat(rows.map(r => findingsWeighted(r.b, r.info)), findingsCap),
+        size: _capStat(rows.map(r => accountsOf(r.b)), sizeCap),
+        repoCount: _capStat(rows.map(r => auditRepoCountOf(r.b)), repoCap),
+        shortfall: _capStat(rows.map(r => auditShortfallOf(r.b)), shortfallCap),
+        eff: { n: peerEffArr.length, p50: Math.round(auditRiskPercentile(peerEffArr, 0.5) * 10) / 10, p25: Math.round(auditRiskPercentile(peerEffArr, 0.25) * 10) / 10,
+               below50: peerEffArr.filter(v => v < 50).length },
+        repoRate: { n: peerRepoArr.length, p50: Math.round(auditRiskPercentile(peerRepoArr, 0.5) * 100) / 100, p75: Math.round(auditRiskPercentile(peerRepoArr, 0.75) * 100) / 100,
+                    atOrAbove7: peerRepoArr.filter(v => v >= 7).length },
+        peerActive: peerEffArr.length >= AUDIT_PEER_MIN_N
+      };
       const highTier = AUDIT_RISK_TIERS.find(t => t.key === 'HIGH');
       const tierRank = t => AUDIT_RISK_TIERS.indexOf(t); // 0 = Critical ... 3 = Low
 
@@ -12969,7 +13071,9 @@ html.page-fade-ready body {
         const effSeries = [b.effMar || 0, b.effApr || 0, b.effLatest || 0];
         const effNow = effSeries[2] > 0 ? effSeries[2] : (effSeries[1] > 0 ? effSeries[1] : (effSeries[0] > 0 ? effSeries[0] : 0));
         const hasEff = effNow > 0;
-        const effLevelPts = auditRiskPiecewise(effNow, [[0, 100], [50, 70], [70, 35], [100, 0]]);
+        const effAbsPts = auditRiskPiecewise(effNow, [[0, 100], [50, 70], [70, 35], [100, 0]]);
+        const effBlend = auditPeerBlend(effAbsPts, effNow, peerEffArr, false);
+        const effLevelPts = effBlend.pts;
         const effNZ = effSeries.filter(v => v > 0);
         const effDelta = effNZ.length >= 2 ? effNZ[effNZ.length - 1] - effNZ[0] : null;
         const effTrendPts = (effDelta !== null && effDelta < 0) ? Math.min(100, (-effDelta / 15) * 100) : 0;
@@ -12990,13 +13094,16 @@ html.page-fade-ready body {
         add('efficiency', hasEfficiencyFactor, effPts,
             (hasEff ? (effNow + '% ' + (effSeries[2] > 0 ? 'latest' : 'most recent available') + ' efficiency'
               + (effDelta !== null ? (', ' + (effDelta > 0 ? '+' : '') + effDelta + ' pts vs earliest month on record') : '')
+              + (effBlend.peer !== null ? (', collects worse than ' + Math.round(effBlend.peer) + '% of branches') : '')
               + (shortfall > 0 ? (', ~' + shortfall.toLocaleString() + ' accounts not collecting') : '')) : 'No efficiency % on file')
               + (hasStatus ? '; collection reported as ' + (b.collection || 'Stable') : ''),
             'Efficiency ' + effNow + '%' + (effDelta !== null && effDelta < 0 ? ' (falling)' : '') + ', collection ' + String(b.collection || 'Stable').toLowerCase());
 
         const hasAcct = accountsOf(b) > 0;
         const repo = b.repoRateLatest || 0;
-        const repoLevelPts = auditRiskPiecewise(repo, [[0, 0], [4, 35], [7, 70], [12, 100]]);
+        const repoAbsPts = auditRiskPiecewise(repo, [[0, 0], [4, 35], [7, 70], [12, 100]]);
+        const repoBlend = auditPeerBlend(repoAbsPts, repo, peerRepoArr, true);
+        const repoLevelPts = repoBlend.pts;
         // Same blend for repo: level (70%) + trend since the earliest month
         // (30%), in one factor, for the same reason as efficiency above.
         // repoSeries[0] > 0 guards against a blank earlier month (parsed as
@@ -13013,7 +13120,7 @@ html.page-fade-ready body {
         const repoWSum = repoParts.reduce((t, x) => t + x[1], 0);
         const repoPts = repoParts.reduce((t, x) => t + x[0] * x[1], 0) / repoWSum;
         add('repo', hasAcct, repoPts,
-            hasAcct ? (repo.toFixed(2) + '% latest repo rate, ' + repoCount + ' repossession' + (repoCount === 1 ? '' : 's')
+            hasAcct ? (repo.toFixed(2) + '% latest repo rate' + (repoBlend.peer !== null ? ' (higher than ' + Math.round(repoBlend.peer) + '% of branches)' : '') + ', ' + repoCount + ' repossession' + (repoCount === 1 ? '' : 's')
               + (repoHasTrend ? (', ' + (repoDelta > 0 ? '+' : '') + repoDelta.toFixed(1) + ' pts vs earliest month on record') : '')) : 'No account data',
             'Repo ' + repo.toFixed(1) + '% (' + repoCount + ')' + (repoDelta !== null && repoDelta > 0 ? ' (rising)' : ''));
 
@@ -14125,16 +14232,7 @@ html.page-fade-ready body {
                 </label>
               </div>
             </div>
-            <div class="p-2.5 bg-gray-50/70 border border-coolBorder rounded-lg space-y-1.5">
-              <h4 class="text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">3 · How branches are compared <span class="normal-case font-medium text-slate-400 tracking-normal">— automatic, nothing to set</span></h4>
-              <p class="text-[10.5px] text-slate-600 leading-snug">Findings, loan accounts, repossessions and accounts not collecting are scored <b>against your other branches</b>. The app finds where the top 10% of your branches sit today and scores each branch as a ratio of that: at half of it a branch gets 50 points, at or above it 100. It updates itself whenever your data changes, so there is nothing to type.</p>
-              <ul class="text-[10.5px] text-slate-600 leading-snug space-y-0.5 list-disc pl-4">
-                <li><b>Findings:</b> ${cfg.findingsCap ? 'about ' + cfg.findingsCap + ' weighted points (≈ ' + Math.round(cfg.findingsCap / 3) + ' findings in ' + window.FINDING_YEARS[2] + ') = 100 points.' : 'calculated automatically.'} A brand-new year with no audit yet is skipped.</li>
-                <li><b>Loan accounts:</b> ${cfg.sizeCap ? Number(cfg.sizeCap).toLocaleString() + ' accounts = 100 points; ' + Math.round(cfg.sizeCap / 4).toLocaleString() + ' accounts already scores 50 (small branches are not rated near zero).' : 'calculated automatically.'}</li>
-                <li><b>Repossessions:</b> ${cfg.repoCap ? cfg.repoCap + ' repos in the latest month = 100 points on the count part (the repo rate is scored separately).' : 'calculated automatically.'}</li>
-                <li><b>Accounts not collecting:</b> ${cfg.shortfallCap ? Number(cfg.shortfallCap).toLocaleString() + ' accounts not collecting = 100 points on that part of collection health.' : 'calculated automatically.'}</li>
-              </ul>
-            </div>
+            ${buildAuditCalibrationHTML(a, cfg)}
 
             <!-- Weights: shown inline, no second click needed -->
             <div>
