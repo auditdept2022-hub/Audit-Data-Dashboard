@@ -11872,7 +11872,7 @@ html.page-fade-ready body {
     //    position.
     const AUDIT_SYNC_POLL_MS = 8 * 1000;
     const AUDIT_SYNC_PUSH_DEBOUNCE_MS = 1200;
-    const AUDIT_SYNC_NUM_RULES = { overdueDays: [1, 3650], spacingDays: [1, 3650], minScore: [1, 100], minGapDays: [0, 3650], findingsCap: [1, 1000], sizeCap: [1, 10000000], repoCap: [1, 100000], shortfallCap: [1, 10000000] };
+    const AUDIT_SYNC_NUM_RULES = { overdueDays: [1, 3650], spacingDays: [1, 3650], minScore: [1, 100], minGapDays: [0, 3650], };
     const AUDIT_SYNC_STR_KEYS = ['filterBucket', 'tierFilter', 'auditorFilter', 'queueFilter', 'search', 'reasonFilter', 'distFilter', 'driverFilter'];
     const auditSync = {
       version: 0,          // server version of the last state this device pushed/applied (0 = none yet)
@@ -12287,7 +12287,7 @@ html.page-fade-ready body {
       const cfg = window.auditAnalysisState;
       const problems = [];
 
-      const cfgKeys = ['minScore', 'minGapDays', 'overdueDays', 'spacingDays', 'findingsCap', 'sizeCap', 'repoCap', 'shortfallCap'];
+      const cfgKeys = ['minScore', 'minGapDays', 'overdueDays', 'spacingDays'];
       const newCfgVals = {};
       cfgKeys.forEach(key => {
         const el = document.getElementById('aa-cfg-' + key);
@@ -12917,20 +12917,14 @@ html.page-fade-ready body {
       // it silently drifts as branches are added or removed over time. The
       // caps are editable in Settings and can be deliberately recalculated
       // with resetAuditRiskCaps().
-      const capsWereMissing = [cfg.findingsCap, cfg.sizeCap, cfg.repoCap, cfg.shortfallCap].some(v => v === null || v === undefined);
-      if (cfg.findingsCap === null || cfg.findingsCap === undefined) {
-        cfg.findingsCap = Math.max(Math.round(auditRiskPercentile(rows.map(r => findingsWeighted(r.b, r.info)), 0.9)), AUDIT_FINDINGS_MIN_CAP);
-      }
-      if (cfg.sizeCap === null || cfg.sizeCap === undefined) {
-        cfg.sizeCap = Math.round(auditRiskPercentile(rows.map(r => accountsOf(r.b)), 0.9)) || 1;
-      }
-      if (cfg.repoCap === null || cfg.repoCap === undefined) {
-        cfg.repoCap = Math.max(Math.round(auditRiskPercentile(rows.map(r => auditRepoCountOf(r.b)), 0.9)), 3);
-      }
-      if (cfg.shortfallCap === null || cfg.shortfallCap === undefined) {
-        cfg.shortfallCap = Math.max(Math.round(auditRiskPercentile(rows.map(r => auditShortfallOf(r.b)), 0.9)), 1);
-      }
-      if (capsWereMissing) { try { auditSyncSchedulePush(); } catch (e) {} } // share the frozen scales so every device scores identically
+      // DATA-DRIVEN SCALES: recomputed from the whole portfolio on every scoring run, nothing typed in.
+      // Each is the 90th percentile of your branches today (with a small floor so one finding or one
+      // repo in a very clean portfolio cannot become a maximum score). A branch at half of it scores
+      // 50 points, at or above it 100. Every device reads the same sheet, so every device agrees.
+      cfg.findingsCap = Math.max(Math.round(auditRiskPercentile(rows.map(r => findingsWeighted(r.b, r.info)), 0.9)), AUDIT_FINDINGS_MIN_CAP);
+      cfg.sizeCap = Math.round(auditRiskPercentile(rows.map(r => accountsOf(r.b)), 0.9)) || 1;
+      cfg.repoCap = Math.max(Math.round(auditRiskPercentile(rows.map(r => auditRepoCountOf(r.b)), 0.9)), 3);
+      cfg.shortfallCap = Math.max(Math.round(auditRiskPercentile(rows.map(r => auditShortfallOf(r.b)), 0.9)), 1);
       const findingsCap = cfg.findingsCap;
       const sizeCap = cfg.sizeCap;
       const repoCap = cfg.repoCap;
@@ -13665,10 +13659,10 @@ html.page-fade-ready body {
         f.label, Math.round(((Number(cfg.weights[f.key]) || 0) / wSum) * 1000) / 10 + '%', corrText(f.key), f.how, f.why
       ]).concat([
         ['', '', '', '', ''],
-        ['Findings cap', '', '', cfg.findingsCap + ' weighted points score 100 on the Findings factor. Fixed and editable in Settings (not recalculated from whichever branches happen to be loaded).', ''],
-        ['Portfolio-size cap', '', '', cfg.sizeCap + ' accounts score 100 on the Portfolio Size factor. Fixed and editable in Settings, same reason as above.', ''],
-        ['Repossession-count cap', '', '', cfg.repoCap + ' repossessions score 100 on the count part of the Repossessions factor. Fixed and editable in Settings.', ''],
-        ['Not-collecting accounts cap', '', '', cfg.shortfallCap + ' accounts not collecting (accounts x (100 - efficiency %)) score 100 on that part of Collection health. Fixed and editable in Settings.', ''],
+        ['Findings scale (automatic)', '', '', cfg.findingsCap + ' weighted points score 100 on the Findings factor. Recalculated automatically from the current portfolio (90th percentile).', ''],
+        ['Portfolio-size scale (automatic)', '', '', cfg.sizeCap + ' accounts score 100 on the Accounts factor (square-root curve). Recalculated automatically from the current portfolio.', ''],
+        ['Repossession-count scale (automatic)', '', '', cfg.repoCap + ' repossessions score 100 on the count part of the Repossessions factor. Recalculated automatically.', ''],
+        ['Not-collecting accounts scale (automatic)', '', '', cfg.shortfallCap + ' accounts not collecting (accounts x (100 - efficiency %)) score 100 on that part of Collection health. Recalculated automatically.', ''],
         ['Risk tiers', '', '', 'Critical 70+, High 55-69, Medium 40-54, Low below 40. Any data red flag lifts a branch to at least High.', ''],
         ['Data red flags', '', '', AUDIT_RED_FLAGS.map(x => x.label).join('; ') + '. Any one qualifies a branch for scheduling whatever its score.', 'A weighted average can dilute one severe signal; these tripwires cannot be averaged away.'],
         ['Scheduling rules', '', '', 'Coverage rules (always scheduled): never audited; scheduled date passed without Done; no audit past the branch\'s own rating cycle (Critical ' + auditTierCycleDays('CRITICAL', cfg) + ' / High ' + auditTierCycleDays('HIGH', cfg) + ' / Medium ' + auditTierCycleDays('MEDIUM', cfg) + ' / Low ' + Math.min(240, cfg.overdueDays) + '-' + cfg.overdueDays + ' days). Risk rule: risk score ' + cfg.minScore + '+ or any data red flag, and last audited at least ' + cfg.minGapDays + ' days ago. Suggested auditors never repeat the branch\'s most recent auditor when someone else is available; dates are per auditor, skip weekends/holidays and never overlap an audit they already have scheduled.', ''],
@@ -14131,29 +14125,16 @@ html.page-fade-ready body {
                 </label>
               </div>
             </div>
-            <details class="border border-coolBorder rounded-lg bg-white">
-              <summary class="px-2.5 py-2 cursor-pointer select-none text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">3 · Advanced: scoring scales <span class="normal-case font-medium text-slate-400 tracking-normal">— set automatically from your data, most people never change these</span></summary>
-              <div class="px-2.5 pb-2.5 pt-1 space-y-2.5 border-t border-coolBorder">
-                <p class="text-[10px] text-slate-500 leading-snug">These decide how a branch's raw numbers turn into 0–100 points. A branch at or above the scale scores the full 100 on that factor. They are set from your own data (the 90th percentile, so about the top 10% of branches max out) and stay fixed so scores are comparable over time. <b>You normally do not need to change them.</b> Each line shows ✓ when it fits your branches, or ⚠ when it should be reviewed; if you see ⚠, press the button below to recalculate.</p>
-                <label class="flex items-start justify-between gap-3" title="Weighted findings: ${window.FINDING_YEARS[2]} ×3, ${window.FINDING_YEARS[1]} ×2, ${window.FINDING_YEARS[0]} ×1.">
-                  <span class="text-[11px] text-slate-600 leading-snug"><b class="block text-slate-800">Findings that count as maximum risk</b>Weighted points (${window.FINDING_YEARS[2]} ×3, ${window.FINDING_YEARS[1]} ×2, ${window.FINDING_YEARS[0]} ×1). ${cfg.findingsCap ? '≈ ' + Math.round(cfg.findingsCap / 3) + ' findings in ' + window.FINDING_YEARS[2] + ' alone. ' : ''}A brand-new year with no audit yet is skipped, so the two earlier years count ×3 and ×2. ${capSanityNote(findingsSanity)}</span>
-                  <span class="flex items-center gap-1 shrink-0">${cfgInput('findingsCap', 1, 1000)}<span class="text-[9px] text-slate-400">pts</span></span>
-                </label>
-                <label class="flex items-start justify-between gap-3" title="Branches with this many loan accounts or more score 100 on loan-book size.">
-                  <span class="text-[11px] text-slate-600 leading-snug"><b class="block text-slate-800">Loan accounts that count as maximum size</b>A bigger loan book means more money at stake. Uses a fair curve: ${cfg.sizeCap ? 'a branch with ' + Math.round(cfg.sizeCap / 4).toLocaleString() + ' accounts (a quarter of this) already scores 50, and ' + Math.round(cfg.sizeCap / 16).toLocaleString() + ' accounts scores 25' : 'small branches are not rated near zero'}. ${capSanityNote(sizeSanity)}</span>
-                  <span class="flex items-center gap-1 shrink-0">${cfgInput('sizeCap', 1, 10000000)}<span class="text-[9px] text-slate-400">accts</span></span>
-                </label>
-                <label class="flex items-start justify-between gap-3" title="Branches with this many repossessions or more score 100 on the repo-count part of the Repossessions factor.">
-                  <span class="text-[11px] text-slate-600 leading-snug"><b class="block text-slate-800">Repossessions that count as maximum</b>Number of repossessions (latest month) that scores the full 100 on the count part. The repo <i>rate</i> is scored separately, so this only measures volume. ${capSanityNote(repoSanity)}</span>
-                  <span class="flex items-center gap-1 shrink-0">${cfgInput('repoCap', 1, 100000)}<span class="text-[9px] text-slate-400">repos</span></span>
-                </label>
-                <label class="flex items-start justify-between gap-3" title="Accounts not collecting = accounts × (100 − collection efficiency %).">
-                  <span class="text-[11px] text-slate-600 leading-snug"><b class="block text-slate-800">Accounts not collecting that count as maximum</b>Accounts × (100 − efficiency %). Makes the same efficiency % matter more at a bigger branch. ${capSanityNote(shortfallSanity)}</span>
-                  <span class="flex items-center gap-1 shrink-0">${cfgInput('shortfallCap', 1, 10000000)}<span class="text-[9px] text-slate-400">accts</span></span>
-                </label>
-                <button type="button" onclick="resetAuditRiskCaps()" title="Recompute all scales from the current portfolio's 90th percentile" class="px-2 py-1 text-[10px] font-bold bg-white border border-coolBorder rounded-md hover:bg-gray-100 active:scale-95 transition-all cursor-pointer">Re-set all automatically from current data</button>
-              </div>
-            </details>
+            <div class="p-2.5 bg-gray-50/70 border border-coolBorder rounded-lg space-y-1.5">
+              <h4 class="text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">3 · How branches are compared <span class="normal-case font-medium text-slate-400 tracking-normal">— automatic, nothing to set</span></h4>
+              <p class="text-[10.5px] text-slate-600 leading-snug">Findings, loan accounts, repossessions and accounts not collecting are scored <b>against your other branches</b>. The app finds where the top 10% of your branches sit today and scores each branch as a ratio of that: at half of it a branch gets 50 points, at or above it 100. It updates itself whenever your data changes, so there is nothing to type.</p>
+              <ul class="text-[10.5px] text-slate-600 leading-snug space-y-0.5 list-disc pl-4">
+                <li><b>Findings:</b> ${cfg.findingsCap ? 'about ' + cfg.findingsCap + ' weighted points (≈ ' + Math.round(cfg.findingsCap / 3) + ' findings in ' + window.FINDING_YEARS[2] + ') = 100 points.' : 'calculated automatically.'} A brand-new year with no audit yet is skipped.</li>
+                <li><b>Loan accounts:</b> ${cfg.sizeCap ? Number(cfg.sizeCap).toLocaleString() + ' accounts = 100 points; ' + Math.round(cfg.sizeCap / 4).toLocaleString() + ' accounts already scores 50 (small branches are not rated near zero).' : 'calculated automatically.'}</li>
+                <li><b>Repossessions:</b> ${cfg.repoCap ? cfg.repoCap + ' repos in the latest month = 100 points on the count part (the repo rate is scored separately).' : 'calculated automatically.'}</li>
+                <li><b>Accounts not collecting:</b> ${cfg.shortfallCap ? Number(cfg.shortfallCap).toLocaleString() + ' accounts not collecting = 100 points on that part of collection health.' : 'calculated automatically.'}</li>
+              </ul>
+            </div>
 
             <!-- Weights: shown inline, no second click needed -->
             <div>

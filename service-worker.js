@@ -1,6 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v16';
+const CACHE_VERSION = 'audit-dashboard-v17';
+// v17: scoring scales are now fully automatic (no manual caps).
 // v16: clearer Advanced scoring scales panel (calibration checks shown).
 // v15: new Audit Risk rating model (risk-based audit cycles, findings for a new year,
 //  INS/COD/CA sales, service vs target amount, fairer account-size scale, new default weights).
