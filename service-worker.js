@@ -1,6 +1,8 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v8';
+const CACHE_VERSION = 'audit-dashboard-v10';
+// v10: Priority Queue keeps the already-assigned Up Next auditor.
+// v9: profile Recent/Last auditor + analysis auditor fixes.
 // v8: index.html update (remark drafts, shared Audit Risk analysis sync,
 //  removed the "Right now" rules box). Bumped so installed apps refetch it.
 // v7: FIXED stale live data. The cross-origin handler used to cache EVERY
