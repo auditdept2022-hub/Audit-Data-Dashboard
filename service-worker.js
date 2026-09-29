@@ -1,6 +1,8 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v11';
+const CACHE_VERSION = 'audit-dashboard-v13';
+// v13: profile Recent/Last use every dated engagement incl. scheduled.
+// v12: profile shows an Audit history detected panel.
 // v11: Recent/Last auditor merge AUDIT DATA + ROTATION rounds.
 // v10: Priority Queue keeps the already-assigned Up Next auditor.
 // v9: profile Recent/Last auditor + analysis auditor fixes.
