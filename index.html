@@ -25855,6 +25855,13 @@ html.page-fade-ready body {
     .bp-chip.drawn{background:#f1f5f9;border-color:#e2e8f0;color:#94a3b8;text-decoration:line-through}
     .bp-chip button{border:0;background:transparent;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0 3px;border-radius:50%}
     .bp-chip button:hover{background:rgba(0,0,0,.08)}
+    .bp-reel{position:relative;height:46px;margin-top:10px;overflow:hidden;border-radius:12px;border:2px solid #c7d2fe;background:linear-gradient(180deg,#eef2ff,#fff 50%,#eef2ff);cursor:pointer;box-shadow:inset 0 6px 8px -6px rgba(30,58,138,.35),inset 0 -6px 8px -6px rgba(30,58,138,.35)}
+    .bp-reel:focus-visible{outline:3px solid #4f6fd8}
+    .bp-reel.won{border-color:#22c55e;background:linear-gradient(180deg,#ecfdf5,#fff 50%,#ecfdf5)}
+    .bp-strip{will-change:transform}
+    .bp-row1{height:46px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;color:#1e3a8a;letter-spacing:.02em}
+    .bp-row1.bp-idle{font-size:13px;font-weight:700;color:#94a3b8}
+    .bp-chip.sel{background:#dcfce7;border-color:#86efac;color:#166534}
     .bp-none{font-size:12px;color:#94a3b8;font-weight:600;padding:6px 2px}
     .bp-hist{display:grid;gap:6px;max-height:150px;overflow-y:auto}
     .bp-hist div{display:flex;justify-content:space-between;gap:8px;font-size:12px;background:#f1f5f9;border-radius:9px;padding:7px 10px}
@@ -25897,13 +25904,21 @@ html.page-fade-ready body {
               <datalist id="bpSuggest"></datalist>
               <div class="bp-chips" id="bpChips"></div>
               <div class="bp-row">
-                <button class="bp-btn" onclick="bpAddOverview()" title="Adds the branches currently shown in the Overview table">+ Overview list</button>
-                <button class="bp-btn" onclick="bpAddAll()">+ All branches</button>
                 <button class="bp-btn" onclick="bpClearList()">Clear</button>
               </div>
-              <div style="margin-top:12px">
-                <div class="bp-lbl"><span>Who is drawing? (optional)</span></div>
-                <input id="bpWho" class="bp-in" type="text" maxlength="40" placeholder="e.g. KARL" autocomplete="off">
+              <div style="margin-top:14px">
+                <div class="bp-lbl"><span>Who is drawing?</span><span class="bp-count" id="bpAudCount"></span></div>
+                <div class="bp-addrow">
+                  <input id="bpAudAdd" class="bp-in" type="text" list="bpAudSuggest" maxlength="40" placeholder="Add an auditor, press Enter" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();bpAddAuditor();}">
+                  <button class="bp-btn primary" style="padding:9px 14px;font-size:13px" onclick="bpAddAuditor()">Add</button>
+                </div>
+                <datalist id="bpAudSuggest"></datalist>
+                <div class="bp-chips" id="bpAudChips"></div>
+                <div class="bp-reel" id="bpReel" onclick="bpSpinAuditor()" role="button" tabindex="0" aria-label="Shuffle auditors" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();bpSpinAuditor();}">
+                  <div class="bp-strip" id="bpStrip"><div class="bp-row1 bp-idle">Tap to shuffle</div></div>
+                </div>
+                <div class="bp-row"><button class="bp-btn" id="bpSpinBtn" onclick="bpSpinAuditor()">🔀 Shuffle auditors</button><button class="bp-btn" onclick="bpClearWho()">Clear pick</button></div>
+                <input id="bpWho" type="hidden" value="">
               </div>
               <label class="bp-chk"><input type="checkbox" id="bpRemove" checked> Take the drawn branch out of the papers</label>
             </div>
@@ -25938,7 +25953,7 @@ html.page-fade-ready body {
   </div>
   <script>
   (function () {
-    var bp = { items: [], removed: {}, history: [], busy: false, pickedName: null };
+    var bp = { items: [], auditors: [], spinning: false, removed: {}, history: [], busy: false, pickedName: null };
     var $ = function (id) { return document.getElementById(id); };
     var esc = function (t) { return String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
     var key = function (n) { return String(n).trim().toUpperCase(); };
@@ -25985,6 +26000,7 @@ html.page-fade-ready body {
       $('bpChips').innerHTML = bp.items.length
         ? bp.items.map(function (n, i) { return '<span class="bp-chip' + (bp.removed[key(n)] ? ' drawn' : '') + '">' + esc(n) + '<button onclick="bpRemoveItem(' + i + ')" aria-label="Remove ' + esc(n) + '">×</button></span>'; }).join('')
         : '<div class="bp-none">Nothing added yet.</div>';
+      renderAuditors();
       $('bpShuffleBtn').disabled = !p.length;
       $('bpHint').textContent = hint || (p.length ? 'Tap a paper to draw — or shuffle first.' : 'Add branches, then shuffle the papers.');
       renderHist();
@@ -25996,6 +26012,65 @@ html.page-fade-ready body {
       }).join('');
     }
 
+    function renderAuditors() {
+      var who = $('bpWho').value;
+      $('bpAudCount').textContent = bp.auditors.length || '';
+      $('bpAudChips').innerHTML = bp.auditors.length
+        ? bp.auditors.map(function (n, i) { return '<span class="bp-chip' + (who && key(who) === key(n) ? ' sel' : '') + '">' + esc(n) + '<button onclick="bpRemoveAuditor(' + i + ')" aria-label="Remove ' + esc(n) + '">×</button></span>'; }).join('')
+        : '<div class="bp-none">No auditors added yet.</div>';
+    }
+    function setStrip(html) { $('bpStrip').style.transition = 'none'; $('bpStrip').style.transform = 'translateY(0)'; $('bpStrip').innerHTML = html; }
+    window.bpAddAuditor = function () {
+      var el = $('bpAudAdd');
+      el.value.split(/[\n,;]+/).forEach(function (raw) {
+        var n = raw.trim().replace(/\s+/g, ' ').toUpperCase();
+        if (n && !bp.auditors.some(function (x) { return key(x) === key(n); })) bp.auditors.push(n);
+      });
+      el.value = ''; renderAuditors(); el.focus();
+    };
+    window.bpRemoveAuditor = function (i) {
+      var n = bp.auditors[i]; if (n == null) return;
+      bp.auditors.splice(i, 1);
+      if (key($('bpWho').value) === key(n)) bpClearWho(); else renderAuditors();
+    };
+    window.bpClearWho = function () {
+      if (bp.spinning) return;
+      $('bpWho').value = ''; $('bpReel').classList.remove('won');
+      setStrip('<div class="bp-row1 bp-idle">Tap to shuffle</div>'); renderAuditors();
+    };
+    window.bpSpinAuditor = function () {
+      if (bp.spinning) return;
+      if (!bp.auditors.length) { $('bpHint').textContent = 'Add at least one auditor first.'; $('bpAudAdd').focus(); return; }
+      var winner = bp.auditors[rnd(bp.auditors.length)];
+      var prev = $('bpWho').value || '';
+      var rows = [prev || '?'];
+      var count = 26 + rnd(6);
+      for (var i = 0; i < count; i++) {
+        var pick = bp.auditors[rnd(bp.auditors.length)];
+        if (bp.auditors.length > 1 && pick === rows[rows.length - 1]) pick = bp.auditors[(bp.auditors.indexOf(pick) + 1) % bp.auditors.length];
+        rows.push(pick);
+      }
+      if (bp.auditors.length > 1 && rows[rows.length - 1] === winner) rows.push(bp.auditors[(bp.auditors.indexOf(winner) + 1) % bp.auditors.length]);
+      rows.push(winner);
+      var H = 46, strip = $('bpStrip');
+      bp.spinning = true; $('bpSpinBtn').disabled = true; $('bpReel').classList.remove('won');
+      setStrip(rows.map(function (n) { return '<div class="bp-row1">' + esc(n) + '</div>'; }).join(''));
+      void strip.offsetHeight;
+      strip.style.transition = 'transform .2s ease-out';
+      strip.style.transform = 'translateY(' + Math.round(H * 0.55) + 'px)';          // wind-up: down…
+      setTimeout(function () {
+        strip.style.transition = 'transform 2.4s cubic-bezier(.12,.75,.18,1.06)';
+        strip.style.transform = 'translateY(' + (-(rows.length - 1) * H) + 'px)';        // …then rolls up and settles
+      }, 210);
+      setTimeout(function () {
+        bp.spinning = false; $('bpSpinBtn').disabled = false;
+        $('bpWho').value = winner;
+        setStrip('<div class="bp-row1">' + esc(winner) + '</div>');
+        $('bpReel').classList.add('won');
+        $('bpHint').textContent = winner + ' draws — pick a paper 👆';
+        renderAuditors();
+      }, 2700);
+    };
     window.bpAddFromInput = function () {
       var el = $('bpAdd');
       var parts = el.value.split(/[\n,;]+/);
@@ -26067,12 +26142,13 @@ html.page-fade-ready body {
     };
     window.bpNext = function () {
       bpCloseReveal();
-      if (pool().length) { $('bpWho').focus(); $('bpWho').select(); }
+      if (pool().length && bp.auditors.length > 1) bpSpinAuditor();
     };
 
     window.openBranchPicker = function () {
       var m = $('branchPickerModal');
       $('bpSuggest').innerHTML = allNames().map(function (n) { return '<option value="' + esc(n) + '">'; }).join('');
+      try { $('bpAudSuggest').innerHTML = (activeData.auditors || []).map(function (a) { return '<option value="' + esc(a.name) + '">'; }).join(''); } catch (e) {}
       render();
       m.classList.remove('hidden'); m.setAttribute('aria-hidden', 'false');
       setTimeout(function () { try { $('bpAdd').focus(); } catch (e) {} }, 60);
