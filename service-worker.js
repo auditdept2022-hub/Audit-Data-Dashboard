@@ -1,6 +1,12 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v26';
+const CACHE_VERSION = 'audit-dashboard-v28';
+// v28: Loading + double-load fix. index.html: boot splash now shows a REAL progress bar that follows the actual
+//  data load, the dashboard no longer re-renders when the fresh data is identical to the cache (data version is
+//  remembered), and a new service worker no longer force-reloads the page (shows the update prompt instead).
+//  Bumped so installed apps refetch index.html.
+// v27: Branch popup compact pass: minimal spacing, no mid-word breaks (MARC/H), breakdown table stacks on phones,
+//  2-column stat cards, tidier findings header. Bumped so installed apps refetch index.html.
 // v26: Branch popup fix: schedule-status badge no longer overflows onto Last audited, action button sized properly,
 //  no nested/double scrolling (page behind is locked, findings + tables flow inside one scroller). Bumped so
 //  installed apps refetch index.html.
