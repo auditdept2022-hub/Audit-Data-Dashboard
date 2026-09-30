@@ -1,6 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v53'
+const CACHE_VERSION = 'audit-dashboard-v54'
+// v54: Table boxes in popups (Overall Data Snapshot and the other data tables) are now sized to end exactly at the bottom of the popup, so their scrollbar and last rows work without scrolling the whole popup to the end.
 // v53: Overall Data Snapshot: Show all + Refresh sit next to Leaders; month headers centered.
 // v52: Overall Data Snapshot table is denser (shorter rows, tighter columns) and all left-aligned.
 // v51: Overall Data Snapshot: removed the per-column funnel (sort/filter popup); clicking a column header still sorts.

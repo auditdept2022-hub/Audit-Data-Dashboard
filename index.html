@@ -23107,6 +23107,59 @@ html.page-fade-ready body {
         return true;
       } catch (e) { return false; }
     }
+    /* ================= FIT TABLE BOXES TO THE POPUP =================
+       Table scroll boxes inside popups used fixed/guessed heights (500px, 60vh,
+       calc(100dvh - 430px)...). Whenever the toolbar above them was taller than
+       the guess, the box's bottom edge -- where its horizontal scrollbar lives --
+       landed below the fold, so you had to scroll the whole popup to the very end
+       before the table's own scrollbar (and the last rows) worked. Now every such
+       box is measured and sized so its bottom edge ends exactly at the bottom of
+       the popup, whatever sits above it. Re-runs on any content change, resize,
+       fullscreen toggle and panel toggle. */
+    const FIT_BOX_SELECTOR = '#overallDataScrollBox, [class*="h-[500px]"], [class*="max-h-[72vh]"]';
+    let __fitBusy = false;
+    function fitModalScrollBoxes() {
+      if (__fitBusy) return;
+      const body = document.getElementById('modalBody');
+      if (!body) return;
+      __fitBusy = true;
+      try {
+        const boxes = body.querySelectorAll(FIT_BOX_SELECTOR);
+        for (let i = 0; i < boxes.length; i++) {
+          const box = boxes[i];
+          if (box.offsetParent === null) continue; // hidden
+          // Space the box's own ancestors still need under it (card padding, borders, margins).
+          let below = 0, el = box;
+          while (el && el !== body) {
+            const cs = getComputedStyle(el);
+            below += (parseFloat(cs.marginBottom) || 0);
+            if (el !== box) below += (parseFloat(cs.paddingBottom) || 0) + (parseFloat(cs.borderBottomWidth) || 0);
+            el = el.parentElement;
+          }
+          const bcs = getComputedStyle(body);
+          below += (parseFloat(bcs.paddingBottom) || 0);
+          const top = box.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop;
+          let h = Math.floor(body.clientHeight - top - below - 2);
+          if (h < 200) h = 200; // never collapse; the popup may scroll on tiny screens
+          box.style.setProperty('height', h + 'px', 'important');
+          box.style.setProperty('max-height', h + 'px', 'important');
+        }
+      } finally { __fitBusy = false; }
+    }
+    (function setupFitObservers() {
+      function start() {
+        const body = document.getElementById('modalBody');
+        if (!body || body.__fitBound) return;
+        body.__fitBound = true;
+        new MutationObserver(function () { fitModalScrollBoxes(); }).observe(body, { childList: true, subtree: true });
+        if (window.ResizeObserver) new ResizeObserver(function () { fitModalScrollBoxes(); }).observe(body);
+        window.addEventListener('resize', fitModalScrollBoxes);
+        window.addEventListener('orientationchange', function () { setTimeout(fitModalScrollBoxes, 250); });
+        fitModalScrollBoxes();
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+    })();
+
     function odApplyPanels() {
       const st = window.overallDataState;
       const show = function (id, on) { const el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
@@ -23122,6 +23175,7 @@ html.page-fade-ready body {
       });
       const all = document.getElementById('odPanelBtn_all');
       if (all) all.textContent = odPanelsAllHidden() ? 'Show all' : 'Hide all';
+      fitModalScrollBoxes();
     }
     function odTogglePanel(name) {
       const st = window.overallDataState;
@@ -24246,6 +24300,7 @@ html.page-fade-ready body {
       el.innerHTML = '';
       charts.overallData = new ApexCharts(el, options);
       charts.overallData.render();
+      fitModalScrollBoxes();
     }
 
     // Shared formatter so we're not constructing a new Intl.NumberFormat
