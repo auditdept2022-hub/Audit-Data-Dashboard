@@ -23184,41 +23184,77 @@ html.page-fade-ready body {
       }, forceRefresh ? 2500 : 2500);
     }
 
+    // Asks the backend for the Sheet's last-modified time (a tiny request, answered
+    // from memory on the server). Returns null on any problem — callers then just
+    // fall back to a normal full fetch.
+    async function odFetchLiveVersion() {
+      try {
+        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+        if (!idToken) return null;
+        const url = defaultAppsScriptUrl + '?action=dataVersion&secret=' + encodeURIComponent(appsScriptSecret) +
+          '&idToken=' + encodeURIComponent(idToken) + '&t=' + Date.now();
+        const j = await fetchSheetOnce(url);
+        const v = j && j.success ? Number(j.dataVersion) : 0;
+        return v > 0 ? v : null;
+      } catch (e) { return null; }
+    }
+
+    // Same idea as Audit Risk & Schedule Analysis: show what we already have, ask
+    // "did the Sheet change?" (tiny), and only download the full data if it did.
     async function fetchOverallDataPayload(forceRefresh) {
       const now = Date.now();
-      if (!forceRefresh && window.overallDataPayload && (now - window.overallDataPayloadFetchedAt) < OVERALL_DATA_CLIENT_CACHE_MS) {
-        return window.overallDataPayload;
+      const have = window.overallDataPayload;
+      if (!forceRefresh && have && (now - window.overallDataPayloadFetchedAt) < OVERALL_DATA_CLIENT_CACHE_MS) {
+        return have;
       }
-      const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
-      if (!idToken) throw new Error('Not signed in \u2014 please sign in again.');
-
-      const params = new URLSearchParams({
-        action: 'overallData',
-        secret: appsScriptSecret,
-        idToken: idToken
-      });
-      const url = defaultAppsScriptUrl + '?' + params.toString();
-      let json;
-      try {
-        json = await fetchSheetOnce(url);
-      } catch (netErr) {
-        // Server slow/asleep: show the last copy we already have instead of an error.
-        if (window.overallDataPayload) {
-          console.warn('[overallData] using last loaded copy:', netErr && netErr.message ? netErr.message : netErr);
-          if (typeof showToast === 'function') showToast('Server is slow \u2014 showing the last loaded Overall Data.');
-          return window.overallDataPayload;
+      if (window.__odInflight && !forceRefresh) return window.__odInflight;
+      const run = (async function () {
+        // Unchanged Sheet => keep the copy, no big download at all.
+        if (!forceRefresh && have && have.__ver) {
+          const live = await odFetchLiveVersion();
+          if (live && live === Number(have.__ver)) {
+            window.overallDataPayloadFetchedAt = Date.now();
+            return have;
+          }
         }
-        throw netErr;
-      }
+        const idToken = window.getCurrentIdToken ? await window.getCurrentIdToken() : null;
+        if (!idToken) throw new Error('Not signed in \u2014 please sign in again.');
 
-      if (json && json.error) throw new Error(json.error);
-      if (!json || !json.success) throw new Error("Couldn't load Overall Data \u2014 please try again.");
+        const params = new URLSearchParams({
+          action: 'overallData',
+          secret: appsScriptSecret,
+          idToken: idToken
+        });
+        const url = defaultAppsScriptUrl + '?' + params.toString();
+        // Version is read alongside the download; if the Sheet changes in between,
+        // the stored version is just older, so the next check re-downloads (safe).
+        const verPromise = odFetchLiveVersion();
+        let json;
+        try {
+          json = await fetchSheetOnce(url);
+        } catch (netErr) {
+          // Server slow/asleep: show the last copy we already have instead of an error.
+          if (window.overallDataPayload) {
+            console.warn('[overallData] using last loaded copy:', netErr && netErr.message ? netErr.message : netErr);
+            if (typeof showToast === 'function') showToast('Server is slow \u2014 showing the last loaded Overall Data.');
+            return window.overallDataPayload;
+          }
+          throw netErr;
+        }
 
-      window.overallDataPayload = json;
-      window.overallDataPayloadFetchedAt = now;
-      updateOverallDataSnapshotMeta(json);
-      odPersistPayload(json);
-      return json;
+        if (json && json.error) throw new Error(json.error);
+        if (!json || !json.success) throw new Error("Couldn't load Overall Data \u2014 please try again.");
+
+        const ver = await verPromise;
+        if (ver) json.__ver = ver;
+        window.overallDataPayload = json;
+        window.overallDataPayloadFetchedAt = Date.now();
+        updateOverallDataSnapshotMeta(json);
+        odPersistPayload(json);
+        return json;
+      })();
+      window.__odInflight = run;
+      try { return await run; } finally { if (window.__odInflight === run) window.__odInflight = null; }
     }
 
     // Fills in the small "N branches / N months" line on the dashboard

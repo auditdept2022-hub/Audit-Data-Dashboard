@@ -1,6 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v48';
+const CACHE_VERSION = 'audit-dashboard-v49'
+// v49: Overall Data Snapshot now works like Audit Risk & Schedule Analysis: it shows the saved copy at once and only downloads the full data when a tiny version check says the Sheet changed.;
 // v48: Overall Data Snapshot: Summary / Chart / Leaders panels are hideable (hidden by default) so the branch table gets the whole popup; the popup opens instantly from a saved copy and refreshes quietly. Bumped so installed apps refetch index.html.
 // v47: LOADING / TIMEOUT FIXES. index.html: startup requests (heartbeat, presence watcher, devices prewarm, Overall Data prefetch) no longer fight the dashboard data request; the wake-up ping can no longer hold real requests for long; 2 attempts instead of 3; a dashboard drawing error is no longer mistaken for a network failure (that kept the loading screen up although data had loaded). Bumped so installed apps refetch index.html.
 // v46: Audit Risk & Schedule Analysis recalibrated (model v4): data-only evidence score separated from recency/coverage priority, 35% max share per factor, recency weight 10%, thin-data shrinkage, backtest panel. Bumped so installed apps refetch index.html.
