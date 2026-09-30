@@ -367,6 +367,35 @@
   .od-t tfoot td.od-l1 { left: 40px; z-index: 8; text-align: left; border-right: 1px solid #e7e9f2; box-shadow: 3px 0 6px -3px rgba(0,0,0,.1); }
   .od-t tfoot td.od-latest-col { background: linear-gradient(rgba(var(--od-rgb), .10), rgba(var(--od-rgb), .10)), #f1f4fb; }
   .od-fsub { display: block; font-size: 8.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #94a3b8; margin-top: -1px; }
+  .od-t .od-sortable { cursor: pointer; user-select: none; min-width: 132px; transition: color .15s ease; }
+  .od-t .od-sortable:hover { color: var(--od-a); }
+  .od-t .od-sorted { color: var(--od-a); }
+  .od-hd { display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; }
+  .od-fb { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 6px; color: #94a3b8; margin-left: 2px; }
+  .od-fb:hover { background: rgba(var(--od-rgb), .14); color: var(--od-a); }
+  .od-fb.on { background: var(--od-a); color: #fff; }
+  .od-chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 4px 2px 9px; border-radius: 999px; font-size: 10.5px; font-weight: 800; color: var(--od-a); background: rgba(var(--od-rgb), .10); }
+  .od-chip button { width: 16px; height: 16px; border-radius: 50%; font-size: 9px; line-height: 1; color: var(--od-a); }
+  .od-chip button:hover { background: rgba(var(--od-rgb), .22); }
+  .od-chip.clear { padding: 2px 10px; color: #e11d5f; background: #ffe4e6; }
+  .od-t tbody tr.od-rowc { cursor: pointer; }
+  .od-t tbody tr.od-hl > td.od-c { background: #fef3c7 !important; color: #0f172a; }
+  .od-t tbody tr.od-hl > td.od-latest-col { background: #fde68a !important; }
+  .od-t tbody tr.od-hl > td.od-idx { box-shadow: inset 4px 0 0 #f59e0b; color: #b45309; }
+  .od-t tbody tr.od-hl > td.od-bn { font-weight: 800; }
+  .od-chip.hl { color: #b45309; background: #fef3c7; }
+  .od-chip.hl button { color: #b45309; }
+  .od-pop { position: fixed; z-index: 600; width: 236px; padding: 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; box-shadow: 0 20px 40px -12px rgba(15,23,42,.35); --od-rgb: 91,61,240; animation: odFade .15s ease both; }
+  .od-pop-h { font-size: 12px; font-weight: 800; color: #0f172a; margin-bottom: 8px; }
+  .od-pop-sec { font-size: 9.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #94a3b8; margin: 8px 0 4px; }
+  .od-pop-row { display: flex; align-items: center; gap: 6px; }
+  .od-pop-row input { flex: 1; min-width: 0; padding: 7px 9px; border: 1px solid #e2e8f0; border-radius: 9px; font-size: 12.5px; font-weight: 700; color: #0f172a; background: #f8fafc; }
+  .od-pop-row input:focus { outline: none; border-color: var(--od-a); background: #fff; }
+  .od-pop-btn { flex: 1; padding: 7px 8px; border-radius: 9px; font-size: 11.5px; font-weight: 800; color: #475569; background: #f1f5f9; transition: all .12s ease; white-space: nowrap; }
+  .od-pop-btn:hover { background: #e2e8f0; }
+  .od-pop-btn.on { background: rgba(91,61,240,.12); color: var(--od-a); }
+  .od-pop-btn.primary { background: var(--od-a); color: #fff; }
+  .od-pop-hint { margin-top: 5px; font-size: 10px; font-weight: 600; color: #94a3b8; }
   @media (max-width: 767px) { .od-t tfoot td.od-l0, .od-t tfoot td.od-l1 { left: auto; } }
   @media (prefers-reduced-motion: reduce) { .od-fadein { animation: none; } .od-fill { transition: none; } }
   /* Freeze pane (the sticky "#"/Branch columns + sticky header) is
@@ -23039,7 +23068,7 @@ html.page-fade-ready body {
        appears next time this modal is opened (or Refresh is tapped). */
     window.overallDataPayload = null;
     window.overallDataPayloadFetchedAt = 0;
-    window.overallDataState = { tab: 'collection', search: '', statusFilter: null, sortCol: null, sortDir: 'asc', chartMetrics: [], chartExpanded: true };
+    window.overallDataState = { tab: 'collection', search: '', statusFilter: null, sortCol: null, sortDir: 'asc', chartMetrics: [], chartExpanded: true, colFilters: {}, hl: {} };
     // SPEED FIX (original): this used to be 20000 (20s), so almost every
     // single tap of the "Overall Data Snapshot" card triggered a fresh
     // Apps Script call (JSONP round trip + possible cold start = several
@@ -23197,6 +23226,8 @@ html.page-fade-ready body {
       window.overallDataState.statusFilter = null; // categories differ per tab, so a filter doesn't carry over
       window.overallDataState.sortCol = null; // columns differ per tab too
       window.overallDataState.sortDir = 'asc';
+      window.overallDataState.colFilters = {}; // column filters are per-tab too
+      odCloseColMenu();
       window.overallDataState.chartMetrics = []; // metric choices differ per tab too — reset to that tab's default
       const modalBody = document.getElementById('modalBody');
       if (modalBody) {
@@ -23282,11 +23313,184 @@ html.page-fade-ready body {
         state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
       } else {
         state.sortCol = colKey;
-        state.sortDir = 'asc';
+        // Branch names read best A\u2192Z; number columns read best biggest-first.
+        state.sortDir = colKey === 'name' ? 'asc' : 'desc';
       }
+      odRefreshTable(false);
+    }
+
+    // Rebuild only the table, keeping the horizontal/vertical scroll position
+    // (sorting a column far to the right used to snap the view back to the left).
+    function odRefreshTable(alsoCharts) {
       const container = document.getElementById('overallDataTableContainer');
-      if (container) container.innerHTML = buildOverallDataTable();
-      nudgeScrollRepaint(document.getElementById('overallDataScrollBox'));
+      if (!container) return;
+      const oldBox = document.getElementById('overallDataScrollBox');
+      const sl = oldBox ? oldBox.scrollLeft : 0, st = oldBox ? oldBox.scrollTop : 0;
+      container.innerHTML = buildOverallDataTable();
+      const nb = document.getElementById('overallDataScrollBox');
+      if (nb) { nb.scrollLeft = sl; nb.scrollTop = st; }
+      nudgeScrollRepaint(nb);
+      if (alsoCharts) renderOverallDataChart();
+    }
+
+    /* ---------- Column sort + filter menu (funnel icon in each header) ---------- */
+    function odColKey(month, label) { return window.overallDataState.tab === 'service' ? month : (month + '||' + label); }
+    function odColMeta(key) {
+      if (window.overallDataState.tab === 'service') return { month: key, label: null };
+      const p = key.split('||');
+      return { month: p[0], label: p[1] };
+    }
+    function odColTitle(key) {
+      const m = odColMeta(key);
+      return m.label ? (m.month + ' \u00b7 ' + m.label) : (m.month + ' \u00b7 Service');
+    }
+    function odSortFromEl(el) { setOverallDataSort(decodeURIComponent(el.getAttribute('data-k'))); }
+
+    function odApplyColFilters(branches) {
+      const state = window.overallDataState;
+      const f = state.colFilters || {};
+      const keys = Object.keys(f);
+      if (!keys.length) return branches;
+      return branches.filter(function (b) {
+        return keys.every(function (k) {
+          const meta = odColMeta(k);
+          const v = odVal(b, state.tab, meta.month, meta.label);
+          if (v === null) return false;
+          if (f[k].min !== null && f[k].min !== undefined && v < f[k].min) return false;
+          if (f[k].max !== null && f[k].max !== undefined && v > f[k].max) return false;
+          return true;
+        });
+      });
+    }
+
+    /* ---------- Row highlighter: click a branch row and it stays highlighted ---------- */
+    function odHlCount() { return Object.keys(window.overallDataState.hl || {}).length; }
+    function odHlChipHtml() {
+      const n = odHlCount();
+      if (!n) return '';
+      return `<span class="od-chip hl">\u2605 ${n} highlighted<button type="button" onclick="event.stopPropagation();odClearHighlights()" title="Remove all highlights">\u2715</button></span>`;
+    }
+    function odToggleRow(tr) {
+      if (window.getSelection && String(window.getSelection()).length) return; // user is selecting text, not clicking
+      const name = decodeURIComponent(tr.getAttribute('data-b'));
+      const state = window.overallDataState;
+      if (!state.hl) state.hl = {};
+      if (state.hl[name]) delete state.hl[name]; else state.hl[name] = true;
+      tr.classList.toggle('od-hl', !!state.hl[name]);
+      const chip = document.getElementById('odHlChip');
+      if (chip) chip.innerHTML = odHlChipHtml();
+    }
+    function odClearHighlights() {
+      window.overallDataState.hl = {};
+      odRefreshTable(false);
+    }
+
+    function odCloseColMenu() {
+      const el = document.getElementById('odColMenu');
+      if (el) el.remove();
+      window.__odMenuKey = null;
+    }
+
+    function odOpenColMenu(ev, btn) {
+      ev.stopPropagation();
+      const key = decodeURIComponent(btn.getAttribute('data-k'));
+      if (window.__odMenuKey === key) { odCloseColMenu(); return; }
+      odCloseColMenu();
+      const state = window.overallDataState, data = window.overallDataPayload;
+      const meta = odColMeta(key);
+      const isPct = state.tab !== 'service' && overallDataMetricIsPercent(meta.label);
+      const unit = state.tab === 'service' ? '\u20b1' : (isPct ? '%' : '');
+      let lo = null, hi = null;
+      (data.branches || []).forEach(function (b) {
+        const v = odVal(b, state.tab, meta.month, meta.label);
+        if (v === null) return;
+        if (lo === null || v < lo) lo = v;
+        if (hi === null || v > hi) hi = v;
+      });
+      const fmtR = function (v) { return v === null ? '\u2014' : (isPct ? (Math.round(v * 100) / 100) + '%' : (state.tab === 'service' ? '\u20b1' : '') + OVERALL_DATA_NUM_FMT.format(Math.round(v))); };
+      const cur = (state.colFilters || {})[key] || {};
+      const th = odTheme(state.tab);
+      const pop = document.createElement('div');
+      pop.id = 'odColMenu';
+      pop.className = 'od-pop';
+      pop.style.setProperty('--od-a', th.a);
+      pop.innerHTML = `
+        <div class="od-pop-h">${escapeFindingHTML(odColTitle(key))}</div>
+        <div class="od-pop-sec">Sort</div>
+        <div class="od-pop-row">
+          <button type="button" class="od-pop-btn${state.sortCol === key && state.sortDir === 'asc' ? ' on' : ''}" onclick="odMenuSort('asc')">\u2191 Low \u2192 High</button>
+          <button type="button" class="od-pop-btn${state.sortCol === key && state.sortDir === 'desc' ? ' on' : ''}" onclick="odMenuSort('desc')">\u2193 High \u2192 Low</button>
+        </div>
+        <div class="od-pop-sec">Filter${unit ? ' (' + unit + ')' : ''}</div>
+        <div class="od-pop-row">
+          <input id="odFMin" type="number" step="any" inputmode="decimal" placeholder="Min" value="${cur.min !== null && cur.min !== undefined ? cur.min : ''}" onkeydown="if(event.key==='Enter')odMenuApply()">
+          <span style="color:#94a3b8;font-weight:700">\u2013</span>
+          <input id="odFMax" type="number" step="any" inputmode="decimal" placeholder="Max" value="${cur.max !== null && cur.max !== undefined ? cur.max : ''}" onkeydown="if(event.key==='Enter')odMenuApply()">
+        </div>
+        <div class="od-pop-hint">Data ranges from ${fmtR(lo)} to ${fmtR(hi)}</div>
+        <div class="od-pop-row" style="margin-top:8px">
+          <button type="button" class="od-pop-btn" onclick="odMenuClear()">Clear</button>
+          <button type="button" class="od-pop-btn primary" onclick="odMenuApply()">Apply</button>
+        </div>`;
+      document.body.appendChild(pop);
+      window.__odMenuKey = key;
+      const r = btn.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
+      let left = Math.min(Math.max(8, r.right - pw), window.innerWidth - pw - 8);
+      let top = r.bottom + 6;
+      if (top + ph > window.innerHeight - 8) top = Math.max(8, r.top - ph - 6);
+      pop.style.left = left + 'px';
+      pop.style.top = top + 'px';
+      const mn = document.getElementById('odFMin'); if (mn) mn.focus();
+    }
+
+    function odMenuSort(dir) {
+      const key = window.__odMenuKey; if (!key) return;
+      const state = window.overallDataState;
+      state.sortCol = key; state.sortDir = dir;
+      odCloseColMenu();
+      odRefreshTable(false);
+    }
+    function odMenuApply() {
+      const key = window.__odMenuKey; if (!key) return;
+      const state = window.overallDataState;
+      const rd = function (id) { const v = (document.getElementById(id) || {}).value; return (v === '' || v === undefined || isNaN(Number(v))) ? null : Number(v); };
+      const min = rd('odFMin'), max = rd('odFMax');
+      if (!state.colFilters) state.colFilters = {};
+      if (min === null && max === null) delete state.colFilters[key];
+      else state.colFilters[key] = { min: min, max: (min !== null && max !== null && max < min) ? min : max };
+      odCloseColMenu();
+      odRefreshTable(true);
+    }
+    function odMenuClear() {
+      const key = window.__odMenuKey; if (!key) return;
+      if (window.overallDataState.colFilters) delete window.overallDataState.colFilters[key];
+      odCloseColMenu();
+      odRefreshTable(true);
+    }
+    function odClearColFilter(el) {
+      const key = decodeURIComponent(el.getAttribute('data-k'));
+      if (window.overallDataState.colFilters) delete window.overallDataState.colFilters[key];
+      odRefreshTable(true);
+    }
+    function odClearAllFilters() {
+      const state = window.overallDataState;
+      state.colFilters = {}; state.statusFilter = null; state.search = '';
+      const inp = document.getElementById('overallDataSearchInput'); if (inp) inp.value = '';
+      const sel = document.getElementById('overallDataStatusSelect'); if (sel) sel.value = '';
+      odRefreshTable(true);
+    }
+    if (!window.__odMenuBound) {
+      window.__odMenuBound = true;
+      document.addEventListener('click', function (e) {
+        const m = document.getElementById('odColMenu');
+        if (m && !m.contains(e.target)) odCloseColMenu();
+      });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') odCloseColMenu(); });
+      window.addEventListener('resize', odCloseColMenu);
+      document.addEventListener('scroll', function (e) {
+        const m = document.getElementById('odColMenu');
+        if (m && !m.contains(e.target)) odCloseColMenu();
+      }, true);
     }
 
     function setOverallDataSearch(value) {
@@ -23704,7 +23908,7 @@ html.page-fade-ready body {
         );
         branches = branches.filter(function (b) { return matchNames.has(b.name); });
       }
-      return branches;
+      return odApplyColFilters(branches);
     }
 
     // The metric-picker dropdown that sits above the trend chart. Only
@@ -23937,6 +24141,8 @@ html.page-fade-ready body {
         branches = branches.filter(function (b) { return matchNames.has(b.name); });
       }
 
+      branches = odApplyColFilters(branches);
+
       // Collection/Sales each break a month down into several metric
       // sub-columns; Service is a single value per month. Every month gets
       // shown side by side now (no month picker) so the whole MAY/JUN/JUL
@@ -24043,9 +24249,14 @@ html.page-fade-ready body {
         const latest = mi === lastIdx;
         return `<th colspan="${metricsList.length}" class="od-gh${latest ? ' od-latest' : ''}${mi ? ' od-gsep' : ''}">${m}${latest ? '<span class="od-tag">LATEST</span>' : ''}</th>`;
       }).join('');
+      const funnelSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"></path></svg>';
       const subHead = months.map(function (m, mi) {
         return metricsList.map(function (label, ci) {
-          return `<th class="od-sh${ci === 0 && mi ? ' od-gsep' : ''}${mi === lastIdx ? ' od-latest-col' : ''}">${isService ? 'Service \u20b1' : escapeFindingHTML(label)}</th>`;
+          const key = odColKey(m, label);
+          const enc = encodeURIComponent(key);
+          const sortedHere = state.sortCol === key;
+          const filt = state.colFilters && state.colFilters[key];
+          return `<th data-k="${enc}" onclick="odSortFromEl(this)" title="Click to sort \u00b7 funnel for filter" class="od-sh od-sortable${sortedHere ? ' od-sorted' : ''}${ci === 0 && mi ? ' od-gsep' : ''}${mi === lastIdx ? ' od-latest-col' : ''}"><span class="od-hd"><span>${isService ? 'Service \u20b1' : escapeFindingHTML(label)}</span>${sortArrow(key)}<button type="button" data-k="${enc}" class="od-fb${filt ? ' on' : ''}" onclick="odOpenColMenu(event,this)" title="Filter / sort this column">${funnelSvg}</button></span></th>`;
         }).join('');
       }).join('');
 
@@ -24069,7 +24280,8 @@ html.page-fade-ready body {
         const cells = months.map(function (m, mi) {
           return metricsList.map(function (label, ci) { return cellHtml(b, mi, label, ci); }).join('');
         }).join('');
-        return `<tr>
+        const isHl = !!(state.hl && state.hl[b.name]);
+        return `<tr class="od-rowc${isHl ? ' od-hl' : ''}" data-b="${encodeURIComponent(b.name)}" onclick="odToggleRow(this)" title="Click to highlight / un-highlight this branch">
           <td class="od-c od-idx sticky left-0 z-[5]">${idx + 1}</td>
           <td class="od-c od-bn sticky left-10 z-[5]" title="${escapeFindingHTML(b.name)}">${escapeFindingHTML(b.name)}</td>
           ${cells}
@@ -24088,12 +24300,23 @@ html.page-fade-ready body {
 
       const totalCols = 2 + months.length * metricsList.length;
 
+      const activeF = Object.keys(state.colFilters || {});
+      const filterChips = activeF.map(function (k) {
+        const f = state.colFilters[k];
+        const range = (f.min !== null && f.min !== undefined ? '\u2265 ' + f.min : '') + (f.min !== null && f.min !== undefined && f.max !== null && f.max !== undefined ? ' ' : '') + (f.max !== null && f.max !== undefined ? '\u2264 ' + f.max : '');
+        return `<span class="od-chip">${escapeFindingHTML(odColTitle(k))} ${range}<button type="button" data-k="${encodeURIComponent(k)}" onclick="odClearColFilter(this)" title="Remove filter">\u2715</button></span>`;
+      }).join('') + (activeF.length || state.statusFilter || state.search ? `<button type="button" class="od-chip clear" onclick="odClearAllFilters()">Clear all</button>` : '');
+
       // Bounded, self-contained scroll box on purpose — the fullscreen toggle
       // resizes it (see the #overallDataScrollBox rules in the stylesheet) and
       // nudgeScrollRepaint() fixes the iOS repaint glitch after every update.
       return `
         <div class="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
-          <div class="text-[11px] font-semibold text-slate-400">Showing ${branches.length} of ${totalBranchCount} branches</div>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <div class="text-[11px] font-semibold text-slate-400">Showing ${branches.length} of ${totalBranchCount} branches</div>
+            ${filterChips}
+            <span id="odHlChip">${odHlChipHtml()}</span>
+          </div>
           <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Latest month tinted</div>
         </div>
         <div id="overallDataScrollBox" class="rounded-xl border border-coolBorder overflow-auto custom-scrollbar custom-scrollbar-x${state.chartExpanded ? '' : ' chart-collapsed'}">
