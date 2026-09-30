@@ -1,6 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v51'
+const CACHE_VERSION = 'audit-dashboard-v52'
+// v52: Overall Data Snapshot table is denser (shorter rows, tighter columns) and all left-aligned.
 // v51: Overall Data Snapshot: removed the per-column funnel (sort/filter popup); clicking a column header still sorts.
 // v50: Overall Data Snapshot header is now one compact row (tabs, panel toggles, refresh icon).
 // v49: Overall Data Snapshot now works like Audit Risk & Schedule Analysis: it shows the saved copy at once and only downloads the full data when a tiny version check says the Sheet changed.;
