@@ -296,6 +296,11 @@
   /* ===== Overall Data Snapshot — redesigned popup ===== */
   #modalBody #overallDataScrollBox { height: auto; max-height: 540px; }
   #modalDialog.modal-fullscreen #modalBody #overallDataScrollBox { height: auto !important; max-height: 74dvh !important; }
+  .od-panelbtn { padding: 4px 11px; border-radius: 999px; font-size: 10.5px; font-weight: 800; border: 1px solid #e2e8f0;
+    background: #f8fafc; color: #64748b; cursor: pointer; transition: all .15s; }
+  .od-panelbtn:active { transform: scale(.95); }
+  .od-panelbtn.on { background: var(--od-a, #5b3df0); border-color: var(--od-a, #5b3df0); color: #fff; }
+  .od-panelbtn.all { margin-left: auto; background: #fff; color: #334155; }
   .od-hero { position: relative; overflow: hidden; border-radius: 1rem; padding: 14px 16px; color: #fff;
     background: linear-gradient(120deg, var(--od-a) 0%, var(--od-b) 100%); box-shadow: 0 10px 24px -12px var(--od-a); }
   .od-hero::before { content: ""; position: absolute; right: -40px; top: -60px; width: 200px; height: 200px; border-radius: 50%;
@@ -23068,7 +23073,66 @@ html.page-fade-ready body {
        appears next time this modal is opened (or Refresh is tapped). */
     window.overallDataPayload = null;
     window.overallDataPayloadFetchedAt = 0;
-    window.overallDataState = { tab: 'collection', search: '', statusFilter: null, sortCol: null, sortDir: 'asc', chartMetrics: [], chartExpanded: true, colFilters: {}, hl: {} };
+    window.overallDataState = { tab: 'collection', search: '', statusFilter: null, sortCol: null, sortDir: 'asc', chartMetrics: [], chartExpanded: false, showSummary: false, showLeaders: false, colFilters: {}, hl: {} };
+    // Remember which panels the person left open (all hidden = table gets the whole popup).
+    try {
+      const sp = JSON.parse(localStorage.getItem('odPanelsV1') || 'null');
+      if (sp) { window.overallDataState.showSummary = !!sp.s; window.overallDataState.chartExpanded = !!sp.c; window.overallDataState.showLeaders = !!sp.l; }
+    } catch (e) { /* non-fatal */ }
+    function odSavePanels() {
+      const st = window.overallDataState;
+      try { localStorage.setItem('odPanelsV1', JSON.stringify({ s: st.showSummary, c: st.chartExpanded, l: st.showLeaders })); } catch (e) { /* non-fatal */ }
+    }
+    function odPanelsAllHidden() { const st = window.overallDataState; return !st.showSummary && !st.chartExpanded && !st.showLeaders; }
+
+    // INSTANT OPEN: the last Overall Data payload is kept on this device, so the popup
+    // paints the table straight away and refreshes quietly in the background.
+    const OD_PERSIST_KEY = 'odPayloadV1';
+    function odPersistPayload(json) {
+      try { localStorage.setItem(OD_PERSIST_KEY, JSON.stringify(json)); } catch (e) { /* quota / private mode: ignore */ }
+    }
+    function odHydrateFromDevice() {
+      if (window.overallDataPayload) return true;
+      try {
+        const raw = localStorage.getItem(OD_PERSIST_KEY);
+        if (!raw) return false;
+        const j = JSON.parse(raw);
+        if (!j || !j.success || !j.branches) return false;
+        window.overallDataPayload = j;
+        window.overallDataPayloadFetchedAt = 0; // stale on purpose: forces a quiet refresh
+        return true;
+      } catch (e) { return false; }
+    }
+    function odApplyPanels() {
+      const st = window.overallDataState;
+      const show = function (id, on) { const el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
+      show('odSummaryWrap', st.showSummary);
+      show('odChartCard', st.chartExpanded);
+      show('odLeadersCard', st.showLeaders);
+      show('odGridWrap', st.chartExpanded || st.showLeaders);
+      const box = document.getElementById('overallDataScrollBox');
+      if (box) box.classList.toggle('chart-collapsed', odPanelsAllHidden());
+      ['summary:showSummary', 'chart:chartExpanded', 'leaders:showLeaders'].forEach(function (p) {
+        const parts = p.split(':'), b = document.getElementById('odPanelBtn_' + parts[0]);
+        if (b) b.className = 'od-panelbtn' + (st[parts[1]] ? ' on' : '');
+      });
+      const all = document.getElementById('odPanelBtn_all');
+      if (all) all.textContent = odPanelsAllHidden() ? 'Show all' : 'Hide all';
+    }
+    function odTogglePanel(name) {
+      const st = window.overallDataState;
+      if (name === 'all') {
+        const on = odPanelsAllHidden();
+        st.showSummary = on; st.chartExpanded = on; st.showLeaders = on;
+      } else if (name === 'summary') st.showSummary = !st.showSummary;
+      else if (name === 'chart') st.chartExpanded = !st.chartExpanded;
+      else if (name === 'leaders') st.showLeaders = !st.showLeaders;
+      odSavePanels();
+      odApplyPanels();
+      // Panels are built only when shown, so hidden ones cost nothing.
+      if (st.showSummary) renderOverallDataHero();
+      renderOverallDataChart();
+    }
     // SPEED FIX (original): this used to be 20000 (20s), so almost every
     // single tap of the "Overall Data Snapshot" card triggered a fresh
     // Apps Script call (JSONP round trip + possible cold start = several
@@ -23090,6 +23154,7 @@ html.page-fade-ready body {
     // else's edit within a few minutes instead of hours, without paying
     // for a fresh Apps Script round trip on every single tap.
     const OVERALL_DATA_CLIENT_CACHE_MS = 5 * 60 * 1000; // 5 minutes
+    try { if (odHydrateFromDevice()) setTimeout(function () { updateOverallDataSnapshotMeta(window.overallDataPayload); }, 0); } catch (e) {}
 
     // SPEED FIX: warm the in-memory cache in the background shortly after
     // the main dashboard finishes its first load, so by the time someone
@@ -23116,7 +23181,7 @@ html.page-fade-ready body {
         fetchOverallDataPayload(!!forceRefresh).catch(function (err) {
           console.warn('[overallData] background prefetch skipped:', err && err.message ? err.message : err);
         });
-      }, forceRefresh ? 2500 : 8000);
+      }, forceRefresh ? 2500 : 2500);
     }
 
     async function fetchOverallDataPayload(forceRefresh) {
@@ -23152,6 +23217,7 @@ html.page-fade-ready body {
       window.overallDataPayload = json;
       window.overallDataPayloadFetchedAt = now;
       updateOverallDataSnapshotMeta(json);
+      odPersistPayload(json);
       return json;
     }
 
@@ -23169,6 +23235,29 @@ html.page-fade-ready body {
     }
 
     function renderOverallDataModal(modalBody) {
+      const hadCopy = odHydrateFromDevice();
+      const fresh = hadCopy && window.overallDataPayloadFetchedAt && (Date.now() - window.overallDataPayloadFetchedAt) < OVERALL_DATA_CLIENT_CACHE_MS;
+
+      if (hadCopy) {
+        // Instant: table from the copy we already have.
+        renderOverallDataBody(modalBody);
+        nudgeScrollRepaint(document.getElementById('overallDataScrollBox') || modalBody);
+        if (fresh) return;
+        const before = window.overallDataPayload && window.overallDataPayload.generatedAt;
+        fetchOverallDataPayload(false).then(function (data) {
+          if (!document.getElementById('overallDataRoot')) return; // popup was closed meanwhile
+          if (data && data.generatedAt === before) return;          // nothing new
+          const box = document.getElementById('overallDataScrollBox');
+          const sl = box ? box.scrollLeft : 0, st = box ? box.scrollTop : 0;
+          renderOverallDataBody(document.getElementById('modalBody') || modalBody);
+          const nb = document.getElementById('overallDataScrollBox');
+          if (nb) { nb.scrollLeft = sl; nb.scrollTop = st; }
+        }).catch(function (err) {
+          console.warn('[overallData] quiet refresh failed, keeping the saved copy:', err && err.message ? err.message : err);
+        });
+        return;
+      }
+
       modalBody.innerHTML = `
         <div class="flex flex-col items-center justify-center gap-3 p-12 text-slate-400">
           <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="animate-spin text-accentIndigo"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
@@ -23278,7 +23367,8 @@ html.page-fade-ready body {
     // it only renders (and only takes up vertical space) once the person
     // actually taps to expand it, instead of always being visible and
     // pushing the table further down.
-    function toggleOverallDataChartExpanded() {
+    function toggleOverallDataChartExpanded() { odTogglePanel('chart'); }
+    function _oldToggleOverallDataChartExpanded() {
       const state = window.overallDataState;
       state.chartExpanded = !state.chartExpanded;
       const wrap = document.getElementById('overallDataChartWrap');
@@ -23584,20 +23674,30 @@ html.page-fade-ready body {
             </button>
           </div>
 
-          <div id="overallDataHero" class="mb-2.5"></div>
-          <div id="overallDataKpis" class="od-kpis mb-2.5"></div>
+          <div class="flex items-center gap-1.5 mb-2.5 flex-wrap" id="odPanelBar">
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-0.5">Panels</span>
+            <button type="button" id="odPanelBtn_summary" onclick="odTogglePanel('summary')" class="od-panelbtn${state.showSummary ? ' on' : ''}">Summary</button>
+            <button type="button" id="odPanelBtn_chart" onclick="odTogglePanel('chart')" class="od-panelbtn${state.chartExpanded ? ' on' : ''}">Chart</button>
+            <button type="button" id="odPanelBtn_leaders" onclick="odTogglePanel('leaders')" class="od-panelbtn${state.showLeaders ? ' on' : ''}">Leaders</button>
+            <button type="button" id="odPanelBtn_all" onclick="odTogglePanel('all')" class="od-panelbtn all">${odPanelsAllHidden() ? 'Show all' : 'Hide all'}</button>
+          </div>
 
-          <div class="od-grid mb-2.5">
-            <div class="od-card">
+          <div id="odSummaryWrap" style="${state.showSummary ? '' : 'display:none;'}">
+            <div id="overallDataHero" class="mb-2.5"></div>
+            <div id="overallDataKpis" class="od-kpis mb-2.5"></div>
+          </div>
+
+          <div id="odGridWrap" class="od-grid mb-2.5" style="${(state.chartExpanded || state.showLeaders) ? '' : 'display:none;'}">
+            <div class="od-card" id="odChartCard" style="${state.chartExpanded ? '' : 'display:none;'}">
               <div class="flex items-center justify-between gap-2 flex-wrap">
-                <button type="button" id="overallDataChartToggleBtn" onclick="toggleOverallDataChartExpanded()" class="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider hover:text-accentIndigo transition-colors active:scale-95">${overallDataChartToggleLabel()}</button>
-                <div id="overallDataChartControls" style="${state.chartExpanded ? '' : 'display:none;'}"></div>
+                <button type="button" id="overallDataChartToggleBtn" onclick="odTogglePanel('chart')" title="Hide chart" class="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider hover:text-accentIndigo transition-colors active:scale-95">${overallDataChartToggleLabel()}</button>
+                <div id="overallDataChartControls"></div>
               </div>
-              <div id="overallDataChartWrap" class="mt-1" style="${state.chartExpanded ? '' : 'display:none;'}">
+              <div id="overallDataChartWrap" class="mt-1">
                 <div id="overallDataChartBox" style="min-height: 260px;"></div>
               </div>
             </div>
-            <div class="od-card" id="overallDataInsights"></div>
+            <div class="od-card" id="odLeadersCard" style="${state.showLeaders ? '' : 'display:none;'}"><div id="overallDataInsights"></div></div>
           </div>
 
           <div class="od-card" style="padding:10px;">
@@ -23613,8 +23713,9 @@ html.page-fade-ready body {
           </div>
         </div>
       `;
-      renderOverallDataHero();
+      if (state.showSummary) renderOverallDataHero();
       renderOverallDataChart();
+      odApplyPanels();
     }
 
     /* ---------- Overall Data: visual helpers (KPI cards, sparklines, leaders) ---------- */
@@ -23957,12 +24058,15 @@ html.page-fade-ready body {
     // the panel is expanded (see toggleOverallDataChartExpanded()), so it
     // doesn't cost anything while collapsed.
     function renderOverallDataChart() {
-      const controlsEl = document.getElementById('overallDataChartControls');
-      if (controlsEl) controlsEl.innerHTML = buildOverallDataChartControls();
-      // Keep the KPI cards + leaderboard in step with the chart's metric / filters.
-      try { renderOverallDataKpis(); renderOverallDataInsights(); } catch (odErr) { console.warn('[overallData] insights skipped:', odErr); }
-
       const state = window.overallDataState;
+      const controlsEl = document.getElementById('overallDataChartControls');
+      if (controlsEl && state.chartExpanded) controlsEl.innerHTML = buildOverallDataChartControls();
+      // Hidden panels are not built at all (that is what makes this fast).
+      try {
+        if (state.showSummary) renderOverallDataKpis();
+        if (state.showLeaders) renderOverallDataInsights();
+      } catch (odErr) { console.warn('[overallData] insights skipped:', odErr); }
+
       const el = document.querySelector('#overallDataChartBox');
       if (!el) return; // modal isn't open / this body isn't mounted
 
@@ -24319,7 +24423,7 @@ html.page-fade-ready body {
           </div>
           <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Latest month tinted</div>
         </div>
-        <div id="overallDataScrollBox" class="rounded-xl border border-coolBorder overflow-auto custom-scrollbar custom-scrollbar-x${state.chartExpanded ? '' : ' chart-collapsed'}">
+        <div id="overallDataScrollBox" class="rounded-xl border border-coolBorder overflow-auto custom-scrollbar custom-scrollbar-x${odPanelsAllHidden() ? ' chart-collapsed' : ''}">
           <table class="od-t text-left relative">
             <thead class="sticky top-0 z-20 shadow-sm">
               <tr>
