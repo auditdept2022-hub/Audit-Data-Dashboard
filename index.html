@@ -23588,8 +23588,6 @@ html.page-fade-ready body {
         cards.push({ label: 'Total service', big: odFmtValue(cur.value, 'service', null, true), d: odDelta(cur.value, prev && prev.value, 'service', null), series: totals.map(function (t) { return t.value; }), sub: 'all filtered branches' });
         const curAvg = avgSeries[avgSeries.length - 1], prevAvg = P ? avgSeries[avgSeries.length - 2] : null;
         cards.push({ label: 'Avg / branch', big: odFmtValue(curAvg, 'service', null, true), d: odDelta(curAvg, prevAvg, 'service', null), series: avgSeries, sub: cur.count + ' branches with data' });
-        const ranked = branches.map(function (b) { return { n: b.name, v: odVal(b, 'service', L, null) }; }).filter(function (x) { return x.v !== null; }).sort(function (a, b) { return b.v - a.v; });
-        if (ranked.length) cards.push({ label: 'Top branch', big: odFmtValue(ranked[0].v, 'service', null, true), d: null, series: null, sub: ranked[0].n, isStatic: true });
         const bestMonthIdx = totals.reduce(function (bi, t, i, arr) { return (t.value || 0) > (arr[bi].value || 0) ? i : bi; }, 0);
         cards.push({ label: 'Best month', big: months[bestMonthIdx], d: null, series: null, sub: odFmtValue(totals[bestMonthIdx].value, 'service', null, true) + ' total', isStatic: true });
       } else {
@@ -24062,13 +24060,7 @@ html.page-fade-ready body {
         let raw;
         if (isService) raw = b.service ? b.service[m] : null;
         else raw = (((state.tab === 'collection' ? b.collection : b.sales) || {})[m] || {})[label];
-        let dl = '';
-        if (mi === lastIdx && mi > 0) {
-          const d = odDelta(odVal(b, state.tab, m, label), odVal(b, state.tab, months[mi - 1], label), state.tab, label);
-          if (d.dir !== 0 && d.text && d.text !== 'new') {
-            dl = `<span class="od-dl ${d.cls === 'good' ? 'good' : 'bad'}">${d.dir > 0 ? '\u25b2' : '\u25bc'} ${d.text.replace(/^[+\u2212]/, '')}</span>`;
-          }
-        }
+        const dl = '';
         const cls = 'od-c' + (ci === 0 && mi ? ' od-gsep' : '') + (mi === lastIdx ? ' od-latest-col' : '');
         return `<td class="${cls}"><div class="od-cell">${dl}<span>${fmt(raw, kindFor(label))}</span></div></td>`;
       };
@@ -24102,7 +24094,7 @@ html.page-fade-ready body {
       return `
         <div class="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
           <div class="text-[11px] font-semibold text-slate-400">Showing ${branches.length} of ${totalBranchCount} branches</div>
-          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Latest month tinted \u00b7 <span style="color:#059669">\u25b2</span><span style="color:#e11d5f">\u25bc</span> change vs ${months.length > 1 ? months[lastIdx - 1] : 'previous'}</div>
+          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Latest month tinted</div>
         </div>
         <div id="overallDataScrollBox" class="rounded-xl border border-coolBorder overflow-auto custom-scrollbar custom-scrollbar-x${state.chartExpanded ? '' : ' chart-collapsed'}">
           <table class="od-t text-left relative">
