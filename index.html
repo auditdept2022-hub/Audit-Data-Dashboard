@@ -293,6 +293,50 @@
   #overallDataScrollBox.chart-collapsed {
     max-height: max(220px, calc(100dvh - 90px));
   }
+  /* ===== Overall Data Snapshot — redesigned popup ===== */
+  #modalBody #overallDataScrollBox { height: auto; max-height: 540px; }
+  #modalDialog.modal-fullscreen #modalBody #overallDataScrollBox { height: auto !important; max-height: 74dvh !important; }
+  .od-hero { position: relative; overflow: hidden; border-radius: 1rem; padding: 14px 16px; color: #fff;
+    background: linear-gradient(120deg, var(--od-a) 0%, var(--od-b) 100%); box-shadow: 0 10px 24px -12px var(--od-a); }
+  .od-hero::before { content: ""; position: absolute; right: -40px; top: -60px; width: 200px; height: 200px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,.28), transparent 70%); }
+  .od-hero::after { content: ""; position: absolute; left: 35%; bottom: -80px; width: 220px; height: 220px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,.14), transparent 70%); }
+  .od-hero > * { position: relative; z-index: 1; }
+  .od-mchip { padding: 2px 9px; border-radius: 999px; font-size: 10.5px; font-weight: 800; letter-spacing: .04em;
+    background: rgba(255,255,255,.18); color: rgba(255,255,255,.92); }
+  .od-mchip.latest { background: #fff; color: var(--od-a); box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+  .od-kpis { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); }
+  .od-kpi { position: relative; text-align: left; background: #fff; border: 1px solid #e7e9f2; border-radius: 1rem; padding: 12px 12px 8px;
+    cursor: pointer; transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; overflow: hidden; }
+  .od-kpi:hover { transform: translateY(-2px); box-shadow: 0 10px 20px -12px rgba(15,23,42,.35); }
+  .od-kpi:active { transform: scale(.98); }
+  .od-kpi.active { border-color: var(--od-c); box-shadow: 0 0 0 2px color-mix(in srgb, var(--od-c) 22%, transparent), 0 10px 20px -12px var(--od-c); }
+  .od-kpi.static { cursor: default; }
+  .od-kpi.static:hover { transform: none; box-shadow: none; }
+  .od-kpi .od-lbl { font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: #64748b; }
+  .od-kpi .od-big { font-size: 22px; line-height: 1.1; font-weight: 800; color: #0f172a; letter-spacing: -.02em; margin-top: 4px; }
+  .od-kpi .od-sub { font-size: 10px; font-weight: 600; color: #94a3b8; margin-top: 2px; }
+  .od-delta { display: inline-flex; align-items: center; gap: 2px; padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 800; }
+  .od-delta.good { background: #d1fae5; color: #047857; }
+  .od-delta.bad { background: #ffe4e6; color: #be123c; }
+  .od-delta.flat { background: #f1f5f9; color: #64748b; }
+  .od-card { background: #fff; border: 1px solid #e7e9f2; border-radius: 1rem; padding: 12px; }
+  .od-grid { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 900px) { .od-grid { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); } }
+  .od-sec { font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #64748b; display: flex; align-items: center; gap: 6px; margin: 2px 0 6px; }
+  .od-row { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 3px 0; }
+  .od-rank { width: 18px; height: 18px; border-radius: 6px; font-size: 9.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; background: #f1f5f9; color: #64748b; }
+  .od-track { height: 5px; border-radius: 999px; background: #f1f5f9; overflow: hidden; margin-top: 3px; }
+  .od-fill { height: 100%; border-radius: 999px; transition: width .5s cubic-bezier(.2,.8,.2,1); }
+  .od-name { font-size: 11.5px; font-weight: 700; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .od-val { font-size: 11.5px; font-weight: 800; color: #0f172a; font-variant-numeric: tabular-nums; }
+  .od-seg { display: inline-flex; padding: 3px; background: #f1f5f9; border-radius: 12px; gap: 2px; }
+  .od-seg button { padding: 6px 14px; border-radius: 9px; font-size: 12px; font-weight: 800; color: #64748b; transition: all .15s ease; }
+  .od-seg button.on { color: #fff; box-shadow: 0 4px 10px -3px rgba(0,0,0,.3); }
+  .od-fadein { animation: odFade .35s ease both; }
+  @keyframes odFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .od-fadein { animation: none; } .od-fill { transition: none; } }
   /* Freeze pane (the sticky "#"/Branch columns + sticky header) is
      desktop/tablet-only now. On phones the table is switched back to a
      plain, fully-scrolling table — same 767px breakpoint used everywhere
@@ -22963,7 +23007,7 @@ html.page-fade-ready body {
        appears next time this modal is opened (or Refresh is tapped). */
     window.overallDataPayload = null;
     window.overallDataPayloadFetchedAt = 0;
-    window.overallDataState = { tab: 'collection', search: '', statusFilter: null, sortCol: null, sortDir: 'asc', chartMetrics: [], chartExpanded: false };
+    window.overallDataState = { tab: 'collection', search: '', statusFilter: null, sortCol: null, sortDir: 'asc', chartMetrics: [], chartExpanded: true };
     // SPEED FIX (original): this used to be 20000 (20s), so almost every
     // single tap of the "Overall Data Snapshot" card triggered a fresh
     // Apps Script call (JSONP round trip + possible cold start = several
@@ -23283,36 +23327,333 @@ html.page-fade-ready body {
       const data = window.overallDataPayload;
       const state = window.overallDataState;
       const months = (data && data.months) || [];
+      const th = odTheme(state.tab);
 
       const tabsHtml = OVERALL_DATA_TAB_DEFS.map(function (t) {
         const active = state.tab === t.key;
-        const cls = active ? t.activeClass : 'bg-gray-50 text-slate-500 border border-coolBorder hover:bg-gray-100';
-        return `<button type="button" onclick="setOverallDataTab('${t.key}')" class="px-3.5 py-1.5 rounded-lg text-xs font-bold tracking-wide transition-all ${cls}">${t.label}</button>`;
+        const bg = active ? `style="background:${odTheme(t.key).a}"` : '';
+        return `<button type="button" onclick="setOverallDataTab('${t.key}')" class="${active ? 'on' : ''}" ${bg}>${t.label}</button>`;
       }).join('');
 
+      const total = (data && data.totalBranches) || 0;
+      const statusHtml = buildOverallDataStatusFilter(state.tab);
+
       modalBody.innerHTML = `
-        <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
-          <div class="flex items-center gap-2">${tabsHtml}</div>
-          <div class="flex items-center gap-2">
-            <span class="text-[11px] font-semibold text-slate-400 whitespace-nowrap">${(data && data.totalBranches) || 0} branches tracked \u00b7 ${months.length} month(s) shown</span>
-            <button type="button" onclick="refreshOverallData()" title="Refresh Overall Data" class="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 border border-coolBorder rounded-lg text-[11px] font-bold text-slate-600 active:scale-95 transition-all">
+        <div id="overallDataRoot" class="od-fadein" style="--od-a:${th.a}; --od-b:${th.b}; --od-c:${th.a};">
+          <div class="flex items-center justify-between gap-2 mb-2.5 flex-wrap">
+            <div class="od-seg">${tabsHtml}</div>
+            <button type="button" onclick="refreshOverallData()" title="Refresh Overall Data" class="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-gray-50 border border-coolBorder rounded-xl text-[11px] font-bold text-slate-600 active:scale-95 transition-all">
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>
               Refresh
             </button>
           </div>
-        </div>
-        <div class="bg-white border border-coolBorder rounded-xl p-2.5 mb-2">
-          <div class="flex items-center justify-between gap-2 flex-wrap">
-            <button type="button" id="overallDataChartToggleBtn" onclick="toggleOverallDataChartExpanded()" class="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider hover:text-accentIndigo transition-colors active:scale-95">${overallDataChartToggleLabel()}</button>
-            <div id="overallDataChartControls" style="${state.chartExpanded ? '' : 'display:none;'}"></div>
+
+          <div id="overallDataHero" class="mb-2.5"></div>
+          <div id="overallDataKpis" class="od-kpis mb-2.5"></div>
+
+          <div class="od-grid mb-2.5">
+            <div class="od-card">
+              <div class="flex items-center justify-between gap-2 flex-wrap">
+                <button type="button" id="overallDataChartToggleBtn" onclick="toggleOverallDataChartExpanded()" class="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider hover:text-accentIndigo transition-colors active:scale-95">${overallDataChartToggleLabel()}</button>
+                <div id="overallDataChartControls" style="${state.chartExpanded ? '' : 'display:none;'}"></div>
+              </div>
+              <div id="overallDataChartWrap" class="mt-1" style="${state.chartExpanded ? '' : 'display:none;'}">
+                <div id="overallDataChartBox" style="min-height: 260px;"></div>
+              </div>
+            </div>
+            <div class="od-card" id="overallDataInsights"></div>
           </div>
-          <div id="overallDataChartWrap" class="mt-1" style="${state.chartExpanded ? '' : 'display:none;'}">
-            <div id="overallDataChartBox" style="min-height: 260px; background: #3b4656; border-radius: 0.75rem; padding: 4px;"></div>
+
+          <div class="od-card" style="padding:10px;">
+            <div class="flex items-center gap-2 mb-2 flex-wrap">
+              <div class="od-sec" style="margin:0;">Branch table</div>
+              <div class="relative flex-1 min-w-[140px] sm:max-w-[240px]">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);pointer-events:none"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+                <input id="overallDataSearchInput" type="search" value="${escapeFindingHTML(state.search || '')}" oninput="setOverallDataSearch(this.value)" placeholder="Search branch\u2026" class="w-full pl-7 pr-2.5 py-1.5 bg-gray-50 border border-coolBorder rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan" />
+              </div>
+              <div class="ml-auto">${statusHtml.replace('mb-3', 'mb-0')}</div>
+            </div>
+            <div id="overallDataTableContainer">${buildOverallDataTable()}</div>
           </div>
         </div>
-        <div id="overallDataTableContainer">${buildOverallDataTable()}</div>
       `;
+      renderOverallDataHero();
       renderOverallDataChart();
+    }
+
+    /* ---------- Overall Data: visual helpers (KPI cards, sparklines, leaders) ---------- */
+    function odTheme(tab) {
+      if (tab === 'collection') return { a: '#0d9d6e', b: '#0ea5c7', rgb: '13,157,110' };
+      if (tab === 'sales')      return { a: '#5b3df0', b: '#3355e0', rgb: '91,61,240' };
+      return { a: '#0ea5c7', b: '#3355e0', rgb: '14,165,199' };
+    }
+
+    function odVal(b, tab, month, metric) {
+      let raw;
+      if (tab === 'service') raw = b.service ? b.service[month] : null;
+      else {
+        const bucket = tab === 'collection' ? b.collection : b.sales;
+        const rec = (bucket && bucket[month]) || {};
+        raw = rec[metric];
+      }
+      if (raw === null || raw === undefined || raw === '') return null;
+      let n = Number(raw);
+      if (isNaN(n)) return null;
+      if (tab !== 'service' && overallDataMetricIsPercent(metric)) n = Math.abs(n) < 1 ? n * 100 : n;
+      return n;
+    }
+
+    // Sum for counts / pesos, average for percentages (same rule as the trend chart).
+    function odAgg(branches, tab, month, metric) {
+      let sum = 0, cnt = 0;
+      branches.forEach(function (b) { const v = odVal(b, tab, month, metric); if (v !== null) { sum += v; cnt++; } });
+      if (!cnt) return { value: null, count: 0, sum: 0 };
+      const isPct = tab !== 'service' && overallDataMetricIsPercent(metric);
+      return { value: isPct ? sum / cnt : sum, count: cnt, sum: sum };
+    }
+
+    // For repo-type metrics a rise is BAD (more repossessions / higher repo rate).
+    function odIsInverse(metric) { return /repo/i.test(metric || ''); }
+
+    function odCompact(n) {
+      if (n === null || n === undefined || isNaN(n)) return '\u2014';
+      const a = Math.abs(n);
+      if (a >= 1e9) return (n / 1e9).toFixed(2).replace(/\.?0+$/, '') + 'B';
+      if (a >= 1e6) return (n / 1e6).toFixed(2).replace(/\.?0+$/, '') + 'M';
+      if (a >= 1e4) return (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'K';
+      return OVERALL_DATA_NUM_FMT.format(Math.round(n * 100) / 100);
+    }
+
+    function odFmtValue(v, tab, metric, compact) {
+      if (v === null || v === undefined || isNaN(v)) return '\u2014';
+      if (tab !== 'service' && overallDataMetricIsPercent(metric)) {
+        return v.toFixed((/repo/i.test(metric) && /rate/i.test(metric)) ? 2 : 1).replace(/\.0$/, '') + '%';
+      }
+      const body = compact ? odCompact(v) : OVERALL_DATA_NUM_FMT.format(Math.round(v));
+      return tab === 'service' ? '\u20b1' + body : body;
+    }
+
+    // Change vs previous month -> { text, cls } ; pct metrics use percentage points.
+    function odDelta(cur, prev, tab, metric) {
+      if (cur === null || prev === null || cur === undefined || prev === undefined) return { text: '', cls: 'flat', dir: 0 };
+      const isPct = tab !== 'service' && overallDataMetricIsPercent(metric);
+      let diff = cur - prev, text;
+      if (isPct) text = (diff >= 0 ? '+' : '\u2212') + Math.abs(diff).toFixed(1) + ' pp';
+      else if (prev === 0) text = diff === 0 ? '0%' : (diff > 0 ? 'new' : '\u2212100%');
+      else { const p = diff / Math.abs(prev) * 100; text = (p >= 0 ? '+' : '\u2212') + Math.abs(p).toFixed(1) + '%'; }
+      const dir = Math.abs(diff) < 1e-9 ? 0 : (diff > 0 ? 1 : -1);
+      const good = odIsInverse(metric) ? dir < 0 : dir > 0;
+      const cls = dir === 0 ? 'flat' : (good ? 'good' : 'bad');
+      return { text: text, cls: cls, dir: dir };
+    }
+
+    function odDeltaPill(d, prevLabel) {
+      if (!d.text) return '<span class="od-delta flat">no prior month</span>';
+      const arrow = d.dir > 0 ? '\u25b2' : (d.dir < 0 ? '\u25bc' : '\u2013');
+      return `<span class="od-delta ${d.cls}">${arrow} ${d.text}</span>${prevLabel ? `<span style="font-size:9.5px;font-weight:700;color:#94a3b8;margin-left:4px">vs ${prevLabel}</span>` : ''}`;
+    }
+
+    let odSparkSeq = 0;
+    function odSparkline(values, color, w, h) {
+      w = w || 140; h = h || 38;
+      const pts = [];
+      values.forEach(function (v, i) { if (v !== null && v !== undefined && !isNaN(v)) pts.push({ i: i, v: v }); });
+      if (pts.length < 2) return `<svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"></svg>`;
+      const min = Math.min.apply(null, pts.map(function (p) { return p.v; }));
+      const max = Math.max.apply(null, pts.map(function (p) { return p.v; }));
+      const span = (max - min) || 1, n = values.length - 1 || 1, pad = 5;
+      const X = function (i) { return pad + (w - pad * 2) * (i / n); };
+      const Y = function (v) { return h - pad - (h - pad * 2) * ((v - min) / span); };
+      let line = '';
+      pts.forEach(function (p, k) { line += (k ? 'L' : 'M') + X(p.i).toFixed(1) + ' ' + Y(p.v).toFixed(1) + ' '; });
+      const last = pts[pts.length - 1], first = pts[0];
+      const area = line + `L${X(last.i).toFixed(1)} ${h} L${X(first.i).toFixed(1)} ${h} Z`;
+      const id = 'odsp' + (++odSparkSeq);
+      const dots = pts.map(function (p) { return `<circle cx="${X(p.i).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="2" fill="#fff" stroke="${color}" stroke-width="1.5"></circle>`; }).join('');
+      return `<svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="display:block;overflow:visible">
+        <defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".30"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>
+        <path d="${area}" fill="url(#${id})"></path>
+        <path d="${line}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>
+        ${dots}
+        <circle cx="${X(last.i).toFixed(1)}" cy="${Y(last.v).toFixed(1)}" r="3.6" fill="${color}" stroke="#fff" stroke-width="1.5"></circle>
+      </svg>`;
+    }
+
+    function odRing(pct, color, label) {
+      const r = 20, c = 2 * Math.PI * r, off = c * (1 - Math.max(0, Math.min(1, pct)));
+      return `<svg width="54" height="54" viewBox="0 0 54 54">
+        <circle cx="27" cy="27" r="${r}" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="6"></circle>
+        <circle cx="27" cy="27" r="${r}" fill="none" stroke="${color}" stroke-width="6" stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 27 27)"></circle>
+        <text x="27" y="31" text-anchor="middle" font-size="12" font-weight="800" fill="#fff" font-family="Plus Jakarta Sans, sans-serif">${label}</text>
+      </svg>`;
+    }
+
+    function odMetricOptions() {
+      const data = window.overallDataPayload, state = window.overallDataState;
+      if (!data) return [];
+      if (state.tab === 'collection') return data.collectionMetrics || [];
+      if (state.tab === 'sales') return data.salesSubLabels || [];
+      return [null];
+    }
+
+    function odPrimaryMetric() {
+      const state = window.overallDataState;
+      if (state.tab === 'service') return null;
+      const opts = odMetricOptions();
+      const m = (state.chartMetrics || []).filter(function (x) { return opts.indexOf(x) >= 0; })[0];
+      return m !== undefined ? m : (opts[0] || null);
+    }
+
+    function odSelectMetricIdx(i) {
+      const opts = odMetricOptions();
+      if (opts[i] === undefined || window.overallDataState.tab === 'service') return;
+      window.overallDataState.chartMetrics = [opts[i]];
+      renderOverallDataChart();
+    }
+
+    // Banner: which tab, which month is "latest", month timeline chips, coverage ring.
+    function renderOverallDataHero() {
+      const el = document.getElementById('overallDataHero');
+      const data = window.overallDataPayload, state = window.overallDataState;
+      if (!el || !data) return;
+      const months = data.months || [];
+      const all = data.branches || [];
+      const latest = months[months.length - 1];
+      const tabLabel = { collection: 'Collection', sales: 'Sales', service: 'Service' }[state.tab];
+      const metric = odPrimaryMetric();
+      const reporting = latest ? odAgg(all, state.tab, latest, metric).count : 0;
+      const cover = all.length ? reporting / all.length : 0;
+      const chips = months.map(function (m, i) { return `<span class="od-mchip${i === months.length - 1 ? ' latest' : ''}">${m}</span>`; }).join('');
+      el.innerHTML = `
+        <div class="od-hero flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <div style="font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;opacity:.8">${tabLabel} snapshot</div>
+            <div style="font-size:19px;font-weight:800;letter-spacing:-.01em;margin:2px 0 8px">${latest ? 'Through ' + latest : 'No months yet'} <span style="opacity:.75;font-weight:700;font-size:13px">\u00b7 ${all.length} branches</span></div>
+            <div class="flex items-center gap-1.5 flex-wrap">${chips}</div>
+          </div>
+          <div class="flex flex-col items-center shrink-0" title="Branches with a ${latest || ''} value">
+            ${odRing(cover, '#fff', Math.round(cover * 100) + '%')}
+            <div style="font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;opacity:.85;margin-top:2px">${reporting}/${all.length} reporting</div>
+          </div>
+        </div>`;
+    }
+
+    function renderOverallDataKpis() {
+      const el = document.getElementById('overallDataKpis');
+      const data = window.overallDataPayload, state = window.overallDataState;
+      if (!el || !data) return;
+      const months = data.months || [];
+      const branches = getFilteredOverallBranches();
+      const th = odTheme(state.tab);
+      if (!months.length || !branches.length) { el.innerHTML = ''; return; }
+      const L = months[months.length - 1], P = months.length > 1 ? months[months.length - 2] : null;
+      const cards = [];
+
+      if (state.tab === 'service') {
+        const totals = months.map(function (m) { return odAgg(branches, 'service', m, null); });
+        const cur = totals[totals.length - 1], prev = P ? totals[totals.length - 2] : null;
+        const avgSeries = totals.map(function (t) { return t.count ? t.sum / t.count : null; });
+        cards.push({ label: 'Total service', big: odFmtValue(cur.value, 'service', null, true), d: odDelta(cur.value, prev && prev.value, 'service', null), series: totals.map(function (t) { return t.value; }), sub: 'all filtered branches' });
+        const curAvg = avgSeries[avgSeries.length - 1], prevAvg = P ? avgSeries[avgSeries.length - 2] : null;
+        cards.push({ label: 'Avg / branch', big: odFmtValue(curAvg, 'service', null, true), d: odDelta(curAvg, prevAvg, 'service', null), series: avgSeries, sub: cur.count + ' branches with data' });
+        const ranked = branches.map(function (b) { return { n: b.name, v: odVal(b, 'service', L, null) }; }).filter(function (x) { return x.v !== null; }).sort(function (a, b) { return b.v - a.v; });
+        if (ranked.length) cards.push({ label: 'Top branch', big: odFmtValue(ranked[0].v, 'service', null, true), d: null, series: null, sub: ranked[0].n, isStatic: true });
+        const bestMonthIdx = totals.reduce(function (bi, t, i, arr) { return (t.value || 0) > (arr[bi].value || 0) ? i : bi; }, 0);
+        cards.push({ label: 'Best month', big: months[bestMonthIdx], d: null, series: null, sub: odFmtValue(totals[bestMonthIdx].value, 'service', null, true) + ' total', isStatic: true });
+      } else {
+        const opts = odMetricOptions();
+        const active = (state.chartMetrics || []);
+        opts.forEach(function (metric, idx) {
+          const aggs = months.map(function (m) { return odAgg(branches, state.tab, m, metric); });
+          const cur = aggs[aggs.length - 1], prev = P ? aggs[aggs.length - 2] : null;
+          const isPct = overallDataMetricIsPercent(metric);
+          const sub = isPct ? ('avg of ' + cur.count + ' branches') : (cur.count ? ('avg ' + odCompact(cur.sum / cur.count) + ' / branch') : 'no data');
+          cards.push({ label: metric, big: odFmtValue(cur.value, state.tab, metric, true), d: odDelta(cur.value, prev && prev.value, state.tab, metric), series: aggs.map(function (a) { return a.value; }), sub: sub, idx: idx, active: active.indexOf(metric) >= 0, metric: metric });
+        });
+      }
+
+      el.innerHTML = cards.map(function (c, i) {
+        const color = th.a;
+        const cls = 'od-kpi od-fadein' + (c.active ? ' active' : '') + (c.isStatic ? ' static' : '');
+        const click = (c.idx !== undefined) ? ` onclick="odSelectMetricIdx(${c.idx})"` : '';
+        const dPill = c.d ? `<div style="margin-top:6px">${odDeltaPill(c.d, P)}</div>` : '';
+        const spark = c.series ? `<div style="margin:6px -2px 0">${odSparkline(c.series, c.metric && odIsInverse(c.metric) ? '#e11d5f' : color)}</div>` : '';
+        return `<button type="button" class="${cls}" style="--od-c:${color};animation-delay:${i * 40}ms"${click}>
+          <div class="od-lbl">${escapeFindingHTML(String(c.label))}</div>
+          <div class="od-big">${escapeFindingHTML(String(c.big))}</div>
+          <div class="od-sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeFindingHTML(String(c.sub || ''))}</div>
+          ${dPill}${spark}
+        </button>`;
+      }).join('');
+    }
+
+    // Leaderboards for the metric the chart is showing (latest month vs the one before).
+    function renderOverallDataInsights() {
+      const el = document.getElementById('overallDataInsights');
+      const data = window.overallDataPayload, state = window.overallDataState;
+      if (!el || !data) return;
+      const months = data.months || [];
+      const branches = getFilteredOverallBranches();
+      if (!months.length || !branches.length) { el.innerHTML = '<div class="text-xs font-semibold text-slate-400 p-4 text-center">No branches match the current filter.</div>'; return; }
+      const th = odTheme(state.tab);
+      const metric = odPrimaryMetric();
+      const inverse = odIsInverse(metric);
+      const L = months[months.length - 1], P = months.length > 1 ? months[months.length - 2] : null;
+      const metricName = state.tab === 'service' ? 'Service' : metric;
+
+      const rows = branches.map(function (b) {
+        const cur = odVal(b, state.tab, L, metric), prev = P ? odVal(b, state.tab, P, metric) : null;
+        return { name: b.name, cur: cur, prev: prev };
+      }).filter(function (r) { return r.cur !== null; });
+
+      if (!rows.length) { el.innerHTML = `<div class="text-xs font-semibold text-slate-400 p-4 text-center">No ${L} values for ${escapeFindingHTML(String(metricName))} yet.</div>`; return; }
+
+      // "Best" = highest, except repo-type metrics where lowest is best.
+      const sorted = rows.slice().sort(function (a, b) { return inverse ? a.cur - b.cur : b.cur - a.cur; });
+      const best = sorted.slice(0, 5), worst = sorted.slice(-5).reverse();
+      const maxV = Math.max.apply(null, rows.map(function (r) { return Math.abs(r.cur); })) || 1;
+
+      const listHtml = function (list, color, worstList) {
+        return list.map(function (r, i) {
+          const w = Math.max(4, Math.abs(r.cur) / maxV * 100);
+          const rank = worstList ? (sorted.length - i) : (i + 1);
+          return `<div class="od-row">
+            <div class="od-rank" style="${!worstList && i === 0 ? 'background:#fef3c7;color:#b45309' : ''}">${rank}</div>
+            <div style="min-width:0"><div class="od-name" title="${escapeFindingHTML(r.name)}">${escapeFindingHTML(r.name)}</div><div class="od-track"><div class="od-fill" style="width:${w.toFixed(1)}%;background:${color}"></div></div></div>
+            <div class="od-val">${odFmtValue(r.cur, state.tab, metric, true)}</div>
+          </div>`;
+        }).join('');
+      };
+
+      // Biggest movers vs previous month ("improved" respects inverse metrics).
+      let moversHtml = '';
+      if (P) {
+        const mv = rows.filter(function (r) { return r.prev !== null; }).map(function (r) { return { name: r.name, diff: r.cur - r.prev, cur: r.cur, prev: r.prev }; });
+        const score = function (r) { return inverse ? -r.diff : r.diff; };
+        const up = mv.filter(function (r) { return score(r) > 0; }).sort(function (a, b) { return score(b) - score(a); }).slice(0, 3);
+        const down = mv.filter(function (r) { return score(r) < 0; }).sort(function (a, b) { return score(a) - score(b); }).slice(0, 3);
+        const chip = function (r, good) {
+          const d = odDelta(r.cur, r.prev, state.tab, metric);
+          return `<div class="flex items-center justify-between gap-2" style="padding:2px 0"><span class="od-name" style="max-width:60%" title="${escapeFindingHTML(r.name)}">${escapeFindingHTML(r.name)}</span><span class="od-delta ${good ? 'good' : 'bad'}">${d.dir >= 0 ? '\u25b2' : '\u25bc'} ${d.text}</span></div>`;
+        };
+        if (up.length || down.length) {
+          moversHtml = `<div style="border-top:1px dashed #e2e8f0;margin-top:8px;padding-top:8px">
+            <div class="od-sec">\u21c5 Biggest movers vs ${P}</div>
+            ${up.map(function (r) { return chip(r, true); }).join('')}${down.map(function (r) { return chip(r, false); }).join('')}
+          </div>`;
+        }
+      }
+
+      el.innerHTML = `
+        <div class="flex items-center justify-between gap-2 mb-1">
+          <div style="font-size:12px;font-weight:800;color:#0f172a">Branch leaders</div>
+          <span class="od-delta flat" title="Metric and month being ranked">${escapeFindingHTML(String(metricName))} \u00b7 ${L}</span>
+        </div>
+        <div class="od-sec"><span style="width:8px;height:8px;border-radius:3px;background:#0d9d6e;display:inline-block"></span>${inverse ? 'Lowest (best)' : 'Top 5'}</div>
+        ${listHtml(best, 'linear-gradient(90deg,#34d399,#0d9d6e)', false)}
+        <div class="od-sec" style="margin-top:8px"><span style="width:8px;height:8px;border-radius:3px;background:#e11d5f;display:inline-block"></span>${inverse ? 'Highest (watch)' : 'Needs attention'}</div>
+        ${listHtml(worst, 'linear-gradient(90deg,#fb7185,#e11d5f)', true)}
+        ${moversHtml}`;
     }
 
     // Shared by both the table and the trend chart so the two views of
@@ -23368,7 +23709,7 @@ html.page-fade-ready body {
       return (/repo/i.test(metric || '') && /rate/i.test(metric || '')) || /effic/i.test(metric || '');
     }
 
-    const OVERALL_DATA_CHART_PALETTE = ['#34d399', '#818cf8', '#fbbf24', '#fb7185', '#22d3ee', '#c084fc'];
+    const OVERALL_DATA_CHART_PALETTE = ['#0d9d6e', '#5b3df0', '#d97a06', '#e11d5f', '#0ea5c7', '#9333ea'];
 
     // Aggregate trend chart for the "Overall Data" modal: sums (or, for
     // percentage metrics, averages) the selected metric(s) across every
@@ -23384,6 +23725,8 @@ html.page-fade-ready body {
     function renderOverallDataChart() {
       const controlsEl = document.getElementById('overallDataChartControls');
       if (controlsEl) controlsEl.innerHTML = buildOverallDataChartControls();
+      // Keep the KPI cards + leaderboard in step with the chart's metric / filters.
+      try { renderOverallDataKpis(); renderOverallDataInsights(); } catch (odErr) { console.warn('[overallData] insights skipped:', odErr); }
 
       const state = window.overallDataState;
       const el = document.querySelector('#overallDataChartBox');
@@ -23402,7 +23745,7 @@ html.page-fade-ready body {
         return;
       }
 
-      const tabColor = state.tab === 'collection' ? '#34d399' : (state.tab === 'sales' ? '#818cf8' : '#22d3ee');
+      const tabColor = state.tab === 'collection' ? '#0d9d6e' : (state.tab === 'sales' ? '#5b3df0' : '#0ea5c7');
       const isService = state.tab === 'service';
 
       let metricsToPlot;
@@ -23461,14 +23804,14 @@ html.page-fade-ready body {
       let yaxisConfig;
       if (!dualAxis) {
         const pct = seriesDefs[0].isPct;
-        yaxisConfig = { labels: { style: { colors: '#cbd5e1', fontSize: '10px' }, formatter: function (v) { return pct ? Math.round(v) + '%' : OVERALL_DATA_NUM_FMT.format(Math.round(v)); } } };
+        yaxisConfig = { labels: { style: { colors: '#64748b', fontSize: '10px' }, formatter: function (v) { return pct ? Math.round(v) + '%' : OVERALL_DATA_NUM_FMT.format(Math.round(v)); } } };
       } else {
         yaxisConfig = seriesDefs.map(function (s, idx) {
           const isFirstOfType = seriesDefs.findIndex(function (x) { return x.isPct === s.isPct; }) === idx;
           return {
             show: isFirstOfType,
             opposite: !s.isPct,
-            labels: { style: { colors: '#cbd5e1', fontSize: '10px' }, formatter: function (v) { return s.isPct ? Math.round(v) + '%' : OVERALL_DATA_NUM_FMT.format(Math.round(v)); } }
+            labels: { style: { colors: '#64748b', fontSize: '10px' }, formatter: function (v) { return s.isPct ? Math.round(v) + '%' : OVERALL_DATA_NUM_FMT.format(Math.round(v)); } }
           };
         });
       }
@@ -23484,7 +23827,7 @@ html.page-fade-ready body {
         series: seriesDefs.map(function (s) { return { name: s.name, data: s.values }; }),
         xaxis: {
           categories: months,
-          labels: { style: { colors: '#cbd5e1', fontSize: '10px', fontWeight: 700 } },
+          labels: { style: { colors: '#64748b', fontSize: '10px', fontWeight: 700 } },
           axisBorder: { show: false }, axisTicks: { show: false },
           crosshairs: { show: true, stroke: { color: tabColor, width: 1, dashArray: 4 } }
         },
@@ -23493,16 +23836,16 @@ html.page-fade-ready body {
         stroke: { curve: 'smooth', width: multi ? 3 : 3.5, lineCap: 'round' },
         fill: multi
           ? { type: 'solid', opacity: 0.14 }
-          : { type: 'gradient', gradient: { shade: 'dark', type: 'vertical', shadeIntensity: 0.55, opacityFrom: 0.5, opacityTo: 0.06, stops: [0, 95, 100] } },
+          : { type: 'gradient', gradient: { shade: 'light', type: 'vertical', shadeIntensity: 0.55, opacityFrom: 0.38, opacityTo: 0.02, stops: [0, 95, 100] } },
         markers: {
-          size: multi ? 3.5 : 4.5, strokeColors: '#3b4656', strokeWidth: multi ? 2 : 2.5,
+          size: multi ? 3.5 : 4.5, strokeColors: '#ffffff', strokeWidth: multi ? 2 : 2.5,
           hover: { size: multi ? 5.5 : 7, sizeOffset: 2 }
         },
-        grid: { borderColor: 'rgba(255,255,255,0.12)', strokeDashArray: 3, yaxis: { lines: { show: true } }, xaxis: { lines: { show: false } }, padding: { top: 6 } },
+        grid: { borderColor: 'rgba(100,116,139,0.18)', strokeDashArray: 3, yaxis: { lines: { show: true } }, xaxis: { lines: { show: false } }, padding: { top: 6 } },
         dataLabels: { enabled: false },
-        legend: { show: multi, position: 'top', fontSize: '10.5px', fontFamily: CHART_FONT, labels: { colors: '#e2e8f0' }, itemMargin: { horizontal: 8, vertical: 2 }, markers: { radius: 12 } },
+        legend: { show: multi, position: 'top', fontSize: '10.5px', fontFamily: CHART_FONT, labels: { colors: '#475569' }, itemMargin: { horizontal: 8, vertical: 2 }, markers: { radius: 12 } },
         tooltip: {
-          theme: 'dark', shared: multi, followCursor: !multi, intersect: false,
+          theme: 'light', shared: multi, followCursor: !multi, intersect: false,
           y: { formatter: function (v, opts) {
             const idx = opts && typeof opts.seriesIndex === 'number' ? opts.seriesIndex : 0;
             const s = seriesDefs[idx];
@@ -23662,12 +24005,44 @@ html.page-fade-ready body {
         const borderCls = mi === 0 ? '' : ' border-l border-coolBorder';
         if (isService) {
           const key = m;
-          return `<th class="p-1.5 bg-gray-50 text-center whitespace-nowrap${borderCls}">${m}</th>`;
+          return `<th class="p-1.5 bg-gray-50 text-center whitespace-nowrap${borderCls}${mi === months.length - 1 ? ' text-accentIndigo' : ''}">${m}${mi === months.length - 1 ? ' \u25cf' : ''}</th>`;
         }
         return subCols.map(function (label, ci) {
-          return `<th class="p-1.5 bg-gray-50 text-center whitespace-nowrap${ci === 0 ? borderCls : ''}">${m}<br><span class="normal-case font-semibold text-slate-400">${label}</span></th>`;
+          return `<th class="p-1.5 bg-gray-50 text-center whitespace-nowrap${ci === 0 ? borderCls : ''}${mi === months.length - 1 ? ' text-accentIndigo' : ''}">${m}${mi === months.length - 1 ? ' \u25cf' : ''}<br><span class="normal-case font-semibold text-slate-400">${label}</span></th>`;
         }).join('');
       }).join('');
+
+      // In-cell data bars: each value is shaded relative to the biggest value in
+      // its own month/metric column, so heavy and light branches pop out at a glance.
+      const barRgb = odTheme(state.tab).rgb;
+      const barMax = {};
+      branches.forEach(function (b) {
+        months.forEach(function (m) {
+          (isService ? [null] : subCols).forEach(function (label) {
+            const v = odVal(b, state.tab, m, label);
+            if (v === null) return;
+            const k = m + '||' + label;
+            if (!(k in barMax) || v > barMax[k]) barMax[k] = v;
+          });
+        });
+      });
+      const barStyle = function (b, m, label) {
+        const v = odVal(b, state.tab, m, label);
+        if (v === null || v < 0) return '';
+        const mx = barMax[m + '||' + label];
+        if (!mx || mx <= 0) return '';
+        const pct = Math.max(3, Math.min(100, v / mx * 100)).toFixed(1);
+        return ` style="background:linear-gradient(90deg, rgba(${barRgb},.20) ${pct}%, transparent ${pct}%)"`;
+      };
+      const svcDelta = function (b, mi) {
+        if (mi === 0) return '';
+        const cur = odVal(b, 'service', months[mi], null), prev = odVal(b, 'service', months[mi - 1], null);
+        if (cur === null || prev === null || prev === 0) return '';
+        const d = (cur - prev) / Math.abs(prev) * 100;
+        if (Math.abs(d) < 0.5) return '';
+        const up = d > 0;
+        return ` <span style="font-size:9px;font-weight:800;color:${up ? '#059669' : '#e11d48'}">${up ? '\u25b2' : '\u25bc'}${Math.abs(d).toFixed(0)}%</span>`;
+      };
 
       const rowsHtml = branches.map(function (b, idx) {
         const cells = months.map(function (m, mi) {
@@ -23681,16 +24056,16 @@ html.page-fade-ready body {
               // "repo" AND "rate" together (not "repo" alone) or an
               // "Efficiency" label before treating a column as a percent.
               const kind = (/repo/i.test(label) && /rate/i.test(label)) ? 'repoRate' : (/effic/i.test(label) ? 'repo' : null);
-              return `<td class="p-1.5 text-center whitespace-nowrap${ci === 0 ? borderCls : ''}">${fmt(rec[label], kind)}</td>`;
+              return `<td class="p-1.5 text-center whitespace-nowrap${ci === 0 ? borderCls : ''}"${barStyle(b, m, label)}>${fmt(rec[label], kind)}</td>`;
             }).join('');
           } else if (state.tab === 'sales') {
             const rec = (b.sales && b.sales[m]) || {};
             return subCols.map(function (label, ci) {
-              return `<td class="p-1.5 text-center whitespace-nowrap${ci === 0 ? borderCls : ''}">${fmt(rec[label])}</td>`;
+              return `<td class="p-1.5 text-center whitespace-nowrap${ci === 0 ? borderCls : ''}"${barStyle(b, m, label)}>${fmt(rec[label])}</td>`;
             }).join('');
           } else {
             const val = b.service ? b.service[m] : null;
-            return `<td class="p-1.5 text-center whitespace-nowrap${borderCls}">${fmt(val, 'peso')}</td>`;
+            return `<td class="p-1.5 text-center whitespace-nowrap${borderCls}"${barStyle(b, m, null)}>${fmt(val, 'peso')}${svcDelta(b, mi)}</td>`;
           }
         }).join('');
         return `<tr class="border-b border-coolBorder hover:bg-gray-50/70">
