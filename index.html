@@ -23522,6 +23522,7 @@ html.page-fade-ready body {
     }
 
     function odOpenColMenu(ev, btn) {
+      return; // column filter/sort popup removed (header click still sorts)
       ev.stopPropagation();
       const key = decodeURIComponent(btn.getAttribute('data-k'));
       if (window.__odMenuKey === key) { odCloseColMenu(); return; }
@@ -24396,7 +24397,7 @@ html.page-fade-ready body {
           const enc = encodeURIComponent(key);
           const sortedHere = state.sortCol === key;
           const filt = state.colFilters && state.colFilters[key];
-          return `<th data-k="${enc}" onclick="odSortFromEl(this)" title="Click to sort \u00b7 funnel for filter" class="od-sh od-sortable${sortedHere ? ' od-sorted' : ''}${ci === 0 && mi ? ' od-gsep' : ''}${mi === lastIdx ? ' od-latest-col' : ''}"><span class="od-hd"><span>${isService ? 'Service \u20b1' : escapeFindingHTML(label)}</span>${sortArrow(key)}<button type="button" data-k="${enc}" class="od-fb${filt ? ' on' : ''}" onclick="odOpenColMenu(event,this)" title="Filter / sort this column">${funnelSvg}</button></span></th>`;
+          return `<th data-k="${enc}" onclick="odSortFromEl(this)" title="Click to sort" class="od-sh od-sortable${sortedHere ? ' od-sorted' : ''}${ci === 0 && mi ? ' od-gsep' : ''}${mi === lastIdx ? ' od-latest-col' : ''}"><span class="od-hd"><span>${isService ? 'Service \u20b1' : escapeFindingHTML(label)}</span>${sortArrow(key)}</span></th>`;
         }).join('');
       }).join('');
 
