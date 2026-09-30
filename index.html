@@ -22864,7 +22864,7 @@ html.page-fade-ready body {
     // request waits for it; (2) a timed-out request is retried automatically
     // when that is safe; (3) errors are readable.
     const BACKEND_IDLE_WAKE_MS = 3 * 60 * 1000;   // idle longer than this -> ping first
-    const BACKEND_PING_TIMEOUT_MS = 25000;
+    const BACKEND_PING_TIMEOUT_MS = 8000;   // was 25000: a do-nothing ping must never hold real requests for long
     const RETRY_DELAY_MS = 1500;
     const lastBackendOkAtByBase = {};
     const wakePromiseByBase = {};
@@ -22926,9 +22926,13 @@ html.page-fade-ready body {
     })();
 
     async function fetchSheetOnce(url, timeouts) {
-      await wakeBackendIfIdle(url);
+      // FIX: never let the wake-up ping hold a real request for more than 9 s
+      // (before, a slow ping stacked its full timeout on top of the request's own).
+      await Promise.race([wakeBackendIfIdle(url), new Promise(function (r) { setTimeout(r, 9000); })]);
       const canRetry = isSafeToRetry(url);
-      const maxAttempts = canRetry ? 3 : 1;
+      // FIX: 2 attempts, not 3 -- a timed-out request is usually still running on
+      // the server, so extra retries only pile more load on an already-slow backend.
+      const maxAttempts = canRetry ? 2 : 1;
       let lastErr = null;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
@@ -22998,9 +23002,16 @@ html.page-fade-ready body {
     // person just asked for a hard reset. Silent background auto-refreshes
     // keep using the cache as before (forceRefresh=false).
     function prefetchOverallDataInBackground(forceRefresh) {
-      fetchOverallDataPayload(!!forceRefresh).catch(function (err) {
-        console.warn('[overallData] background prefetch skipped:', err && err.message ? err.message : err);
-      });
+      // FIX: wait a few seconds so this heavy request does not compete with the
+      // dashboard's own load / other startup requests for the backend's slots.
+      if (window.__overallPrefetchTimer) return;
+      window.__overallPrefetchTimer = setTimeout(function () {
+        window.__overallPrefetchTimer = null;
+        if (document.hidden) return;
+        fetchOverallDataPayload(!!forceRefresh).catch(function (err) {
+          console.warn('[overallData] background prefetch skipped:', err && err.message ? err.message : err);
+        });
+      }, forceRefresh ? 2500 : 8000);
     }
 
     async function fetchOverallDataPayload(forceRefresh) {
@@ -24078,12 +24089,21 @@ html.page-fade-ready body {
             // reveal right as the fresh numbers land, in sync with wherever
             // the walk -> motorcycle -> ride-off overlay happened to be.
             settleRide(function() {
-              processExcelData(workbook);
-              updateLastSyncedLabel();
-              triggerDataBoomReveal();
-              lastAppliedDataVersion = incomingVersion;
-              persistAppliedDataVersion(incomingVersion);
-              __bp(97, 'Almost ready\u2026');
+              // FIX: this used to run inside the network retry loop, so ANY error
+              // while drawing the dashboard was mistaken for "couldn't reach the
+              // server" -> re-download, re-fail, loading screen stuck although the
+              // data had loaded fine. Now a drawing error is logged and never retried.
+              try {
+                processExcelData(workbook);
+                lastAppliedDataVersion = incomingVersion;
+                persistAppliedDataVersion(incomingVersion);
+              } catch (renderErr) {
+                console.error('[render] dashboard failed to draw (data itself loaded fine):', renderErr);
+                window.__lastDashboardRenderError = renderErr;
+              }
+              try { updateLastSyncedLabel(); } catch (e1) { /* cosmetic */ }
+              try { triggerDataBoomReveal(); } catch (e2) { /* cosmetic */ }
+              try { __bp(97, 'Almost ready\u2026'); } catch (e3) { /* cosmetic */ }
             });
             // SPEED FIX: quietly warm the Overall Data Snapshot cache in
             // the background once the main dashboard has real data. Safe
@@ -25407,8 +25427,20 @@ html.page-fade-ready body {
         authPassword.value = '';
         startIdleTracking();
         startAutoRefresh();
-        startPresenceHeartbeat();
-        startPresenceWatcher();
+        // FIX: heartbeat + presence watcher used to fire at the same instant as the
+        // dashboard data request (plus the devices prewarm), so 4+ requests fought
+        // over the backend's limited slots and the data load timed out. They now
+        // start once the dashboard is ready (or after 12 s at most).
+        (function () {
+          setTimeout(function () {
+            var ready = window.dashboardDataReady;
+            Promise.race([ready, new Promise(function (r) { setTimeout(r, 12000); })]).then(function () {
+              if (!auth.currentUser) return;          // signed out meanwhile
+              try { startPresenceHeartbeat(); } catch (e) { console.warn(e); }
+              try { startPresenceWatcher(); } catch (e) { console.warn(e); }
+            });
+          }, 400);
+        })();
         requestPersistentStorageOnce();
 
         // Login phase is done — now it's safe to load real data and show
@@ -25438,8 +25470,12 @@ html.page-fade-ready body {
           // dashboard's own much larger data fetch for Apps Script's
           // limited concurrent-execution slots. Non-blocking and
           // best-effort; never delays the dashboard.
+          // (deferred: it now runs after the dashboard is ready, not alongside the data load)
           if (window.prewarmActiveAccountsList) {
-            window.prewarmActiveAccountsList();
+            var __ready = window.dashboardDataReady;
+            Promise.race([__ready, new Promise(function (r) { setTimeout(r, 15000); })]).then(function () {
+              setTimeout(function () { try { if (auth.currentUser) window.prewarmActiveAccountsList(); } catch (e) {} }, 3000);
+            });
           }
 
           if (window.loadInitialDashboardData) {
