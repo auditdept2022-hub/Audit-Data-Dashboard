@@ -336,6 +336,38 @@
   .od-seg button.on { color: #fff; box-shadow: 0 4px 10px -3px rgba(0,0,0,.3); }
   .od-fadein { animation: odFade .35s ease both; }
   @keyframes odFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  /* ----- Overall Data table (clean data-first look) ----- */
+  .od-t { border-collapse: separate; border-spacing: 0; width: 100%; font-variant-numeric: tabular-nums; background: #fff; }
+  .od-t th, .od-t td { box-sizing: border-box; }
+  .od-t .od-gh { height: 32px; padding: 0 10px; text-align: center; font-size: 11px; font-weight: 800; letter-spacing: .12em; color: var(--od-a);
+    background: linear-gradient(rgba(var(--od-rgb), .09), rgba(var(--od-rgb), .09)), #fff; border-bottom: 1px solid #e7e9f2; white-space: nowrap; }
+  .od-t .od-gh.od-latest { color: #fff; background: linear-gradient(120deg, var(--od-a), var(--od-b)); border-bottom-color: transparent; }
+  .od-t .od-tag { margin-left: 6px; padding: 1px 7px; border-radius: 999px; font-size: 8.5px; letter-spacing: .08em; background: rgba(255,255,255,.28); }
+  .od-t .od-gh0 { height: 32px; padding: 0 12px; text-align: left; font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #64748b; background: #fff; border-bottom: 1px solid #e7e9f2; }
+  .od-t .od-sh { height: 30px; padding: 0 12px; text-align: right; font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #64748b;
+    background: #f8fafc; border-bottom: 1px solid #dfe3ee; white-space: nowrap; min-width: 96px; }
+  .od-t .od-sh.od-latest-col { color: #0f172a; background: linear-gradient(rgba(var(--od-rgb), .07), rgba(var(--od-rgb), .07)), #f8fafc; }
+  .od-t .od-sh0 { min-width: 40px; width: 40px; text-align: center; padding: 0; }
+  .od-t .od-shb { text-align: left; min-width: 160px; border-right: 1px solid #e7e9f2; box-shadow: 3px 0 6px -3px rgba(0,0,0,.12); }
+  .od-t .od-gsep { border-left: 1px solid #dfe3ee; }
+  .od-t td.od-c { height: 38px; padding: 0 12px; text-align: right; font-size: 13px; font-weight: 600; color: #1e293b; border-bottom: 1px solid #f1f3f9; white-space: nowrap; background: #fff; }
+  .od-t tbody tr:nth-child(even) > td.od-c { background: #fafbfe; }
+  .od-t tbody td.od-latest-col { background: rgba(var(--od-rgb), .045); font-weight: 700; color: #0f172a; }
+  .od-t tbody tr:nth-child(even) > td.od-latest-col { background: rgba(var(--od-rgb), .07); }
+  .od-t tbody tr:hover > td.od-c { background: rgba(var(--od-rgb), .11) !important; }
+  .od-t tbody tr:hover > td.od-idx, .od-t tbody tr:hover > td.od-bn { background: #eef1fa !important; }
+  .od-t td.od-idx { width: 40px; min-width: 40px; padding: 0; text-align: center; color: #a3adc2; font-size: 11px; font-weight: 700; }
+  .od-t td.od-bn { text-align: left; font-weight: 700; color: #0f172a; min-width: 160px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid #e7e9f2; box-shadow: 3px 0 6px -3px rgba(0,0,0,.08); }
+  .od-cell { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+  .od-dl { margin-right: auto; font-size: 9.5px; font-weight: 800; letter-spacing: .01em; }
+  .od-dl.good { color: #059669; } .od-dl.bad { color: #e11d5f; }
+  .od-t tfoot td { position: sticky; bottom: 0; z-index: 6; height: 46px; line-height: 1.15; padding: 0 12px; text-align: right; font-size: 12.5px; font-weight: 800; color: #0f172a;
+    background: #f1f4fb; border-top: 2px solid #dfe3ee; white-space: nowrap; }
+  .od-t tfoot td.od-l0 { left: 0; z-index: 8; width: 40px; padding: 0; text-align: center; color: var(--od-a); }
+  .od-t tfoot td.od-l1 { left: 40px; z-index: 8; text-align: left; border-right: 1px solid #e7e9f2; box-shadow: 3px 0 6px -3px rgba(0,0,0,.1); }
+  .od-t tfoot td.od-latest-col { background: linear-gradient(rgba(var(--od-rgb), .10), rgba(var(--od-rgb), .10)), #f1f4fb; }
+  .od-fsub { display: block; font-size: 8.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #94a3b8; margin-top: -1px; }
+  @media (max-width: 767px) { .od-t tfoot td.od-l0, .od-t tfoot td.od-l1 { left: auto; } }
   @media (prefers-reduced-motion: reduce) { .od-fadein { animation: none; } .od-fill { transition: none; } }
   /* Freeze pane (the sticky "#"/Branch columns + sticky header) is
      desktop/tablet-only now. On phones the table is switched back to a
@@ -23339,7 +23371,7 @@ html.page-fade-ready body {
       const statusHtml = buildOverallDataStatusFilter(state.tab);
 
       modalBody.innerHTML = `
-        <div id="overallDataRoot" class="od-fadein" style="--od-a:${th.a}; --od-b:${th.b}; --od-c:${th.a};">
+        <div id="overallDataRoot" class="od-fadein" style="--od-a:${th.a}; --od-b:${th.b}; --od-c:${th.a}; --od-rgb:${th.rgb};">
           <div class="flex items-center justify-between gap-2 mb-2.5 flex-wrap">
             <div class="od-seg">${tabsHtml}</div>
             <button type="button" onclick="refreshOverallData()" title="Refresh Overall Data" class="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-gray-50 border border-coolBorder rounded-xl text-[11px] font-bold text-slate-600 active:scale-95 transition-all">
@@ -24001,109 +24033,98 @@ html.page-fade-ready body {
       // are no longer sort triggers — only the Branch column (see the
       // header markup further below) still sorts, so this is now a
       // static label instead of a clickable header.
-      const headHtml = months.map(function (m, mi) {
-        const borderCls = mi === 0 ? '' : ' border-l border-coolBorder';
-        if (isService) {
-          const key = m;
-          return `<th class="p-1.5 bg-gray-50 text-center whitespace-nowrap${borderCls}${mi === months.length - 1 ? ' text-accentIndigo' : ''}">${m}${mi === months.length - 1 ? ' \u25cf' : ''}</th>`;
-        }
-        return subCols.map(function (label, ci) {
-          return `<th class="p-1.5 bg-gray-50 text-center whitespace-nowrap${ci === 0 ? borderCls : ''}${mi === months.length - 1 ? ' text-accentIndigo' : ''}">${m}${mi === months.length - 1 ? ' \u25cf' : ''}<br><span class="normal-case font-semibold text-slate-400">${label}</span></th>`;
+      // Two-row header (month band on top, metric names underneath) with no
+      // rowspans, so sticky scrolling stays smooth. Data is right-aligned in
+      // tabular figures; the latest month is tinted and shows the change vs
+      // the month before; a sticky footer totals (or averages) each column.
+      const lastIdx = months.length - 1;
+      const metricsList = isService ? [null] : subCols;
+      const tabLabel = { collection: 'Collection', sales: 'Sales', service: 'Service' }[state.tab];
+
+      const groupHead = months.map(function (m, mi) {
+        const latest = mi === lastIdx;
+        return `<th colspan="${metricsList.length}" class="od-gh${latest ? ' od-latest' : ''}${mi ? ' od-gsep' : ''}">${m}${latest ? '<span class="od-tag">LATEST</span>' : ''}</th>`;
+      }).join('');
+      const subHead = months.map(function (m, mi) {
+        return metricsList.map(function (label, ci) {
+          return `<th class="od-sh${ci === 0 && mi ? ' od-gsep' : ''}${mi === lastIdx ? ' od-latest-col' : ''}">${isService ? 'Service \u20b1' : escapeFindingHTML(label)}</th>`;
         }).join('');
       }).join('');
 
-      // In-cell data bars: each value is shaded relative to the biggest value in
-      // its own month/metric column, so heavy and light branches pop out at a glance.
-      const barRgb = odTheme(state.tab).rgb;
-      const barMax = {};
-      branches.forEach(function (b) {
-        months.forEach(function (m) {
-          (isService ? [null] : subCols).forEach(function (label) {
-            const v = odVal(b, state.tab, m, label);
-            if (v === null) return;
-            const k = m + '||' + label;
-            if (!(k in barMax) || v > barMax[k]) barMax[k] = v;
-          });
-        });
-      });
-      const barStyle = function (b, m, label) {
-        const v = odVal(b, state.tab, m, label);
-        if (v === null || v < 0) return '';
-        const mx = barMax[m + '||' + label];
-        if (!mx || mx <= 0) return '';
-        const pct = Math.max(3, Math.min(100, v / mx * 100)).toFixed(1);
-        return ` style="background:linear-gradient(90deg, rgba(${barRgb},.20) ${pct}%, transparent ${pct}%)"`;
+      const kindFor = function (label) {
+        if (isService) return 'peso';
+        if (state.tab !== 'collection') return null;
+        return (/repo/i.test(label) && /rate/i.test(label)) ? 'repoRate' : (/effic/i.test(label) ? 'repo' : null);
       };
-      const svcDelta = function (b, mi) {
-        if (mi === 0) return '';
-        const cur = odVal(b, 'service', months[mi], null), prev = odVal(b, 'service', months[mi - 1], null);
-        if (cur === null || prev === null || prev === 0) return '';
-        const d = (cur - prev) / Math.abs(prev) * 100;
-        if (Math.abs(d) < 0.5) return '';
-        const up = d > 0;
-        return ` <span style="font-size:9px;font-weight:800;color:${up ? '#059669' : '#e11d48'}">${up ? '\u25b2' : '\u25bc'}${Math.abs(d).toFixed(0)}%</span>`;
+
+      const cellHtml = function (b, mi, label, ci) {
+        const m = months[mi];
+        let raw;
+        if (isService) raw = b.service ? b.service[m] : null;
+        else raw = (((state.tab === 'collection' ? b.collection : b.sales) || {})[m] || {})[label];
+        let dl = '';
+        if (mi === lastIdx && mi > 0) {
+          const d = odDelta(odVal(b, state.tab, m, label), odVal(b, state.tab, months[mi - 1], label), state.tab, label);
+          if (d.dir !== 0 && d.text && d.text !== 'new') {
+            dl = `<span class="od-dl ${d.cls === 'good' ? 'good' : 'bad'}">${d.dir > 0 ? '\u25b2' : '\u25bc'} ${d.text.replace(/^[+\u2212]/, '')}</span>`;
+          }
+        }
+        const cls = 'od-c' + (ci === 0 && mi ? ' od-gsep' : '') + (mi === lastIdx ? ' od-latest-col' : '');
+        return `<td class="${cls}"><div class="od-cell">${dl}<span>${fmt(raw, kindFor(label))}</span></div></td>`;
       };
 
       const rowsHtml = branches.map(function (b, idx) {
         const cells = months.map(function (m, mi) {
-          const borderCls = mi === 0 ? '' : ' border-l border-coolBorder';
-          if (state.tab === 'collection') {
-            const rec = (b.collection && b.collection[m]) || {};
-            return subCols.map(function (label, ci) {
-              // "Repo Rate" and "Efficiency" sub-columns are both
-              // percentages — "No. of Repo" is a plain count and must
-              // stay a plain number, so this specifically requires
-              // "repo" AND "rate" together (not "repo" alone) or an
-              // "Efficiency" label before treating a column as a percent.
-              const kind = (/repo/i.test(label) && /rate/i.test(label)) ? 'repoRate' : (/effic/i.test(label) ? 'repo' : null);
-              return `<td class="p-1.5 text-center whitespace-nowrap${ci === 0 ? borderCls : ''}"${barStyle(b, m, label)}>${fmt(rec[label], kind)}</td>`;
-            }).join('');
-          } else if (state.tab === 'sales') {
-            const rec = (b.sales && b.sales[m]) || {};
-            return subCols.map(function (label, ci) {
-              return `<td class="p-1.5 text-center whitespace-nowrap${ci === 0 ? borderCls : ''}"${barStyle(b, m, label)}>${fmt(rec[label])}</td>`;
-            }).join('');
-          } else {
-            const val = b.service ? b.service[m] : null;
-            return `<td class="p-1.5 text-center whitespace-nowrap${borderCls}"${barStyle(b, m, null)}>${fmt(val, 'peso')}${svcDelta(b, mi)}</td>`;
-          }
+          return metricsList.map(function (label, ci) { return cellHtml(b, mi, label, ci); }).join('');
         }).join('');
-        return `<tr class="border-b border-coolBorder hover:bg-gray-50/70">
-          <td class="p-1.5 text-center w-10 text-slate-400 text-xs sticky left-0 z-[5] bg-white">${idx + 1}</td>
-          <td class="p-1.5 font-semibold text-slate-700 whitespace-nowrap sticky left-10 z-[5] bg-white border-r border-coolBorder shadow-[3px_0_6px_-3px_rgba(0,0,0,0.08)]">${b.name}</td>
+        return `<tr>
+          <td class="od-c od-idx sticky left-0 z-[5]">${idx + 1}</td>
+          <td class="od-c od-bn sticky left-10 z-[5]" title="${escapeFindingHTML(b.name)}">${escapeFindingHTML(b.name)}</td>
           ${cells}
         </tr>`;
       }).join('');
 
-      const totalCols = 2 + months.length * (isService ? 1 : (subCols.length || 1));
+      const footCells = months.map(function (m, mi) {
+        return metricsList.map(function (label, ci) {
+          const agg = odAgg(branches, state.tab, m, label);
+          const isPct = !isService && overallDataMetricIsPercent(label);
+          const txt = agg.value === null ? '\u2014' : odFmtValue(agg.value, state.tab, label, isService);
+          const cls = (ci === 0 && mi ? ' od-gsep' : '') + (mi === lastIdx ? ' od-latest-col' : '');
+          return `<td class="${cls.trim()}">${txt}<span class="od-fsub">${isPct ? 'avg' : 'total'}</span></td>`;
+        }).join('');
+      }).join('');
 
-      // This deliberately keeps its own bounded, self-contained scroll box
-      // (h-[500px] / max-h-[60vh]) rather than flowing inside #modalBody's
-      // own scroll: #modalDialog's fullscreen toggle specifically resizes
-      // any [class*="h-[500px]"]/[class*="max-h-"] box to fill the real
-      // available height (see the #modalDialog.modal-fullscreen rules
-      // near the top of the stylesheet), and #modalBody's own flex
-      // containment isn't reliable enough on its own to keep the header/
-      // tabs/toolbar pinned once this table's full row count is flowed
-      // into it directly — without the bounded box, the whole backdrop
-      // ends up scrolling instead, and the toolbar scrolls away with it.
-      // What WAS a real bug is that a `-webkit-overflow-scrolling: touch`
-      // box like this one doesn't always repaint the instant its content
-      // changes — see nudgeScrollRepaint(), called after every update.
+      const totalCols = 2 + months.length * metricsList.length;
+
+      // Bounded, self-contained scroll box on purpose — the fullscreen toggle
+      // resizes it (see the #overallDataScrollBox rules in the stylesheet) and
+      // nudgeScrollRepaint() fixes the iOS repaint glitch after every update.
       return `
-        <div class="mb-1 text-[11px] font-semibold text-slate-400">Showing ${branches.length} of ${totalBranchCount} branches</div>
+        <div class="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+          <div class="text-[11px] font-semibold text-slate-400">Showing ${branches.length} of ${totalBranchCount} branches</div>
+          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Latest month tinted \u00b7 <span style="color:#059669">\u25b2</span><span style="color:#e11d5f">\u25bc</span> change vs ${months.length > 1 ? months[lastIdx - 1] : 'previous'}</div>
+        </div>
         <div id="overallDataScrollBox" class="rounded-xl border border-coolBorder overflow-auto custom-scrollbar custom-scrollbar-x${state.chartExpanded ? '' : ' chart-collapsed'}">
-          <table class="w-full min-w-[520px] text-left border-collapse bg-white relative">
-            <thead class="bg-gray-50 border-b border-coolBorder text-xs text-slate-500 tracking-wider font-semibold uppercase sticky top-0 z-20 shadow-sm">
+          <table class="od-t text-left relative">
+            <thead class="sticky top-0 z-20 shadow-sm">
               <tr>
-                <th class="p-1.5 bg-gray-50 text-center w-10 whitespace-nowrap sticky left-0 z-30">#</th>
-                <th class="p-1.5 bg-gray-50 text-left whitespace-nowrap cursor-pointer select-none hover:text-accentIndigo transition-colors sticky left-10 z-30 border-r border-coolBorder shadow-[3px_0_6px_-3px_rgba(0,0,0,0.12)]" onclick="setOverallDataSort('name')" title="Sort by Branch">Branch ${sortArrow('name')}</th>
-                ${headHtml}
+                <th colspan="2" class="od-gh0 sticky left-0 z-30">${tabLabel} \u00b7 by month</th>
+                ${groupHead}
+              </tr>
+              <tr>
+                <th class="od-sh od-sh0 sticky left-0 z-30">#</th>
+                <th class="od-sh od-shb sticky left-10 z-30 cursor-pointer select-none hover:text-accentIndigo transition-colors" onclick="setOverallDataSort('name')" title="Sort by Branch">Branch ${sortArrow('name')}</th>
+                ${subHead}
               </tr>
             </thead>
-            <tbody class="text-sm text-slate-700 divide-y divide-coolBorder">
-              ${rowsHtml || `<tr><td colspan="${totalCols}" class="p-5 text-center text-slate-400 text-sm">No branches match your search.</td></tr>`}
+            <tbody>
+              ${rowsHtml || `<tr><td colspan="${totalCols}" class="od-c" style="text-align:center;color:#94a3b8;height:64px">No branches match your search.</td></tr>`}
             </tbody>
+            ${branches.length ? `<tfoot><tr>
+              <td class="od-l0">\u03a3</td>
+              <td class="od-l1">All shown<span class="od-fsub">total \u00b7 avg for rates</span></td>
+              ${footCells}
+            </tr></tfoot>` : ''}
           </table>
         </div>`;
     }
