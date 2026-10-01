@@ -1,6 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v59'
+const CACHE_VERSION = 'audit-dashboard-v60'
+// v60: SPEED / RELIABILITY PASS (pairs with the index.html + Code.gs timeout fixes). (1) Install downloads index.html ONCE instead of twice ('./' and './index.html' were the same 1.9 MB file fetched two times). (2) A failed cache write (storage full) can no longer break the very first page load. (3) The background update check always asks for the canonical index.html (not whatever ?query the app was opened with) and gives up after 20 s instead of hanging. (4) Sibling pages (Opex, Parts, Attendance) fall back to their saved copy after 8 s on a bad connection instead of waiting on the network. (5) A failed CDN fetch with nothing saved now returns a clean network error instead of crashing the handler. (6) Other same-origin files (icons, screenshots) refresh in the background instead of staying frozen until the next version bump. Backend calls (script.google.com / googleusercontent.com) are still never touched. Bumped so installed apps refetch index.html.
 // v59: "Last synced" label now follows every successful check (opening the app, Update data, the 20-second live check) instead of only when changed data was re-processed. Bumped so installed apps refetch index.html.
 // v58: PERF/FLICKER PASS. index.html: popup search boxes render once after a short typing pause instead of rebuilding the whole popup (and re-focusing the input) on every keystroke; the stat-card pulse no longer forces ~29 layouts per render; the toast no longer uses a backdrop blur. This file: the dashboard shell is no longer rewritten into the cache when the server's ETag proves it is unchanged, and version-pinned CDN files (apexcharts@x.y.z, firebasejs/x.y.z, font files) are served cache-first instead of being re-fetched and re-stored on every load. Bumped so installed apps refetch index.html.
 // v57: Connection signal (yellow/green/red dot beside "Update data") + popup listing every connection and which edit functions are available. Bumped so installed apps refetch index.html.
@@ -109,7 +110,6 @@ const CACHE_VERSION = 'audit-dashboard-v59'
 const CACHE_NAME = CACHE_VERSION;
 
 const APP_SHELL = [
-  './',
   './index.html',
   './manifest.json',
   './icons/icon-192.png',
@@ -132,7 +132,36 @@ const CDN_HOSTS = [
   'www.gstatic.com'
 ];
 // index.html is the only file the app cannot run without.
-const APP_SHELL_CRITICAL = ['./', './index.html'];
+const APP_SHELL_CRITICAL = ['./index.html'];
+
+// Race a promise against a timer. Resolves with `fallback()` if it is slower.
+function withTimeout(promise, ms, fallback) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const t = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      Promise.resolve().then(fallback).then(resolve, reject);
+    }, ms);
+    promise.then(
+      (v) => { if (settled) return; settled = true; clearTimeout(t); resolve(v); },
+      (e) => { if (settled) return; settled = true; clearTimeout(t); reject(e); }
+    );
+  });
+}
+
+// fetch() that is aborted after `ms` (so a hung connection can't hold the worker open).
+function fetchWithAbort(input, init, ms) {
+  const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = ctl ? setTimeout(() => ctl.abort(), ms) : null;
+  const opts = Object.assign({}, init || {}, ctl ? { signal: ctl.signal } : {});
+  return fetch(input, opts).finally(() => { if (timer) clearTimeout(timer); });
+}
+
+// The ONE canonical URL of the dashboard shell (ignores ?query / #hash the app was opened with).
+function shellUrl() {
+  return new URL('index.html', self.registration.scope).href;
+}
 
 // ---- Install ----
 self.addEventListener('install', (event) => {
@@ -268,7 +297,7 @@ self.addEventListener('fetch', (event) => {
               if (response && response.ok) cache.put(request, response.clone());
               return response;
             })
-            .catch(() => cached);
+            .catch(() => cached || Response.error());   // FIX: undefined here made respondWith() throw
           if (cached) {
             event.waitUntil(network.catch(() => {})); // keep worker alive for the refresh
             return cached;
@@ -285,14 +314,19 @@ self.addEventListener('fetch', (event) => {
   // network-first, cache that page under its OWN key, never touch index.html.
   if (request.mode === 'navigate' && !isDashboardShellUrl(url)) {
     event.respondWith(
-      fetch(request)
-        .then((response) => {
+      // FIX: on a bad connection these pages waited on the network indefinitely even
+      // when a saved copy existed. After 8 s the saved copy is used instead.
+      withTimeout(
+        fetch(request).then((response) => {
           if (response && response.ok) {
             const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => {});
           }
           return response;
-        })
+        }),
+        8000,
+        () => caches.match(request).then((c) => c || fetch(request))
+      )
         .catch(() =>
           caches.match(request).then((cached) =>
             cached || new Response(
@@ -313,10 +347,17 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) =>
         cache.match('./index.html').then((cached) => {
-          // 'no-cache' = revalidate with ETag/Last-Modified. A 304 costs a few
+          // Always revalidate the canonical index.html (never the raw navigation
+          // request: its ?query or redirect mode could make the check meaningless).
+          // 'no-cache' = revalidate with ETag/Last-Modified; a 304 costs a few
           // hundred bytes instead of re-downloading the whole file.
-          const updateCache = fetch(request, { cache: 'no-cache' })
-            .then((response) => {
+          // With a saved copy the check runs in the background and is abandoned
+          // after 20 s; with NO saved copy (first ever open) it gets the browser's
+          // normal patience because the page can't start without it.
+          const updateCache = (cached
+            ? fetchWithAbort(shellUrl(), { cache: 'no-cache' }, 20000)
+            : fetch(shellUrl(), { cache: 'no-cache' })
+          ).then((response) => {
               if (response && response.ok) {
                 // Same strong validator as the cached copy => provably the same
                 // file: nothing to hash, and no reason to re-write ~1.9 MB into
@@ -334,9 +375,13 @@ self.addEventListener('fetch', (event) => {
                   ? bodiesDiffer(cached.clone(), fresh)
                   : Promise.resolve(false);
                 return check.then((changed) =>
-                  cache.put('./index.html', toStore).then(() => {
-                    if (changed) return notifyClientsOfUpdate();
-                  })
+                  // FIX: a failed cache write (storage full / quota) used to reject this
+                  // whole chain, so on the very first open the page itself never loaded.
+                  // The write is now best-effort: the response is returned either way.
+                  cache.put('./index.html', toStore).then(
+                    () => { if (changed) return notifyClientsOfUpdate(); },
+                    (err) => { console.warn('[service-worker] could not save index.html (storage full?):', err); }
+                  )
                 ).then(() => response);
               }
               return response;
@@ -364,7 +409,7 @@ self.addEventListener('fetch', (event) => {
               if (response && response.ok) cache.put(request, response.clone());
               return response;
             })
-            .catch(() => cached);
+            .catch(() => cached || Response.error());
           if (cached) { event.waitUntil(network.catch(() => {})); return cached; }
           return network;
         })
@@ -373,17 +418,23 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Same-origin static assets: cache-first.
+  // Same-origin static assets (icons, screenshots...): serve the saved copy at once,
+  // refresh it quietly in the background so a replaced icon doesn't stay frozen
+  // until the next CACHE_VERSION bump.
   event.respondWith(
-    caches.match(request).then((cached) =>
-      cached ||
-      fetch(request).then((response) => {
+    caches.match(request).then((cached) => {
+      const network = fetch(request).then((response) => {
         if (response && response.ok) {
           const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => {});
         }
         return response;
-      })
-    )
+      });
+      if (cached) {
+        event.waitUntil(network.catch(() => {}));
+        return cached;
+      }
+      return network;
+    })
   );
 });

@@ -22440,6 +22440,22 @@ html.page-fade-ready body {
           reject(new Error('JSONP script failed to load'));
         };
 
+        // FIX (the long "JSON timed out" wait): when Google answers with an HTML
+        // page (error / sign-in / quota) instead of JSON, the <script> still
+        // "loads" without ever calling the callback, so this used to sit there
+        // for the FULL timeout (20-30 s) before failing. A JSONP reply runs the
+        // callback synchronously while the script executes, so if onload fires and
+        // the callback has not run, the answer is never coming: fail right away
+        // and let the retry layer take over.
+        script.onload = function() {
+          if (done) return;
+          cleanup();
+          console.warn('[dashboard-timing] JSONP script loaded but returned no data after ' + Math.round(performance.now() - __t0) + 'ms');
+          const be = new Error('JSONP script failed to load (the server did not return data)');
+          be.isBadResponse = true;
+          reject(be);
+        };
+
         const sep = url.indexOf('?') === -1 ? '?' : '&';
         script.src = url + sep + 'callback=' + callbackName;
         document.body.appendChild(script);
@@ -22883,8 +22899,8 @@ html.page-fade-ready body {
     // shorter timeouts were aborting perfectly-good-but-slow requests and
     // showing the "Couldn't load the dashboard" error even though the
     // backend would have answered a few seconds later.
-    const DIRECT_FETCH_TIMEOUT_MS = 25000;
-    const JSONP_FETCH_TIMEOUT_MS = 30000;
+    const DIRECT_FETCH_TIMEOUT_MS = 18000;
+    const JSONP_FETCH_TIMEOUT_MS = 20000;
 
     // BUG FIX: a previously-LEARNED 'direct' transport (see
     // LEARNED_TRANSPORT_TTL_MS above) used to reuse the full, cold-start-
@@ -23077,6 +23093,16 @@ html.page-fade-ready body {
         try {
           const json = await fetchSheetTransport(url, timeouts);
           markBackendOk(url);
+          // FIX: Code.gs now answers a Google quota / capacity / "temporary problem"
+          // hiccup with a normal JSON error instead of an HTML page. That error is
+          // transient, so give it one patient retry (3 s) before surfacing it,
+          // instead of passing it straight up where it was retried immediately.
+          if (canRetry && attempt < maxAttempts && json && typeof json.error === 'string' &&
+              /temporarily at capacity|temporary problem|try again in a moment/i.test(json.error)) {
+            console.warn('[request] server busy (' + json.error + ') -- retrying once in 3 s');
+            await new Promise(function (r) { setTimeout(r, 3000); });
+            continue;
+          }
           return json;
         } catch (err) {
           lastErr = err;
@@ -23084,7 +23110,11 @@ html.page-fade-ready body {
           if (attempt < maxAttempts) await new Promise(function (r) { setTimeout(r, RETRY_DELAY_MS * attempt); });
         }
       }
-      throw friendlyNetworkError(lastErr, maxAttempts > 1);
+      const finalErr = friendlyNetworkError(lastErr, maxAttempts > 1);
+      // Tell callers this request was ALREADY retried here, so fetchSheet() does not
+      // multiply the attempts again (it used to: 2 x 2 x 30 s = minutes of spinner).
+      try { if (maxAttempts > 1 && finalErr && typeof finalErr === 'object') finalErr.alreadyRetried = true; } catch (e) { /* non-fatal */ }
+      throw finalErr;
     }
     // ================= END REQUEST LAYER =================
 
@@ -24887,7 +24917,13 @@ html.page-fade-ready body {
               // guaranteed-live read but no visible overlay). Never set on
               // an ordinary silent auto-refresh, so this doesn't change
               // that normal cached-load behavior at all.
-              ((!isAutoLoad || forceHardReset) ? '&hardReset=1' : '');
+              // FIX: only a MANUAL "Update data" click forces the server to rebuild
+              // from the Sheets. The silent post-save refresh used to force a full
+              // 6-sheet rebuild too, which is what made every save slow and
+              // time out. Code.gs now marks just the saved sheet as changed and
+              // re-reads only that one on the normal path, so afterSave=1 asks for
+              // that cheap path (and below we still re-apply the result).
+              (!isAutoLoad ? '&hardReset=1' : '') + (forceHardReset ? '&afterSave=1' : '');
             console.log('[dashboard-timing] fetchSheet attempt ' + attempt + '/' + MAX_ATTEMPTS + ' starting (isAutoLoad=' + isAutoLoad + ')');
             __bp(50, 'Requesting latest audit records\u2026', 78);
             const json = await fetchSheetOnce(fetchUrl);
@@ -24907,7 +24943,8 @@ html.page-fade-ready body {
             // on a very old/uncached backend response, in which case we
             // just always reprocess (identical to the old behavior).
             const incomingVersion = json && json.dataVersion;
-            const dataUnchanged = incomingVersion != null &&
+            const dataUnchanged = !forceHardReset &&
+              incomingVersion != null &&
               lastAppliedDataVersion != null &&
               incomingVersion === lastAppliedDataVersion &&
               isDashboardDataUsable();
@@ -24963,7 +25000,11 @@ html.page-fade-ready body {
           } catch (error) {
             lastError = error;
             console.warn('[dashboard-timing] fetchSheet attempt ' + attempt + ' of ' + MAX_ATTEMPTS + ' failed after ' + Math.round(performance.now() - __attemptT0) + 'ms:', error);
-            const isLastAttempt = attempt === MAX_ATTEMPTS;
+            // FIX: fetchSheetOnce() already retried this request; repeating the whole
+            // thing here multiplied the wait (the outer loop in
+            // loadInitialDashboardData backs off properly instead).
+            const isLastAttempt = attempt === MAX_ATTEMPTS || (error && error.alreadyRetried === true);
+            if (error && error.alreadyRetried === true) break;
             if (!isLastAttempt) {
               // Connection hiccups happen — keep the ride overlay up and
               // quietly retry instead of surfacing a failure right away.
@@ -25027,7 +25068,14 @@ html.page-fade-ready body {
     // instant the app is looked at / comes back online. Only when the answer
     // differs from what is on screen does it download the data. The old
     // 5-minute full refresh stays as a safety net.
-    const LIVE_VERSION_POLL_MS = 20 * 1000;
+    const LIVE_VERSION_POLL_MS = 30 * 1000;      // was 20 s: ~100 viewers x 3 calls/min was crowding out real loads
+    let liveVersionFailures = 0;                 // consecutive failed/slow checks -> back off instead of piling on
+    let liveVersionSkipUntil = 0;
+    function liveVersionNoteFailure() {
+      liveVersionFailures = Math.min(liveVersionFailures + 1, 5);
+      // 1 miss -> wait ~1 min, 2 -> ~2 min ... capped at 5 min, so a slow server gets room to recover
+      liveVersionSkipUntil = Date.now() + Math.min(LIVE_VERSION_POLL_MS * Math.pow(2, liveVersionFailures), 5 * 60 * 1000);
+    }
     let liveVersionTimer = null;
     let liveVersionBusy = false;
     let liveVersionUnsupported = false;      // set if the backend has no "dataVersion" action yet
@@ -25041,6 +25089,8 @@ html.page-fade-ready body {
     window.liveVersionCheck = async function (fromFocus) {
       if (liveVersionBusy || liveVersionUnsupported || document.hidden) return;
       if (isFetchingSheet) return;                        // a full load is already running
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) return;   // offline: nothing to ask
+      if (!fromFocus && Date.now() < liveVersionSkipUntil) return;                   // backing off after a slow/failed check
       if (lastAppliedDataVersion == null || !isDashboardDataUsable()) return; // initial load owns that
       const now = Date.now();
       if (fromFocus && (now - liveVersionLastCheckAt) < 3000) return;         // collapse rapid focus events
@@ -25052,8 +25102,9 @@ html.page-fade-ready body {
         const url = defaultAppsScriptUrl + '?action=dataVersion&secret=' + encodeURIComponent(appsScriptSecret) +
           '&idToken=' + encodeURIComponent(idToken) + '&t=' + Date.now();
         const json = await fetchSheetOnce(url);
-        if (!json || json.error) return;                   // quiet: the 5-minute refresh still covers us
+        if (!json || json.error) { liveVersionNoteFailure(); return; }   // quiet: the 5-minute refresh still covers us
         if (!json.success || json.dataVersion == null) { liveVersionUnsupported = true; return; } // older backend: fall back
+        liveVersionFailures = 0; liveVersionSkipUntil = 0;
         const v = Number(json.dataVersion);
         if (!(v > 0)) return;
         if (v !== Number(lastAppliedDataVersion)) {
@@ -25068,6 +25119,7 @@ html.page-fade-ready body {
           touchLastSyncedNow(); // live check just confirmed the Sheet is unchanged since what is on screen
         }
       } catch (err) {
+        liveVersionNoteFailure();
         console.warn('[live] version check skipped:', err && err.message ? err.message : err);
       } finally {
         liveVersionBusy = false;
@@ -25081,6 +25133,7 @@ html.page-fade-ready body {
     window.liveVersionStart = function () {
       if (liveVersionTimer) return;
       liveVersionUnsupported = false;
+      liveVersionFailures = 0; liveVersionSkipUntil = 0;
       liveVersionTimer = setInterval(function () { window.liveVersionCheck(false); }, LIVE_VERSION_POLL_MS);
       window.addEventListener('online', liveVersionOnWake);
       window.addEventListener('focus', liveVersionOnWake);
