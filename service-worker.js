@@ -1,6 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v58'
+const CACHE_VERSION = 'audit-dashboard-v59'
+// v59: "Last synced" label now follows every successful check (opening the app, Update data, the 20-second live check) instead of only when changed data was re-processed. Bumped so installed apps refetch index.html.
 // v58: PERF/FLICKER PASS. index.html: popup search boxes render once after a short typing pause instead of rebuilding the whole popup (and re-focusing the input) on every keystroke; the stat-card pulse no longer forces ~29 layouts per render; the toast no longer uses a backdrop blur. This file: the dashboard shell is no longer rewritten into the cache when the server's ETag proves it is unchanged, and version-pinned CDN files (apexcharts@x.y.z, firebasejs/x.y.z, font files) are served cache-first instead of being re-fetched and re-stored on every load. Bumped so installed apps refetch index.html.
 // v57: Connection signal (yellow/green/red dot beside "Update data") + popup listing every connection and which edit functions are available. Bumped so installed apps refetch index.html.
 // v56: Backend pass (Code.gs #17): remark edit/delete now refuses a stale row instead of overwriting the wrong remark, heartbeats no longer flush the device-list cache every time. Bumped so installed apps pick up the matching backend behaviour and refetch index.html.

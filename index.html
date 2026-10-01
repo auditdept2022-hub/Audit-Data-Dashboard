@@ -24915,7 +24915,7 @@ html.page-fade-ready body {
             if (dataUnchanged) {
               console.log('[dashboard-timing] fetchSheet: data unchanged (dataVersion=' + incomingVersion + ') — skipping reprocess/rerender');
               settleRide(function() {
-                updateLastSyncedLabel();
+                touchLastSyncedNow(); // server just confirmed this data is current
               });
               prefetchOverallDataInBackground(!isAutoLoad || window.__liveVersionTriggered === true);
               return;
@@ -25064,6 +25064,8 @@ html.page-fade-ready body {
             try { await fetchSheet(true); }
             finally { window.__liveVersionTriggered = false; }
           }
+        } else {
+          touchLastSyncedNow(); // live check just confirmed the Sheet is unchanged since what is on screen
         }
       } catch (err) {
         console.warn('[live] version check skipped:', err && err.message ? err.message : err);
@@ -25199,6 +25201,19 @@ html.page-fade-ready body {
         updateLastSyncedLabel();
     }
 
+    // FIX ("Last synced" did not follow): the stamp was only written when changed
+    // data was re-processed, so a successful check that found NOTHING new (open the
+    // app, press Update data, or the 20-second live check) left the label on the
+    // old time. Call this when the server has just confirmed the data on screen is
+    // current. It only moves the display stamp (nothing else reads it) and never
+    // re-writes the cached data itself.
+    function touchLastSyncedNow() {
+        const ts = new Date().toISOString();
+        window.__dashCacheTsMem = ts;
+        try { localStorage.setItem(dashCacheTsKeyFor(currentCacheOwnerEmail()), ts); } catch (e) { /* storage full: in-memory stamp still used */ }
+        updateLastSyncedLabel();
+    }
+
     function loadDashboardDataFromCache() {
         try {
             const email = currentCacheOwnerEmail();
@@ -25224,9 +25239,9 @@ html.page-fade-ready body {
         // visible at a time (Tailwind breakpoint classes handle that), so
         // both are just kept up to date unconditionally here.
         const el = document.getElementById('lastSyncedLabel');
-        if (el) el.textContent = text;
+        if (el && el.textContent !== text) el.textContent = text;
         const elMobile = document.getElementById('lastSyncedLabelMobile');
-        if (elMobile) elMobile.textContent = text;
+        if (elMobile && elMobile.textContent !== text) elMobile.textContent = text;
     }
 
     function emptyDashboardData() {
