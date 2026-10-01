@@ -6074,7 +6074,7 @@ html.page-fade-ready body {
 
       <div class="flex items-center gap-0.5 w-full lg:w-auto justify-end">
         <!-- CONNECTION SIGNAL: steady yellow / green / red dot. Never fades or auto-hides. Tap = connection + edit-availability popup. -->
-        <button id="connSignalBtn" type="button" class="conn-sig conn-sig-warn" title="Connection status: checking" aria-label="Connection status: checking" aria-haspopup="dialog"><span class="conn-dot"></span><span class="conn-sig-text"><span class="conn-sig-label" id="connSigLabel">Connecting</span><span class="conn-sig-sub" id="connSigSub">Checking…</span></span></button>
+        <button id="connSignalBtn" type="button" class="conn-sig conn-sig-warn" title="Connection status: checking" aria-label="Connection status: checking" aria-haspopup="dialog"><span class="conn-bars" aria-hidden="true"><i></i><i></i><i></i></span><span class="conn-sig-text"><span class="conn-sig-label" id="connSigLabel">Connecting</span><span class="conn-sig-sub" id="connSigSub"></span></span></button>
 
         <button id="updateDataBtn" onclick="fetchSheet().catch(function(e){console.warn('Update data failed:', e);})" title="Refresh dashboard data" class="group flex items-center gap-2 px-2.5 sm:px-3 py-2 rounded-lg hover:bg-white/10 active:bg-white/15 cursor-pointer text-sm font-medium transition-colors duration-150 text-white/90 hover:text-white whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
           <span id="updateDataIconWrap" class="flex items-center gap-2">
@@ -27213,17 +27213,16 @@ html.page-fade-ready body {
   .conn-sig{display:inline-flex;align-items:center;gap:9px;padding:6px 14px 6px 10px;margin-right:4px;border:0;border-right:1px solid rgba(255,255,255,.15);border-radius:8px 0 0 8px;background:transparent;color:rgba(255,255,255,.92);cursor:pointer;white-space:nowrap;text-align:left;transition:background .15s}
   .conn-sig:hover{background:rgba(255,255,255,.10)}
   .conn-sig:active{background:rgba(255,255,255,.15)}
-  .conn-dot{display:inline-block;width:12px;height:12px;border-radius:50%;flex:0 0 12px;background:#facc15;box-shadow:0 0 0 2px rgba(15,37,71,1),0 0 0 3.5px #facc15}
-  .conn-sig-text{display:flex;flex-direction:column;line-height:1.15}
-  .conn-sig-label{font-size:14px;font-weight:500}
-  .conn-sig-sub{font-size:9px;font-weight:500;color:rgba(255,255,255,.55);max-width:120px;overflow:hidden;text-overflow:ellipsis}
-  .conn-sig-ok .conn-dot,.cm-d-ok{background:#22c55e}
-  .conn-sig-ok .conn-dot{box-shadow:0 0 0 2px rgba(15,37,71,1),0 0 0 3.5px #22c55e}
-  .conn-sig-warn .conn-dot,.cm-d-warn{background:#facc15}
-  .conn-sig-bad .conn-dot,.cm-d-bad{background:#ef4444}
-  .conn-sig-bad .conn-dot{box-shadow:0 0 0 2px rgba(15,37,71,1),0 0 0 3.5px #ef4444}
-  .cm-d-off{background:#94a3b8}
-  @media (max-width:639px){.conn-sig-text{display:none}.conn-sig{padding:10px 10px 10px 8px;gap:0}}
+  .conn-bars{display:inline-flex;align-items:flex-end;gap:2.5px;height:18px;flex:0 0 auto}
+  .conn-bars i{display:block;width:5px;border-radius:1.5px;background:rgba(255,255,255,.25)}
+  .conn-bars i:nth-child(1){height:7px}.conn-bars i:nth-child(2){height:12px}.conn-bars i:nth-child(3){height:18px}
+  .conn-sig-ok .conn-bars i{background:#22c55e}
+  .conn-sig-warn .conn-bars i:nth-child(-n+2){background:#facc15}
+  .conn-sig-bad .conn-bars i:nth-child(1){background:#ef4444}
+  .conn-sig-label{font-size:14px;font-weight:500;line-height:1}
+  .conn-sig-sub{display:none}
+  .cm-d-ok{background:#22c55e}.cm-d-warn{background:#facc15}.cm-d-bad{background:#ef4444}.cm-d-off{background:#94a3b8}
+  @media (max-width:639px){.conn-sig-text{display:none}.conn-sig{padding:10px 10px 10px 8px}}
 
   #connModal{position:fixed;inset:0;z-index:10000;display:none;align-items:center;justify-content:center;background:rgba(2,8,23,.62);padding:12px}
   #connModal.cm-open{display:flex}
