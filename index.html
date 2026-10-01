@@ -18196,131 +18196,168 @@ html.page-fade-ready body {
       try { return await window.getCurrentIdToken(); } catch (e) { return null; }
     }
 
-    // Sends one staged row to the Code.gs addFinding endpoint. Uses the same
-    // GET+JSONP transport (fetchSheetOnce, defined further down this file)
-    // already proven reliable for the rest of the dashboard's saves — a
-    // plain POST silently loses its body on Apps Script's redirect, so this
-    // deliberately goes out as a GET with everything in the query string.
-    async function sendFindingRowToSheet(row) {
-      const secret = loadFindingsEditorSecret();
-      const idToken = await findingsGetAuthToken_();
-      if (!idToken) throw new Error('not-signed-in');
-      const params = new URLSearchParams({
-        action: 'addFinding',
-        secret: secret,
-        idToken: idToken,
-        date: row.date || '',
-        branch: row.branch || '',
-        category: row.category || '',
-        finding: row.finding || '',
-        year: row.year || ''
-      });
-      const url = FINDINGS_APPS_SCRIPT_URL + '?' + params.toString();
-      const json = await fetchSheetOnce(url);
-      if (!json) throw new Error('No response from the sheet — please try again.');
-      // Deliberately generic: whether Code.gs rejected this because of a
-      // wrong secret OR because the signed-in account just isn't on
-      // AUDIT_ALLOWED_EMAILS, surface the SAME message either way. Distinguishing
-      // them would tell someone their account is real/recognized but simply
-      // not allow-listed — exactly the kind of detail this shouldn't leak.
-      if (json.error) {
-        throw new Error(/unauthorized/i.test(json.error) ? 'not-authorized' : json.error);
+    // =====================================================================
+    // Findings API layer (v2) — one shared caller for every Code.gs action.
+    //
+    // SPEED NOTES
+    //  * openAddFindingModal() now makes ONE request (action=init) instead of
+    //    three (list + recentFindings + history).
+    //  * Every write sends refresh=1, so the server returns the fresh
+    //    Recent/History lists in the SAME response — no follow-up reload.
+    //  * "Send All" goes out as batches (action=addFindings): N staged rows
+    //    cost 1 request per ~10 rows instead of N sequential requests.
+    //  * The findings backend is pre-warmed (action=ping) on page idle and
+    //    the moment someone presses an Add Finding button.
+    // SAFETY NOTES
+    //  * Every write carries a reqId. fetchSheetOnce() may automatically
+    //    retry a request that timed out in the browser but actually ran on
+    //    the server; Code.gs replays the first result for the same reqId, so
+    //    a retry can no longer create a DUPLICATE finding.
+    //  * Edit/Delete/Restore also send the row's `key` fingerprint, so the
+    //    server refuses to touch a row somebody else changed or deleted
+    //    since this list was loaded (and the lists are refreshed).
+    // =====================================================================
+    let _findingsSupportsInit = true;   // flipped to false if an older Code.gs deployment answers "Unknown action"
+    let _findingsSupportsBatch = true;
+
+    function findingsNewReqId_() {
+      return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    }
+    // Stable per staged row, so a manual re-send of a row whose first attempt
+    // actually went through is recognised by the server instead of duplicated.
+    function findingsReqIdForRow_(row) {
+      const base = String((row && row.id) || '').replace(/[^A-Za-z0-9_-]/g, '').slice(-60);
+      return 'add' + (base.length >= 6 ? base : base + findingsNewReqId_());
+    }
+
+    function applyFindingsServerLists_(json) {
+      if (!json) return;
+      if (Array.isArray(json.recent)) {
+        _findingsRecentCache = { loading: false, loaded: true, rows: json.recent, error: null };
+        renderRecentFindingsTable();
       }
-      if (!json.success) throw new Error("Save didn't complete — please try again.");
+      if (Array.isArray(json.history)) {
+        _findingsHistoryCache = { loading: false, loaded: true, rows: json.history, error: null };
+        renderFindingsHistoryTable();
+      }
+    }
+
+    // Used after a write when the server (older deployment) did not send the
+    // lists back: fall back to the old separate reloads.
+    function findingsEnsureListsFresh_(json, needHistory) {
+      if (!json || !Array.isArray(json.recent)) loadRecentFindingsFromSheet(true);
+      if (needHistory && (!json || !Array.isArray(json.history))) loadFindingsHistoryFromSheet(true);
+    }
+
+    async function findingsApi_(action, fields, failMsg) {
+      const idToken = await findingsGetAuthToken_();
+      if (!idToken) throw new Error('not-signed-in');
+      const params = new URLSearchParams(Object.assign(
+        { action: action, secret: loadFindingsEditorSecret(), idToken: idToken }, fields || {}));
+      const json = await fetchSheetOnce(FINDINGS_APPS_SCRIPT_URL + '?' + params.toString());
+      if (!json) throw new Error('No response from the sheet — please try again.');
+      // Deliberately generic for auth failures (see the original note: don't
+      // reveal whether an account is "real but not allow-listed").
+      if (json.error) {
+        if (json.stale) { loadRecentFindingsFromSheet(true); loadFindingsHistoryFromSheet(true); }
+        const e = new Error(/unauthorized/i.test(json.error) ? 'not-authorized' : json.error);
+        e.stale = !!json.stale;
+        throw e;
+      }
+      if (!json.success) throw new Error(failMsg || "That didn't complete — please try again.");
+      applyFindingsServerLists_(json);
       return json;
     }
 
-    // Sends an edit for one EXISTING sheet row to the Code.gs
-    // updateFinding endpoint (by row number — see action=recentFindings,
-    // which is what tells the dashboard which row number a given entry
-    // actually lives at). Same GET+JSONP transport as sendFindingRowToSheet.
+    function findingsRowKey_(cache, rowNum) {
+      const r = (cache.rows || []).find(x => x.row === rowNum);
+      return r && r.key ? String(r.key) : '';
+    }
+
+    // Sends one staged row (action=addFinding).
+    async function sendFindingRowToSheet(row) {
+      return findingsApi_('addFinding', {
+        reqId: findingsReqIdForRow_(row),
+        date: row.date || '', branch: row.branch || '', category: row.category || '',
+        finding: row.finding || '', year: String(row.year || ''),
+        refresh: '1', count: '15'
+      }, "Save didn't complete — please try again.");
+    }
+
+    // Sends several staged rows in ONE request (action=addFindings).
+    // Resolves to the server's per-row results, in the same order as `rows`.
+    async function sendFindingRowsBatchToSheet(rows) {
+      const payload = rows.map(r => ({
+        id: findingsReqIdForRow_(r),
+        date: r.date || '', branch: r.branch || '', category: r.category || '',
+        finding: r.finding || '', year: String(r.year || '')
+      }));
+      const json = await findingsApi_('addFindings', {
+        rows: JSON.stringify(payload), refresh: '1', count: '15'
+      }, "Save didn't complete — please try again.");
+      return Array.isArray(json.results) ? json.results : [];
+    }
+
+    // Edit for one EXISTING sheet row (action=updateFinding).
     async function updateFindingRowInSheet(rowNum, row) {
-      const secret = loadFindingsEditorSecret();
-      const idToken = await findingsGetAuthToken_();
-      if (!idToken) throw new Error('not-signed-in');
-      const params = new URLSearchParams({
-        action: 'updateFinding',
-        secret: secret,
-        idToken: idToken,
+      return findingsApi_('updateFinding', {
+        reqId: findingsNewReqId_(),
         row: String(rowNum),
-        date: row.date || '',
-        branch: row.branch || '',
-        category: row.category || '',
-        finding: row.finding || '',
-        year: row.year || ''
-      });
-      const url = FINDINGS_APPS_SCRIPT_URL + '?' + params.toString();
-      const json = await fetchSheetOnce(url);
-      if (!json) throw new Error('No response from the sheet — please try again.');
-      if (json.error) throw new Error(/unauthorized/i.test(json.error) ? 'not-authorized' : json.error);
-      if (!json.success) throw new Error("Update didn't complete — please try again.");
-      return json;
+        key: findingsRowKey_(_findingsRecentCache, rowNum),
+        date: row.date || '', branch: row.branch || '', category: row.category || '',
+        finding: row.finding || '', year: String(row.year || ''),
+        refresh: '1', count: '15'
+      }, "Update didn't complete — please try again.");
     }
 
-    // Clears one EXISTING sheet row (by row number) via the Code.gs
-    // deleteFinding endpoint. See Code.gs's handleDeleteFinding_ — the row
-    // is archived to the HISTORY sheet (with who/when) before it's cleared
-    // from RAW DATA, so this is a "soft" delete: recoverable from the
-    // History list below for 30 days, then auto-purged server-side.
+    // Soft-deletes one EXISTING sheet row (action=deleteFinding): the server
+    // archives it to HISTORY (who/when) before clearing it from RAW DATA —
+    // recoverable from History for 30 days.
     async function deleteFindingRowInSheet(rowNum) {
-      const secret = loadFindingsEditorSecret();
-      const idToken = await findingsGetAuthToken_();
-      if (!idToken) throw new Error('not-signed-in');
-      const params = new URLSearchParams({
-        action: 'deleteFinding',
-        secret: secret,
-        idToken: idToken,
-        row: String(rowNum)
-      });
-      const url = FINDINGS_APPS_SCRIPT_URL + '?' + params.toString();
-      const json = await fetchSheetOnce(url);
-      if (!json) throw new Error('No response from the sheet — please try again.');
-      if (json.error) throw new Error(/unauthorized/i.test(json.error) ? 'not-authorized' : json.error);
-      if (!json.success) throw new Error("Delete didn't complete — please try again.");
-      return json;
+      return findingsApi_('deleteFinding', {
+        reqId: findingsNewReqId_(),
+        row: String(rowNum),
+        key: findingsRowKey_(_findingsRecentCache, rowNum),
+        refresh: '1', count: '15'
+      }, "Delete didn't complete — please try again.");
     }
 
-    // Fetches the HISTORY sheet's rows (deleted findings still inside the
-    // 30-day recovery window) via Code.gs action=history. Same GET+JSONP
-    // transport as everything else here.
+    // Fetches the HISTORY rows (action=history). Only used as a fallback now —
+    // action=init already returns them on open.
     async function fetchFindingsHistoryFromSheet_(count) {
-      const secret = loadFindingsEditorSecret();
-      const idToken = await findingsGetAuthToken_();
-      if (!idToken) throw new Error('not-signed-in');
-      const params = new URLSearchParams({
-        action: 'history',
-        secret: secret,
-        idToken: idToken,
-        count: String(count || 15)
-      });
-      const url = FINDINGS_APPS_SCRIPT_URL + '?' + params.toString();
-      const json = await fetchSheetOnce(url);
-      if (!json) throw new Error('No response from the sheet — please try again.');
-      if (json.error) throw new Error(/unauthorized/i.test(json.error) ? 'not-authorized' : json.error);
-      if (!json.success) throw new Error("Couldn't load history — please try again.");
-      return json;
+      return findingsApi_('history', { count: String(count || 15) }, "Couldn't load history — please try again.");
     }
 
-    // Moves one HISTORY row (by its row number on the HISTORY sheet) back
-    // into RAW DATA via Code.gs action=restoreFinding, and clears it out of
-    // HISTORY. See Code.gs's handleRestoreFinding_.
+    // Moves one HISTORY row back into RAW DATA (action=restoreFinding).
     async function restoreFindingRowInSheet(historyRowNum) {
-      const secret = loadFindingsEditorSecret();
-      const idToken = await findingsGetAuthToken_();
-      if (!idToken) throw new Error('not-signed-in');
-      const params = new URLSearchParams({
-        action: 'restoreFinding',
-        secret: secret,
-        idToken: idToken,
-        row: String(historyRowNum)
-      });
-      const url = FINDINGS_APPS_SCRIPT_URL + '?' + params.toString();
-      const json = await fetchSheetOnce(url);
-      if (!json) throw new Error('No response from the sheet — please try again.');
-      if (json.error) throw new Error(/unauthorized/i.test(json.error) ? 'not-authorized' : json.error);
-      if (!json.success) throw new Error("Restore didn't complete — please try again.");
-      return json;
+      return findingsApi_('restoreFinding', {
+        reqId: findingsNewReqId_(),
+        row: String(historyRowNum),
+        key: findingsRowKey_(_findingsHistoryCache, historyRowNum),
+        refresh: '1', count: '15'
+      }, "Restore didn't complete — please try again.");
     }
+
+    // ---- Backend pre-warm ----
+    // Apps Script containers go cold after a few idle minutes; the first
+    // request then pays a multi-second start-up. A tiny unauthenticated
+    // "ping" (answered before any sheet/auth work) absorbs that cost ahead
+    // of time: once shortly after the page loads, and again the instant
+    // someone presses an Add Finding button (before the modal even opens).
+    let _findingsLastWarmAt = 0;
+    function prewarmFindingsBackend_() {
+      const now = Date.now();
+      if (now - _findingsLastWarmAt < 4 * 60 * 1000) return;
+      _findingsLastWarmAt = now;
+      try {
+        fetchJSONP(FINDINGS_APPS_SCRIPT_URL + '?action=ping&t=' + now, 15000).catch(function () {});
+      } catch (e) { /* never block the UI */ }
+    }
+    document.addEventListener('pointerdown', function (ev) {
+      const t = ev.target && ev.target.closest && ev.target.closest('[onclick*="openAddFindingModal"]');
+      if (t) prewarmFindingsBackend_();
+    }, { passive: true, capture: true });
+    setTimeout(prewarmFindingsBackend_, 6000);
 
     // Cached result of the last authorization check (action=list), so the
     // "Signed in as…" status line and the Send button's enabled state don't
@@ -18345,14 +18382,31 @@ html.page-fade-ready body {
       }
       try {
         const secret = loadFindingsEditorSecret();
-        const params = new URLSearchParams({ action: 'list', secret: secret, idToken: idToken });
-        const json = await fetchSheetOnce(FINDINGS_APPS_SCRIPT_URL + '?' + params.toString());
+        let json = null;
+        let legacy = false;
+
+        // Preferred: ONE call that returns auth + pickers + recent + history.
+        if (_findingsSupportsInit) {
+          const p = new URLSearchParams({ action: 'init', secret: secret, idToken: idToken, count: '15' });
+          json = await fetchSheetOnce(FINDINGS_APPS_SCRIPT_URL + '?' + p.toString());
+          if (json && /unknown action/i.test(String(json.error || ''))) {
+            _findingsSupportsInit = false;   // backend not redeployed yet — use the old calls
+            json = null;
+          }
+        }
+        if (json === null) {
+          legacy = true;
+          const p2 = new URLSearchParams({ action: 'list', secret: secret, idToken: idToken });
+          json = await fetchSheetOnce(FINDINGS_APPS_SCRIPT_URL + '?' + p2.toString());
+        }
+
         if (json && json.success) {
           _findingsAuthStatus = {
-            checked: true, authorized: true, email: email,
+            checked: true, authorized: true, email: email, legacy: legacy,
             branches: Array.isArray(json.branches) ? json.branches : [],
             categories: Array.isArray(json.categories) ? json.categories : []
           };
+          if (!legacy) applyFindingsServerLists_(json);
         } else {
           _findingsAuthStatus = { checked: true, authorized: false, email: email, reason: (json && json.error) || 'not-authorized' };
         }
@@ -18539,13 +18593,13 @@ html.page-fade-ready body {
       if (!row) return;
       if (btnEl) btnEl.disabled = true;
       try {
-        await sendFindingRowToSheet(row);
+        const json = await sendFindingRowToSheet(row);
         const fresh = loadFindingsEditorStore();
         fresh.staged = fresh.staged.filter(r => r.id !== id);
         saveFindingsEditorStore(fresh);
         renderStagedFindingsTable();
         showToast('Sent to sheet: ' + row.branch + ' — ' + row.category);
-        loadRecentFindingsFromSheet(true);
+        findingsEnsureListsFresh_(json, false);   // lists already came back with the save
       } catch (err) {
         const msg = (err && err.message) || 'unknown error';
         showToast("Couldn't send: " + findingsSendErrorMessage_(msg));
@@ -18554,9 +18608,9 @@ html.page-fade-ready body {
       }
     }
 
-    // Sends every staged row, one at a time (Apps Script handles one
-    // request at a time well; firing them all concurrently risks
-    // overlapping writes/quota errors). Rows that fail stay staged so nothing
+    // Sends every staged row in BATCHES (a handful of rows per request, kept
+    // well under URL-length limits) instead of one slow request per row.
+    // Rows the server rejects, or whose batch fails, stay staged so nothing
     // is silently dropped — only what actually saves gets removed.
     async function doSendAllStagedFindingsToSheet() {
       const store = loadFindingsEditorStore();
@@ -18565,22 +18619,63 @@ html.page-fade-ready body {
       const btn = document.getElementById('findingsEditor-sendAllBtn');
       if (btn) { btn.disabled = true; btn.classList.add('opacity-60'); btn.title = 'Sending…'; }
 
-      const ids = store.staged.map(r => r.id);
-      let sent = 0, failed = 0, lastError = '';
-      for (const id of ids) {
-        const current = loadFindingsEditorStore();
-        const row = current.staged.find(r => r.id === id);
-        if (!row) continue; // already removed (e.g. sent individually mid-loop)
-        try {
-          await sendFindingRowToSheet(row);
-          const fresh = loadFindingsEditorStore();
-          fresh.staged = fresh.staged.filter(r => r.id !== id);
-          saveFindingsEditorStore(fresh);
-          sent++;
-        } catch (err) {
-          failed++;
-          const msg = (err && err.message) || 'unknown error';
-          lastError = findingsSendErrorMessage_(msg);
+      // Chunk by row count AND encoded size.
+      const chunks = [];
+      let cur = [], curLen = 0;
+      store.staged.forEach(r => {
+        const len = encodeURIComponent(JSON.stringify(r)).length + 60;
+        if (cur.length && (cur.length >= 10 || curLen + len > 5000)) { chunks.push(cur); cur = []; curLen = 0; }
+        cur.push(r); curLen += len;
+      });
+      if (cur.length) chunks.push(cur);
+
+      let sent = 0, failed = 0, lastError = '', lastJson = null, authDead = false;
+
+      const removeStaged = (idsToRemove) => {
+        if (!idsToRemove.length) return;
+        const fresh = loadFindingsEditorStore();
+        const gone = new Set(idsToRemove);
+        fresh.staged = fresh.staged.filter(r => !gone.has(r.id));
+        saveFindingsEditorStore(fresh);
+      };
+      const noteError = (err) => {
+        lastError = findingsSendErrorMessage_((err && err.message) || 'unknown error');
+        if (/not-authorized|not-signed-in/i.test((err && err.message) || '')) authDead = true;
+      };
+
+      for (let c = 0; c < chunks.length && !authDead; c++) {
+        const chunk = chunks[c];
+        let handled = false;
+
+        if (_findingsSupportsBatch && chunk.length > 1) {
+          try {
+            const results = await sendFindingRowsBatchToSheet(chunk);
+            const okIds = [];
+            chunk.forEach((r, i) => {
+              const res = results[i];
+              if (res && res.success) { okIds.push(r.id); sent++; }
+              else { failed++; lastError = (res && res.error) || 'rejected by the sheet'; }
+            });
+            removeStaged(okIds);
+            handled = true;
+          } catch (err) {
+            if (/unknown action/i.test((err && err.message) || '')) {
+              _findingsSupportsBatch = false;      // older backend — fall through to one-by-one
+            } else {
+              failed += chunk.length; noteError(err); handled = true;
+            }
+          }
+        }
+
+        if (!handled) {
+          for (const r of chunk) {
+            if (authDead) { failed++; continue; }
+            try {
+              lastJson = await sendFindingRowToSheet(r);
+              removeStaged([r.id]);
+              sent++;
+            } catch (err) { failed++; noteError(err); }
+          }
         }
       }
 
@@ -18590,7 +18685,10 @@ html.page-fade-ready body {
       if (failed === 0) showToast('Sent ' + sent + ' row(s) to the sheet.');
       else showToast('Sent ' + sent + ', ' + failed + ' failed (' + lastError + '). Failed rows are still staged.');
 
-      if (sent > 0) loadRecentFindingsFromSheet(true);
+      // Lists normally arrive with the last successful response; only reload if they didn't.
+      if (sent > 0 && !(_findingsRecentCache.loaded && !_findingsRecentCache.loading && _findingsSupportsInit)) {
+        loadRecentFindingsFromSheet(true);
+      }
     }
 
     function getFindingsEditorBranchOptions() {
@@ -19791,20 +19889,34 @@ html.page-fade-ready body {
       _findingsEditingRow = null;
       renderFindingsEditorForm();
       modal.classList.remove('hidden');
-      // Kick off the up-front authorization check (and pull the sheet's
-      // current BRANCHES/CATEGORY lists) without rebuilding the form — see
-      // renderFindingsAuthStatus(). If it resolves after the person already
-      // started picking a branch/category, only the status line + Send
-      // button update; the select lists refresh next time the form is
-      // rebuilt (e.g. after "+ Add Entry").
-      checkFindingsAuthorization().then(renderFindingsAuthStatus);
-      // Pull the "Recently Added" list fresh every time the modal opens, so
-      // it reflects anything anyone else has added/edited/deleted since
-      // this browser last had it open.
-      loadRecentFindingsFromSheet(true);
-      // Same for the "History" (deleted-entries) list, so a restore/purge
-      // done elsewhere shows up here too.
-      loadFindingsHistoryFromSheet(true);
+      prewarmFindingsBackend_();
+
+      // Stale-while-revalidate: if the lists were loaded before, paint them
+      // INSTANTLY from memory and refresh quietly in the background; only a
+      // first-ever open shows "Loading…".
+      if (_findingsRecentCache.loaded) renderRecentFindingsTable();
+      else { _findingsRecentCache = Object.assign({}, _findingsRecentCache, { loading: true }); renderRecentFindingsTable(); }
+      if (_findingsHistoryCache.loaded) renderFindingsHistoryTable();
+      else { _findingsHistoryCache = Object.assign({}, _findingsHistoryCache, { loading: true }); renderFindingsHistoryTable(); }
+
+      // ONE request (action=init) does the authorization check AND returns
+      // the BRANCHES/CATEGORY pickers, Recently Added and History. Only the
+      // status line + Send button update when it lands (the form isn't
+      // rebuilt, so nothing the person already typed is lost).
+      checkFindingsAuthorization().then(function (st) {
+        renderFindingsAuthStatus();
+        if (st.legacy) {
+          // Older Code.gs deployment without action=init: use the old separate loads.
+          _findingsRecentCache = Object.assign({}, _findingsRecentCache, { loading: false });
+          _findingsHistoryCache = Object.assign({}, _findingsHistoryCache, { loading: false });
+          loadRecentFindingsFromSheet(true);
+          loadFindingsHistoryFromSheet(true);
+        } else if (!st.authorized) {
+          const err = st.reason || 'not-authorized';
+          if (_findingsRecentCache.loading) { _findingsRecentCache = { loading: false, loaded: true, rows: [], error: err }; renderRecentFindingsTable(); }
+          if (_findingsHistoryCache.loading) { _findingsHistoryCache = { loading: false, loaded: true, rows: [], error: err }; renderFindingsHistoryTable(); }
+        }
+      });
     }
 
     function closeAddFindingModal() {
@@ -20550,14 +20662,14 @@ html.page-fade-ready body {
       if (!pending) { window.cancelFindingsEditConfirm(); return; }
       setFindingsEditConfirmSubmitting_(true);
       try {
-        await updateFindingRowInSheet(pending.row, pending);
+        const json = await updateFindingRowInSheet(pending.row, pending);
         _findingsEditingRow = null;
         _pendingFindingsEdit = null;
         const modal = document.getElementById('findingsEditConfirmModal');
         if (modal) modal.classList.add('hidden');
         showToast('Entry updated in the sheet.');
         renderFindingsEditorForm();
-        loadRecentFindingsFromSheet(true);
+        findingsEnsureListsFresh_(json, false);
       } catch (e) {
         if (err) { err.textContent = findingsSendErrorMessage_(e && e.message); err.classList.remove('hidden'); }
       } finally {
@@ -20576,15 +20688,20 @@ html.page-fade-ready body {
     }
 
     async function doDeleteRecentFindingEntry(rowNum) {
+      // Optimistic: take the row off the list immediately; the server's
+      // answer (or a reload, if it fails) then makes it authoritative.
+      const snapshot = _findingsRecentCache.rows || [];
+      _findingsRecentCache = Object.assign({}, _findingsRecentCache, { rows: snapshot.filter(r => r.row !== rowNum) });
+      renderRecentFindingsTable();
       try {
-        await deleteFindingRowInSheet(rowNum);
+        const json = await deleteFindingRowInSheet(rowNum);
         if (_findingsEditingRow === rowNum) { _findingsEditingRow = null; renderFindingsEditorForm(); }
-        // Notification: the entry isn't gone for good — it's been archived
-        // to History and can be restored from there for the next 30 days.
+        // The entry isn't gone for good — it's archived to History and can
+        // be restored from there for the next 30 days.
         showToast('Entry deleted — moved to History (restorable for 30 days).', 'info');
-        loadRecentFindingsFromSheet(true);
-        loadFindingsHistoryFromSheet(true);
+        findingsEnsureListsFresh_(json, true);
       } catch (err) {
+        loadRecentFindingsFromSheet(true);   // put the real state back
         showToast("Couldn't delete: " + findingsSendErrorMessage_(err && err.message));
       }
     }
@@ -20706,12 +20823,14 @@ html.page-fade-ready body {
       const row = (_findingsHistoryCache.rows || []).find(r => r.row === historyRowNum);
       if (!row) { showToast('That entry is no longer in History — refreshing…'); loadFindingsHistoryFromSheet(true); return; }
       if (!_findingsAuthStatus.authorized) { showToast('Only an allowed Audit Findings account can restore entries.'); return; }
+      _findingsHistoryCache = Object.assign({}, _findingsHistoryCache, { rows: (_findingsHistoryCache.rows || []).filter(r => r.row !== historyRowNum) });
+      renderFindingsHistoryTable();   // optimistic: it leaves History right away
       try {
-        await restoreFindingRowInSheet(historyRowNum);
+        const json = await restoreFindingRowInSheet(historyRowNum);
         showToast('Entry restored to RAW DATA.', 'success');
-        loadFindingsHistoryFromSheet(true);
-        loadRecentFindingsFromSheet(true);
+        findingsEnsureListsFresh_(json, true);
       } catch (err) {
+        loadFindingsHistoryFromSheet(true);   // put the real state back
         showToast("Couldn't restore: " + findingsSendErrorMessage_(err && err.message));
       }
     }
