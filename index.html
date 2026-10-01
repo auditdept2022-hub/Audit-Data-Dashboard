@@ -6077,9 +6077,8 @@ html.page-fade-ready body {
         
 
         <button id="updateDataBtn" onclick="fetchSheet().catch(function(e){console.warn('Update data failed:', e);})" title="Refresh dashboard data" class="group flex items-center gap-2 px-2.5 sm:px-3 py-2 rounded-lg hover:bg-white/10 active:bg-white/15 cursor-pointer text-sm font-medium transition-colors duration-150 text-white/90 hover:text-white whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
-          <span id="connSignalBtn" role="button" tabindex="0" class="conn-sig conn-sig-warn" title="Connection status: checking" aria-label="Connection status: checking" aria-haspopup="dialog"></span>
           <span id="updateDataIconWrap" class="flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-cloud-download shrink-0 transition-transform duration-500 group-active:-rotate-180"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="m8 17 4 4 4-4"></path></svg>
+            <span class="conn-iconbox"><svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-cloud-download shrink-0 transition-transform duration-500 group-active:-rotate-180"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="m8 17 4 4 4-4"></path></svg><span id="connSignalBtn" role="button" tabindex="0" class="conn-sig conn-sig-warn" title="Connection status: checking" aria-label="Connection status: checking" aria-haspopup="dialog"></span></span>
             <span class="hidden sm:flex sm:flex-col sm:items-start leading-tight">
               <span>Update data</span>
               <span class="flex items-center gap-1 h-[11px]">
@@ -27211,15 +27210,13 @@ html.page-fade-ready body {
 
 <!-- ===================== CONNECTION SIGNAL (dot + popup) ===================== -->
 <style>
-  #updateDataBtn{position:relative}
-  .conn-sig{position:absolute;top:5px;left:calc(.625rem + 13px);width:10px;height:10px;box-sizing:content-box;border:2px solid #0f2547;border-radius:50%;background:#facc15;cursor:pointer;z-index:2;display:block}
-  .conn-sig::after{content:"";position:absolute;inset:-9px -9px -4px -4px}
-  .conn-sig:hover{transform:scale(1.2)}
+  .conn-iconbox{position:relative;display:inline-flex;flex:0 0 auto}
+  .conn-sig{position:absolute;top:-5px;right:-6px;width:7px;height:7px;box-sizing:content-box;border:2px solid #0f2547;border-radius:50%;background:#facc15;cursor:pointer;z-index:2;display:block}
+  .conn-sig::after{content:"";position:absolute;inset:-7px}
   .conn-sig:focus-visible{outline:2px solid #fff;outline-offset:2px}
   .conn-sig-ok{background:#22c55e}
   .conn-sig-warn{background:#facc15}
   .conn-sig-bad{background:#ef4444}
-  @media (min-width:640px){.conn-sig{left:calc(.75rem + 13px)}}
   .cm-d-ok{background:#22c55e}.cm-d-warn{background:#facc15}.cm-d-bad{background:#ef4444}.cm-d-off{background:#94a3b8}
 
   #connModal{position:fixed;inset:0;z-index:10000;display:none;align-items:center;justify-content:center;background:rgba(2,8,23,.62);padding:12px}
