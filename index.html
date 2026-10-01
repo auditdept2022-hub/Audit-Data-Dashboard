@@ -2765,8 +2765,11 @@ input#tableSearch:focus, select:focus{
   border-radius:9999px;
   background:rgba(15,20,32,0.94);
   border:1px solid rgba(255,255,255,0.08);
-  backdrop-filter:blur(18px) saturate(180%);
-  -webkit-backdrop-filter:blur(18px) saturate(180%);
+  /* FLICKER/PERF: backdrop-filter removed here. The pill is 94% opaque, so the blur
+     was practically invisible, but a backdrop-filter on a position:fixed element that
+     is also transform/opacity-animated (and holds an infinitely spinning icon while a
+     "loading" toast is up) makes the browser re-blur the page behind it every frame
+     and is a known source of iOS/Android compositing glitches. */
   box-shadow:0 16px 32px -12px rgba(0,0,0,0.45), 0 4px 10px -4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
   overflow:hidden;
   transform:translate(-50%,-16px) scale(.94);
@@ -9697,15 +9700,18 @@ html.page-fade-ready body {
     // substring match (case-insensitive) so it's forgiving of partial names.
     function setAuditScheduleSearchQuery(value) {
       window.auditScheduleSearchQuery = value || '';
-      const modalBody = document.getElementById('modalBody');
-      if (!modalBody) return;
+      const modalBody0 = document.getElementById('modalBody');
+      if (!modalBody0) return;
       // Preserve caret position/focus across re-render since typing drives this.
-      const activeId = document.activeElement && document.activeElement.id;
-      renderAuditScheduleModal(modalBody);
-      if (activeId === 'auditScheduleSearchInput') {
-          const input = document.getElementById('auditScheduleSearchInput');
-          if (input) { input.focus(); const v = input.value; input.value = ''; input.value = v; }
-      }
+      __runSearchRender('auditSchedule', 'auditScheduleSearchInput', value, function (immediate, wasFocused) {
+        const modalBody = document.getElementById('modalBody');
+        if (!modalBody) return;
+        renderAuditScheduleModal(modalBody);
+        if (wasFocused) {
+            const input = document.getElementById('auditScheduleSearchInput');
+            if (input) { input.focus(); const v = input.value; input.value = ''; input.value = v; }
+        }
+      });
     }
 
     function clearAuditScheduleFilterRange() {
@@ -11432,12 +11438,13 @@ html.page-fade-ready body {
     function setAssignmentSearch(value) {
       if (!window.assignmentFilterState) window.assignmentFilterState = defaultAssignmentFilterState();
       window.assignmentFilterState.search = value || '';
-      const activeId = document.activeElement && document.activeElement.id;
-      renderAssignmentModalView();
-      if (activeId === 'assignmentSearchInput') {
-          const input = document.getElementById('assignmentSearchInput');
-          if (input) { input.focus(); const v = input.value; input.value = ''; input.value = v; }
-      }
+      __runSearchRender('assignment', 'assignmentSearchInput', value, function (immediate, wasFocused) {
+        renderAssignmentModalView();
+        if (wasFocused) {
+            const input = document.getElementById('assignmentSearchInput');
+            if (input) { input.focus(); const v = input.value; input.value = ''; input.value = v; }
+        }
+      });
     }
 
     function resetAssignmentFilters() {
@@ -15840,19 +15847,46 @@ html.page-fade-ready body {
       </div>`;
     }
 
+    // PERF/FLICKER: the popup search boxes below rebuilt the WHOLE popup table
+    // (innerHTML) and re-focused the input on EVERY keystroke. On phones the
+    // focus loss/regain flickers the keyboard and drops IME composition, and each
+    // keystroke paid a full table render. Typing now waits for a short pause
+    // (180 ms, same as the Overall Data search) and renders once. An empty value
+    // (the Clear button, or deleting the last character) still renders at once,
+    // exactly as before. The state is stored immediately, so any other re-render
+    // that happens while the timer is pending already uses the newest text.
+    const __searchTimers = {};
+    function __runSearchRender(key, inputId, value, render) {
+      if (__searchTimers[key]) { clearTimeout(__searchTimers[key]); __searchTimers[key] = 0; }
+      const go = function (immediate) {
+        const ae = document.activeElement;
+        render(immediate, !!(ae && ae.id === inputId));
+      };
+      if (!value) { go(true); return; }
+      __searchTimers[key] = setTimeout(function () {
+        __searchTimers[key] = 0;
+        if (!document.getElementById(inputId)) return; // popup closed/replaced while waiting
+        go(false);
+      }, 180);
+    }
+
     function setModalSearch(value) {
       if (!window.modalFilterState) return;
       window.modalFilterState.search = value || '';
-      renderModalFilteredView();
-      // Keep focus + caret in the box after re-render (innerHTML replace
-      // above drops focus) — otherwise every keystroke would kick you out
-      // of the field, which would make typing a search unusable.
-      const input = document.getElementById('modalSearchInput');
-      if (input) {
-          input.focus();
-          const pos = input.value.length;
-          input.setSelectionRange(pos, pos);
-      }
+      __runSearchRender('modal', 'modalSearchInput', value, function (immediate, wasFocused) {
+        if (!window.modalFilterState) return;
+        renderModalFilteredView();
+        // Keep focus + caret in the box after re-render (innerHTML replace
+        // above drops focus) — otherwise every keystroke would kick you out
+        // of the field, which would make typing a search unusable.
+        if (!immediate && !wasFocused) return; // user moved on while waiting: don't steal focus
+        const input = document.getElementById('modalSearchInput');
+        if (input) {
+            input.focus();
+            const pos = input.value.length;
+            input.setSelectionRange(pos, pos);
+        }
+      });
     }
 
     function setModalStatusFilter(value) {
@@ -16922,13 +16956,16 @@ html.page-fade-ready body {
 
     function setAccountsSearch(value) {
       window.accountsModalSearch = value || '';
-      renderAccountsModalTable();
-      const input = document.getElementById('accountsSearchInput');
-      if (input) {
-          input.focus();
-          const pos = input.value.length;
-          input.setSelectionRange(pos, pos);
-      }
+      __runSearchRender('accounts', 'accountsSearchInput', value, function (immediate, wasFocused) {
+        renderAccountsModalTable();
+        if (!immediate && !wasFocused) return; // user moved on while waiting: don't steal focus
+        const input = document.getElementById('accountsSearchInput');
+        if (input) {
+            input.focus();
+            const pos = input.value.length;
+            input.setSelectionRange(pos, pos);
+        }
+      });
     }
 
     function toggleAccountsSort(key) {
@@ -17640,8 +17677,10 @@ html.page-fade-ready body {
 
     function setFindingsSearch(value) {
       window.findingsModalSearch = value || '';
-      const state = window.findingsModalState;
-      if (state) renderFindingsModalTable(state.filterValue, { skipSearchRefocus: false });
+      __runSearchRender('findings', 'findingsSearchInput', value, function () {
+        const state = window.findingsModalState;
+        if (state) renderFindingsModalTable(state.filterValue, { skipSearchRefocus: false });
+      });
     }
 
     function setFindingsStatusFilter(value) {
@@ -20780,11 +20819,15 @@ html.page-fade-ready body {
     // dashboard (re)renders with new or synced data, instead of numbers
     // just abruptly changing.
     function pulseStatCards() {
-      document.querySelectorAll('[id^="stat-"]').forEach(function(el) {
-        el.classList.remove('stat-pulse');
-        void el.offsetWidth;
-        el.classList.add('stat-pulse');
-      });
+      // PERF: this used to remove-class -> read offsetWidth -> add-class for
+      // EACH of the ~29 stat elements, i.e. 29 forced synchronous layouts of the
+      // whole dashboard right after every render. Now: remove all, force ONE
+      // reflow, add all. The animation still restarts on every element.
+      const els = document.querySelectorAll('[id^="stat-"]');
+      if (!els.length) return;
+      for (let i = 0; i < els.length; i++) els[i].classList.remove('stat-pulse');
+      void els[0].offsetWidth;
+      for (let i = 0; i < els.length; i++) els[i].classList.add('stat-pulse');
     }
 
     // Animates a stat number counting up/down from its previous value to

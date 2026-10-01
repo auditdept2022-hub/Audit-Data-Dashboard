@@ -1,6 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v57'
+const CACHE_VERSION = 'audit-dashboard-v58'
+// v58: PERF/FLICKER PASS. index.html: popup search boxes render once after a short typing pause instead of rebuilding the whole popup (and re-focusing the input) on every keystroke; the stat-card pulse no longer forces ~29 layouts per render; the toast no longer uses a backdrop blur. This file: the dashboard shell is no longer rewritten into the cache when the server's ETag proves it is unchanged, and version-pinned CDN files (apexcharts@x.y.z, firebasejs/x.y.z, font files) are served cache-first instead of being re-fetched and re-stored on every load. Bumped so installed apps refetch index.html.
 // v57: Connection signal (yellow/green/red dot beside "Update data") + popup listing every connection and which edit functions are available. Bumped so installed apps refetch index.html.
 // v56: Backend pass (Code.gs #17): remark edit/delete now refuses a stale row instead of overwriting the wrong remark, heartbeats no longer flush the device-list cache every time. Bumped so installed apps pick up the matching backend behaviour and refetch index.html.
 // v55: SPEED PASS. index.html no longer loads the Tailwind CDN runtime (it compiled CSS in the browser on every visit and re-ran on every DOM change = slow start + flicker) or the unused Lucide library; it ships one complete prebuilt stylesheet instead. ApexCharts is pinned and precached here. Update check no longer hashes 1.8MB twice when the ETag is unchanged. Bumped so installed apps refetch index.html.
@@ -197,6 +198,18 @@ function bodiesDiffer(a, b) {
     .catch(() => false);
 }
 
+// True only for URLs whose content cannot change: an EXACT x.y.z version in the
+// path (not a range like @7 or @latest), or font binaries. Stylesheets such as
+// fonts.googleapis.com/css2 are NOT included (they vary by browser and can change).
+function isImmutableCdnUrl(url) {
+  const h = url.hostname, p = url.pathname;
+  if (h === 'cdn.jsdelivr.net') return /^\/npm\/(@[^/]+\/)?[^/@]+@\d+\.\d+\.\d+\//.test(p);
+  if (h === 'cdnjs.cloudflare.com') return /^\/ajax\/libs\/[^/]+\/\d+\.\d+\.\d+\//.test(p);
+  if (h === 'www.gstatic.com') return /^\/firebasejs\/\d+\.\d+\.\d+\//.test(p);
+  if (h === 'fonts.gstatic.com') return true;
+  return false;
+}
+
 function notifyClientsOfUpdate() {
   return self.clients.matchAll({ type: 'window' }).then((clients) => {
     clients.forEach((c) => c.postMessage({ type: 'APP_UPDATE_AVAILABLE' }));
@@ -218,6 +231,24 @@ self.addEventListener('fetch', (event) => {
   // Cross-origin: only static CDN assets are cached. Anything else (weather
   // API, Google Docs/Mail links, etc.) is live and passes through untouched.
   if (url.origin !== self.location.origin && CDN_HOSTS.indexOf(url.hostname) === -1) {
+    return;
+  }
+
+  // Version-pinned CDN files can never change at the same URL (exact x.y.z in
+  // the path, or font binaries), so serve them cache-first and skip the
+  // per-load re-fetch + cache.put that stale-while-revalidate does below.
+  if (url.origin !== self.location.origin && isImmutableCdnUrl(url)) {
+    event.respondWith(
+      caches.open(CACHE_NAME).then((cache) =>
+        cache.match(request).then((cached) =>
+          cached ||
+          fetch(request).then((response) => {
+            if (response && response.ok) cache.put(request, response.clone());
+            return response;
+          })
+        )
+      )
+    );
     return;
   }
 
@@ -286,6 +317,12 @@ self.addEventListener('fetch', (event) => {
           const updateCache = fetch(request, { cache: 'no-cache' })
             .then((response) => {
               if (response && response.ok) {
+                // Same strong validator as the cached copy => provably the same
+                // file: nothing to hash, and no reason to re-write ~1.9 MB into
+                // the cache on every app open.
+                const etagCached = cached && cached.headers.get('etag');
+                const etagFresh = response.headers.get('etag');
+                if (etagCached && etagFresh && etagCached === etagFresh) return response;
                 // Compare the real file CONTENT, not headers: ETag /
                 // Last-Modified can differ between requests (CDN nodes,
                 // weak vs strong ETags) even when index.html is identical,
