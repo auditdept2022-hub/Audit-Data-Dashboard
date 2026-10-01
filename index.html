@@ -4468,7 +4468,7 @@ html.page-fade-ready body {
           }
         }
         tick();
-        setInterval(tick, 1000);
+        setInterval(function () { if (!document.hidden) tick(); }, 1000);
       }
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', start);
@@ -12870,6 +12870,9 @@ html.page-fade-ready body {
       if (auditSync.bgTimer) return;
       auditSync.bgTimer = setInterval(function () {
         if (document.hidden || auditSyncIsAnalysisOpen()) return; // popup has its own faster poll
+        // MULTI-DEVICE FIX: idle device -> pull at most once a minute and a half.
+        if (window.__deviceIdle && window.__deviceIdle(180000) && (Date.now() - (auditSync.lastBgPullAt || 0)) < 90000) return;
+        auditSync.lastBgPullAt = Date.now();
         auditSyncPull();
       }, AUDIT_SYNC_BG_POLL_MS);
       auditSyncPull();
@@ -23199,7 +23202,36 @@ html.page-fade-ready body {
       else early();
     })();
 
+    // ---- MULTI-DEVICE FIX: activity tracking + background-request limiter ----
+    // Many devices polling at once is what made everything laggy: every poll is a
+    // separate Apps Script execution, and only ~30 can run at the same time. Each
+    // device now (a) never has more than BG_MAX_CONCURRENT background requests in
+    // flight, so a slow server is not hit with a pile-up, and (b) polls much less
+    // often while nobody is touching it (see window.__deviceIdle).
+    window.__lastInputAt = Date.now();
+    ['pointerdown', 'keydown', 'touchstart', 'wheel', 'scroll'].forEach(function (ev) {
+      window.addEventListener(ev, function () { window.__lastInputAt = Date.now(); }, { passive: true, capture: true });
+    });
+    window.__deviceIdle = function (ms) { return (Date.now() - window.__lastInputAt) > (ms || 180000); };
+    const BG_ACTIONS = { dataVersion: 1, heartbeat: 1, getAnalysisState: 1, myDevicesBundle: 1 };
+    const BG_MAX_CONCURRENT = 2;
+    let bgActive = 0;
+    const bgWaiters = [];
+    function bgAcquire() {
+      if (bgActive < BG_MAX_CONCURRENT) { bgActive++; return Promise.resolve(); }
+      return new Promise(function (resolve) { bgWaiters.push(resolve); });
+    }
+    function bgRelease() {
+      const next = bgWaiters.shift();
+      if (next) next(); else bgActive = Math.max(0, bgActive - 1);
+    }
     async function fetchSheetOnce(url, timeouts) {
+      if (!BG_ACTIONS[backendActionOf(url)]) return fetchSheetOnceCore_(url, timeouts);
+      await bgAcquire();
+      try { return await fetchSheetOnceCore_(url, timeouts); }
+      finally { bgRelease(); }
+    }
+    async function fetchSheetOnceCore_(url, timeouts) {
       // FIX: never let the wake-up ping hold a real request for more than 9 s
       // (before, a slow ping stacked its full timeout on top of the request's own).
       await Promise.race([wakeBackendIfIdle(url), new Promise(function (r) { setTimeout(r, 9000); })]);
@@ -25210,6 +25242,8 @@ html.page-fade-ready body {
       if (isFetchingSheet) return;                        // a full load is already running
       if (typeof navigator !== 'undefined' && navigator.onLine === false) return;   // offline: nothing to ask
       if (!fromFocus && Date.now() < liveVersionSkipUntil) return;                   // backing off after a slow/failed check
+      // MULTI-DEVICE FIX: nobody is touching this device -> ask at most every 90 s instead of 30 s.
+      if (!fromFocus && window.__deviceIdle && window.__deviceIdle(180000) && (Date.now() - liveVersionLastCheckAt) < 90000) return;
       if (lastAppliedDataVersion == null || !isDashboardDataUsable()) return; // initial load owns that
       const now = Date.now();
       if (fromFocus && (now - liveVersionLastCheckAt) < 3000) return;         // collapse rapid focus events
@@ -26320,6 +26354,10 @@ html.page-fade-ready body {
 
     function silentRefreshTick() {
       if (document.hidden) return; // don't burn requests while backgrounded
+      // MULTI-DEVICE FIX: when the live version check is available, ask the tiny
+      // "did the Sheet change?" question and download data only if it did. Before,
+      // every device pulled the full 6-sheet payload every 5 minutes.
+      if (typeof window.liveVersionReady === 'function' && window.liveVersionReady()) { window.liveVersionCheck(false); return; }
       if (autoRefreshDot) autoRefreshDot.classList.remove('hidden');
       fetchSheet(true)
         .catch(function(err) {
