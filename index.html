@@ -6074,7 +6074,7 @@ html.page-fade-ready body {
 
       <div class="flex items-center gap-0.5 w-full lg:w-auto justify-end">
         <!-- CONNECTION SIGNAL: steady yellow / green / red dot. Never fades or auto-hides. Tap = connection + edit-availability popup. -->
-        <button id="connSignalBtn" type="button" class="conn-sig conn-sig-warn" title="Connection status: checking" aria-label="Connection status: checking" aria-haspopup="dialog"><span class="conn-dot"></span><span class="conn-sig-label" id="connSigLabel">Connecting</span></button>
+        <button id="connSignalBtn" type="button" class="conn-sig conn-sig-warn" title="Connection status: checking" aria-label="Connection status: checking" aria-haspopup="dialog"><span class="conn-dot"></span><span class="conn-sig-text"><span class="conn-sig-label" id="connSigLabel">Connecting</span><span class="conn-sig-sub" id="connSigSub">Checking…</span></span></button>
 
         <button id="updateDataBtn" onclick="fetchSheet().catch(function(e){console.warn('Update data failed:', e);})" title="Refresh dashboard data" class="group flex items-center gap-2 px-2.5 sm:px-3 py-2 rounded-lg hover:bg-white/10 active:bg-white/15 cursor-pointer text-sm font-medium transition-colors duration-150 text-white/90 hover:text-white whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
           <span id="updateDataIconWrap" class="flex items-center gap-2">
@@ -27210,15 +27210,20 @@ html.page-fade-ready body {
 
 <!-- ===================== CONNECTION SIGNAL (dot + popup) ===================== -->
 <style>
-  .conn-sig{display:inline-flex;align-items:center;gap:7px;padding:8px 9px;margin-right:2px;border:0;border-radius:8px;background:transparent;color:rgba(255,255,255,.88);font-size:11px;font-weight:700;letter-spacing:.02em;cursor:pointer;white-space:nowrap}
+  .conn-sig{display:inline-flex;align-items:center;gap:9px;padding:6px 14px 6px 10px;margin-right:4px;border:0;border-right:1px solid rgba(255,255,255,.15);border-radius:8px 0 0 8px;background:transparent;color:rgba(255,255,255,.92);cursor:pointer;white-space:nowrap;text-align:left;transition:background .15s}
   .conn-sig:hover{background:rgba(255,255,255,.10)}
-  .conn-sig:active{background:rgba(255,255,255,.16)}
-  .conn-dot{display:inline-block;width:13px;height:13px;border-radius:50%;flex:0 0 13px;background:#facc15;box-shadow:0 0 0 3px rgba(250,204,21,.30),0 0 10px rgba(250,204,21,.85)}
-  .conn-sig-ok .conn-dot,.cm-d-ok{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.30),0 0 10px rgba(34,197,94,.85)}
-  .conn-sig-warn .conn-dot,.cm-d-warn{background:#facc15;box-shadow:0 0 0 3px rgba(250,204,21,.30),0 0 10px rgba(250,204,21,.85)}
-  .conn-sig-bad .conn-dot,.cm-d-bad{background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.30),0 0 10px rgba(239,68,68,.85)}
-  .cm-d-off{background:#94a3b8;box-shadow:0 0 0 3px rgba(148,163,184,.25)}
-  @media (max-width:639px){.conn-sig-label{display:none}.conn-sig{padding:10px 8px}}
+  .conn-sig:active{background:rgba(255,255,255,.15)}
+  .conn-dot{display:inline-block;width:12px;height:12px;border-radius:50%;flex:0 0 12px;background:#facc15;box-shadow:0 0 0 2px rgba(15,37,71,1),0 0 0 3.5px #facc15}
+  .conn-sig-text{display:flex;flex-direction:column;line-height:1.15}
+  .conn-sig-label{font-size:14px;font-weight:500}
+  .conn-sig-sub{font-size:9px;font-weight:500;color:rgba(255,255,255,.55);max-width:120px;overflow:hidden;text-overflow:ellipsis}
+  .conn-sig-ok .conn-dot,.cm-d-ok{background:#22c55e}
+  .conn-sig-ok .conn-dot{box-shadow:0 0 0 2px rgba(15,37,71,1),0 0 0 3.5px #22c55e}
+  .conn-sig-warn .conn-dot,.cm-d-warn{background:#facc15}
+  .conn-sig-bad .conn-dot,.cm-d-bad{background:#ef4444}
+  .conn-sig-bad .conn-dot{box-shadow:0 0 0 2px rgba(15,37,71,1),0 0 0 3.5px #ef4444}
+  .cm-d-off{background:#94a3b8}
+  @media (max-width:639px){.conn-sig-text{display:none}.conn-sig{padding:10px 10px 10px 8px;gap:0}}
 
   #connModal{position:fixed;inset:0;z-index:10000;display:none;align-items:center;justify-content:center;background:rgba(2,8,23,.62);padding:12px}
   #connModal.cm-open{display:flex}
@@ -27501,6 +27506,7 @@ html.page-fade-ready body {
     var cls = 'conn-sig conn-sig-' + overall.s;
     if (b.className !== cls) b.className = cls;
     var lab = $('connSigLabel'); if (lab && lab.textContent !== overall.label) lab.textContent = overall.label;
+    var sub = $('connSigSub'); if (sub) { var st = overall.s === 'ok' ? (C.backend.ms ? 'Server ' + C.backend.ms + ' ms' : 'All working') : overall.s === 'bad' ? 'Tap for details' : 'Checking\u2026'; if (sub.textContent !== st) sub.textContent = st; }
     var title = overall.label + ' — ' + overall.why + ' (tap for details)';
     b.title = title; b.setAttribute('aria-label', 'Connection status: ' + overall.label);
     if (modalOpen()) renderModal();
