@@ -1,6 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v55'
+const CACHE_VERSION = 'audit-dashboard-v56'
+// v56: Backend pass (Code.gs #17): remark edit/delete now refuses a stale row instead of overwriting the wrong remark, heartbeats no longer flush the device-list cache every time. Bumped so installed apps pick up the matching backend behaviour and refetch index.html.
 // v55: SPEED PASS. index.html no longer loads the Tailwind CDN runtime (it compiled CSS in the browser on every visit and re-ran on every DOM change = slow start + flicker) or the unused Lucide library; it ships one complete prebuilt stylesheet instead. ApexCharts is pinned and precached here. Update check no longer hashes 1.8MB twice when the ETag is unchanged. Bumped so installed apps refetch index.html.
 // v54: Table boxes in popups (Overall Data Snapshot and the other data tables) are now sized to end exactly at the bottom of the popup, so their scrollbar and last rows work without scrolling the whole popup to the end.
 // v53: Overall Data Snapshot: Show all + Refresh sit next to Leaders; month headers centered.
