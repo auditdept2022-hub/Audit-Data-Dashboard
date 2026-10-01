@@ -6073,6 +6073,9 @@ html.page-fade-ready body {
       </div>
 
       <div class="flex items-center gap-0.5 w-full lg:w-auto justify-end">
+        <!-- CONNECTION SIGNAL: steady yellow / green / red dot. Never fades or auto-hides. Tap = connection + edit-availability popup. -->
+        <button id="connSignalBtn" type="button" class="conn-sig conn-sig-warn" title="Connection status: checking" aria-label="Connection status: checking" aria-haspopup="dialog"><span class="conn-dot"></span><span class="conn-sig-label" id="connSigLabel">Connecting</span></button>
+
         <button id="updateDataBtn" onclick="fetchSheet().catch(function(e){console.warn('Update data failed:', e);})" title="Refresh dashboard data" class="group flex items-center gap-2 px-2.5 sm:px-3 py-2 rounded-lg hover:bg-white/10 active:bg-white/15 cursor-pointer text-sm font-medium transition-colors duration-150 text-white/90 hover:text-white whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
           <span id="updateDataIconWrap" class="flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-cloud-download shrink-0 transition-transform duration-500 group-active:-rotate-180"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="m8 17 4 4 4-4"></path></svg>
@@ -27204,5 +27207,358 @@ html.page-fade-ready body {
     }, true);
   })();
   </script>
+
+<!-- ===================== CONNECTION SIGNAL (dot + popup) ===================== -->
+<style>
+  .conn-sig{display:inline-flex;align-items:center;gap:7px;padding:8px 9px;margin-right:2px;border:0;border-radius:8px;background:transparent;color:rgba(255,255,255,.88);font-size:11px;font-weight:700;letter-spacing:.02em;cursor:pointer;white-space:nowrap}
+  .conn-sig:hover{background:rgba(255,255,255,.10)}
+  .conn-sig:active{background:rgba(255,255,255,.16)}
+  .conn-dot{display:inline-block;width:13px;height:13px;border-radius:50%;flex:0 0 13px;background:#facc15;box-shadow:0 0 0 3px rgba(250,204,21,.30),0 0 10px rgba(250,204,21,.85)}
+  .conn-sig-ok .conn-dot,.cm-d-ok{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.30),0 0 10px rgba(34,197,94,.85)}
+  .conn-sig-warn .conn-dot,.cm-d-warn{background:#facc15;box-shadow:0 0 0 3px rgba(250,204,21,.30),0 0 10px rgba(250,204,21,.85)}
+  .conn-sig-bad .conn-dot,.cm-d-bad{background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.30),0 0 10px rgba(239,68,68,.85)}
+  .cm-d-off{background:#94a3b8;box-shadow:0 0 0 3px rgba(148,163,184,.25)}
+  @media (max-width:639px){.conn-sig-label{display:none}.conn-sig{padding:10px 8px}}
+
+  #connModal{position:fixed;inset:0;z-index:10000;display:none;align-items:center;justify-content:center;background:rgba(2,8,23,.62);padding:12px}
+  #connModal.cm-open{display:flex}
+  .cm-sheet{background:#fff;color:#0f172a;width:100%;max-width:580px;max-height:92vh;border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,.45);font-family:inherit}
+  .cm-head{background:#0f2547;color:#fff;padding:14px 16px;display:flex;align-items:center;gap:12px;flex:0 0 auto}
+  .cm-head .cm-d{width:20px;height:20px;flex:0 0 20px}
+  .cm-title{font-size:16px;font-weight:700;line-height:1.2}
+  .cm-sub{font-size:11.5px;color:rgba(255,255,255,.7);margin-top:2px}
+  .cm-x{margin-left:auto;background:transparent;border:0;color:#fff;font-size:26px;line-height:1;cursor:pointer;padding:4px 8px;border-radius:8px}
+  .cm-x:hover{background:rgba(255,255,255,.14)}
+  .cm-bar{display:flex;gap:8px;padding:10px 14px;border-bottom:1px solid #e2e8f0;flex:0 0 auto;flex-wrap:wrap}
+  .cm-btn{border:1px solid #cbd5e1;background:#f8fafc;color:#0f172a;font-size:12.5px;font-weight:600;padding:7px 12px;border-radius:9px;cursor:pointer;min-height:36px}
+  .cm-btn:hover{background:#eef2ff;border-color:#93a4f4}
+  .cm-btn:disabled{opacity:.45;cursor:not-allowed}
+  .cm-btn-pri{background:#2563eb;border-color:#2563eb;color:#fff}
+  .cm-btn-pri:hover{background:#1d4ed8;border-color:#1d4ed8}
+  .cm-body{overflow-y:auto;padding:4px 14px 16px;-webkit-overflow-scrolling:touch}
+  .cm-h{font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#64748b;margin:14px 0 6px}
+  .cm-row{display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid #f1f5f9}
+  .cm-row:last-child{border-bottom:0}
+  .cm-d{display:inline-block;width:12px;height:12px;border-radius:50%;flex:0 0 12px}
+  .cm-main{flex:1 1 auto;min-width:0}
+  .cm-name{font-size:14px;font-weight:650;line-height:1.25}
+  .cm-msg{font-size:12px;color:#64748b;margin-top:1px;line-height:1.3;word-break:break-word}
+  .cm-badge{font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:99px;margin-left:6px;vertical-align:1px;letter-spacing:.03em}
+  .cm-b-ok{background:#dcfce7;color:#15803d}.cm-b-off{background:#e2e8f0;color:#475569}.cm-b-warn{background:#fef9c3;color:#a16207}.cm-b-bad{background:#fee2e2;color:#b91c1c}
+  .cm-foot{font-size:11px;color:#94a3b8;padding:8px 14px 12px;border-top:1px solid #f1f5f9;flex:0 0 auto}
+  @media (max-width:639px){#connModal{padding:0;align-items:flex-end}.cm-sheet{max-width:none;max-height:94vh;border-radius:16px 16px 0 0}}
+</style>
+
+<div id="connModal" role="dialog" aria-modal="true" aria-labelledby="cmTitle">
+  <div class="cm-sheet">
+    <div class="cm-head">
+      <span class="cm-d cm-d-warn" id="cmHeadDot"></span>
+      <div style="min-width:0"><div class="cm-title" id="cmTitle">Checking connection…</div><div class="cm-sub" id="cmSub"></div></div>
+      <button type="button" class="cm-x" id="cmClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="cm-bar">
+      <button type="button" class="cm-btn cm-btn-pri" id="cmCheckAll">Check all</button>
+      <button type="button" class="cm-btn" id="cmUpdate">Update data now</button>
+    </div>
+    <div class="cm-body" id="cmBody"></div>
+    <div class="cm-foot">Green = connected &middot; Yellow = checking / slow / retrying &middot; Red = not working. Stays on screen until the status changes.</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function ago(ts) {
+    if (!ts) return '';
+    var s = Math.max(0, Math.round((Date.now() - ts) / 1000));
+    if (s < 5) return 'just now';
+    if (s < 60) return s + 's ago';
+    if (s < 3600) return Math.round(s / 60) + 'm ago';
+    return Math.round(s / 3600) + 'h ago';
+  }
+  function g(fn, dflt) { try { return fn(); } catch (e) { return dflt; } }
+
+  // ---- connections (what is checked) ----
+  var CONN = [
+    { id: 'net',      name: 'Internet',           auto: true },
+    { id: 'backend',  name: 'Backend server',     auto: true },
+    { id: 'auth',     name: 'Sign-in',            auto: true },
+    { id: 'sheet',    name: 'Google Sheet (live)', auto: true },
+    { id: 'data',     name: 'Dashboard data',     auto: true },
+    { id: 'editor',   name: 'Edit permission',    auto: true },
+    { id: 'overall',  name: 'Overall Data sheet' },
+    { id: 'links',    name: 'Quick Links access' },
+    { id: 'analysis', name: 'Analysis sync' },
+    { id: 'log',      name: 'Activity log' },
+    { id: 'app',      name: 'Offline app (cache)' }
+  ];
+  var C = {};
+  CONN.forEach(function (c) { C[c.id] = { state: 'idle', msg: 'Not checked yet', ms: 0, at: 0, fails: 0 }; });
+  var CRITICAL = ['net', 'backend', 'auth', 'sheet', 'data'];
+
+  function setC(id, state, msg, ms) {
+    var o = C[id]; if (!o) return;
+    o.state = state; o.msg = msg || ''; o.ms = ms || 0; o.at = Date.now();
+    if (state === 'ok' || state === 'off') o.fails = 0;
+    paint();
+  }
+  function isPerm(m) { return /unauthori|not permitted|not authori|blocked|not allowed/i.test(String(m || '')); }
+  function netErr(e) { return !isPerm(e && e.message ? e.message : e); }
+  function failC(id, e, label) {
+    var o = C[id]; o.fails = (o.fails || 0) + 1;
+    var m = String((e && e.message) || e || 'Failed');
+    if (m.length > 140) m = m.slice(0, 140) + '…';
+    setC(id, o.fails >= 2 ? 'bad' : 'warn', (label ? label + ': ' : '') + m + (o.fails < 2 ? ' (retrying)' : ''));
+  }
+
+  // ---- backend calls ----
+  function actionOf(url) { var m = /[?&]action=([^&]+)/.exec(url || ''); return m ? decodeURIComponent(m[1]) : ''; }
+  async function token() { return window.getCurrentIdToken ? await window.getCurrentIdToken() : null; }
+  async function api(action, ms) {
+    var t = await token();
+    if (!t) throw new Error('Not signed in');
+    var url = defaultAppsScriptUrl + '?action=' + action + '&secret=' + encodeURIComponent(appsScriptSecret) +
+      '&idToken=' + encodeURIComponent(t) + '&t=' + Date.now();
+    var j = await fetchSheetTransport(url, { directMs: ms || 12000, jsonpMs: ms || 12000 });
+    if (j && j.error) throw new Error(j.error);
+    return j;
+  }
+
+  // ---- passive watching of the dashboard's own real requests ----
+  function passiveOk(action, ms) {
+    var slow = ms > 6000;
+    if (action !== 'ping') { /* any answer proves the server is up */ }
+    var b = C.backend; b.fails = 0;
+    if (action === 'ping' || b.state !== 'ok' || !b.at || Date.now() - b.at > 20000) setC('backend', slow ? 'warn' : 'ok', slow ? 'Answering slowly' : 'Answering', ms);
+    if (action === 'dataVersion') setC('sheet', 'ok', 'Live — Sheet reachable', ms);
+  }
+  function passiveFail(action, e) {
+    var m = e && e.message ? e.message : e;
+    if (isPerm(m)) return;
+    failC('backend', e, 'Server');
+    if (action === 'dataVersion') failC('sheet', e);
+  }
+  if (typeof fetchSheetOnce === 'function') {
+    var origOnce = fetchSheetOnce;
+    fetchSheetOnce = async function (url) {
+      var a = actionOf(url), t0 = Date.now();
+      try {
+        var j = await origOnce.apply(this, arguments);
+        if (!(j && j.error && !isPerm(j.error))) passiveOk(a, Date.now() - t0);
+        return j;
+      } catch (e) { passiveFail(a, e); throw e; }
+    };
+  }
+  if (typeof fetchSheet === 'function') {
+    var origFS = fetchSheet;
+    fetchSheet = async function (isAuto) {
+      if (!isAuto) setC('data', 'warn', 'Updating…');
+      var t0 = Date.now();
+      try {
+        var r = await origFS.apply(this, arguments);
+        testData(Date.now() - t0);
+        return r;
+      } catch (e) { failC('data', e, 'Load failed'); C.data.fails = 2; setC('data', 'bad', 'Load failed: ' + String((e && e.message) || e).slice(0, 120)); throw e; }
+    };
+  }
+
+  // ---- individual tests ----
+  function testData(ms) {
+    var usable = g(function () { return isDashboardDataUsable(); }, false);
+    var n = g(function () { return activeData.branches.length; }, 0);
+    var synced = g(function () { var t = localStorage.getItem(dashCacheTsKeyFor(currentCacheOwnerEmail())); return t ? new Date(Number(t) || t).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''; }, '') || '';
+    if (usable && n) setC('data', 'ok', n + ' branches loaded' + (synced ? ' · synced ' + synced : ''), ms);
+    else if (g(function () { return isFetchingSheet; }, false)) setC('data', 'warn', 'Loading…');
+    else setC('data', 'warn', 'No data on screen yet');
+  }
+  var TESTS = {
+    net: async function () { navigator.onLine ? setC('net', 'ok', 'Online') : setC('net', 'bad', 'This device is offline'); },
+    backend: async function () {
+      var t0 = Date.now();
+      try {
+        var j = await fetchSheetTransport(defaultAppsScriptUrl + '?action=ping&t=' + Date.now(), { directMs: 8000, jsonpMs: 8000 });
+        if (!j || !j.success) throw new Error('Unexpected reply');
+        var ms = Date.now() - t0; C.backend.fails = 0;
+        setC('backend', ms > 6000 ? 'warn' : 'ok', ms > 6000 ? 'Answering slowly' : 'Answering', ms);
+      } catch (e) { failC('backend', e, 'Server not answering'); }
+    },
+    auth: async function () {
+      var t = await token();
+      if (!t) { setC('auth', 'warn', 'Not signed in'); return; }
+      var p = g(function () { return JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); }, null);
+      setC('auth', 'ok', p && p.email ? 'Signed in as ' + p.email : 'Signed in');
+      if (p && p.email) window.__connEmail = p.email;
+    },
+    sheet: async function () {
+      var t0 = Date.now();
+      try {
+        var j = await api('dataVersion', 12000);
+        var v = Number(j.dataVersion), ms = Date.now() - t0;
+        setC('sheet', ms > 6000 ? 'warn' : 'ok', 'Reachable' + (v > 0 ? ' · last changed ' + new Date(v).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''), ms);
+      } catch (e) { if (/Not signed in/.test(e.message)) setC('sheet', 'warn', 'Waiting for sign-in'); else failC('sheet', e); }
+    },
+    data: async function () { testData(0); },
+    editor: async function () {
+      var t0 = Date.now();
+      try { await api('checkEditorAuth', 12000); setC('editor', 'ok', 'You can edit', Date.now() - t0); }
+      catch (e) { if (isPerm(e.message)) setC('editor', 'off', 'View only — this account cannot edit'); else if (/Not signed in/.test(e.message)) setC('editor', 'warn', 'Waiting for sign-in'); else failC('editor', e); }
+    },
+    overall: async function () {
+      var t0 = Date.now();
+      try {
+        var p = await fetchOverallDataPayload(false);
+        var n = p && (p.branches ? p.branches.length : (p.rows ? p.rows.length : 0));
+        setC('overall', 'ok', 'Loaded' + (n ? ' · ' + n + ' branches' : ''), Date.now() - t0);
+      } catch (e) { if (isPerm(e.message)) setC('overall', 'off', 'No access'); else failC('overall', e); }
+    },
+    links: async function () {
+      var t0 = Date.now();
+      try { await api('list', 15000); setC('links', 'ok', 'Quick Links available', Date.now() - t0); }
+      catch (e) { if (isPerm(e.message)) setC('links', 'off', 'Not allowed for this account'); else failC('links', e); }
+    },
+    analysis: async function () {
+      var t0 = Date.now();
+      try { await api('getAnalysisState', 12000); setC('analysis', 'ok', 'Synced across devices', Date.now() - t0); }
+      catch (e) { if (isPerm(e.message)) setC('analysis', 'off', 'No access'); else failC('analysis', e); }
+    },
+    log: async function () {
+      if (C.editor.state === 'off') { setC('log', 'off', 'Editors only'); return; }
+      var t0 = Date.now();
+      try { await api('auditLog', 15000); setC('log', 'ok', 'Readable', Date.now() - t0); }
+      catch (e) { if (isPerm(e.message)) setC('log', 'off', 'Editors only'); else failC('log', e); }
+    },
+    app: async function () {
+      if (!('serviceWorker' in navigator)) { setC('app', 'off', 'Not supported in this browser'); return; }
+      var reg = await navigator.serviceWorker.getRegistration();
+      if (!reg) { setC('app', 'warn', 'Not installed yet'); return; }
+      var keys = (window.caches && await caches.keys()) || [];
+      setC('app', navigator.serviceWorker.controller ? 'ok' : 'warn', navigator.serviceWorker.controller ? 'Works offline · ' + (keys[0] || 'cached') : 'Installed — reload once to activate');
+    }
+  };
+  var running = {};
+  async function runTest(id) {
+    if (running[id]) return;
+    running[id] = true;
+    var o = C[id], prev = o.state;
+    if (modalOpen()) { o.state = 'warn'; o.msg = 'Checking…'; renderModal(); }
+    try { await TESTS[id](); } catch (e) { failC(id, e); }
+    running[id] = false; paint();
+  }
+  async function runAll() {
+    var b = $('cmCheckAll'); if (b) { b.disabled = true; b.textContent = 'Checking…'; }
+    for (var i = 0; i < CONN.length; i++) { await runTest(CONN[i].id); }
+    if (b) { b.disabled = false; b.textContent = 'Check all'; }
+  }
+  async function runBasic() {
+    if (document.hidden) return;
+    await runTest('net'); await runTest('auth');
+    if (!navigator.onLine) return;
+    if (!C.backend.at || Date.now() - C.backend.at > 40000) await runTest('backend');
+    if (!C.sheet.at || Date.now() - C.sheet.at > 50000) await runTest('sheet');
+    await runTest('data');
+    if (!C.editor.at) await runTest('editor');
+  }
+
+  // ---- edit / function availability ----
+  function needsEditor() { var s = C.editor.state; return s === 'ok' ? true : (s === 'off' ? false : null); }
+  var FUNCS = [
+    { name: 'Add Assignment', desc: 'Assign auditors to branches', need: 'editor', run: function () { openEditAssignmentModal(headerEditAssignBranch || (activeData.branches && activeData.branches[0] && activeData.branches[0].name)); } },
+    { name: 'Set Emergency Auditor', desc: 'Emergency auditor and rotation', need: 'editor', run: function () { openEditEmergencyModal(); } },
+    { name: 'Add Findings', desc: 'Log an audit finding', need: 'editor', run: function () { openAddFindingModal(); } },
+    { name: 'Update Sheet', desc: 'Add the newest month to OVERALL DATA', need: 'editor', run: function () { updateOverallDataFromMenu(); } },
+    { name: 'Recent Activity', desc: 'Who changed what', need: 'editor', run: function () { openAuditLogModal(); } },
+    { name: 'Data Updater', desc: 'Push / pull branch data', need: 'any', run: function () { openDataUpdater(); } },
+    { name: 'Download Report', desc: 'Export (asks your password)', need: 'any', run: function () { openExportPicker('consolidated'); } },
+    { name: 'My Devices', desc: 'See and sign out your devices', need: 'any', run: function () { openMyDevicesModal(); } },
+    { name: 'Quick Links', desc: 'Google Sheets & folders shortcuts', need: 'links', run: function () { var b = $('hamburgerBtn'); if (b) b.click(); } },
+    { name: 'Update data', desc: 'Refresh the dashboard now', need: 'any', run: function () { fetchSheet(); } }
+  ];
+  function funcAvail(f) {
+    if (!navigator.onLine) return { s: 'bad', t: 'Offline' };
+    if (f.need === 'editor') { var e = needsEditor(); return e === true ? { s: 'ok', t: 'Available' } : e === false ? { s: 'off', t: 'View only' } : { s: 'warn', t: 'Checking' }; }
+    if (f.need === 'links') { var l = C.links.state; return l === 'ok' ? { s: 'ok', t: 'Available' } : l === 'off' ? { s: 'off', t: 'Not allowed' } : { s: 'warn', t: 'Checking' }; }
+    return C.backend.state === 'bad' ? { s: 'bad', t: 'Server down' } : { s: 'ok', t: 'Available' };
+  }
+
+  // ---- overall signal ----
+  var overall = { s: 'warn', label: 'Connecting', why: 'Checking…' };
+  function compute() {
+    if (!navigator.onLine) return { s: 'bad', label: 'Offline', why: 'This device has no internet.' };
+    var bad = CRITICAL.filter(function (k) { return C[k].state === 'bad'; });
+    if (bad.length) { var k = bad[0]; return { s: 'bad', label: k === 'backend' ? 'No server' : 'Problem', why: names(k) + ': ' + C[k].msg }; }
+    var warn = CRITICAL.filter(function (k) { return C[k].state === 'warn' || C[k].state === 'idle'; });
+    if (warn.length) { var w = warn[0]; return { s: 'warn', label: C[w].state === 'idle' ? 'Connecting' : 'Checking', why: names(w) + ': ' + C[w].msg }; }
+    var soft = CONN.filter(function (c) { return CRITICAL.indexOf(c.id) < 0 && C[c.id].state === 'bad'; });
+    if (soft.length) return { s: 'warn', label: 'Partly', why: soft[0].name + ': ' + C[soft[0].id].msg };
+    return { s: 'ok', label: 'Connected', why: 'Everything is connected.' };
+  }
+  function names(id) { for (var i = 0; i < CONN.length; i++) if (CONN[i].id === id) return CONN[i].name; return id; }
+  function paint() {
+    overall = compute();
+    var b = $('connSignalBtn'); if (!b) return;
+    var cls = 'conn-sig conn-sig-' + overall.s;
+    if (b.className !== cls) b.className = cls;
+    var lab = $('connSigLabel'); if (lab && lab.textContent !== overall.label) lab.textContent = overall.label;
+    var title = overall.label + ' — ' + overall.why + ' (tap for details)';
+    b.title = title; b.setAttribute('aria-label', 'Connection status: ' + overall.label);
+    if (modalOpen()) renderModal();
+  }
+
+  // ---- popup ----
+  function modalOpen() { var m = $('connModal'); return !!(m && m.classList.contains('cm-open')); }
+  function row(c) {
+    var o = C[c.id], st = o.state === 'idle' ? 'warn' : o.state;
+    var meta = [o.msg]; if (o.ms) meta.push(o.ms + ' ms'); if (o.at) meta.push(ago(o.at));
+    return '<div class="cm-row"><span class="cm-d cm-d-' + st + '"></span><div class="cm-main"><div class="cm-name">' + esc(c.name) + '</div><div class="cm-msg">' + esc(meta.filter(Boolean).join(' · ')) + '</div></div><button type="button" class="cm-btn" data-test="' + c.id + '">Test</button></div>';
+  }
+  function renderModal() {
+    $('cmHeadDot').className = 'cm-d cm-d-' + overall.s;
+    $('cmTitle').textContent = overall.s === 'ok' ? 'Connected' : overall.s === 'bad' ? 'Connection problem' : 'Checking / partly connected';
+    $('cmSub').textContent = (window.__connEmail ? window.__connEmail + ' · ' : '') + overall.why;
+    var h = '<div class="cm-h">Connections</div>' + CONN.map(row).join('');
+    h += '<div class="cm-h">Edit &amp; functions</div>';
+    h += FUNCS.map(function (f, i) {
+      var a = funcAvail(f);
+      return '<div class="cm-row"><span class="cm-d cm-d-' + a.s + '"></span><div class="cm-main"><div class="cm-name">' + esc(f.name) + '<span class="cm-badge cm-b-' + a.s + '">' + esc(a.t) + '</span></div><div class="cm-msg">' + esc(f.desc) + '</div></div><button type="button" class="cm-btn" data-fn="' + i + '"' + (a.s === 'ok' ? '' : ' disabled') + '>Open</button></div>';
+    }).join('');
+    var body = $('cmBody'), top = body.scrollTop;
+    body.innerHTML = h; body.scrollTop = top;
+  }
+  function openModal() {
+    $('connModal').classList.add('cm-open'); document.body.style.overflow = 'hidden';
+    renderModal();
+    ['net', 'backend', 'auth', 'sheet', 'data', 'editor', 'links', 'analysis', 'app'].reduce(function (p, id) { return p.then(function () { return modalOpen() ? runTest(id) : null; }); }, Promise.resolve());
+  }
+  function closeModal() { $('connModal').classList.remove('cm-open'); document.body.style.overflow = ''; }
+
+  function init() {
+    var btn = $('connSignalBtn'); if (!btn) return;
+    btn.addEventListener('click', openModal);
+    $('cmClose').addEventListener('click', closeModal);
+    $('connModal').addEventListener('click', function (e) { if (e.target === this) closeModal(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modalOpen()) { e.stopPropagation(); closeModal(); } }, true);
+    $('cmCheckAll').addEventListener('click', runAll);
+    $('cmUpdate').addEventListener('click', function () { closeModal(); fetchSheet().catch(function () {}); });
+    $('cmBody').addEventListener('click', function (e) {
+      var t = e.target.closest('[data-test]'), f = e.target.closest('[data-fn]');
+      if (t) { runTest(t.getAttribute('data-test')); return; }
+      if (f && !f.disabled) {
+        var fn = FUNCS[Number(f.getAttribute('data-fn'))]; closeModal();
+        setTimeout(function () { try { fn.run(); } catch (err) { console.warn('[signal] could not open', fn.name, err); if (typeof showToast === 'function') showToast('Could not open ' + fn.name); } }, 60);
+      }
+    });
+    window.addEventListener('online', function () { runTest('net'); setTimeout(runBasic, 300); });
+    window.addEventListener('offline', function () { setC('net', 'bad', 'This device is offline'); });
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) runBasic(); });
+    setInterval(function () { if (modalOpen()) renderModal(); }, 10000);
+    setInterval(runBasic, 25000);
+    setTimeout(runBasic, 1500); setTimeout(runBasic, 7000);
+    paint();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+</script>
 
 </body></html>
