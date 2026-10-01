@@ -1,6 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v54'
+const CACHE_VERSION = 'audit-dashboard-v55'
+// v55: SPEED PASS. index.html no longer loads the Tailwind CDN runtime (it compiled CSS in the browser on every visit and re-ran on every DOM change = slow start + flicker) or the unused Lucide library; it ships one complete prebuilt stylesheet instead. ApexCharts is pinned and precached here. Update check no longer hashes 1.8MB twice when the ETag is unchanged. Bumped so installed apps refetch index.html.
 // v54: Table boxes in popups (Overall Data Snapshot and the other data tables) are now sized to end exactly at the bottom of the popup, so their scrollbar and last rows work without scrolling the whole popup to the end.
 // v53: Overall Data Snapshot: Show all + Refresh sit next to Leaders; month headers centered.
 // v52: Overall Data Snapshot table is denser (shorter rows, tighter columns) and all left-aligned.
@@ -111,6 +112,11 @@ const APP_SHELL = [
   './icons/icon-512.png',
   './icons/apple-touch-icon.png'
 ];
+// Pinned CDN files fetched once at install so charts work on the very first
+// offline/slow open (non-fatal if any of them fails).
+const CDN_PRECACHE = [
+  'https://cdn.jsdelivr.net/npm/apexcharts@7.6.1/dist/apexcharts.min.js'
+];
 // Static CDN hosts that are safe to cache (libraries + fonts only).
 const CDN_HOSTS = [
   'cdn.tailwindcss.com',
@@ -138,7 +144,12 @@ self.addEventListener('install', (event) => {
               console.warn('[service-worker] install: could not precache ' + url + ' (non-fatal):', err);
               return null;
             });
-          })
+          }).concat(CDN_PRECACHE.map((url) =>
+            // CORS request, same as the page's <script crossorigin="anonymous">.
+            fetch(url, { mode: 'cors', credentials: 'omit' })
+              .then((res) => (res && res.ok ? cache.put(url, res) : null))
+              .catch(() => null)
+          ))
         )
       )
       .then(() => self.skipWaiting())
@@ -170,6 +181,11 @@ function versionOf(res) {
 // True only when the two responses have different BODY bytes (SHA-256).
 // Any error => false, so a hiccup never produces a false "update" prompt.
 function bodiesDiffer(a, b) {
+  // Cheap checks first: same validator => same file; different size => changed.
+  const ea = a.headers.get('etag'), eb = b.headers.get('etag');
+  if (ea && eb && ea === eb) return Promise.resolve(false);
+  const la = a.headers.get('content-length'), lb = b.headers.get('content-length');
+  if (la && lb && !a.headers.get('content-encoding') && !b.headers.get('content-encoding') && la !== lb) return Promise.resolve(true);
   const hash = (res) =>
     res.arrayBuffer()
       .then((buf) => crypto.subtle.digest('SHA-256', buf))
