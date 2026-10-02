@@ -1,6 +1,10 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v64'
+const CACHE_VERSION = 'audit-dashboard-v66'
+// v66: pairs with index.html device-friendly pass (no iPhone zoom-on-tap in text boxes,
+//  notch-safe in landscape, no double-tap delay, correct full-height on mobile browsers).
+// v65: pairs with index.html fix: Rating Rules preview/save no longer throws
+//  "escapeHTML is not defined" when a rule problem is shown. No behaviour change here.
 // v64: pairs with the Audit Risk & Schedule Analysis save fix (Code.gs #23 + index.html).
 // v63: pairs with the live-sheet speed patch (Code.gs #22 + index.html): installing this
 //  version re-precaches the new index.html at once so phones and desktops pick it up on the
