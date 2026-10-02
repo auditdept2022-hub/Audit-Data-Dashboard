@@ -1,113 +1,12 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v61'
-// v61: MULTI-DEVICE PASS. index.html: background polls are capped at 2 in flight per device, slow down when a device sits idle, and the 5-minute refresh now uses the tiny version check instead of downloading every sheet. Bumped so installed apps refetch index.html.
-// v60: SPEED / RELIABILITY PASS (pairs with the index.html + Code.gs timeout fixes). (1) Install downloads index.html ONCE instead of twice ('./' and './index.html' were the same 1.9 MB file fetched two times). (2) A failed cache write (storage full) can no longer break the very first page load. (3) The background update check always asks for the canonical index.html (not whatever ?query the app was opened with) and gives up after 20 s instead of hanging. (4) Sibling pages (Opex, Parts, Attendance) fall back to their saved copy after 8 s on a bad connection instead of waiting on the network. (5) A failed CDN fetch with nothing saved now returns a clean network error instead of crashing the handler. (6) Other same-origin files (icons, screenshots) refresh in the background instead of staying frozen until the next version bump. Backend calls (script.google.com / googleusercontent.com) are still never touched. Bumped so installed apps refetch index.html.
-// v59: "Last synced" label now follows every successful check (opening the app, Update data, the 20-second live check) instead of only when changed data was re-processed. Bumped so installed apps refetch index.html.
-// v58: PERF/FLICKER PASS. index.html: popup search boxes render once after a short typing pause instead of rebuilding the whole popup (and re-focusing the input) on every keystroke; the stat-card pulse no longer forces ~29 layouts per render; the toast no longer uses a backdrop blur. This file: the dashboard shell is no longer rewritten into the cache when the server's ETag proves it is unchanged, and version-pinned CDN files (apexcharts@x.y.z, firebasejs/x.y.z, font files) are served cache-first instead of being re-fetched and re-stored on every load. Bumped so installed apps refetch index.html.
-// v57: Connection signal (yellow/green/red dot beside "Update data") + popup listing every connection and which edit functions are available. Bumped so installed apps refetch index.html.
-// v56: Backend pass (Code.gs #17): remark edit/delete now refuses a stale row instead of overwriting the wrong remark, heartbeats no longer flush the device-list cache every time. Bumped so installed apps pick up the matching backend behaviour and refetch index.html.
-// v55: SPEED PASS. index.html no longer loads the Tailwind CDN runtime (it compiled CSS in the browser on every visit and re-ran on every DOM change = slow start + flicker) or the unused Lucide library; it ships one complete prebuilt stylesheet instead. ApexCharts is pinned and precached here. Update check no longer hashes 1.8MB twice when the ETag is unchanged. Bumped so installed apps refetch index.html.
-// v54: Table boxes in popups (Overall Data Snapshot and the other data tables) are now sized to end exactly at the bottom of the popup, so their scrollbar and last rows work without scrolling the whole popup to the end.
-// v53: Overall Data Snapshot: Show all + Refresh sit next to Leaders; month headers centered.
-// v52: Overall Data Snapshot table is denser (shorter rows, tighter columns) and all left-aligned.
-// v51: Overall Data Snapshot: removed the per-column funnel (sort/filter popup); clicking a column header still sorts.
-// v50: Overall Data Snapshot header is now one compact row (tabs, panel toggles, refresh icon).
-// v49: Overall Data Snapshot now works like Audit Risk & Schedule Analysis: it shows the saved copy at once and only downloads the full data when a tiny version check says the Sheet changed.;
-// v48: Overall Data Snapshot: Summary / Chart / Leaders panels are hideable (hidden by default) so the branch table gets the whole popup; the popup opens instantly from a saved copy and refreshes quietly. Bumped so installed apps refetch index.html.
-// v47: LOADING / TIMEOUT FIXES. index.html: startup requests (heartbeat, presence watcher, devices prewarm, Overall Data prefetch) no longer fight the dashboard data request; the wake-up ping can no longer hold real requests for long; 2 attempts instead of 3; a dashboard drawing error is no longer mistaken for a network failure (that kept the loading screen up although data had loaded). Bumped so installed apps refetch index.html.
-// v46: Audit Risk & Schedule Analysis recalibrated (model v4): data-only evidence score separated from recency/coverage priority, 35% max share per factor, recency weight 10%, thin-data shrinkage, backtest panel. Bumped so installed apps refetch index.html.
-// v45: Fixed broken layout (side menu covering the page) when the Tailwind CDN is blocked/offline: index.html now ships a complete pre-built Tailwind stylesheet instead of a stale partial snapshot.
-// v44: Branch Picker papers are now real folded paper slips (crease, dog-ear, shadow) instead of finger-like rolls; shuffle piles and riffles them like a stack; revealed result is an opened ruled sheet.
-// (v43 note below is unchanged)
-// v43: Branch Picker redesigned (stage, rolled papers, confetti reveal) and each auditor now draws once per round - auditors who already drew are skipped.
-// v42: Branch Picker: removed the Overview/All buttons; "Who is drawing?" is now an auditor list with a slot-style up-and-down shuffle that picks one.
-// v41: Branch Picker is now add-only: type branches yourself (Enter to add), or add the Overview list / all branches with one tap.
-// v40: Fixed the "new version available" prompt showing on every visit even when nothing changed: the service worker now compares the real index.html content instead of ETag/Last-Modified headers.
-// v39: Assignment Branches Overview: the "Data Analysis" toolbar button is replaced by a Branch Picker (shuffle papers, tap one, it flips up and shows the branch to visit). Bumped so installed apps refetch index.html.
-// v38: Analysis now references the same numbers as Operations Highpoints / Auditor Workload: each auditor row shows branches waiting AND audits done (tap opens the same Auditor Workload popup), and when two auditors are equally free the one with fewer audits done gets the branch. Detailed Profile already shares the same audit-round data. Bumped so installed apps refetch index.html.
-// v37: Connected to the AUDITORS EMERGENCY sheet: emergency audits now count as real audits for their branch (names matched safely, e.g. LAIYA = LAIYA SAN JUAN), and an audit that started a few days ago still blocks that auditor's next days when suggesting dates. Bumped so installed apps refetch index.html.
-// v36: Audit schedule fixes: an audit dated TODAY is no longer treated as missed; an audit already done on/after its planned date is no longer queued again; audits planned only as a future-dated round now count as scheduled; suggested dates avoid every day an auditor is already booked (one lane per auditor name, any case). Bumped so installed apps refetch index.html.
-// v35: Loading progress bar + status text is back under the logo on the boot splash (follows the real load). Bumped so installed apps refetch index.html.
-// v34: Audit status banner realigned: headline no longer wraps onto a second line with a lone word, tighter line spacing, more room between the status block and the rating bar. Bumped so installed apps refetch index.html.
-// v33: Audit schedule now uses ONE audit-cycle rule per branch: its own data-based due interval, shortened (never lengthened) by its rating's limit. Before, the score used the branch's due interval but the schedule/overdue/on-track checks used a fixed rating cycle, so the two could disagree. Bumped so installed apps refetch index.html.
-// v32: Audit status banner: plainer wording ("23 branches need an audit plan", "39 of 56 branches are audited on time or already scheduled"), "ON TRACK" label inside the ring. Bumped so installed apps refetch index.html.
-// v31: Risk Drivers panel: right-hand counts no longer squeezed/wrapped (wider fixed column, no wrapping), simpler wording ("28 of 56 branches"), plainer subtitle. Bumped so installed apps refetch index.html.
-// v30: Branch popup lower sections: trend cards one per row with bigger numbers, sales as 3 months + full-width total, service rows stacked, slightly wider content. Bumped so installed apps refetch index.html.
-// v29: Branch popup rebuilt for phones: full-screen sheet with larger text (14-15px), 44px touch targets, section cards,
-//  score breakdown as rows with a risk bar, sales as small cards instead of a 5-column table, cleaner findings header.
-//  Bumped so installed apps refetch index.html.
-// v28: Loading + double-load fix. index.html: boot splash now shows a REAL progress bar that follows the actual
-//  data load, the dashboard no longer re-renders when the fresh data is identical to the cache (data version is
-//  remembered), and a new service worker no longer force-reloads the page (shows the update prompt instead).
-//  Bumped so installed apps refetch index.html.
-// v27: Branch popup compact pass: minimal spacing, no mid-word breaks (MARC/H), breakdown table stacks on phones,
-//  2-column stat cards, tidier findings header. Bumped so installed apps refetch index.html.
-// v26: Branch popup fix: schedule-status badge no longer overflows onto Last audited, action button sized properly,
-//  no nested/double scrolling (page behind is locked, findings + tables flow inside one scroller). Bumped so
-//  installed apps refetch index.html.
-// v25: Branch popup (Audit Risk & Schedule Analysis) now also shows the Audit Findings panel (AUDIT FINDINGS sheet)
-//  under Service, plus popup layout/padding fixes for phone + desktop and less lag (throttled page observers,
-//  no full re-scoring on every popup open). Bumped so installed apps refetch index.html.
-// v24: MOBILE PASS on Audit Risk & Schedule Analysis + Rating Rules (full-screen sheet on phones, wrapped tabs,
-//  stacked footer, no truncated labels). Bumped so installed apps refetch index.html.
-// v23: LIVE DATA. index.html now checks a tiny "dataVersion" endpoint every ~20 s (and instantly on
-//  focus/online) and only downloads data when the Sheet actually changed; it also keeps an IndexedDB
-//  copy of the dashboard so a new sign-in / cleared browser storage still opens instantly, and wakes
-//  the backend while the sign-in screen is still loading. Bumped so installed apps refetch index.html.
-// v22: Rating Rules & Manual Settings: nothing changes until "Save changes" is pressed, and saving now
-//  asks for the owner's password (only the account flagged ratingRules in Code.gs can save). Bumped so
-//  installed apps refetch index.html.
-// v21: Rating Rules & Manual Settings: new "Data scales" tab, extra red-flag and queue rules, and faster
-//  live cross-device sync (5 s while open, 20 s in the background, instant on focus/online). Bumped so
-//  installed apps refetch index.html.
-// v20: redesigned "Rating Rules & Manual Settings" (tabs, presets, live preview, editable
-//  rating levels, cycles and red flags). Bumped so installed apps refetch index.html.
-// v19: data-driven rating levels (top ~15% Critical / ~40% High, fixed minimums kept),
-//  rebuilt "How branches are rated" panel. Bumped so installed apps refetch index.html.
-// v18: Audit Risk model v3 (peer-relative efficiency/repo scoring, data-driven
-//  "How branches are compared" panel with evidence table). Bumped so installed apps refetch.
-// v17: scoring scales are now fully automatic (no manual caps).
-// v16: clearer Advanced scoring scales panel (calibration checks shown).
-// v15: new Audit Risk rating model (risk-based audit cycles, findings for a new year,
-//  INS/COD/CA sales, service vs target amount, fairer account-size scale, new default weights).
-// v14: removed the Audit history detected panel.
-// v13: profile Recent/Last use every dated engagement incl. scheduled.
-// v12: profile shows an Audit history detected panel.
-// v11: Recent/Last auditor merge AUDIT DATA + ROTATION rounds.
-// v10: Priority Queue keeps the already-assigned Up Next auditor.
-// v9: profile Recent/Last auditor + analysis auditor fixes.
-// v8: index.html update (remark drafts, shared Audit Risk analysis sync,
-//  removed the "Right now" rules box). Bumped so installed apps refetch it.
-// v7: FIXED stale live data. The cross-origin handler used to cache EVERY
-//  cross-origin GET stale-while-revalidate, including api.open-meteo.com
-//  (the weather call in attendance_dashboard.html), so the weather could
-//  show an old reading. Now only a fixed allowlist of static CDN hosts
-//  (scripts / fonts) is cached; every other cross-origin request goes
-//  straight to the network untouched.
-// v6 (this file): FIXED a navigation bug. The old handler treated EVERY
-//  same-origin page navigation as "the dashboard": it answered with the
-//  cached ./index.html and, on refresh, overwrote that cache entry with
-//  whatever page was requested. index.html links to sibling pages
-//  (attendance_dashboard.html, Parts_Request.html, Opex.html, and the
-//  manifest shortcuts point at them too), so those pages could show the
-//  dashboard instead, and could even replace the cached dashboard with
-//  themselves. Only the scope root / index.html use the app-shell logic now;
-//  every other page is network-first with its own cache entry as fallback.
-//  Also: manifest.json is now stale-while-revalidate (it used to be
-//  cache-first, so manifest edits never reached installed users unless
-//  CACHE_VERSION was bumped).
-// v5 changes (see review):
-//  - Navigation refresh now revalidates with ETag ('no-cache') instead of
-//    re-downloading the full 1.3MB index.html ('no-store') on every open.
-//  - When the background refresh finds a NEWER index.html, every open tab is
-//    told via postMessage({type:'APP_UPDATE_AVAILABLE'}) so the page can show
-//    a "New version - tap to refresh" prompt. Before this, an index.html-only
-//    deploy (this file unchanged) silently showed the old version for one
-//    extra visit, because the browser only re-installs the worker when THIS
-//    file's bytes change.
-//  - Background cache refreshes are kept alive with event.waitUntil() so the
-//    browser can't kill the worker before cache.put() lands.
+const CACHE_VERSION = 'audit-dashboard-v62'
+// v62: pairs with the lean index.html (about 33% smaller, same features). Old per-version
+//  changelog (v5-v61) removed to keep this file small, because the browser re-downloads it
+//  on every update check. Behaviour is unchanged: app shell is served instantly from the
+//  cache and revalidated in the background; backend calls (script.google.com /
+//  script.googleusercontent.com) are never touched; pinned CDN files are cache-first;
+//  sibling pages are network-first with an 8 s fallback to the saved copy.
 const CACHE_NAME = CACHE_VERSION;
 
 const APP_SHELL = [
@@ -361,7 +260,7 @@ self.addEventListener('fetch', (event) => {
           ).then((response) => {
               if (response && response.ok) {
                 // Same strong validator as the cached copy => provably the same
-                // file: nothing to hash, and no reason to re-write ~1.9 MB into
+                // file: nothing to hash, and no reason to re-write the whole file into
                 // the cache on every app open.
                 const etagCached = cached && cached.headers.get('etag');
                 const etagFresh = response.headers.get('etag');
