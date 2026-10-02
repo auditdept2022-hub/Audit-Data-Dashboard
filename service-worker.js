@@ -1,6 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v63'
+const CACHE_VERSION = 'audit-dashboard-v64'
+// v64: pairs with the Audit Risk & Schedule Analysis save fix (Code.gs #23 + index.html).
 // v63: pairs with the live-sheet speed patch (Code.gs #22 + index.html): installing this
 //  version re-precaches the new index.html at once so phones and desktops pick it up on the
 //  next open. No behaviour change in this file.
