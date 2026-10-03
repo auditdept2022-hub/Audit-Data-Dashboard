@@ -1,6 +1,12 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v66'
+const CACHE_VERSION = 'audit-dashboard-v67'
+// v67: update-flow hardening. (1) index.html is only re-written to the cache when its content
+//  really changed, and the "update available" message is only sent after that write succeeded
+//  (no repeat prompts / loops if storage is full). (2) Tabs that are already open are told about
+//  a new version when the new worker activates (only if index.html actually changed).
+//  (3) CDN precache can no longer stall install on a hung connection. (4) Background refresh of
+//  icons uses a conditional request (304) instead of a full re-download.
 // v66: pairs with index.html device-friendly pass (no iPhone zoom-on-tap in text boxes,
 //  notch-safe in landscape, no double-tap delay, correct full-height on mobile browsers).
 // v65: pairs with index.html fix: Rating Rules preview/save no longer throws
@@ -71,39 +77,54 @@ function shellUrl() {
   return new URL('index.html', self.registration.scope).href;
 }
 
+// Set during install when the freshly precached index.html differs from the one in the
+// previous cache. Used by activate to tell already-open tabs about the update.
+let shellChangedOnInstall = false;
+
 // ---- Install ----
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) =>
-        Promise.all(
-          APP_SHELL.map((url) => {
-            const req = new Request(url, { cache: 'reload' });
-            const isCritical = APP_SHELL_CRITICAL.indexOf(url) !== -1;
-            return cache.add(req).catch((err) => {
-              if (isCritical) throw err;
-              console.warn('[service-worker] install: could not precache ' + url + ' (non-fatal):', err);
-              return null;
-            });
-          }).concat(CDN_PRECACHE.map((url) =>
-            // CORS request, same as the page's <script crossorigin="anonymous">.
-            fetch(url, { mode: 'cors', credentials: 'omit' })
-              .then((res) => (res && res.ok ? cache.put(url, res) : null))
-              .catch(() => null)
-          ))
-        )
-      )
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    // Copy of the shell from the previous version (if any), to detect a real change.
+    const previous = await caches.match(shellUrl()).catch(() => null);
+
+    await Promise.all(
+      APP_SHELL.map((url) => {
+        const req = new Request(url, { cache: 'reload' });
+        const isCritical = APP_SHELL_CRITICAL.indexOf(url) !== -1;
+        return cache.add(req).catch((err) => {
+          if (isCritical) throw err;
+          console.warn('[service-worker] install: could not precache ' + url + ' (non-fatal):', err);
+          return null;
+        });
+      }).concat(CDN_PRECACHE.map((url) =>
+        // CORS request, same as the page's <script crossorigin="anonymous">.
+        // Aborted after 15 s so a hung CDN can't delay the install.
+        fetchWithAbort(url, { mode: 'cors', credentials: 'omit' }, 15000)
+          .then((res) => (res && res.ok ? cache.put(url, res) : null))
+          .catch(() => null)
+      ))
+    );
+
+    if (previous) {
+      const fresh = await cache.match('./index.html');
+      shellChangedOnInstall = fresh ? await bodiesDiffer(previous, fresh.clone()) : false;
+    }
+    await self.skipWaiting();
+  })());
 });
 
 // ---- Activate ----
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
-  );
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    const hadOld = keys.some((k) => k !== CACHE_NAME);
+    await Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)));
+    await self.clients.claim();
+    // Upgrade (not first install) AND index.html really changed: tabs that are open right now
+    // are still running the old page, so let them show the Refresh button.
+    if (hadOld && shellChangedOnInstall) await notifyClientsOfUpdate();
+  })());
 });
 
 // True only for the dashboard itself: the SW scope root or index.html
@@ -266,33 +287,31 @@ self.addEventListener('fetch', (event) => {
             ? fetchWithAbort(shellUrl(), { cache: 'no-cache' }, 20000)
             : fetch(shellUrl(), { cache: 'no-cache' })
           ).then((response) => {
-              if (response && response.ok) {
-                // Same strong validator as the cached copy => provably the same
-                // file: nothing to hash, and no reason to re-write the whole file into
-                // the cache on every app open.
-                const etagCached = cached && cached.headers.get('etag');
-                const etagFresh = response.headers.get('etag');
-                if (etagCached && etagFresh && etagCached === etagFresh) return response;
-                // Compare the real file CONTENT, not headers: ETag /
-                // Last-Modified can differ between requests (CDN nodes,
-                // weak vs strong ETags) even when index.html is identical,
-                // which used to show the "new version" prompt every time.
-                const fresh = response.clone();
-                const toStore = response.clone();
-                const check = cached
-                  ? bodiesDiffer(cached.clone(), fresh)
-                  : Promise.resolve(false);
-                return check.then((changed) =>
-                  // FIX: a failed cache write (storage full / quota) used to reject this
-                  // whole chain, so on the very first open the page itself never loaded.
-                  // The write is now best-effort: the response is returned either way.
-                  cache.put('./index.html', toStore).then(
-                    () => { if (changed) return notifyClientsOfUpdate(); },
-                    (err) => { console.warn('[service-worker] could not save index.html (storage full?):', err); }
-                  )
-                ).then(() => response);
+              if (!(response && response.ok)) return response;
+
+              // First ever open: no saved copy. Save one (best-effort) and serve the response.
+              if (!cached) {
+                return cache.put('./index.html', response.clone())
+                  .catch((err) => { console.warn('[service-worker] could not save index.html (storage full?):', err); })
+                  .then(() => response);
               }
-              return response;
+
+              // Same strong validator as the saved copy => provably the same file: do nothing.
+              const etagCached = cached.headers.get('etag');
+              const etagFresh = response.headers.get('etag');
+              if (etagCached && etagFresh && etagCached === etagFresh) return response;
+
+              // Compare the real CONTENT (ETag/Last-Modified can differ between requests
+              // even when the file is identical). Unchanged => do nothing, no cache write,
+              // no message. Changed => save it, and only if the save worked tell the page
+              // (a failed save + a message would loop: Refresh would just reload the old copy).
+              return bodiesDiffer(cached.clone(), response.clone()).then((changed) => {
+                if (!changed) return response;
+                return cache.put('./index.html', response.clone()).then(
+                  () => notifyClientsOfUpdate(),
+                  (err) => { console.warn('[service-worker] could not save index.html (storage full?):', err); }
+                ).then(() => response);
+              });
             });
 
           if (cached) {
@@ -331,7 +350,8 @@ self.addEventListener('fetch', (event) => {
   // until the next CACHE_VERSION bump.
   event.respondWith(
     caches.match(request).then((cached) => {
-      const network = fetch(request).then((response) => {
+      // With a saved copy, revalidate conditionally (a 304 is a few hundred bytes).
+      const network = fetch(request, cached ? { cache: 'no-cache' } : undefined).then((response) => {
         if (response && response.ok) {
           const copy = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => {});
