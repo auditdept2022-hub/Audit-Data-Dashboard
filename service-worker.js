@@ -1,6 +1,13 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
 const CACHE_VERSION = 'audit-dashboard-v67'
+// v67 (review pass, CACHE_VERSION unchanged on purpose - precache list and strategy are the same):
+//  (a) the saved index.html is cloned BEFORE it is handed to respondWith, so the background
+//  comparison can't throw "body already used" (which silently disabled update detection);
+//  (b) manifest / icons / unpinned CDN files are only re-written to the cache when their content
+//  really changed (a 304 revalidation used to be re-saved on every load); (c) the 8 s fallback for
+//  sibling pages reuses the in-flight request instead of firing a second one; (d) install reuses a
+//  pinned CDN file already saved by the previous version instead of downloading it again.
 // v67: update-flow hardening. (1) index.html is only re-written to the cache when its content
 //  really changed, and the "update available" message is only sent after that write succeeded
 //  (no repeat prompts / loops if storage is full). (2) Tabs that are already open are told about
@@ -100,7 +107,9 @@ self.addEventListener('install', (event) => {
       }).concat(CDN_PRECACHE.map((url) =>
         // CORS request, same as the page's <script crossorigin="anonymous">.
         // Aborted after 15 s so a hung CDN can't delay the install.
-        fetchWithAbort(url, { mode: 'cors', credentials: 'omit' }, 15000)
+        // Pinned (exact version) => identical bytes, so reuse the copy the previous version saved.
+        caches.match(url).then((hit) => hit ||
+          fetchWithAbort(url, { mode: 'cors', credentials: 'omit' }, 15000))
           .then((res) => (res && res.ok ? cache.put(url, res) : null))
           .catch(() => null)
       ))
@@ -155,6 +164,16 @@ function bodiesDiffer(a, b) {
   return Promise.all([hash(a), hash(b)])
     .then((h) => h[0] !== h[1])
     .catch(() => false);
+}
+
+// Save `response` over the existing entry ONLY if its content differs from `cachedCopy`
+// (a clone taken before the saved response was handed to respondWith). No saved copy => save.
+// Never rejects. Resolves true only if a write happened.
+function putIfChanged(cache, request, cachedCopy, response) {
+  if (!(response && response.ok)) return Promise.resolve(false);
+  const save = () => cache.put(request, response.clone()).then(() => true, () => false);
+  if (!cachedCopy) return save();
+  return bodiesDiffer(cachedCopy, response.clone()).then((changed) => (changed ? save() : false));
 }
 
 // True only for URLs whose content cannot change: an EXACT x.y.z version in the
@@ -221,9 +240,10 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) =>
         cache.match(request).then((cached) => {
+          const cachedCopy = cached ? cached.clone() : null; // clone BEFORE cached goes to respondWith
           const network = fetch(request)
             .then((response) => {
-              if (response && response.ok) cache.put(request, response.clone());
+              event.waitUntil(putIfChanged(cache, request, cachedCopy, response));
               return response;
             })
             .catch(() => cached || Response.error());   // FIX: undefined here made respondWith() throw
@@ -242,19 +262,21 @@ self.addEventListener('fetch', (event) => {
   // such as Opex.html / Parts_Request.html / attendance_dashboard_*.html):
   // network-first, cache that page under its OWN key, never touch index.html.
   if (request.mode === 'navigate' && !isDashboardShellUrl(url)) {
+    // FIX: on a bad connection these pages waited on the network indefinitely even
+    // when a saved copy existed. After 8 s the saved copy is used instead. With no saved
+    // copy we keep waiting on the SAME request (no second fetch of the same page).
+    const net = fetch(request).then((response) => {
+      if (response && response.ok) {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => {});
+      }
+      return response;
+    });
     event.respondWith(
-      // FIX: on a bad connection these pages waited on the network indefinitely even
-      // when a saved copy existed. After 8 s the saved copy is used instead.
       withTimeout(
-        fetch(request).then((response) => {
-          if (response && response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => {});
-          }
-          return response;
-        }),
+        net,
         8000,
-        () => caches.match(request).then((c) => c || fetch(request))
+        () => caches.match(request).then((c) => c || net)
       )
         .catch(() =>
           caches.match(request).then((cached) =>
@@ -276,6 +298,9 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) =>
         cache.match('./index.html').then((cached) => {
+          // Clone NOW: once `cached` is returned to respondWith its body is locked and a later
+          // cached.clone() throws, which (swallowed by the .catch below) disabled update detection.
+          const cachedCopy = cached ? cached.clone() : null;
           // Always revalidate the canonical index.html (never the raw navigation
           // request: its ?query or redirect mode could make the check meaningless).
           // 'no-cache' = revalidate with ETag/Last-Modified; a 304 costs a few
@@ -305,7 +330,7 @@ self.addEventListener('fetch', (event) => {
               // even when the file is identical). Unchanged => do nothing, no cache write,
               // no message. Changed => save it, and only if the save worked tell the page
               // (a failed save + a message would loop: Refresh would just reload the old copy).
-              return bodiesDiffer(cached.clone(), response.clone()).then((changed) => {
+              return bodiesDiffer(cachedCopy, response.clone()).then((changed) => {
                 if (!changed) return response;
                 return cache.put('./index.html', response.clone()).then(
                   () => notifyClientsOfUpdate(),
@@ -331,9 +356,10 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) =>
         cache.match(request).then((cached) => {
+          const cachedCopy = cached ? cached.clone() : null;
           const network = fetch(request, { cache: 'no-cache' })
             .then((response) => {
-              if (response && response.ok) cache.put(request, response.clone());
+              event.waitUntil(putIfChanged(cache, request, cachedCopy, response));
               return response;
             })
             .catch(() => cached || Response.error());
@@ -350,11 +376,11 @@ self.addEventListener('fetch', (event) => {
   // until the next CACHE_VERSION bump.
   event.respondWith(
     caches.match(request).then((cached) => {
+      const cachedCopy = cached ? cached.clone() : null;
       // With a saved copy, revalidate conditionally (a 304 is a few hundred bytes).
       const network = fetch(request, cached ? { cache: 'no-cache' } : undefined).then((response) => {
         if (response && response.ok) {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => {});
+          event.waitUntil(caches.open(CACHE_NAME).then((cache) => putIfChanged(cache, request, cachedCopy, response)).catch(() => {}));
         }
         return response;
       });
