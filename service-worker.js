@@ -1,6 +1,14 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
 const CACHE_VERSION = 'audit-dashboard-v67'
+// Only caches whose name starts with this prefix belong to this app (see activate).
+const CACHE_PREFIX = 'audit-dashboard-';
+// v67 (safety pass, CACHE_VERSION unchanged: precache list and strategy are the same):
+//  (a) activate only deletes this app's OWN old caches (other apps on the same origin keep theirs)
+//  and one failed delete can no longer block activation; (b) Range / only-if-cached requests are
+//  left to the browser; (c) only complete 200 responses are cached, and responses the server marks
+//  "no-store" are not re-saved at runtime; (d) the cache-first CDN path and sibling-page saves no
+//  longer leave unhandled rejections and are kept alive until the write finishes.
 // v67 (review pass, CACHE_VERSION unchanged on purpose - precache list and strategy are the same):
 //  (a) the saved index.html is cloned BEFORE it is handed to respondWith, so the background
 //  comparison can't throw "body already used" (which silently disabled update detection);
@@ -127,12 +135,15 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    const hadOld = keys.some((k) => k !== CACHE_NAME);
-    await Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)));
+    // Only this app's own older caches; never touch caches that belong to other apps on this origin.
+    const oldKeys = keys.filter((k) => k !== CACHE_NAME && k.indexOf(CACHE_PREFIX) === 0);
+    const hadOld = oldKeys.length > 0;
+    // One failed delete must not stop activation / clients.claim().
+    await Promise.all(oldKeys.map((k) => caches.delete(k).catch(() => false)));
     await self.clients.claim();
     // Upgrade (not first install) AND index.html really changed: tabs that are open right now
     // are still running the old page, so let them show the Refresh button.
-    if (hadOld && shellChangedOnInstall) await notifyClientsOfUpdate();
+    if (hadOld && shellChangedOnInstall) await notifyClientsOfUpdate().catch(() => {});
   })());
 });
 
@@ -170,7 +181,9 @@ function bodiesDiffer(a, b) {
 // (a clone taken before the saved response was handed to respondWith). No saved copy => save.
 // Never rejects. Resolves true only if a write happened.
 function putIfChanged(cache, request, cachedCopy, response) {
-  if (!(response && response.ok)) return Promise.resolve(false);
+  // Only complete 200 responses (a 206 partial can't be cached), and respect "no-store".
+  if (!(response && response.ok && response.status === 200)) return Promise.resolve(false);
+  if (/no-store/i.test(response.headers.get('cache-control') || '')) return Promise.resolve(false);
   const save = () => cache.put(request, response.clone()).then(() => true, () => false);
   if (!cachedCopy) return save();
   return bodiesDiffer(cachedCopy, response.clone()).then((changed) => (changed ? save() : false));
@@ -198,6 +211,10 @@ function notifyClientsOfUpdate() {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
+  // Let the browser handle these itself: Range requests (a cached full file would be a wrong
+  // answer) and the DevTools "only-if-cached" quirk that makes fetch() throw.
+  if (request.headers.has('range')) return;
+  if (request.cache === 'only-if-cached' && request.mode !== 'same-origin') return;
 
   const url = new URL(request.url);
 
@@ -221,7 +238,9 @@ self.addEventListener('fetch', (event) => {
         cache.match(request).then((cached) =>
           cached ||
           fetch(request).then((response) => {
-            if (response && response.ok) cache.put(request, response.clone());
+            if (response && response.ok && response.status === 200) {
+              event.waitUntil(cache.put(request, response.clone()).catch(() => {}));
+            }
             return response;
           })
         )
@@ -265,13 +284,16 @@ self.addEventListener('fetch', (event) => {
     // FIX: on a bad connection these pages waited on the network indefinitely even
     // when a saved copy existed. After 8 s the saved copy is used instead. With no saved
     // copy we keep waiting on the SAME request (no second fetch of the same page).
+    let saved = Promise.resolve();
     const net = fetch(request).then((response) => {
-      if (response && response.ok) {
+      if (response && response.ok && response.status === 200) {
         const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => {});
+        saved = caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => {});
       }
       return response;
     });
+    // Keep the worker alive until the saved copy is written (no-op if the fetch fails).
+    event.waitUntil(net.then(() => saved, () => {}));
     event.respondWith(
       withTimeout(
         net,
