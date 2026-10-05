@@ -1,6 +1,6 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v72'
+const CACHE_VERSION = 'audit-dashboard-v73'
 // Only caches whose name starts with this prefix belong to this app (see activate).
 const CACHE_PREFIX = 'audit-dashboard-';
 // v67 (safety pass, CACHE_VERSION unchanged: precache list and strategy are the same):
