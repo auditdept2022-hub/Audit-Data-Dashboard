@@ -1,11 +1,41 @@
 // service-worker.js — Audit Data Dashboard
-// Audit Dashboard service worker — ARSA-V2 canonical frontend.
-// Bump CACHE_VERSION whenever the app shell changes so installed devices
-// activate the same frontend that speaks to the canonical Audit Analysis API.
-const CACHE_VERSION = 'audit-dashboard-arsa-v2-canonical2';
-// Only caches whose name starts with this prefix belong to this app.
+// Bump CACHE_VERSION any time you change what gets precached.
+const CACHE_VERSION = 'audit-dashboard-v68'
+// Only caches whose name starts with this prefix belong to this app (see activate).
 const CACHE_PREFIX = 'audit-dashboard-';
-
+// v67 (safety pass, CACHE_VERSION unchanged: precache list and strategy are the same):
+//  (a) activate only deletes this app's OWN old caches (other apps on the same origin keep theirs)
+//  and one failed delete can no longer block activation; (b) Range / only-if-cached requests are
+//  left to the browser; (c) only complete 200 responses are cached, and responses the server marks
+//  "no-store" are not re-saved at runtime; (d) the cache-first CDN path and sibling-page saves no
+//  longer leave unhandled rejections and are kept alive until the write finishes.
+// v67 (review pass, CACHE_VERSION unchanged on purpose - precache list and strategy are the same):
+//  (a) the saved index.html is cloned BEFORE it is handed to respondWith, so the background
+//  comparison can't throw "body already used" (which silently disabled update detection);
+//  (b) manifest / icons / unpinned CDN files are only re-written to the cache when their content
+//  really changed (a 304 revalidation used to be re-saved on every load); (c) the 8 s fallback for
+//  sibling pages reuses the in-flight request instead of firing a second one; (d) install reuses a
+//  pinned CDN file already saved by the previous version instead of downloading it again.
+// v67: update-flow hardening. (1) index.html is only re-written to the cache when its content
+//  really changed, and the "update available" message is only sent after that write succeeded
+//  (no repeat prompts / loops if storage is full). (2) Tabs that are already open are told about
+//  a new version when the new worker activates (only if index.html actually changed).
+//  (3) CDN precache can no longer stall install on a hung connection. (4) Background refresh of
+//  icons uses a conditional request (304) instead of a full re-download.
+// v66: pairs with index.html device-friendly pass (no iPhone zoom-on-tap in text boxes,
+//  notch-safe in landscape, no double-tap delay, correct full-height on mobile browsers).
+// v65: pairs with index.html fix: Rating Rules preview/save no longer throws
+//  "escapeHTML is not defined" when a rule problem is shown. No behaviour change here.
+// v64: pairs with the Audit Risk & Schedule Analysis save fix (Code.gs #23 + index.html).
+// v63: pairs with the live-sheet speed patch (Code.gs #22 + index.html): installing this
+//  version re-precaches the new index.html at once so phones and desktops pick it up on the
+//  next open. No behaviour change in this file.
+// v62: pairs with the lean index.html (about 33% smaller, same features). Old per-version
+//  changelog (v5-v61) removed to keep this file small, because the browser re-downloads it
+//  on every update check. Behaviour is unchanged: app shell is served instantly from the
+//  cache and revalidated in the background; backend calls (script.google.com /
+//  script.googleusercontent.com) are never touched; pinned CDN files are cache-first;
+//  sibling pages are network-first with an 8 s fallback to the saved copy.
 const CACHE_NAME = CACHE_VERSION;
 
 const APP_SHELL = [
@@ -285,26 +315,59 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Dashboard shell: NETWORK-FIRST. This is important for an installed PWA:
-  // the HTML contains the analysis-sync code, so an old cached shell can make
-  // every backend sync fix appear broken. Online devices always get the current
-  // index.html; offline devices fall back to the cached shell.
+  // Dashboard shell: serve cached shell instantly, revalidate in background.
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetchWithAbort(shellUrl(), { cache: 'no-cache' }, 15000)
-        .then((response) => {
-          if (response && response.ok) {
-            event.waitUntil(
-              caches.open(CACHE_NAME).then((cache) => cache.put('./index.html', response.clone())).catch(() => {})
-            );
+      caches.open(CACHE_NAME).then((cache) =>
+        cache.match('./index.html').then((cached) => {
+          // Clone NOW: once `cached` is returned to respondWith its body is locked and a later
+          // cached.clone() throws, which (swallowed by the .catch below) disabled update detection.
+          const cachedCopy = cached ? cached.clone() : null;
+          // Always revalidate the canonical index.html (never the raw navigation
+          // request: its ?query or redirect mode could make the check meaningless).
+          // 'no-cache' = revalidate with ETag/Last-Modified; a 304 costs a few
+          // hundred bytes instead of re-downloading the whole file.
+          // With a saved copy the check runs in the background and is abandoned
+          // after 20 s; with NO saved copy (first ever open) it gets the browser's
+          // normal patience because the page can't start without it.
+          const updateCache = (cached
+            ? fetchWithAbort(shellUrl(), { cache: 'no-cache' }, 20000)
+            : fetch(shellUrl(), { cache: 'no-cache' })
+          ).then((response) => {
+              if (!(response && response.ok)) return response;
+
+              // First ever open: no saved copy. Save one (best-effort) and serve the response.
+              if (!cached) {
+                return cache.put('./index.html', response.clone())
+                  .catch((err) => { console.warn('[service-worker] could not save index.html (storage full?):', err); })
+                  .then(() => response);
+              }
+
+              // Same strong validator as the saved copy => provably the same file: do nothing.
+              const etagCached = cached.headers.get('etag');
+              const etagFresh = response.headers.get('etag');
+              if (etagCached && etagFresh && etagCached === etagFresh) return response;
+
+              // Compare the real CONTENT (ETag/Last-Modified can differ between requests
+              // even when the file is identical). Unchanged => do nothing, no cache write,
+              // no message. Changed => save it, and only if the save worked tell the page
+              // (a failed save + a message would loop: Refresh would just reload the old copy).
+              return bodiesDiffer(cachedCopy, response.clone()).then((changed) => {
+                if (!changed) return response;
+                return cache.put('./index.html', response.clone()).then(
+                  () => notifyClientsOfUpdate(),
+                  (err) => { console.warn('[service-worker] could not save index.html (storage full?):', err); }
+                ).then(() => response);
+              });
+            });
+
+          if (cached) {
+            event.waitUntil(updateCache.catch(() => {}));
+            return cached;
           }
-          return response;
+          return updateCache.catch(() => caches.match('./index.html'));
         })
-        .catch(() =>
-          caches.open(CACHE_NAME).then((cache) =>
-            cache.match('./index.html').then((cached) => cached || Response.error())
-          )
-        )
+      )
     );
     return;
   }
