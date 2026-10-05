@@ -1849,4 +1849,195 @@ function pcard(id){var o=C[id],d=diagnose(id),st=o.state==="bad"?"bad":"warn",b=
 function row(c){var o=C[c.id],st=o.state==="idle"?"warn":o.state;var meta=[busy[c.id]?"Checking\u2026":o.msg];if(o.ms)meta.push(o.ms+" ms");if(o.at)meta.push(ago(o.at));return'<div class="cm-row"><span class="cm-d cm-d-'+st+'"></span><div class="cm-main"><div class="cm-name">'+esc(c.name)+'</div><div class="cm-msg">'+esc(meta.filter(Boolean).join(" \u00b7 "))+'</div></div><button type="button" class="cm-btn" data-test="'+c.id+'">Test</button></div>'}
 function renderModal(){var P=overall.p||[];$("cmHeadDot").className="cm-d cm-d-"+overall.s;$("cmTitle").textContent=overall.s==="ok"?"Online":overall.s==="bad"?"Problem found":"Slow / waiting";$("cmSub").textContent=(window.__connEmail?window.__connEmail+" \u00b7 ":"")+(P.length?P.length+(P.length>1?" problems":" problem")+" \u2014 details below":"No problems found");var fa=$("cmFixAll");if(fa)fa.style.display=P.length?"":"none";var h="";if(P.length)h+='<div class="cm-h cm-h-bad">Problems ('+P.length+")</div>"+P.map(pcard).join("");else h+='<div class="cm-okbox">\u2713 Online \u2014 everything is working. No problems found.</div>';h+='<div class="cm-h">All connections</div>'+CONN.map(row).join("");h+='<div class="cm-h">Edit &amp; functions</div>';h+=FUNCS.map(function(f,i){var a=funcAvail(f);return'<div class="cm-row"><span class="cm-d cm-d-'+a.s+'"></span><div class="cm-main"><div class="cm-name">'+esc(f.name)+'<span class="cm-badge cm-b-'+a.s+'">'+esc(a.t)+'</span></div><div class="cm-msg">'+esc(f.desc)+'</div></div><button type="button" class="cm-btn" data-fn="'+i+'"'+(a.s==="ok"?"":" disabled")+">Open</button></div>"}).join("");var body=$("cmBody"),top=body.scrollTop;body.innerHTML=h;body.scrollTop=top}
 function openModal(){$("connModal").classList.add("cm-open");document.body.style.overflow="hidden";renderModal();["net","backend","auth","sheet","data","editor","links","analysis","app"].reduce(function(p,id){return p.then(function(){return modalOpen()?runTest(id):null})},Promise.resolve())}function closeModal(){$("connModal").classList.remove("cm-open");document.body.style.overflow=""}function init(){var dotEls=document.querySelectorAll(".conn-sig");if(!dotEls.length)return;Array.prototype.forEach.call(document.querySelectorAll(".conn-sig,.conn-lbl"),function(btn){btn.addEventListener("click",function(e){e.preventDefault();e.stopPropagation();openModal()});btn.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();e.stopPropagation();openModal()}})});$("cmClose").addEventListener("click",closeModal);$("connModal").addEventListener("click",function(e){if(e.target===this)closeModal()});document.addEventListener("keydown",function(e){if(e.key==="Escape"&&modalOpen()){e.stopPropagation();closeModal()}},true);$("cmCheckAll").addEventListener("click",runAll);$("cmFixAll").addEventListener("click",fixAll);$("cmUpdate").addEventListener("click",function(){closeModal();fetchSheet().catch(function(){})});$("cmBody").addEventListener("click",function(e){var fx=e.target.closest("[data-fix]");if(fx){fixOne(fx.getAttribute("data-fix"));return}if(e.target.closest("[data-reload]")){location.reload();return}var t=e.target.closest("[data-test]"),f=e.target.closest("[data-fn]");if(t){runTest(t.getAttribute("data-test"));return}if(f&&!f.disabled){var fn=FUNCS[Number(f.getAttribute("data-fn"))];closeModal();setTimeout(function(){try{fn.run()}catch(err){console.warn("[signal] could not open",fn.name,err);if(typeof showToast==="function")showToast("Could not open "+fn.name)}},60)}});window.addEventListener("online",function(){runTest("net");setTimeout(runBasic,300);setTimeout(function(){try{if(typeof auditSyncPull==="function")auditSyncPull(true)}catch(e){}try{if(typeof auditPerformanceMaybeSave==="function")auditPerformanceMaybeSave()}catch(e){}try{if(typeof sendPresenceHeartbeat==="function")sendPresenceHeartbeat()}catch(e){}},450)});window.addEventListener("offline",function(){setC("net","bad","This device is offline")});document.addEventListener("visibilitychange",function(){if(document.hidden)return;if(modalOpen())renderModal();if(problems().length)recheckProblems()});setInterval(function(){if(!document.hidden&&modalOpen())renderModal()},1e4);setInterval(recheckProblems,15e3);setTimeout(runBasic,1500);paint()}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init()})();</script>
+<script>
+/* ============================================================================
+   ARSA-V1 — NEW Audit Risk & Schedule Analysis snapshot model
+   This block intentionally bypasses the legacy PERFORMANCE snapshot engine.
+   Source: current Overall Data / dashboard model.
+   Authoritative object: one complete Audit Analysis snapshot.
+============================================================================ */
+(function(){
+  const MODEL="ARSA-V1";
+  const SCHEMA=1;
+  const LS_KEY="arsaV1Snapshot::";
+  const POLL_MS=10000;
+  const META_TIMEOUT=10000;
+  const SNAP_TIMEOUT=30000;
+  const POST_TIMEOUT=30000;
+  const st=window.__arsaV1State=window.__arsaV1State||{
+    snapshot:null, authoritative:false, loading:false, saving:false, error:"",
+    lastServerCheck:0, pollTimer:null, localHydrated:false
+  };
+  function userKey(){try{return LS_KEY+String((window.getCurrentUserEmail&&window.getCurrentUserEmail())||"shared").toLowerCase()}catch(e){return LS_KEY+"shared"}}
+  function saveLocal(snap){try{localStorage.setItem(userKey(),JSON.stringify(snap));return true}catch(e){console.warn("[ARSA-V1] local snapshot cache unavailable:",e&&e.message?e.message:e);return false}}
+  function loadLocal(){try{const raw=localStorage.getItem(userKey());if(!raw)return null;const snap=JSON.parse(raw);return snap&&typeof snap==="object"?snap:null}catch(e){return null}}
+  function currentDataVersion(){return Number(typeof lastAppliedDataVersion!=="undefined"&&lastAppliedDataVersion!=null?lastAppliedDataVersion:0)||0}
+  function currentSettingsVersion(){return Number(window.auditSync&&window.auditSync.version||0)||0}
+  function currentSettingsHash(){try{return auditPerformanceRulesHash(window.auditAnalysisState)}catch(e){return ""}}
+  function currentOverallFingerprint(){try{return window.overallDataPayload&&window.overallDataPayload.fp?String(window.overallDataPayload.fp):String(currentDataVersion())}catch(e){return String(currentDataVersion())}}
+  function snapshotCurrent(snap){if(!snap||String(snap.modelVersion||"")!==MODEL||Number(snap.schemaVersion)!==SCHEMA)return false;return Number(snap.dataVersion||0)===currentDataVersion()&&Number(snap.settingsVersion||0)===currentSettingsVersion()&&String(snap.settingsHash||"")===String(currentSettingsHash())&&String(snap.overallFingerprint||"")===String(currentOverallFingerprint())}
+  function setCompatMeta(snap){const m=snap||{};window.__arsaV1State.snapshot=m;window.__arsaV1State.authoritative=true;try{
+    const a=window.auditSync||{};a.performanceVersion=Number(m.version||m.snapshotVersion||0)||0;a.performanceDataVersion=Number(m.dataVersion||0)||0;a.performanceSettingsVersion=Number(m.settingsVersion||0)||0;a.performanceSettingsHash=String(m.settingsHash||"");a.performanceModelVersion=MODEL;a.performanceSchemaVersion=SCHEMA;a.performanceUpdatedAt=String(m.updatedAt||"");a.performanceUpdatedBy=String(m.updatedBy||"");a.performanceRows=Array.isArray(m.rows)?m.rows:null;a.performanceSummary=m;a.performanceAuthoritative=true;a.performanceLastError="";a.performanceQueued=false;a.performanceSaving=false;
+  }catch(e){}}
+  function invalidateIfStale(){const s=st.snapshot;if(!s){st.authoritative=false;return}st.authoritative=snapshotCurrent(s);if(window.auditSync)window.auditSync.performanceAuthoritative=st.authoritative;}
+  function normalizeSnapshotFromAnalysis(a){
+    const cfg=window.auditAnalysisState;
+    const legacy=typeof auditPerformanceSnapshotPayload==="function"?auditPerformanceSnapshotPayload(a):null;
+    const rows=legacy&&Array.isArray(legacy.rows)?legacy.rows:[];
+    const analysis=legacy&&legacy.analysis&&typeof legacy.analysis==="object"?legacy.analysis:{
+      schemaVersion:2,totalBranches:a.totalBranches,avgIntervalDays:a.avgIntervalDays,avgRiskScore:a.avgRiskScore,
+      workload:a.workload||{},doneCounts:a.doneCounts||{},auditorNames:a.auditorNames||[],distribution:a.distribution||[],riskTiers:a.riskTiers||[],driverStats:a.driverStats||[],correlations:a.correlations||{},overlap:a.overlap||[],
+      status:{neverAudited:(a.neverAudited||[]).length,riskFlagged:(a.riskFlagged||[]).length,overdueUnscheduled:(a.overdueUnscheduled||[]).length,scheduledPastDue:(a.scheduledPastDue||[]).length,scheduledUpcoming:(a.scheduledUpcoming||[]).length,onTrack:(a.onTrack||[]).length},
+      recentCompletions:(a.recentCompletions||[]).map(function(r){return{branch:String(r.b&&r.b.name||""),recentDate:String(r.info&&r.info.recentDate||""),recentDateRaw:r.info&&r.info.recentDateRaw!=null?Number(r.info.recentDateRaw):null,recentAuditor:String(r.info&&r.info.recentAuditor||"")}})
+    };
+    return {
+      schemaVersion:SCHEMA,modelVersion:MODEL,source:"OVERALL DATA",overallFingerprint:currentOverallFingerprint(),
+      dataVersion:currentDataVersion(),settingsVersion:currentSettingsVersion(),settingsHash:currentSettingsHash(),
+      settingsState:typeof auditSyncSnapshot==="function"?auditSyncSnapshot(cfg):null,
+      totalBranches:Number(a.totalBranches)||0,avgRiskScore:a.avgRiskScore==null?null:Number(a.avgRiskScore),
+      riskTiers:a.riskTiers||[],status:analysis.status||{},weights:a.weights||auditNormalizeWeights100(cfg.weights||defaultAuditRiskWeights()),weightsSource:String(cfg.weightsSource||"default"),
+      analysis:analysis,rows:rows,builtAt:Date.now(),version:0,updatedAt:"",updatedBy:""
+    };
+  }
+  function buildLocalSnapshot(){
+    try{
+      const a=computeAuditScheduleAnalysisLocal();
+      const snap=normalizeSnapshotFromAnalysis(a);
+      st.error="";
+      return snap;
+    }catch(e){st.error=String(e&&e.message?e.message:e);console.warn("[ARSA-V1] local build failed:",e);return null}
+  }
+  function buildRowFromSnapshot(r){
+    const tier=AUDIT_RISK_TIERS.find(function(t){return t.key===r.tierKey||t.label===r.tier})||AUDIT_RISK_TIERS[AUDIT_RISK_TIERS.length-1];
+    const base=AUDIT_RISK_TIERS.find(function(t){return t.key===r.baseTierKey||t.label===r.baseTier})||tier;
+    let sd=null;if(r.suggestedDate){const d=new Date(String(r.suggestedDate));if(!isNaN(d.getTime()))sd=d}
+    return {b:{name:String(r.branch||""),accountsMay:Number(r.accountsMay)||0,accountsApr:Number(r.accountsApr)||0},info:{recentDate:String(r.lastAudited||""),recentDateRaw:r.lastAuditedRaw==null?null:Number(r.lastAuditedRaw),intervalDays:r.daysSince==null?null:Number(r.daysSince),recentAuditor:String(r.currentAuditor||""),upNextAuditor:String(r.upNextAuditor||""),expectedAuditDate:String(r.expectedAuditDate||""),expectedAuditDateRaw:r.expectedAuditDateRaw==null?null:Number(r.expectedAuditDateRaw)},risk:{score:Number(r.score)||0,tier:tier,baseTier:base,escalated:r.escalated===true,evidence:r.evidence==null?null:Number(r.evidence),coverage:r.coverage==null?null:Number(r.coverage),cycleDays:r.cycleDays==null?null:Number(r.cycleDays),recentAuditor:String(r.currentAuditor||""),factors:Array.isArray(r.factors)?r.factors:[],drivers:Array.isArray(r.drivers)?r.drivers:[],redFlags:Array.isArray(r.redFlags)?r.redFlags:[]},reason:String(r.reason||"On track"),suggestedAuditor:String(r.suggestedAuditor||""),suggestedDate:sd,actionable:!!r.suggestedAuditor};
+  }
+  function analysisFromSnapshot(snap){
+    if(!snap||!Array.isArray(snap.rows))return null;
+    const rows=snap.rows.map(buildRowFromSnapshot);
+    const an=snap.analysis&&typeof snap.analysis==="object"?snap.analysis:{};
+    const split={neverAudited:[],riskFlagged:[],overdueUnscheduled:[],scheduledPastDue:[],scheduledUpcoming:[],onTrack:[],suggestions:[]};
+    rows.forEach(function(r){if(r.reason==="Never audited")split.neverAudited.push(r);else if(r.reason==="High risk, not yet scheduled")split.riskFlagged.push(r);else if(r.reason==="Overdue, not yet scheduled")split.overdueUnscheduled.push(r);else if(r.reason==="Expected date already passed")split.scheduledPastDue.push(r);else if(r.reason==="Scheduled — upcoming")split.scheduledUpcoming.push(r);else split.onTrack.push(r);if(r.actionable&&(r.reason==="Never audited"||r.reason==="High risk, not yet scheduled"||r.reason==="Overdue, not yet scheduled"||r.reason==="Expected date already passed"))split.suggestions.push(r)});
+    const recent=Array.isArray(an.recentCompletions)?an.recentCompletions.map(function(x){return rows.find(function(r){return String(r.b.name).toUpperCase()===String(x.branch||"").toUpperCase()})||null}).filter(Boolean):[];
+    return {totalBranches:Number(an.totalBranches)!=null?Number(an.totalBranches):rows.length,neverAudited:split.neverAudited,overdueUnscheduled:split.overdueUnscheduled,riskFlagged:split.riskFlagged,scheduledPastDue:split.scheduledPastDue,scheduledUpcoming:split.scheduledUpcoming,onTrack:split.onTrack,suggestions:split.suggestions,workload:an.workload&&typeof an.workload==="object"?an.workload:{},doneCounts:an.doneCounts&&typeof an.doneCounts==="object"?an.doneCounts:{},auditorNames:Array.isArray(an.auditorNames)?an.auditorNames:[],avgIntervalDays:an.avgIntervalDays==null?null:Number(an.avgIntervalDays),avgRiskScore:an.avgRiskScore==null?null:Number(an.avgRiskScore),distribution:Array.isArray(an.distribution)?an.distribution:[],recentCompletions:recent,riskTiers:Array.isArray(an.riskTiers)?an.riskTiers:[],driverStats:Array.isArray(an.driverStats)?an.driverStats:[],rows:rows,correlations:an.correlations&&typeof an.correlations==="object"?an.correlations:{},overlap:Array.isArray(an.overlap)?an.overlap:[],savedFromPerformance:true,savedFromArsaV1:true};
+  }
+  function applySnapshot(snap){
+    if(!snap||String(snap.modelVersion||"")!==MODEL||Number(snap.schemaVersion)!==SCHEMA)return false;
+    st.snapshot=snap;st.authoritative=true;st.error="";
+    try{if(snap.settingsState&&typeof auditSyncApplyRemote==="function")auditSyncApplyRemote(snap.settingsState)}catch(e){console.warn("[ARSA-V1] could not apply saved settings:",e)}
+    setCompatMeta(snap);saveLocal(snap);invalidateIfStale();return st.authoritative;
+  }
+  async function getSnapshotFromServer(since){
+    const id=window.getCurrentIdToken?await window.getCurrentIdToken():null;if(!id)throw new Error("Not signed in — no ID token available.");
+    const params=new URLSearchParams({action:"getArsaSnapshotV1",secret:appsScriptSecret,idToken:id,sinceVersion:String(Number(since)||0),_arsaTs:String(Date.now())});
+    return await fetchSheetOnce(defaultAppsScriptUrl+"?"+params.toString(),{directMs:META_TIMEOUT,jsonpMs:Math.max(META_TIMEOUT,15000)});
+  }
+  async function postSnapshot(snap){
+    const id=window.getCurrentIdToken?await window.getCurrentIdToken():null;if(!id)throw new Error("Not signed in — no ID token available.");
+    const raw=JSON.stringify(snap);const enc=await gzipJsonForTransport(raw);
+    const body=JSON.stringify({action:"saveArsaSnapshotV1",secret:appsScriptSecret,idToken:id,snapshot:enc.data,encoding:enc.encoding,_arsaTs:String(Date.now())});
+    const controller=new AbortController();const timer=setTimeout(function(){controller.abort()},POST_TIMEOUT);
+    try{
+      const res=await fetch(defaultAppsScriptUrl,{method:"POST",headers:{"Content-Type":"text/plain;charset=UTF-8"},body:body,cache:"no-store",signal:controller.signal});
+      const txt=await res.text();let json;try{json=JSON.parse(txt)}catch(e){throw new Error("Server response was not valid JSON.")}
+      if(!res.ok)throw new Error((json&&json.error)||("Server responded with "+res.status));return json;
+    }catch(e){if(e&&e.name==="AbortError")throw new Error("Audit Analysis snapshot save timed out after 30 seconds.");throw e}finally{clearTimeout(timer)}
+  }
+  async function pull(force){
+    if(st.loading)return;st.loading=true;try{
+      invalidateIfStale();
+      const local=st.snapshot;
+      const since=local&&!force?Number(local.version)||0:0;
+      const res=await getSnapshotFromServer(since);if(!res||res.error)throw new Error(res&&res.error||"No Audit Analysis snapshot response.");
+      if(res.unchanged){st.authoritative=!!local&&snapshotCurrent(local);if(window.auditSync)window.auditSync.performanceAuthoritative=st.authoritative;st.lastServerCheck=Date.now();return local||null}
+      if(res.snapshot&&applySnapshot(res.snapshot)){st.lastServerCheck=Date.now();return res.snapshot}
+      if(res.missing){st.lastServerCheck=Date.now();return null}
+      st.lastServerCheck=Date.now();return null;
+    }catch(e){st.error=String(e&&e.message?e.message:e);console.warn("[ARSA-V1] pull failed:",e);return null}finally{st.loading=false;try{if(typeof auditSyncUpdateStatus==="function")auditSyncUpdateStatus()}catch(e){}}
+  }
+  async function ensureFresh(){
+    if(st.saving)return;
+    invalidateIfStale();
+    if(st.authoritative&&snapshotCurrent(st.snapshot))return st.snapshot;
+    if(window.auditSync&&window.auditSync.draftDirty&&auditSyncUserIsEditing&&auditSyncUserIsEditing())return null;
+    const snap=buildLocalSnapshot();if(!snap)return null;
+    st.saving=true;try{
+      const res=await postSnapshot(snap);if(!res||res.error)throw new Error(res&&res.error||"Audit Analysis snapshot save did not complete.");
+      if(res.stale){await pull(true);return st.snapshot}
+      if(res.snapshot){applySnapshot(res.snapshot);return st.snapshot}
+      throw new Error("Audit Analysis snapshot save returned no snapshot.");
+    }catch(e){st.error=String(e&&e.message?e.message:e);console.warn("[ARSA-V1] save failed:",e);return null}finally{st.saving=false;try{if(typeof auditSyncUpdateStatus==="function")auditSyncUpdateStatus()}catch(e){}}
+  }
+  async function sync(force){
+    if(window.navigator&&navigator.onLine===false)return;
+    invalidateIfStale();
+    if(!st.snapshot){
+      const local=loadLocal();if(local&&applySnapshot(local)){}
+    }
+    if(!st.authoritative){const pulled=await pull(force);if(pulled)return pulled}
+    invalidateIfStale();
+    if(!st.authoritative)return await ensureFresh();
+    const localData=currentDataVersion(),localSettings=currentSettingsVersion();
+    if(Number(st.snapshot.dataVersion||0)<localData||Number(st.snapshot.settingsVersion||0)<localSettings)return await ensureFresh();
+    if(force||Date.now()-st.lastServerCheck>15000)await pull(false);
+    return st.snapshot;
+  }
+  function status(){
+    if(st.saving)return{k:"busy",t:"Saving Audit Analysis snapshot…"};
+    if(st.loading)return{k:"busy",t:"Loading shared Audit Analysis…"};
+    if(st.error)return{k:"bad",t:"Audit Analysis sync failed · retrying"};
+    if(st.authoritative&&st.snapshot){const age=Date.now()-Number(st.snapshot.updatedAtMs||st.snapshot.builtAt||Date.now());return{k:"live",t:"Shared Audit Analysis · "+(age<10000?"just now":Math.round(age/60000)+" min ago")};}
+    return{k:"busy",t:"Preparing shared Audit Analysis…"};
+  }
+  function newStatusUpdate(){
+    try{
+      const s=status();
+      const el=document.getElementById("rr-sync");if(el){el.className="rr-sync rr-sync-"+s.k;el.textContent=s.t}
+      const ds=document.getElementById("rr-device-sync"),dt=document.getElementById("rr-device-sync-text");if(ds&&dt){ds.className="rr-device-sync "+(s.k==="live"?"ok":s.k==="bad"?"bad":"warn");dt.textContent=s.t}
+    }catch(e){}
+  }
+  function newCompute(){
+    invalidateIfStale();
+    if(st.authoritative&&st.snapshot&&!(window.auditSync&&window.auditSync.draftDirty&&auditSyncUserIsEditing&&auditSyncUserIsEditing())){
+      const a=analysisFromSnapshot(st.snapshot);if(a)return a;
+    }
+    return computeAuditScheduleAnalysisLocal();
+  }
+  const legacyCompute=window.computeAuditScheduleAnalysis;
+  window.computeAuditScheduleAnalysis=newCompute;
+  window.auditPerformanceRefreshAuthority=function(){invalidateIfStale();return st.authoritative;};
+  window.auditPerformanceMaybeSave=function(){return ensureFresh();};
+  window.auditPerformancePull=function(force){return pull(!!force);};
+  window.auditSyncPull=async function(force){
+    try{
+      const id=window.getCurrentIdToken?await window.getCurrentIdToken():null;if(!id)throw new Error("Not signed in — no ID token available.");
+      const params=new URLSearchParams({action:"getAnalysisState",secret:appsScriptSecret,idToken:id,sinceVersion:String(force?0:Number(window.auditSync&&window.auditSync.version||0)),_arsaTs:String(Date.now())});
+      const res=await fetchSheetOnce(defaultAppsScriptUrl+"?"+params.toString(),{directMs:META_TIMEOUT,jsonpMs:15000});
+      if(!res||res.error)throw new Error(res&&res.error||"Could not load shared analysis settings.");
+      window.auditSync.lastOkAt=Date.now();window.auditSync.lastError="";window.auditSync.canEditRules=!!res.canEditRules;window.auditSync.serverHasState=true;
+      if(res.version!=null)window.auditSync.version=Number(res.version)||0;
+      if(res.state&&typeof auditSyncApplyRemote==="function")auditSyncApplyRemote(res.state);
+      window.auditSync.everPulled=true;window.auditSync.lastJson=JSON.stringify(typeof auditSyncSnapshot==="function"?auditSyncSnapshot(window.auditAnalysisState):{});
+      await pull(false);await ensureFresh();
+    }catch(e){window.auditSync.lastError=String(e&&e.message?e.message:e);console.warn("[ARSA-V1] settings pull failed:",e)}finally{newStatusUpdate()}
+  };
+  window.auditSyncEnsurePolling=function(){
+    if(st.pollTimer)return;
+    st.pollTimer=setInterval(function(){if(document.hidden||navigator.onLine===false)return;pull(false).then(function(){invalidateIfStale();if(!st.authoritative)ensureFresh();});},POLL_MS);
+  };
+  window.auditSyncStatus=function(){return status();};
+  window.auditDeviceSyncStatus=function(){return status();};
+  window.auditSyncUpdateStatus=function(){newStatusUpdate();};
+  window.auditSyncRefreshDeviceSync=function(){return sync(false);};
+  window.addEventListener("online",function(){setTimeout(function(){sync(true)},250)});
+  window.addEventListener("visibilitychange",function(){if(!document.hidden)setTimeout(function(){sync(false)},150)});
+  // First hydrate is local and instant; server reconciliation happens immediately after.
+  try{const local=loadLocal();if(local)applySnapshot(local);st.localHydrated=true}catch(e){}
+  try{if(window.auditSync){if(window.auditSync.pollTimer)clearTimeout(window.auditSync.pollTimer);window.auditSync.pollTimer=null;window.auditSync.performanceAuthoritative=st.authoritative} }catch(e){}
+  window.__ARSA_V1_ACTIVE=true;
+  setTimeout(function(){sync(false)},0);
+  setTimeout(function(){if(typeof auditSyncEnsurePolling==="function")auditSyncEnsurePolling()},100);
+})();
+</script>
 </body></html>
