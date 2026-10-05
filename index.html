@@ -73,6 +73,13 @@
 .mv-form .mv-staged-meta+.mv-staged-meta{margin-top:4px}
 .mv-form .mv-empty{margin:12px 14px;padding:20px 14px;border:1.5px dashed #dfe3f3;border-radius:10px;background:#fcfcff}
 .mv-form .mv-hint{margin-top:12px;padding:9px 12px 9px 14px;border:1px solid #fde7bd;border-radius:10px;background:#fff8ec;font-size:11.5px;font-weight:600;line-height:1.5;color:#8a5a0a}
+.mv-form .mv-cols-next{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.7fr)}
+.mv-form .mv-inline{display:flex;align-items:center;gap:8px;min-width:0}
+.mv-form .mv-inline .mv-input{flex:1 1 auto;min-width:0;width:auto}
+.mv-form .mv-inline .mv-btn-add{flex:0 0 auto;margin-left:0;height:32px;padding:0 14px;white-space:nowrap;justify-content:center}
+.mv-form .mv-rot-foot{display:flex;justify-content:flex-end;padding:10px 14px 12px 18px;border-top:1px solid #f1f2f8}
+.mv-form .mv-rot-foot .mv-btn-add{margin-left:auto;justify-content:center}
+@media (max-width:640px){.mv-form .mv-cols-next{grid-template-columns:minmax(0,1fr)}.mv-form .mv-rot-foot .mv-btn-add{width:100%}}
 @media (max-width:520px){
 .mv-section-sub{display:none}
 .mv-staged-meta .mv-dest{flex:0 0 100%;min-width:0;padding:0;background:none;text-align:left}
@@ -1407,7 +1414,7 @@ function renderEditAssignmentModal(branchName,modalBody){const branches=activeDa
               <div class="mv-section mv-sec-next" id="editAssign-secNext">
                 <div class="mv-section-head"><svg class="mv-section-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4"></path><path d="M8 2v4"></path><path d="M3 10h18"></path></svg>Next audit<span class="mv-section-sub">Who audits next, and when</span></div>
                 <div class="mv-section-body">
-                  <div class="mv-cols">
+                  <div class="mv-cols mv-cols-next">
                     <div class="mv-field">
                       <label class="mv-label" for="editAssign-branch">Branch</label>
                       <select id="editAssign-branch" class="mv-input" onchange="switchEditAssignmentBranch(this.value)">
@@ -1420,9 +1427,12 @@ function renderEditAssignmentModal(branchName,modalBody){const branches=activeDa
                     </div>
                     <div class="mv-field">
                       <label class="mv-label" for="editAssign-upNextAuditor">Auditor up next</label>
-                      <select id="editAssign-upNextAuditor" class="mv-input">
-                        ${assignedAuditorOptions}
-                      </select>
+                      <div class="mv-inline">
+                        <select id="editAssign-upNextAuditor" class="mv-input">
+                          ${assignedAuditorOptions}
+                        </select>
+                        <button type="button" id="editAssign-addNextBtn" class="mv-btn-add" onclick="addEditAssignPart('next')">+ Add Next audit</button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1435,12 +1445,12 @@ function renderEditAssignmentModal(branchName,modalBody){const branches=activeDa
                 ${rotationRowHtml(2,"2nd round")}
                 ${rotationRowHtml(3,"3rd round")}
                 ${rotationRowHtml(4,"4th round")}
+                <div class="mv-rot-foot"><button type="button" id="editAssign-addRotBtn" class="mv-btn-add mv-btn-add-rot" onclick="addEditAssignPart('rot')">+ Add Rotation</button></div>
               </div>
 
               <div class="mv-add-row">
                 <span id="editAssign-addHelp" class="mv-add-help">Stage Next audit and/or Rotation for this branch, then pick another branch. Nothing is saved until you press Save.</span>
                 <span id="editAssign-stagedNote" class="mv-add-note hidden">This branch is already staged.</span>
-                <div class="mv-add-btns"><button type="button" id="editAssign-addNextBtn" class="mv-btn-add" onclick="addEditAssignPart('next')">+ Add Next audit</button><button type="button" id="editAssign-addRotBtn" class="mv-btn-add mv-btn-add-rot" onclick="addEditAssignPart('rot')">+ Add Rotation</button></div>
               </div>
 
               <div class="mv-section mv-sec-staged" id="editAssign-stagedSection">
