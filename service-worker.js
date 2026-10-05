@@ -1,6 +1,6 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v68'
+const CACHE_VERSION = 'audit-dashboard-v69'
 // Only caches whose name starts with this prefix belong to this app (see activate).
 const CACHE_PREFIX = 'audit-dashboard-';
 // v67 (safety pass, CACHE_VERSION unchanged: precache list and strategy are the same):
@@ -315,59 +315,26 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Dashboard shell: serve cached shell instantly, revalidate in background.
+  // Dashboard shell: NETWORK-FIRST. This is important for an installed PWA:
+  // the HTML contains the analysis-sync code, so an old cached shell can make
+  // every backend sync fix appear broken. Online devices always get the current
+  // index.html; offline devices fall back to the cached shell.
   if (request.mode === 'navigate') {
     event.respondWith(
-      caches.open(CACHE_NAME).then((cache) =>
-        cache.match('./index.html').then((cached) => {
-          // Clone NOW: once `cached` is returned to respondWith its body is locked and a later
-          // cached.clone() throws, which (swallowed by the .catch below) disabled update detection.
-          const cachedCopy = cached ? cached.clone() : null;
-          // Always revalidate the canonical index.html (never the raw navigation
-          // request: its ?query or redirect mode could make the check meaningless).
-          // 'no-cache' = revalidate with ETag/Last-Modified; a 304 costs a few
-          // hundred bytes instead of re-downloading the whole file.
-          // With a saved copy the check runs in the background and is abandoned
-          // after 20 s; with NO saved copy (first ever open) it gets the browser's
-          // normal patience because the page can't start without it.
-          const updateCache = (cached
-            ? fetchWithAbort(shellUrl(), { cache: 'no-cache' }, 20000)
-            : fetch(shellUrl(), { cache: 'no-cache' })
-          ).then((response) => {
-              if (!(response && response.ok)) return response;
-
-              // First ever open: no saved copy. Save one (best-effort) and serve the response.
-              if (!cached) {
-                return cache.put('./index.html', response.clone())
-                  .catch((err) => { console.warn('[service-worker] could not save index.html (storage full?):', err); })
-                  .then(() => response);
-              }
-
-              // Same strong validator as the saved copy => provably the same file: do nothing.
-              const etagCached = cached.headers.get('etag');
-              const etagFresh = response.headers.get('etag');
-              if (etagCached && etagFresh && etagCached === etagFresh) return response;
-
-              // Compare the real CONTENT (ETag/Last-Modified can differ between requests
-              // even when the file is identical). Unchanged => do nothing, no cache write,
-              // no message. Changed => save it, and only if the save worked tell the page
-              // (a failed save + a message would loop: Refresh would just reload the old copy).
-              return bodiesDiffer(cachedCopy, response.clone()).then((changed) => {
-                if (!changed) return response;
-                return cache.put('./index.html', response.clone()).then(
-                  () => notifyClientsOfUpdate(),
-                  (err) => { console.warn('[service-worker] could not save index.html (storage full?):', err); }
-                ).then(() => response);
-              });
-            });
-
-          if (cached) {
-            event.waitUntil(updateCache.catch(() => {}));
-            return cached;
+      fetchWithAbort(shellUrl(), { cache: 'no-cache' }, 15000)
+        .then((response) => {
+          if (response && response.ok) {
+            event.waitUntil(
+              caches.open(CACHE_NAME).then((cache) => cache.put('./index.html', response.clone())).catch(() => {})
+            );
           }
-          return updateCache.catch(() => caches.match('./index.html'));
+          return response;
         })
-      )
+        .catch(() =>
+          caches.open(CACHE_NAME).then((cache) =>
+            cache.match('./index.html').then((cached) => cached || Response.error())
+          )
+        )
     );
     return;
   }
