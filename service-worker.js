@@ -2,7 +2,7 @@
 // Audit Dashboard service worker — ARSA-V2 canonical frontend.
 // Bump CACHE_VERSION whenever the app shell changes so installed devices
 // activate the same frontend that speaks to the canonical Audit Analysis API.
-const CACHE_VERSION = 'audit-dashboard-arsa-v2-canonical1';
+const CACHE_VERSION = 'audit-dashboard-arsa-v2-canonical2';
 // Only caches whose name starts with this prefix belong to this app.
 const CACHE_PREFIX = 'audit-dashboard-';
 
