@@ -1637,4 +1637,170 @@ function pcard(id){var o=C[id],d=diagnose(id),st=o.state==="bad"?"bad":"warn",b=
 function row(c){var o=C[c.id],st=o.state==="idle"?"warn":o.state;var meta=[busy[c.id]?"Checking\u2026":o.msg];if(o.ms)meta.push(o.ms+" ms");if(o.at)meta.push(ago(o.at));return'<div class="cm-row"><span class="cm-d cm-d-'+st+'"></span><div class="cm-main"><div class="cm-name">'+esc(c.name)+'</div><div class="cm-msg">'+esc(meta.filter(Boolean).join(" \u00b7 "))+'</div></div><button type="button" class="cm-btn" data-test="'+c.id+'">Test</button></div>'}
 function renderModal(){var P=overall.p||[];$("cmHeadDot").className="cm-d cm-d-"+overall.s;$("cmTitle").textContent=overall.s==="ok"?"Online":overall.s==="bad"?"Problem found":"Slow / waiting";$("cmSub").textContent=(window.__connEmail?window.__connEmail+" \u00b7 ":"")+(P.length?P.length+(P.length>1?" problems":" problem")+" \u2014 details below":"No problems found");var fa=$("cmFixAll");if(fa)fa.style.display=P.length?"":"none";var h="";if(P.length)h+='<div class="cm-h cm-h-bad">Problems ('+P.length+")</div>"+P.map(pcard).join("");else h+='<div class="cm-okbox">\u2713 Online \u2014 everything is working. No problems found.</div>';h+='<div class="cm-h">All connections</div>'+CONN.map(row).join("");h+='<div class="cm-h">Edit &amp; functions</div>';h+=FUNCS.map(function(f,i){var a=funcAvail(f);return'<div class="cm-row"><span class="cm-d cm-d-'+a.s+'"></span><div class="cm-main"><div class="cm-name">'+esc(f.name)+'<span class="cm-badge cm-b-'+a.s+'">'+esc(a.t)+'</span></div><div class="cm-msg">'+esc(f.desc)+'</div></div><button type="button" class="cm-btn" data-fn="'+i+'"'+(a.s==="ok"?"":" disabled")+">Open</button></div>"}).join("");var body=$("cmBody"),top=body.scrollTop;body.innerHTML=h;body.scrollTop=top}
 async function refreshConnectionSnapshot(){if(!modalOpen())return;var now=Date.now();var jobs=[runTest("net"),runTest("auth"),runTest("data")];if(!C.backend.at||now-C.backend.at>2e4)jobs.push(runTest("backend"));if(!C.sheet.at||now-C.sheet.at>3e4)jobs.push(runTest("sheet"));if(!C.analysis.at||now-C.analysis.at>3e4)jobs.push(runTest("analysis"));await Promise.all(jobs);if(modalOpen())renderModal()}function openModal(){$("connModal").classList.add("cm-open");document.body.style.overflow="hidden";renderModal();refreshConnectionSnapshot().catch(function(e){console.warn("[signal] quick status refresh failed:",e&&e.message?e.message:e)})}function closeModal(){$("connModal").classList.remove("cm-open");document.body.style.overflow=""}function init(){var dotEls=document.querySelectorAll(".conn-sig");if(!dotEls.length)return;Array.prototype.forEach.call(document.querySelectorAll(".conn-sig,.conn-lbl"),function(btn){btn.addEventListener("click",function(e){e.preventDefault();e.stopPropagation();openModal()});btn.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();e.stopPropagation();openModal()}})});$("cmClose").addEventListener("click",closeModal);$("connModal").addEventListener("click",function(e){if(e.target===this)closeModal()});document.addEventListener("keydown",function(e){if(e.key==="Escape"&&modalOpen()){e.stopPropagation();closeModal()}},true);$("cmCheckAll").addEventListener("click",runAll);$("cmFixAll").addEventListener("click",fixAll);$("cmUpdate").addEventListener("click",function(){closeModal();fetchSheet().catch(function(){})});$("cmBody").addEventListener("click",function(e){var fx=e.target.closest("[data-fix]");if(fx){fixOne(fx.getAttribute("data-fix"));return}if(e.target.closest("[data-reload]")){location.reload();return}var t=e.target.closest("[data-test]"),f=e.target.closest("[data-fn]");if(t){runTest(t.getAttribute("data-test"));return}if(f&&!f.disabled){var fn=FUNCS[Number(f.getAttribute("data-fn"))];closeModal();setTimeout(function(){try{fn.run()}catch(err){console.warn("[signal] could not open",fn.name,err);if(typeof showToast==="function")showToast("Could not open "+fn.name)}},60)}});window.addEventListener("online",function(){runTest("net");setTimeout(runBasic,300)});window.addEventListener("offline",function(){setC("net","bad","This device is offline")});document.addEventListener("visibilitychange",function(){if(document.hidden)return;if(modalOpen())renderModal();if(problems().length)recheckProblems()});setInterval(function(){if(!document.hidden&&modalOpen())renderModal()},1e4);setInterval(recheckProblems,15e3);setTimeout(runBasic,1500);paint()}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init()})();</script>
+
+<style id="mobile-responsive-hardening">
+/* Mobile layout hardening: keep every dashboard area readable and flexible. */
+@media (max-width: 767px){
+  html, body{max-width:100%;min-width:0;overflow-x:hidden}
+  body{padding-left:0;padding-right:0}
+
+  /* Main shell */
+  .dash-container,
+  .dash-container-header{width:100%;max-width:100%;min-width:0;box-sizing:border-box}
+  .dash-container{padding-left:12px;padding-right:12px}
+  .dash-container-header{padding-left:12px;padding-right:12px}
+  .dash-container > *,
+  .dash-container > * > *,
+  .dash-container-header > *{min-width:0;max-width:100%}
+
+  /* Do not let lazy intrinsic sizing clip long sections on phones. */
+  #section-charts,
+  #section-rankings,
+  #section-findings,
+  #section-scorecard{
+    content-visibility:visible!important;
+    contain:initial!important;
+    contain-intrinsic-size:none!important;
+    height:auto!important;
+    max-height:none!important;
+    overflow:visible!important;
+  }
+
+  /* Flexible grids and flex rows. */
+  .dash-container .grid,
+  .dash-container .flex,
+  .dash-container [class*="grid-cols-"],
+  .dash-container [class*="flex-row"]{
+    min-width:0;
+  }
+  .dash-container .grid > *,
+  .dash-container .flex > *{min-width:0;max-width:100%}
+
+  /* Long headings / labels should wrap instead of forcing a narrow squeeze. */
+  .dash-container h1,
+  .dash-container h2,
+  .dash-container h3,
+  .dash-container h4,
+  .dash-container h5,
+  .dash-container h6,
+  .dash-container p,
+  .dash-container li,
+  .dash-container dt,
+  .dash-container dd{min-width:0;overflow-wrap:anywhere}
+
+  /* Header */
+  .dash-container-header{align-items:stretch!important;gap:8px!important}
+  .dash-container-header > .flex{min-width:0}
+  .dash-container-header h1{font-size:clamp(15px,4.4vw,19px)!important;line-height:1.15;white-space:normal!important}
+  .dash-container-header p{font-size:10px!important;line-height:1.35;white-space:normal!important}
+  .dash-container-header .conn-mob{max-width:100%;display:block;min-width:0}
+  #updateDataBtn{min-width:0;max-width:100%;padding-left:8px;padding-right:8px}
+
+  /* Make common dashboard tiles breathe on very narrow screens. */
+  #section-overview > *,
+  #section-charts > *,
+  #section-rankings > *,
+  #section-findings > *,
+  #section-scorecard > *{min-width:0;max-width:100%}
+  #section-overview [class*="grid-cols-3"]{min-width:0}
+  #section-overview [class*="grid-cols-3"] > *{min-width:0}
+
+  /* Charts: never let SVG/canvas content exceed its card. */
+  .dash-container canvas,
+  .dash-container svg,
+  .dash-container img,
+  .dash-container video{max-width:100%}
+  #section-rankings [id$="Chart"]{min-width:0;width:100%;max-width:100%}
+
+  /* Scorecard filters wrap cleanly; search gets the full row first. */
+  #section-scorecard #tableSearch{width:100%;min-width:0;max-width:100%}
+  #section-scorecard .scorecard-filter-bar,
+  #section-scorecard .flex-wrap{min-width:0;max-width:100%}
+  #section-scorecard select,
+  #section-scorecard #branchFilterBtn,
+  #section-scorecard button{max-width:100%;min-width:0}
+
+  /* Keep intentional data-table horizontal scrolling, but do not let the table
+     itself create page-level horizontal overflow. */
+  #scorecardScrollWrap,
+  #modalTableContainer,
+  #overallDataScrollBox,
+  .od-table-wrap,
+  .custom-scrollbar-x{max-width:100%;min-width:0;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  #scorecardScrollWrap table{width:max-content;min-width:1311px;max-width:none}
+
+  /* Modals / sheets: fit the phone, keep long content scrollable. */
+  .rr-overlay{padding:8px!important;align-items:flex-end!important}
+  .rr-sheet{width:100%!important;max-width:100%!important;max-height:calc(100dvh - 16px)!important;border-radius:18px!important;min-width:0!important}
+  .rr-head{min-width:0!important}
+  .rr-head > div{min-width:0!important}
+  .rr-head h2,
+  .rr-head p{overflow-wrap:anywhere}
+  .rr-scroll{min-width:0!important;overflow-y:auto!important;overscroll-behavior:contain}
+
+  #modalDialog,
+  #findingsEditorDialog,
+  #branchRiskPopup .brp-dialog,
+  #connModal .cm-sheet{max-width:100vw!important;min-width:0!important}
+  #modalDialog,
+  #findingsEditorDialog{width:100vw!important;}
+  #modalBody,
+  #findingsEditorDialog > *{min-width:0;max-width:100%}
+
+  /* Common form rows: stack before they become cramped. */
+  .mv-grid{grid-template-columns:minmax(0,1fr)!important}
+  .mv-form{max-width:100%!important;min-width:0!important}
+  .mv-section-body,
+  .mv-head,
+  .mv-foot{min-width:0}
+  .mv-foot{flex-wrap:wrap}
+  .mv-foot-actions{margin-left:0;max-width:100%;flex-wrap:wrap}
+  .mv-foot-actions > *{min-width:0;max-width:100%}
+  .mv-btn-primary,
+  .mv-btn-ghost,
+  .mv-btn-rose{max-width:100%}
+
+  /* Side menu is intentionally narrower than the viewport and uses its own scroll. */
+  #sideMenu{width:min(18rem,86vw)!important;max-width:86vw!important;min-width:0}
+  #sideMenuNav{min-width:0;overflow-x:hidden}
+  #sideMenu .menu-tile{min-width:0;max-width:100%}
+  #sideMenu .menu-tile-label{min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+
+  /* Popovers / connection panel should never overflow the phone edges. */
+  #branchHighlightPopup,
+  #assignmentStatusPanel,
+  #branchFilterPanel,
+  #miniCalendarPopup{max-width:calc(100vw - 16px)!important;min-width:0!important;box-sizing:border-box}
+  #miniCalendarPopup{width:min(16rem,calc(100vw - 16px))!important}
+
+  /* Toast / floating notices */
+  #toast{left:8px!important;right:8px!important;max-width:none!important;width:auto!important}
+
+  /* Touch targets stay comfortable without forcing a horizontal fit. */
+  #section-scorecard button,
+  #section-scorecard select,
+  #section-scorecard input{min-height:40px}
+}
+
+@media (max-width: 380px){
+  .dash-container{padding-left:10px;padding-right:10px}
+  .dash-container-header{padding-left:10px;padding-right:10px}
+  .dash-container-header h1{font-size:15px!important}
+  .dash-container-header p{font-size:9px!important}
+  #section-scorecard .flex-wrap{gap:6px!important}
+  #section-scorecard select,
+  #section-scorecard #branchFilterBtn,
+  #section-scorecard button{flex:1 1 140px}
+}
+
+@media (max-width: 340px){
+  .dash-container{padding-left:8px;padding-right:8px}
+  .dash-container-header{padding-left:8px;padding-right:8px}
+  .dash-container .rounded-2xl{border-radius:14px!important}
+  #section-scorecard .flex-wrap{gap:5px!important}
+  #section-scorecard .flex-wrap > *{flex:1 1 100%}
+  #section-scorecard #tableSearch{flex-basis:100%}
+}
+</style>
+
 </body></html>
