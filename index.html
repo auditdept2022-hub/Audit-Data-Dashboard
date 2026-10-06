@@ -1835,7 +1835,7 @@ async function refreshConnectionSnapshot(){if(!modalOpen())return;var now=Date.n
   /* Scorecard fills the viewport; no dead space under it. */
   #section-scorecard{content-visibility:visible!important;contain:initial!important;contain-intrinsic-size:none!important;margin-bottom:0!important}
   body{padding-bottom:max(8px,env(safe-area-inset-bottom,0px))!important}
-  #scorecardScrollWrap{overscroll-behavior:contain}
+  #scorecardScrollWrap{overscroll-behavior-y:auto}
 </style>
 <script id="scorecard-fill-fit-js">
 (function(){
@@ -1911,6 +1911,19 @@ async function refreshConnectionSnapshot(){if(!modalOpen())return;var now=Date.n
     /* Section may be revealed/unhidden after data loads or login. */
     if(card&&window.MutationObserver){
       new MutationObserver(schedule).observe(card,{attributes:true,attributeFilter:["class","style"]});
+    }
+    /* Hand scrolling to the page when the table is at its top/bottom edge. */
+    var wrapEl=document.getElementById("scorecardScrollWrap");
+    if(wrapEl){
+      wrapEl.addEventListener("wheel",function(e){
+        if(e.ctrlKey||Math.abs(e.deltaX)>Math.abs(e.deltaY))return;
+        var atTop=wrapEl.scrollTop<=0;
+        var atBottom=wrapEl.scrollTop+wrapEl.clientHeight>=wrapEl.scrollHeight-1;
+        if((e.deltaY<0&&atTop)||(e.deltaY>0&&atBottom)){
+          e.preventDefault();
+          window.scrollBy({top:e.deltaY,left:0,behavior:"instant"});
+        }
+      },{passive:false});
     }
     setTimeout(schedule,400);setTimeout(schedule,1500);
   }
