@@ -1839,7 +1839,8 @@ async function refreshConnectionSnapshot(){if(!modalOpen())return;var now=Date.n
 </style>
 <script id="scorecard-fill-fit-js">
 (function(){
-  var MIN_H=300;           /* never let the table shrink below this */
+  var MIN_ROWS=15;         /* always show at least this many branches */
+  var FALLBACK_MIN=300;
   var BOTTOM_GAP=8;        /* breathing room under the card */
   var raf=0;
 
@@ -1868,7 +1869,18 @@ async function refreshConnectionSnapshot(){if(!modalOpen())return;var now=Date.n
     used+=parseFloat(wst.marginTop)+parseFloat(wst.marginBottom);
 
     var h=Math.floor(viewH-headerH-used-BOTTOM_GAP);
-    h=Math.max(MIN_H,h);
+    /* Minimum = header row + MIN_ROWS real rows (measured), + scrollbar allowance. */
+    var minH=FALLBACK_MIN;
+    var rows=wrap.querySelectorAll("tbody tr");
+    if(rows.length){
+      var th=wrap.querySelector("thead");
+      var headH=th?th.getBoundingClientRect().height:44;
+      var n=Math.min(MIN_ROWS,rows.length),sum=0;
+      for(var r=0;r<n;r++)sum+=rows[r].getBoundingClientRect().height;
+      var avg=sum/n;
+      minH=Math.ceil(headH+avg*MIN_ROWS+18);
+    }
+    h=Math.max(minH,h);
     wrap.style.setProperty("height",h+"px","important");
     wrap.style.setProperty("max-height","none","important");
   }
@@ -1893,6 +1905,8 @@ async function refreshConnectionSnapshot(){if(!modalOpen())return;var now=Date.n
       }
       var hd=document.querySelector("header");
       if(hd)ro.observe(hd);
+      var tb=document.getElementById("scorecardTableBody");
+      if(tb&&window.MutationObserver)new MutationObserver(schedule).observe(tb,{childList:true});
     }
     /* Section may be revealed/unhidden after data loads or login. */
     if(card&&window.MutationObserver){
