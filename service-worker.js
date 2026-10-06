@@ -1,10 +1,10 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v75'
+const CACHE_VERSION = 'audit-dashboard-v76'
 // Only caches whose name starts with this prefix belong to this app (see activate).
 const CACHE_PREFIX = 'audit-dashboard-';
 // v72: pairs with canonical team analysis state, source-data version binding, and 3 s analysis polling. manual refresh version gating, safer one-shot writes, lighter Online status checks, reduced boot-time traffic, and deferred cache persistence.
-// v75: Analysis opens immediately from the local/cached state; canonical sync continues in the background.
+// v76: mobile/profile layout hardening and connection-state recovery are shipped with the new shell.
 // v74: canonical save response is applied locally; refreshes clients onto the latest sync code.
 // v73: canonical Analysis data fingerprint + background Analysis sync foundation.
 //  (a) activate only deletes this app's OWN old caches (other apps on the same origin keep theirs)
