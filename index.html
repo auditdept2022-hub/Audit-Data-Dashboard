@@ -745,7 +745,7 @@
           </div>
         </div>
       </div>
-      <div class="flex items-center gap-0.5 w-full lg:w-auto justify-end">
+      <div class="header-action-controls flex items-center gap-0.5 w-full lg:w-auto justify-end">
         
         <button id="updateDataBtn" onclick="fetchSheet().catch(function(e){console.warn('Update data failed:', e);})" title="Refresh dashboard data" class="group flex items-center gap-2 px-2.5 sm:px-3 py-2 rounded-lg hover:bg-white/10 active:bg-white/15 cursor-pointer text-sm font-medium transition-colors duration-150 text-white/90 hover:text-white whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
           <span id="updateDataIconWrap" class="flex items-center gap-2">
@@ -1689,8 +1689,9 @@ async function refreshConnectionSnapshot(){if(!modalOpen())return;var now=Date.n
   .dash-container dd{min-width:0;overflow-wrap:anywhere}
 
   /* Header */
-  .dash-container-header{align-items:stretch!important;gap:8px!important}
+  .dash-container-header{align-items:stretch!important;gap:8px!important;position:relative}
   .dash-container-header > .flex{min-width:0}
+  .dash-container-header .header-action-controls{min-width:0}
   .dash-container-header h1{font-size:clamp(15px,4.4vw,19px)!important;line-height:1.15;white-space:normal!important}
   .dash-container-header p{font-size:10px!important;line-height:1.35;white-space:normal!important}
   .dash-container-header .conn-mob{max-width:100%;display:flex!important;align-items:center;gap:5px;min-width:0;flex-wrap:nowrap}
@@ -1704,7 +1705,17 @@ async function refreshConnectionSnapshot(){if(!modalOpen())return;var now=Date.n
   .branch-profile-hero .profile-audit-summary p{max-width:100%;overflow-wrap:anywhere;word-break:break-word}
   .branch-profile-hero .profile-audit-summary .text-base{font-size:clamp(10px,2.8vw,13px)!important;line-height:1.15!important}
   .branch-profile-hero > .flex.flex-wrap.items-center.gap-1\.5{margin-top:10px;justify-content:flex-start}
-  #updateDataBtn{min-width:0;max-width:100%;padding-left:8px;padding-right:8px}
+  .dash-container-header .header-action-controls{position:absolute;top:8px;right:8px;width:auto!important;z-index:5;gap:2px!important}
+  .dash-container-header #updateDataBtn{width:36px;height:36px;min-width:36px;max-width:36px;padding:0!important;margin:0!important;display:flex;align-items:center;justify-content:center;border-radius:10px}
+  .dash-container-header #updateDataBtn #updateDataIconWrap{display:flex!important;align-items:center;justify-content:center}
+  .dash-container-header #updateDataBtn #updateDataIconWrap svg{width:17px;height:17px}
+  .dash-container-header #updateDataBtn #updateDataRoadLoader{display:none!important}
+  .dash-container-header #updateDataBtn[disabled] #updateDataIconWrap svg{animation:mobileHeaderSyncSpin .9s linear infinite}
+  .dash-container-header #authLogoutBtn{width:36px;height:36px;min-width:36px;padding:0!important;margin:0!important;border:0!important;display:none;align-items:center;justify-content:center;border-radius:10px}
+  .dash-container-header #authLogoutBtn:not(.hidden){display:flex!important}
+  .dash-container-header #authLogoutEmail{display:none!important}
+  @keyframes mobileHeaderSyncSpin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){.dash-container-header #updateDataBtn[disabled] #updateDataIconWrap svg{animation:none!important}}
 
   /* Make common dashboard tiles breathe on very narrow screens. */
   #section-overview > *,
