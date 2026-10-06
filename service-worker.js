@@ -1,11 +1,11 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v79'
+const CACHE_VERSION = 'audit-dashboard-v80'
 // Only caches whose name starts with this prefix belong to this app (see activate).
 const CACHE_PREFIX = 'audit-dashboard-';
 // v72: pairs with canonical team analysis state, source-data version binding, and 3 s analysis polling. manual refresh version gating, safer one-shot writes, lighter Online status checks, reduced boot-time traffic, and deferred cache persistence.
 // v78: pairs with the transport/auth health hardening in index.html + Code.gs; forces the repaired shell onto installed clients.
-// v79: connection-health and backend-check reliability pass pairs with index.html: no sticky JSONP mode, no duplicate health probes, and status updates are batched.
+// v80: findings-analysis UX pass pairs with index.html: category filtering works in every findings view, annual top/repeated finding intelligence is local and fast, and finding counts respect the selected categories.
 // v76: mobile/profile layout hardening and connection-state recovery are shipped with the new shell.
 // v74: canonical save response is applied locally; refreshes clients onto the latest sync code.
 // v73: canonical Analysis data fingerprint + background Analysis sync foundation.
