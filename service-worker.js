@@ -1,8 +1,10 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v80'
+const CACHE_VERSION = 'audit-dashboard-v82'
 // Only caches whose name starts with this prefix belong to this app (see activate).
 const CACHE_PREFIX = 'audit-dashboard-';
+// v81: plain-language rewrite of the Audit Score & Schedule Settings screen (labels, help text, riskiest-% wording).
+// v82: risk levels now use fixed minimum scores only (rank-based top-% rule removed).
 // v72: pairs with canonical team analysis state, source-data version binding, and 3 s analysis polling. manual refresh version gating, safer one-shot writes, lighter Online status checks, reduced boot-time traffic, and deferred cache persistence.
 // v78: pairs with the transport/auth health hardening in index.html + Code.gs; forces the repaired shell onto installed clients.
 // v80: findings-analysis UX pass pairs with index.html: category filtering works in every findings view, annual top/repeated finding intelligence is local and fast, and finding counts respect the selected categories.
