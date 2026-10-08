@@ -1591,7 +1591,7 @@ async function updateOverallDataFromMenu(){
       showToast(json.message||"Overall Data is already up to date — nothing was changed.","success",{operationKey:"overallDataUpdate"});
       return;
     }
-    overallUpdateCheckState={success:true,needsUpdate:false,alreadyUpToDate:true,latestAuditMonth:json.latestAuditMonth||"",latestOverallMonth:json.latestOverallMonth||"",missingMonths:[],partialMonths:[],monthsToProcess:[],signature:json.signature||((status&&status.signature)||""),checkedAt:Date.now()};
+    overallUpdateCheckState={success:true,needsUpdate:false,alreadyUpToDate:true,latestAuditMonth:json.latestAuditMonth||"",latestOverallMonth:json.latestOverallMonth||"",missingMonths:[],partialMonths:[],monthsToProcess:[],signature:json.signature||"",checkedAt:Date.now()};
     persistOverallUpdateCheckState_();
     let msg=json.monthsInserted&&json.monthsInserted.length?"Overall Data updated with "+json.monthsInserted.join(", ")+" for "+(json.branchesUpdated||0)+" branch(es).":json.message||"Overall Data was repaired.";
     if(json.branchesAdded&&json.branchesAdded.length)msg+=" Added new row(s): "+json.branchesAdded.join(", ")+".";
