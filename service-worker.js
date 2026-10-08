@@ -1,11 +1,11 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v83'
+const CACHE_VERSION = 'audit-dashboard-v85'
 // Only caches whose name starts with this prefix belong to this app (see activate).
 const CACHE_PREFIX = 'audit-dashboard-';
 // v81: plain-language rewrite of the Audit Score & Schedule Settings screen (labels, help text, riskiest-% wording).
 // v82: risk levels now use fixed minimum scores only (rank-based top-% rule removed).
-// v83: pairs with index.html: Avg. Risk Score count-up animates (one decimal) and re-animates on every data change; in-flight animations are cancelled correctly; risk card refreshes on focus/time and no longer fails silently.
+// v85: Update Data is a lightweight change check; only changed data is synced, and installed clients get the new shell.
 // v72: pairs with canonical team analysis state, source-data version binding, and 3 s analysis polling. manual refresh version gating, safer one-shot writes, lighter Online status checks, reduced boot-time traffic, and deferred cache persistence.
 // v78: pairs with the transport/auth health hardening in index.html + Code.gs; forces the repaired shell onto installed clients.
 // v80: findings-analysis UX pass pairs with index.html: category filtering works in every findings view, annual top/repeated finding intelligence is local and fast, and finding counts respect the selected categories.
@@ -373,7 +373,12 @@ self.addEventListener('fetch', (event) => {
             event.waitUntil(updateCache.catch(() => {}));
             return cached;
           }
-          return updateCache.catch(() => caches.match('./index.html'));
+          return updateCache.catch(() => caches.match('./index.html').then((saved) => saved || new Response(
+            '<!DOCTYPE html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+            '<body style="font-family:system-ui;padding:2rem"><h2>Dashboard is temporarily unavailable</h2>' +
+            '<p>The app shell could not be refreshed. Check your connection and reload.</p></body>',
+            { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+          )));
         })
       )
     );
