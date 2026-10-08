@@ -1,6 +1,6 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v96'
+const CACHE_VERSION = 'audit-dashboard-v98'
 // Only caches whose name starts with this prefix belong to this app (see activate).
 const CACHE_PREFIX = 'audit-dashboard-';
 // v81: plain-language rewrite of the Audit Score & Schedule Settings screen (labels, help text, riskiest-% wording).
