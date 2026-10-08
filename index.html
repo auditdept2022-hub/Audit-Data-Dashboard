@@ -631,10 +631,11 @@
     <div class="toast-body">
       <span id="toast-message" class="toast-message">Dashboard successfully updated from Web Link!</span>
     </div>
-    <button type="button" class="toast-minimize" onclick="event.stopPropagation();toggleToastMinimize()" aria-label="Minimize notification" title="Minimize">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+    <button type="button" class="toast-minimize" onclick="event.stopPropagation();minimizeToast()" aria-label="Hide notification" title="Hide — keep the operation running">
+      <span class="toast-hide-label">Hide</span>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
     </button>
-    <button type="button" class="toast-close" onclick="event.stopPropagation();dismissOrMinimizeToast()" aria-label="Dismiss notification" title="Dismiss">
+    <button type="button" class="toast-close" onclick="event.stopPropagation();closeToastNotification()" aria-label="Close notification" title="Close notification">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
     </button>
     <div class="toast-progress"><div class="toast-progress-bar" id="toastProgressBar"></div></div>
@@ -1388,9 +1389,20 @@ function inferToastType(message){const m=(message||"").toLowerCase();if(/(saving
 function toastOperationKey(message){const m=String(message||"").toLowerCase();if(/remark/.test(m))return"remark";if(/assignment/.test(m))return"assignment";if(/highlight/.test(m))return"highlight";if(/emergency rotation|rotation/.test(m))return"rotation";if(/emergency auditor/.test(m))return"emergency";if(/overall data/.test(m))return"overall";if(/export|download|excel|word|pdf/.test(m))return"export";if(/finding|entry/.test(m))return"finding";if(/analysis|rating rules|sync/.test(m))return"analysis";if(/dashboard/.test(m))return"dashboard";return""}
 function toastIsProtectedResolution(nextType,nextMessage){if(!toastLock)return true;const current=document.getElementById("toast");const currentMessage=current?String(document.getElementById("toast-message")?.innerText||""):"";if(nextType==="loading")return false;const currentKey=toastLockKey||toastOperationKey(currentMessage);const nextKey=toastOperationKey(nextMessage);if(currentKey&&nextKey&&currentKey===nextKey)return true;if(/^(save|delete|export|update|sync|download|complete|queued)/i.test(String(nextMessage||""))&&/(remark|assignment|highlight|emergency|rotation|overall data|export|finding|analysis|rating|dashboard)/i.test(currentMessage))return false;return false}
 function minimizeToast(){const toast=document.getElementById("toast");if(!toast||!toast.classList.contains("toast-visible"))return;toast.classList.add("toast-minimized");const btn=toast.querySelector(".toast-minimize");if(btn)btn.setAttribute("aria-label","Restore notification");}
-function restoreToast(){const toast=document.getElementById("toast");if(!toast)return;toast.classList.remove("toast-minimized");const btn=toast.querySelector(".toast-minimize");if(btn)btn.setAttribute("aria-label","Minimize notification");}
+function restoreToast(){const toast=document.getElementById("toast");if(!toast)return;toast.classList.remove("toast-minimized");const btn=toast.querySelector(".toast-minimize");if(btn)btn.setAttribute("aria-label","Hide notification");}
 function toggleToastMinimize(){const toast=document.getElementById("toast");if(!toast)return;if(toast.classList.contains("toast-minimized"))restoreToast();else minimizeToast()}
-function dismissOrMinimizeToast(){const toast=document.getElementById("toast");if(!toast)return;/* User-facing close/minimize gesture always collapses to the side pill. Critical saves remain protected. */minimizeToast()}
+function dismissOrMinimizeToast(){minimizeToast()}
+async function closeToastNotification(){
+  const toast=document.getElementById("toast");
+  if(!toast||!toast.classList.contains("toast-visible"))return;
+  if(toastLock){
+    const title="Close this notification?";
+    const message="The save/update will continue in the background. Closing this notification does NOT cancel or stop the operation.";
+    const ok=window.__confirmAction?await window.__confirmAction(title,message,"Close notification","info"):window.confirm(message+"\n\nThe operation will continue.");
+    if(!ok)return;
+  }
+  hideToast(true);
+}
 function hideToast(force){const toast=document.getElementById("toast");if(!toast)return;if(toastLock&&!force){minimizeToast();return}toast.classList.remove("toast-visible","toast-minimized");toast.removeAttribute("data-toast-lock");toastLock=false;toastLockKey="";if(toastHideTimer){clearTimeout(toastHideTimer);toastHideTimer=null}}
 function showToast(message,type,options){const toast=document.getElementById("toast");const toastMsg=document.getElementById("toast-message");const toastIcon=document.getElementById("toastIcon");const progressBar=document.getElementById("toastProgressBar");if(!toast||!toastMsg)return;const resolvedType=type||inferToastType(message);const opts=options||{};const active=toast.classList.contains("toast-visible");const currentType=toast.getAttribute("data-type")||"info";const currentMessage=String(toastMsg.innerText||"");const currentLoading=active&&currentType==="loading"&&toastLock;if(currentLoading&&!opts.force&&!(resolvedType!=="loading"&&toastIsProtectedResolution(resolvedType,message)))return;const opKey=opts.operationKey||toastOperationKey(message)||toastLockKey||"";const resolving=currentLoading&&resolvedType!=="loading";toastGeneration++;toastMsg.innerText=message;toast.setAttribute("data-type",resolvedType);toastIcon.innerHTML=TOAST_ICONS[resolvedType]||TOAST_ICONS.info;toastIcon.classList.remove("toast-icon-pop");if(resolving){restoreToast();toastIcon.offsetWidth;toastIcon.classList.add("toast-icon-pop")}else if(resolvedType!=="loading"){restoreToast()}toast.classList.remove("toast-visible");progressBar.style.animation="none";progressBar.offsetWidth;toast.style.setProperty("--toast-duration",TOAST_DURATION_MS+"ms");progressBar.style.animation="";toast.classList.add("toast-visible");if(toastHideTimer){clearTimeout(toastHideTimer);toastHideTimer=null}toastLock=resolvedType==="loading";toastLockKey=toastLock?opKey:"";if(toastLock)toast.setAttribute("data-toast-lock","1");else toast.removeAttribute("data-toast-lock");if(resolvedType!=="loading")toastHideTimer=setTimeout(()=>{hideToast(true)},TOAST_DURATION_MS)}
 
@@ -2613,7 +2625,7 @@ async function refreshConnectionSnapshot(){if(!modalOpen())return;await runTest(
 })();
 </script>
 
-<style id="toast-final-reliability-v92">
+<style id="toast-final-reliability-v93">
 /* Final notification layer: above every modal/overlay. */
 #toast{z-index:2147483647!important;position:fixed!important}
 #toast.toast-visible.toast-minimized{left:auto!important;right:12px!important;top:max(.75rem,env(safe-area-inset-top,0px) + .55rem)!important;width:3.15rem!important;max-width:3.15rem!important;min-width:3.15rem!important;height:3.15rem!important;box-sizing:border-box!important;padding:.45rem!important;margin:0!important;border-radius:9999px!important;gap:0!important;display:flex!important;align-items:center!important;justify-content:center!important;transform:translate3d(0,0,0) scale(1)!important;opacity:1!important;overflow:visible!important;pointer-events:auto!important;cursor:pointer!important}
@@ -2631,6 +2643,22 @@ async function refreshConnectionSnapshot(){if(!modalOpen())return;await runTest(
 }
 @media(max-width:380px){
   #toast.toast-visible.toast-minimized{right:10px!important;width:3rem!important;max-width:3rem!important;min-width:3rem!important;height:3rem!important}
+}
+</style>
+
+<style id="toast-controls-v93">
+#toast .toast-minimize{display:flex!important;width:auto!important;min-width:3.45rem!important;height:1.8rem!important;padding:0 .62rem!important;gap:.28rem!important;border:1px solid rgba(255,255,255,.10)!important;background:rgba(255,255,255,.07)!important;color:rgba(248,250,252,.78)!important;font-size:.68rem!important;font-weight:800!important;letter-spacing:.01em!important}
+#toast .toast-minimize:hover{background:rgba(255,255,255,.14)!important;color:#fff!important}
+#toast .toast-minimize .toast-hide-label{display:inline!important;line-height:1}
+#toast .toast-minimize svg{width:.72rem!important;height:.72rem!important;display:block!important;transition:transform .2s ease!important}
+#toast .toast-minimize:active,#toast .toast-close:active{transform:scale(.94)}
+#toast .toast-close{width:1.8rem!important;height:1.8rem!important;border:1px solid rgba(255,255,255,.08)!important}
+#toast.toast-minimized .toast-minimize{display:flex!important;min-width:2.15rem!important;width:2.15rem!important;height:2.15rem!important;padding:0!important;border:0!important;background:transparent!important}
+#toast.toast-minimized .toast-hide-label{display:none!important}
+#toast.toast-minimized .toast-minimize svg{display:block!important;width:.82rem!important;height:.82rem!important;transform:rotate(-90deg)!important}
+@media(max-width:639px){
+  #toast:not(.toast-minimized) .toast-minimize{min-width:3.3rem!important;height:2rem!important;padding:0 .58rem!important}
+  #toast:not(.toast-minimized) .toast-close{width:2rem!important;height:2rem!important}
 }
 </style>
 </body></html>
