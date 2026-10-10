@@ -1,6 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v89'
+const CACHE_VERSION = 'audit-dashboard-v91'
+// v91: removes the external portfolio-risk status card and clarifies the average branch risk index label.
 // v89: protects pending shared rating-rule saves from stale background polling; syncs all scoring caps and retries after version conflicts.
 // v88: relocates portfolio risk status from the outer dashboard card into the Audit Risk & Schedule Analysis modal.
 // v87: adds a mobile-only Compact / Full details switch for the All Branches Branch Scorecard; desktop is unchanged.
