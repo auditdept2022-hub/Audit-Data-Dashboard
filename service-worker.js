@@ -1,6 +1,11 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v83'
+const CACHE_VERSION = 'audit-dashboard-v89'
+// v89: protects pending shared rating-rule saves from stale background polling; syncs all scoring caps and retries after version conflicts.
+// v88: relocates portfolio risk status from the outer dashboard card into the Audit Risk & Schedule Analysis modal.
+// v87: adds a mobile-only Compact / Full details switch for the All Branches Branch Scorecard; desktop is unchanged.
+// v86: removes the unwanted scorecard-only Update action and explicitly keeps the All Branches scorecard visible on mobile.
+// v84: stabilizes audit-risk weights for consistent period-over-period management reporting; adds visible data-coverage and red-flag indicators, and labels the headline as a composite index.
 // v83: responsive mobile scorecard cards, non-overlapping filter controls, and no sideways scorecard scroll; retains v82 remark-save safeguards.
 // Only caches whose name starts with this prefix belong to this app (see activate).
 const CACHE_PREFIX = 'audit-dashboard-';
