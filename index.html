@@ -1264,7 +1264,7 @@
           </span>
           <input type="text" id="tableSearch" placeholder="Search branch..." class="w-full pl-9 pr-4 py-2 bg-white border border-coolBorder rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all">
         </div>
-        <div class="flex flex-wrap items-center gap-2">
+        <div id="scorecardFilterControls" class="scorecard-filter-controls flex flex-wrap items-center gap-2">
           <select id="filterCollection" class="flex-1 min-w-[130px] sm:flex-none sm:w-auto px-3 py-2 bg-white border border-coolBorder rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-accentCyan transition-all cursor-pointer">
             <option value="ALL">All Collection</option>
             <option value="Improving">Improving</option>
@@ -1315,7 +1315,7 @@
         <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-accentEmerald"></span>Low</span>
         <span class="text-slate-400 font-normal normal-case">— the same 0–100 audit risk score as Audit Risk &amp; Schedule Analysis: a level needs a minimum score (High 55, Medium 40) and a place near the top of your own branches (High: top 40%, Medium: top 70%); any data red flag lifts a branch to High</span>
       </div>
-      <p class="md:hidden flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-400 mb-2">
+      <p id="scorecardSwipeHint" class="md:hidden flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-400 mb-2">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="m9 18 6-6-6-6"></path></svg>
         Swipe sideways to see all columns
       </p>
@@ -2325,6 +2325,14 @@ async function refreshConnectionSnapshot(){if(!modalOpen())return;await runTest(
     var card=document.getElementById("section-scorecard");
     if(!wrap||!card||card.offsetParent===null)return;
 
+    /* Phone layout uses vertically stacked branch cards, not a fixed-height
+       horizontal table viewport. Clear the desktop fit dimensions on mobile. */
+    if(window.matchMedia("(max-width: 767px)").matches){
+      wrap.style.removeProperty("height");
+      wrap.style.removeProperty("max-height");
+      return;
+    }
+
     var header=document.querySelector("header");
     var headerH=header?header.getBoundingClientRect().height:0;
     var vv=window.visualViewport;
@@ -2406,4 +2414,222 @@ async function refreshConnectionSnapshot(){if(!modalOpen())return;await runTest(
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init();
 })();
 </script>
+
+<style id="mobile-scorecard-layout-v83">
+/* Mobile usability pass: no sideways page/table scrolling in the branch scorecard. */
+@media (max-width: 767px) {
+  html, body {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: clip !important;
+  }
+  #section-scorecard {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 12px !important;
+  }
+  #section-scorecard > * { min-width: 0; max-width: 100%; }
+
+  /* Search takes a full row; filter actions use a predictable two-column grid. */
+  #section-scorecard > div.flex.flex-col:nth-child(2) {
+    min-width: 0;
+    gap: 10px !important;
+  }
+  #section-scorecard #tableSearch { width: 100% !important; min-width: 0 !important; }
+  #scorecardFilterControls {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 8px !important;
+    width: 100%;
+    min-width: 0;
+  }
+  #scorecardFilterControls > * {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
+    margin: 0 !important;
+    flex: initial !important;
+    justify-self: stretch;
+  }
+  #scorecardFilterControls select {
+    padding: 9px 8px !important;
+    font-size: 11px !important;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+  }
+  #scorecardFilterControls #branchFilterWrap { min-width: 0 !important; }
+  #scorecardFilterControls #branchFilterBtn {
+    display: flex !important;
+    align-items: center;
+    justify-content: flex-start !important;
+    gap: 5px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 9px 8px !important;
+    overflow: hidden;
+  }
+  #scorecardFilterControls #branchFilterBtnLabel {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #scorecardFilterControls > button[onclick="resetScorecardFilters()"] {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    white-space: nowrap;
+    padding: 9px 8px !important;
+  }
+  #scorecardSwipeHint { display: none !important; }
+
+  /* Convert the 13-column desktop scorecard into readable phone cards. */
+  #scorecardScrollWrap {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent;
+    box-shadow: none !important;
+    overscroll-behavior: auto;
+  }
+  #scorecardScrollWrap table,
+  #scorecardScrollWrap tbody {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    table-layout: auto !important;
+  }
+  #scorecardScrollWrap table { border-collapse: separate !important; }
+  #scorecardScrollWrap colgroup,
+  #scorecardScrollWrap thead { display: none !important; }
+  #scorecardTableBody tr {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 12px;
+    width: 100%;
+    min-width: 0;
+    margin: 0 0 10px !important;
+    padding: 3px 10px 8px;
+    box-sizing: border-box;
+    overflow: hidden;
+    background: #fff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-left: 1px solid #e2e8f0 !important;
+    border-radius: 14px;
+    box-shadow: 0 2px 7px rgba(15, 23, 42, .045);
+    transform: none !important;
+  }
+  #scorecardTableBody tr > td {
+    display: flex !important;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 4px;
+    min-width: 0;
+    max-width: 100%;
+    overflow: visible !important;
+    padding: 9px 3px !important;
+    border: 0 !important;
+    background: transparent !important;
+    text-align: left !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    font-size: 12px;
+    line-height: 1.25;
+  }
+  #scorecardTableBody tr > td::before {
+    display: block;
+    max-width: 100%;
+    color: #64748b;
+    font-size: 9px;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: .045em;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+  }
+  #scorecardTableBody tr > td:nth-child(1) { display: none !important; }
+  #scorecardTableBody tr > td:nth-child(2) {
+    display: block !important;
+    grid-column: 1 / -1;
+    padding: 11px 3px 10px !important;
+    margin-bottom: 1px;
+    border-bottom: 1px solid #e2e8f0 !important;
+    color: #0f172a !important;
+    font-size: 15px !important;
+    font-weight: 800 !important;
+    line-height: 1.3;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+  }
+  #scorecardTableBody tr > td:nth-child(2)::before { content: "BRANCH"; margin-bottom: 4px; }
+  #scorecardTableBody tr > td:nth-child(3)::before { content: "RECENT AUDITOR"; }
+  #scorecardTableBody tr > td:nth-child(4)::before { content: "RISK"; }
+  #scorecardTableBody tr > td:nth-child(5)::before { content: "COLLECTION"; }
+  #scorecardTableBody tr > td:nth-child(6)::before { content: "SALES"; }
+  #scorecardTableBody tr > td:nth-child(7)::before { content: "SERVICE"; }
+  #scorecardTableBody tr > td:nth-child(8)::before { content: "FINDINGS '26"; }
+  #scorecardTableBody tr > td:nth-child(9)::before { content: "REPO RATE"; }
+  #scorecardTableBody tr > td:nth-child(10)::before { content: "NO. OF REPO"; }
+  #scorecardTableBody tr > td:nth-child(11)::before { content: "EFFICIENCY"; }
+  #scorecardTableBody tr > td:nth-child(12)::before { content: "ACCOUNTS"; }
+  #scorecardTableBody tr > td:nth-child(13)::before { content: "AUDIT STATUS"; }
+  #scorecardTableBody tr > td:nth-child(n+3) > * {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    white-space: normal !important;
+  }
+  #scorecardTableBody tr:has(td[colspan="13"]) {
+    display: block !important;
+    padding: 0 !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none;
+  }
+  #scorecardTableBody tr:has(td[colspan="13"]) > td {
+    display: block !important;
+    width: 100%;
+    padding: 0 !important;
+  }
+  #scorecardTableBody tr:has(td[colspan="13"]) > td::before { content: none !important; }
+  #tablePagination {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 10px !important;
+    font-size: 11px;
+    overflow-wrap: anywhere;
+  }
+  #section-scorecard .flex-wrap { gap: 7px !important; }
+}
+
+@media (max-width: 380px) {
+  #section-scorecard { padding: 10px !important; }
+  #scorecardFilterControls { gap: 6px !important; }
+  #scorecardFilterControls select,
+  #scorecardFilterControls #branchFilterBtn,
+  #scorecardFilterControls > button[onclick="resetScorecardFilters()"] {
+    font-size: 10px !important;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+  }
+  #scorecardTableBody tr { gap: 0 8px; padding-left: 8px; padding-right: 8px; }
+}
+</style>
+
 </body></html>
