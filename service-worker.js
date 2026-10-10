@@ -1,6 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v80'
+const CACHE_VERSION = 'audit-dashboard-v82'
+// v82: idempotent Detailed Profile remark saves + save-click guard; timeout instrumentation/fail-fast save locks in Code.gs.
 // Only caches whose name starts with this prefix belong to this app (see activate).
 const CACHE_PREFIX = 'audit-dashboard-';
 // v72: pairs with canonical team analysis state, source-data version binding, and 3 s analysis polling. manual refresh version gating, safer one-shot writes, lighter Online status checks, reduced boot-time traffic, and deferred cache persistence.
