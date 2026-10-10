@@ -1257,11 +1257,7 @@
           </h3>
           <p class="text-xs text-slate-500 mt-1">Operational status, risk, and current engagement phase for every branch — click any column header to sort, click a row for the full profile</p>
         </div>
-        <div id="scorecardMobileViewToggle" class="scorecard-mobile-view-toggle" role="group" aria-label="Branch scorecard display mode">
-          <button type="button" data-scorecard-view="compact" aria-pressed="true" class="scorecard-mobile-view-btn is-active">Compact</button>
-          <button type="button" data-scorecard-view="details" aria-pressed="false" class="scorecard-mobile-view-btn">Full details</button>
-        </div>
-      </div>
+</div>
       <div class="flex flex-col lg:flex-row lg:items-center gap-3 mb-5">
         <div class="relative flex-1 min-w-[200px]">
           <span class="absolute inset-y-0 left-0 flex items-center pl-3">
@@ -1756,6 +1752,78 @@ function tfEnsureStyle(){if(document.getElementById("topFindingsStyle"))return;c
 #topFindingsPopup.tf-browser-fullscreen .tf-dialog{width:100vw;max-width:none;height:100vh;height:100dvh;border-radius:0}
 @media (max-width:1000px){#topFindingsPopup .tf-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:700px){#topFindingsPopup .tf-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}#topFindingsPopup .tf-grid{grid-template-columns:minmax(0,1fr)}#topFindingsPopup .tf-full{padding:0 9px}#topFindingsPopup .tf-full span{display:none}#topFindingsPopup .tf-lead{align-items:flex-start}#topFindingsPopup .tf-lead-stat{min-width:64px}}
+/* Neutral management state when there is no repeated wording pattern */
+#topFindingsPopup .tf-lead-clear{background:linear-gradient(100deg,rgba(13,148,136,.07),rgba(255,255,255,.96) 75%);border-color:rgba(13,148,136,.18)}
+#topFindingsPopup .tf-lead-clear .tf-lead-icon{background:rgba(13,148,136,.12);color:#0f766e}
+#topFindingsPopup .tf-lead-clear .tf-lead-kicker{color:#0f766e}
+/* Mobile-first executive analysis: full-viewport dialog, stable header and scrollable content */
+@media (max-width:700px), (max-height:520px) and (pointer:coarse){
+ #topFindingsPopup{padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);align-items:stretch;justify-content:stretch;background:#f6f8fc;backdrop-filter:none;-webkit-backdrop-filter:none;}
+ #topFindingsPopup .tf-dialog{width:100%;max-width:none;height:100%;min-height:0;max-height:none;border-radius:0;box-shadow:none;transform:none;transition:none;}
+ #topFindingsPopup.tf-show .tf-dialog{transform:none}
+ #topFindingsPopup .tf-head{gap:9px;padding:10px 11px;flex-shrink:0;}
+ #topFindingsPopup .tf-hico{width:34px;height:34px;border-radius:10px;}
+ #topFindingsPopup .tf-title{font-size:16px;line-height:1.15;}
+ #topFindingsPopup .tf-sub{font-size:10px;white-space:nowrap;}
+ #topFindingsPopup .tf-head-actions{gap:3px;}
+ #topFindingsPopup .tf-full{display:none!important;}
+ #topFindingsPopup .tf-x{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.09);}
+ #topFindingsPopup .tf-ctrl{display:flex;flex-direction:column;align-items:stretch;gap:7px;padding:9px 11px;background:#fff;flex-shrink:0;box-shadow:0 2px 8px rgba(15,23,42,.04);}
+ #topFindingsPopup .tf-lbl{font-size:10px;letter-spacing:.07em;text-transform:uppercase;}
+ #topFindingsPopup .tf-pills{width:100%;display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;overflow-y:hidden;padding:0 0 3px;scrollbar-width:thin;-webkit-overflow-scrolling:touch;}
+ #topFindingsPopup .tf-pill{flex:0 0 auto;padding:7px 10px;font-size:11px;}
+ #topFindingsPopup .tf-spacer{display:none;}
+ #topFindingsPopup .tf-sel{width:100%;max-width:none;min-height:38px;padding:8px 11px;font-size:13px;border-radius:10px;}
+ #topFindingsPopup .tf-seg{display:flex;width:100%;}
+ #topFindingsPopup .tf-seg button{flex:1 1 50%;padding:9px 8px;font-size:11px;white-space:normal;line-height:1.2;}
+ #topFindingsPopup .tf-body{padding:12px 10px calc(18px + env(safe-area-inset-bottom,0px));overflow-x:hidden;overflow-y:auto;min-height:0;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}
+ #topFindingsPopup .tf-lead{display:grid;grid-template-columns:32px minmax(0,1fr);gap:8px 10px;padding:11px 10px;margin-bottom:11px;border-radius:13px;align-items:start;}
+ #topFindingsPopup .tf-lead-icon{grid-column:1;grid-row:1;width:32px;height:32px;flex-basis:32px;border-radius:9px;font-size:14px;}
+ #topFindingsPopup .tf-lead-main{grid-column:2;min-width:0;}
+ #topFindingsPopup .tf-lead-kicker{font-size:9px;line-height:1.25;}
+ #topFindingsPopup .tf-lead-title{font-size:13px;line-height:1.35;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;}
+ #topFindingsPopup .tf-lead-copy{font-size:11px;line-height:1.45;}
+ #topFindingsPopup .tf-lead-stat{grid-column:2;display:flex;align-items:baseline;gap:6px;text-align:left;min-width:0;padding:0;border-left:0;}
+ #topFindingsPopup .tf-lead-stat b{font-size:20px;}
+ #topFindingsPopup .tf-lead-stat span{margin-top:0;font-size:9px;}
+ #topFindingsPopup .tf-lead-clear{background:linear-gradient(100deg,rgba(13,148,136,.07),rgba(255,255,255,.98) 75%);border-color:rgba(13,148,136,.18);}
+ #topFindingsPopup .tf-lead-clear .tf-lead-icon{background:rgba(13,148,136,.12);color:#0f766e;}
+ #topFindingsPopup .tf-lead-clear .tf-lead-kicker{color:#0f766e;}
+ #topFindingsPopup .tf-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:11px;}
+ #topFindingsPopup .tf-kpi{min-width:0;padding:11px 10px 10px;border-radius:12px;}
+ #topFindingsPopup .tf-kpi .k{font-size:9px;letter-spacing:.045em;line-height:1.3;}
+ #topFindingsPopup .tf-kpi .v{font-size:24px;margin-top:5px;overflow-wrap:anywhere;}
+ #topFindingsPopup .tf-kpi .s{font-size:10px;line-height:1.35;min-height:0;overflow-wrap:anywhere;}
+ #topFindingsPopup .tf-grid{grid-template-columns:minmax(0,1fr);gap:10px;}
+ #topFindingsPopup .tf-card{border-radius:13px;}
+ #topFindingsPopup .tf-ch{align-items:flex-start;flex-direction:column;gap:4px;padding:10px 11px;}
+ #topFindingsPopup .tf-ct{font-size:10px;line-height:1.35;}
+ #topFindingsPopup .tf-cn2{font-size:10px;line-height:1.35;white-space:normal;}
+ #topFindingsPopup .tf-row{gap:8px;padding:11px 9px;}
+ #topFindingsPopup .tf-rank{flex-basis:25px;height:25px;border-radius:8px;font-size:11px;}
+ #topFindingsPopup .tf-label{font-size:12px;line-height:1.4;}
+ #topFindingsPopup .tf-meta{gap:5px;margin-top:5px;font-size:10px;}
+ #topFindingsPopup .tf-chip{font-size:9px;padding:2px 6px;white-space:normal;}
+ #topFindingsPopup .tf-count{flex-basis:54px;min-width:54px;}
+ #topFindingsPopup .tf-count b{font-size:20px;}
+ #topFindingsPopup .tf-count small{font-size:9px;}
+ #topFindingsPopup .tf-trend{font-size:9px;}
+ #topFindingsPopup .tf-yrs{gap:4px;margin-top:6px;}
+ #topFindingsPopup .tf-yr{padding:2px 5px;font-size:9px;}
+ #topFindingsPopup .tf-detail{padding:2px 10px 12px 10px;overflow-wrap:anywhere;}
+ #topFindingsPopup .tf-bchip{max-width:100%;white-space:normal;overflow-wrap:anywhere;padding:4px 7px;font-size:10px;}
+ #topFindingsPopup .tf-words li{font-size:11px;overflow-wrap:anywhere;}
+ #topFindingsPopup .tf-cat{grid-template-columns:minmax(0,1fr) minmax(42px,.7fr) auto;gap:5px 8px;padding:10px 10px;}
+ #topFindingsPopup .tf-cname{font-size:11px;white-space:normal;overflow-wrap:anywhere;}
+ #topFindingsPopup .tf-cval{font-size:11px;}
+ #topFindingsPopup .tf-cval em{font-size:9px;margin-left:2px;}
+ #topFindingsPopup .tf-off{padding:10px 11px;}
+ #topFindingsPopup .tf-on{overflow-wrap:anywhere;white-space:normal;}
+ #topFindingsPopup .tf-os{font-size:10.5px;line-height:1.4;overflow-wrap:anywhere;}
+ #topFindingsPopup .tf-note{padding:10px 2px 2px;font-size:10px;line-height:1.5;}
+ #topFindingsPopup .tf-more{padding:12px;font-size:12px;}
+}
+@media (max-width:360px){#topFindingsPopup .tf-title{font-size:15px}#topFindingsPopup .tf-hico{display:none}#topFindingsPopup .tf-kpi .v{font-size:22px}#topFindingsPopup .tf-row{gap:6px;padding-left:7px;padding-right:7px}#topFindingsPopup .tf-count{flex-basis:48px;min-width:48px}}
 @media (prefers-reduced-motion:reduce){#topFindingsPopup,#topFindingsPopup .tf-dialog{transition:none}}`;document.head.appendChild(st)}
 function tfTopButtonHtml(){return`<button type="button" onclick="openTopFindingsPopup()" title="See the most repeated findings per year, with counts and trends" class="pl-2.5 pr-3.5 py-1.5 text-xs font-bold rounded-full border transition-all active:scale-95 inline-flex items-center gap-1 bg-accentAmber/10 text-accentAmber border-accentAmber/30 hover:bg-accentAmber/20"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>Top Findings</button>`}
 function tfDefaultYear(){const st=window.findingsModalState;const y=st&&st.filterValue?Number(String(st.filterValue).replace("findings","")):NaN;const ys=getAllowedFindingYears();return ys.indexOf(y)>=0?y:ys[ys.length-1]}
@@ -1800,9 +1868,10 @@ function tfBodyHtml(model,view,st){
   if(view.scope!==null&&st.category==="ALL"){const idx=(window.FINDING_YEARS||[]).indexOf(view.scope);const key=["findings2024","findings2025","findings2026"][idx];const rep=key&&activeData.summary?Number(activeData.summary[key]):NaN;if(isFinite(rep)&&rep!==view.total)totSub+=` · sheet total ${rep.toLocaleString()}`}
   const pct=n=>view.total?Math.round(n/view.total*100):0;
   const totalBranches=(activeData.branches||[]).length;
+  const branchCoveragePct=totalBranches?Math.round(view.branchesN/totalBranches*100):null;
   const top=view.patterns[0];
-  const lead=top?`<div class="tf-lead"><div class="tf-lead-icon">⚠</div><div class="tf-lead-main"><div class="tf-lead-kicker">Priority signal</div><div class="tf-lead-title">“${E(tfClip(top.c.label,105))}”</div><div class="tf-lead-copy">Logged <b>${top.count}×</b> across <b>${top.branchesN}</b> branch${top.branchesN===1?"":"es"}${top.prevCount!==null?` · ${top.count>=top.prevCount?`up ${top.count-top.prevCount}`:`down ${top.prevCount-top.count}`} vs ${view.prevYear}`:""}. Start here: this is the finding pattern with the highest repeat volume in the selected scope.</div></div><div class="tf-lead-stat"><b>${top.count}</b><span>repeat volume</span></div></div>`:"";
-  const kpis=[["cyan","Findings logged",view.total.toLocaleString(),totSub],["slate","Finding patterns",view.patterns.length.toLocaleString(),`${view.singles} one-off${view.singles===1?"":"s"}`],["amber","Repeated findings",view.repeated.toLocaleString(),`${pct(view.repeated)}% are in patterns seen 2+ times`],["rose","Came back",view.recurN.toLocaleString(),`${pct(view.recurN)}% re-found at a branch later`],["indigo","Branches affected",view.branchesN.toLocaleString(),totalBranches?`${pct(view.branchesN)}% of ${totalBranches} branches`:""]].map(k=>`<div class="tf-kpi ${k[0]}"><div class="k">${k[1]}</div><div class="v">${k[2]}</div><div class="s">${E(k[3])}</div></div>`).join("");
+  const lead=top&&top.count>=2?`<div class="tf-lead"><div class="tf-lead-icon">⚠</div><div class="tf-lead-main"><div class="tf-lead-kicker">Highest-volume repeated pattern</div><div class="tf-lead-title">“${E(tfClip(top.c.label,105))}”</div><div class="tf-lead-copy">Logged <b>${top.count}×</b> across <b>${top.branchesN}</b> branch${top.branchesN===1?"":"es"}${top.prevCount!==null?` · ${top.count>=top.prevCount?`up ${top.count-top.prevCount}`:`down ${top.prevCount-top.count}`} vs ${view.prevYear} (raw count)`:""}. Management focus: confirm corrective actions at affected branches and check whether the issue returns.</div></div><div class="tf-lead-stat"><b>${top.count}</b><span>logged records</span></div></div>`:top?`<div class="tf-lead tf-lead-clear"><div class="tf-lead-icon">✓</div><div class="tf-lead-main"><div class="tf-lead-kicker">Finding pattern check</div><div class="tf-lead-title">No repeated wording pattern in this selection</div><div class="tf-lead-copy">Each grouped pattern appears once in the selected scope. Still review Grave/Serious findings and branch-level context; one occurrence can be material. Check the “Came back” indicator for findings that recurred from earlier audits.</div></div></div>`:"";
+  const kpis=[["cyan","Findings logged",view.total.toLocaleString(),totSub],["slate","Finding patterns",view.patterns.length.toLocaleString(),`${view.singles} one-off${view.singles===1?"":"s"}`],["amber","Repeated findings",view.repeated.toLocaleString(),`${pct(view.repeated)}% are in patterns seen 2+ times`],["rose","Came back",view.recurN.toLocaleString(),`${pct(view.recurN)}% re-found at a branch later`],["indigo","Branches affected",view.branchesN.toLocaleString(),totalBranches?`${branchCoveragePct}% of ${totalBranches} branches`:"Branch total unavailable"]].map(k=>`<div class="tf-kpi ${k[0]}"><div class="k">${k[1]}</div><div class="v">${k[2]}</div><div class="s">${E(k[3])}</div></div>`).join("");
   const ins=view.insights.length?`<div class="tf-insights">${view.insights.map(x=>`<div class="tf-ins"><span>${x.i}</span><span>${x.t}</span></div>`).join("")}</div>`:"";
   const shown=view.patterns.slice(0,st.limit);const maxCount=view.patterns.length?view.patterns[0].count:1;
   const list=view.patterns.length?shown.map((p,i)=>tfItemHtml(p,i+1,st,view,model,maxCount)).join("")+(view.patterns.length>shown.length?`<button type="button" class="tf-more" onclick="tfMore()">Show ${Math.min(15,view.patterns.length-shown.length)} more · ${view.patterns.length-shown.length} left</button>`:""):`<div class="tf-empty">No findings for this selection.</div>`;
@@ -1810,7 +1879,7 @@ function tfBodyHtml(model,view,st){
   const catMax=view.cats.length?view.cats[0].count:1;
   const cats=view.cats.map(e=>{const d=view.prevYear!==null?e.count-e.prev:null;const dh=d===null||d===0?"":d>0?`<u class="up">▲${d}</u>`:`<u class="down">▼${-d}</u>`;return`<button type="button" class="tf-cat${st.category===e.cat?" on":""}" data-cat="${E(e.cat)}" onclick="tfSetCategory(this.getAttribute('data-cat'))" title="Click to filter by ${E(e.cat)}"><span class="tf-cname">${E(e.cat)}</span><span class="tf-cbar"><i style="width:${Math.max(3,Math.round(e.count/catMax*100))}%"></i></span><span class="tf-cval">${e.count}<em>${view.catTotal?Math.round(e.count/view.catTotal*100):0}%</em>${dh}</span></button>`}).join("")||`<div class="tf-empty">No data.</div>`;
   const offs=view.offenders.slice(0,8).map(o=>`<div class="tf-off"><div class="tf-oh"><span class="tf-on" title="${E(o.branch)}">${E(o.branch)}</span><span class="tf-oc">${o.repeats} repeat${o.repeats===1?"":"s"}</span></div><div class="tf-os">${o.total} finding${o.total===1?"":"s"}${o.top?` · mostly “${E(tfClip(o.top,70))}”`:""}</div></div>`).join("")||`<div class="tf-empty">No finding came back at the same branch.</div>`;
-  return`<div class="tf-grid"><div><div class="tf-card"><div class="tf-ch"><span class="tf-ct">Priority findings</span><span class="tf-cn2">Ranked by repeat volume · tap a row for branches</span></div>${list}</div></div><div><div class="tf-card"><div class="tf-ch"><span class="tf-ct">Where the issues sit</span><span class="tf-cn2">Tap a category to filter</span></div>${cats}</div><div class="tf-card"><div class="tf-ch"><span class="tf-ct">Branches with repeat issues</span><span class="tf-cn2">${view.offenders.length} branch${view.offenders.length===1?"":"es"}</span></div>${offs}</div></div></div><div class="tf-note">Use the year buttons above to compare periods. “Repeated” groups the same or nearly identical finding 2+ times; “Came back” means the finding returned at a branch after an earlier audit. Switch to “Same wording” when you want a strict text match.</div>`}
+  return`<div class="tf-grid"><div><div class="tf-card"><div class="tf-ch"><span class="tf-ct">Priority findings</span><span class="tf-cn2">Ranked by repeat volume · tap a row for branches</span></div>${list}</div></div><div><div class="tf-card"><div class="tf-ch"><span class="tf-ct">Where the issues sit</span><span class="tf-cn2">Tap a category to filter</span></div>${cats}</div><div class="tf-card"><div class="tf-ch"><span class="tf-ct">Branches with repeat issues</span><span class="tf-cn2">${view.offenders.length} branch${view.offenders.length===1?"":"es"}</span></div>${offs}</div></div></div><div class="tf-note">Management guide: use the ranked patterns to choose where to investigate root causes, then expand each row to see affected branches and wording variations. “Repeated” groups the same or nearly identical finding 2+ times; “Came back” means a finding returned at a branch after an earlier audit. Counts are raw recorded findings: the current fiscal year may be incomplete, so year-to-year changes are not annualized. Switch to “Same wording” for a stricter text match.</div>`}
 function tfRender(resetScroll){
   const ov=document.getElementById("topFindingsPopup");if(!ov)return;
   const st=window.tfState;const model=tfGetModel();const view=tfView(model,st);
@@ -2330,8 +2399,8 @@ async function refreshConnectionSnapshot(){if(!modalOpen())return;await runTest(
     var card=document.getElementById("section-scorecard");
     if(!wrap||!card||card.offsetParent===null)return;
 
-    /* Phone layout uses vertically stacked branch cards, not a fixed-height
-       horizontal table viewport. Clear the desktop fit dimensions on mobile. */
+    /* Mobile scorecard uses a horizontally scrollable desktop-style table.
+       Let the final responsive CSS control its viewport dimensions. */
     if(window.matchMedia("(max-width: 767px)").matches){
       wrap.style.removeProperty("height");
       wrap.style.removeProperty("max-height");
@@ -2662,96 +2731,166 @@ async function refreshConnectionSnapshot(){if(!modalOpen())return;await runTest(
 </style>
 
 
-<style id="mobile-scorecard-view-v90">
-/* v90: compact segmented mobile view switch, styled like the dashboard's other tab buttons. */
-#scorecardMobileViewToggle { display: none; }
-.scorecard-mobile-view-toggle { align-items: center; justify-content: flex-start; gap: 2px; width: max-content; max-width: 100%; padding: 3px; border: 1px solid #e2e8f0; border-radius: 11px; background: #f1f5f9; box-sizing: border-box; }
-.scorecard-mobile-view-btn { min-height: 30px; padding: 5px 9px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #64748b; font-size: 10px; font-weight: 750; line-height: 1.1; white-space: nowrap; cursor: pointer; transition: background .15s ease, color .15s ease, border-color .15s ease, box-shadow .15s ease; }
-.scorecard-mobile-view-btn:focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
-.scorecard-mobile-view-btn.is-active { background: #fff; color: #334155; border-color: #e2e8f0; box-shadow: 0 1px 3px rgba(15,23,42,.1); }
-@media (max-width: 767px) {
-  #scorecardMobileViewToggle { display: inline-flex !important; align-self: flex-start; flex-wrap: nowrap; max-width: 100%; margin-top: 1px; }
-  #scorecardMobileViewToggle .scorecard-mobile-view-btn { flex: 0 0 auto; }
 
-  /* Compact mode shows the branch name, risk and audit status only. */
-  #section-scorecard.scorecard-mobile-compact #scorecardTableBody tr:not(:has(td[colspan="13"])) {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 0 10px !important;
-    padding: 2px 10px 5px !important;
-    margin-bottom: 7px !important;
-  }
-  #section-scorecard.scorecard-mobile-compact #scorecardTableBody tr:not(:has(td[colspan="13"])) > td:nth-child(3),
-  #section-scorecard.scorecard-mobile-compact #scorecardTableBody tr:not(:has(td[colspan="13"])) > td:nth-child(5),
-  #section-scorecard.scorecard-mobile-compact #scorecardTableBody tr:not(:has(td[colspan="13"])) > td:nth-child(6),
-  #section-scorecard.scorecard-mobile-compact #scorecardTableBody tr:not(:has(td[colspan="13"])) > td:nth-child(7),
-  #section-scorecard.scorecard-mobile-compact #scorecardTableBody tr:not(:has(td[colspan="13"])) > td:nth-child(8),
-  #section-scorecard.scorecard-mobile-compact #scorecardTableBody tr:not(:has(td[colspan="13"])) > td:nth-child(9),
-  #section-scorecard.scorecard-mobile-compact #scorecardTableBody tr:not(:has(td[colspan="13"])) > td:nth-child(10),
-  #section-scorecard.scorecard-mobile-compact #scorecardTableBody tr:not(:has(td[colspan="13"])) > td:nth-child(11),
-  #section-scorecard.scorecard-mobile-compact #scorecardTableBody tr:not(:has(td[colspan="13"])) > td:nth-child(12) {
-    display: none !important;
-  }
-  #section-scorecard.scorecard-mobile-compact #scorecardTableBody tr:not(:has(td[colspan="13"])) > td:nth-child(2) {
-    padding: 8px 3px !important;
-    margin-bottom: 0 !important;
-    font-size: 13px !important;
-    line-height: 1.25 !important;
-  }
-  #section-scorecard.scorecard-mobile-compact #scorecardTableBody tr:not(:has(td[colspan="13"])) > td:nth-child(4),
-  #section-scorecard.scorecard-mobile-compact #scorecardTableBody tr:not(:has(td[colspan="13"])) > td:nth-child(13) {
+<style id="mobile-scorecard-desktop-table-v92">
+/* v92: keep the desktop scorecard table structure on phones; scroll horizontally inside the table only. */
+@media (max-width: 767px) {
+  #section-scorecard { overflow: visible !important; }
+  #section-scorecard #scorecardSwipeHint {
     display: flex !important;
-    align-self: center;
-    padding: 7px 3px !important;
-    min-height: 36px;
-    justify-content: center;
-  }
-  #section-scorecard.scorecard-mobile-compact #scorecardTableBody tr:not(:has(td[colspan="13"])) > td:nth-child(4)::before,
-  #section-scorecard.scorecard-mobile-compact #scorecardTableBody tr:not(:has(td[colspan="13"])) > td:nth-child(13)::before {
-    margin-bottom: 2px;
-  }
-  #section-scorecard.scorecard-mobile-compact #scorecardTableBody tr:not(:has(td[colspan="13"])) > td:nth-child(13) > * {
-    max-width: 100%;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    margin-bottom: 8px !important;
     white-space: normal !important;
+    text-align: center !important;
   }
-}
-@media (max-width: 380px) {
-  #scorecardMobileViewToggle { gap: 1px; padding: 2px; }
-  .scorecard-mobile-view-btn { min-height: 28px; padding: 5px 8px; font-size: 10px; }
+  #section-scorecard #scorecardScrollWrap {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    height: max(320px, calc(100dvh - 380px)) !important;
+    max-height: calc(100dvh - 240px) !important;
+    min-height: 320px !important;
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-x: contain !important;
+    overscroll-behavior-y: contain !important;
+    scroll-snap-type: none !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    scrollbar-width: auto !important;
+  }
+  #section-scorecard #scorecardScrollWrap table {
+    display: table !important;
+    width: 1311px !important;
+    min-width: 1311px !important;
+    max-width: none !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+    background: #fff !important;
+  }
+  #section-scorecard #scorecardScrollWrap colgroup { display: table-column-group !important; }
+  #section-scorecard #scorecardScrollWrap col { display: table-column !important; }
+  #section-scorecard #scorecardScrollWrap thead {
+    display: table-header-group !important;
+    visibility: visible !important;
+  }
+  #section-scorecard #scorecardScrollWrap thead tr { display: table-row !important; }
+  #section-scorecard #scorecardScrollWrap thead th {
+    display: table-cell !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 5 !important;
+    height: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    padding: 9px 8px !important;
+    font-size: 10px !important;
+    line-height: 1.25 !important;
+    white-space: nowrap !important;
+    text-align: center !important;
+    vertical-align: middle !important;
+    background-color: #f8fafc !important;
+    overflow: visible !important;
+  }
+  #section-scorecard #scorecardTableBody {
+    display: table-row-group !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+  #section-scorecard #scorecardTableBody tr,
+  #section-scorecard #scorecardTableBody tr:not(:has(td[colspan="13"])) {
+    display: table-row !important;
+    position: static !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    background: #fff !important;
+    grid-template-columns: none !important;
+    gap: normal !important;
+    transform: none !important;
+  }
+  #section-scorecard #scorecardTableBody tr > td,
+  #section-scorecard #scorecardTableBody tr:not(:has(td[colspan="13"])) > td {
+    display: table-cell !important;
+    position: static !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 9px 8px !important;
+    border: 1px solid #eef2f7 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    font-size: 11px !important;
+    line-height: 1.3 !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+    vertical-align: middle !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+  }
+  #section-scorecard #scorecardTableBody tr > td:nth-child(1) {
+    display: table-cell !important;
+    width: 36px !important;
+    min-width: 36px !important;
+    max-width: 36px !important;
+    padding: 8px 4px !important;
+  }
+  #section-scorecard #scorecardTableBody tr > td:nth-child(2) {
+    display: table-cell !important;
+    width: 160px !important;
+    min-width: 160px !important;
+    max-width: 160px !important;
+    padding: 9px 8px !important;
+    text-align: left !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    font-size: 11px !important;
+  }
+  #section-scorecard #scorecardTableBody tr:nth-child(odd):not(:has(td[colspan="13"])) { background: #fff !important; }
+  #section-scorecard #scorecardTableBody tr:nth-child(even):not(:has(td[colspan="13"])) { background: #f8fafc !important; }
+  #section-scorecard #scorecardTableBody tr:hover > td { background: rgba(14, 165, 233, .08) !important; }
+  #section-scorecard #scorecardTableBody tr > td::before { content: none !important; display: none !important; }
+  #section-scorecard #scorecardTableBody tr > td > * {
+    max-width: none !important;
+    white-space: nowrap !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+  }
+  #section-scorecard #scorecardTableBody tr:has(td[colspan="13"]) { display: table-row !important; }
+  #section-scorecard #scorecardTableBody tr:has(td[colspan="13"]) > td {
+    display: table-cell !important;
+    width: auto !important;
+    min-width: 0 !important;
+    white-space: normal !important;
+    text-align: center !important;
+  }
+  #section-scorecard #tablePagination {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    overflow-wrap: anywhere !important;
+    flex-wrap: wrap !important;
+  }
 }
 </style>
-<script id="mobile-scorecard-view-v87-js">
-(function(){
-  'use strict';
-  var card = document.getElementById('section-scorecard');
-  var toggle = document.getElementById('scorecardMobileViewToggle');
-  if (!card || !toggle) return;
-  var buttons = Array.prototype.slice.call(toggle.querySelectorAll('[data-scorecard-view]'));
-  var storageKey = 'auditDashboard_scorecardMobileView_v1';
-  function readMode(){
-    try {
-      var saved = localStorage.getItem(storageKey);
-      return saved === 'details' ? 'details' : 'compact';
-    } catch (e) { return 'compact'; }
-  }
-  function applyMode(mode, persist){
-    mode = mode === 'details' ? 'details' : 'compact';
-    card.classList.toggle('scorecard-mobile-compact', mode === 'compact');
-    buttons.forEach(function(btn){
-      var active = btn.getAttribute('data-scorecard-view') === mode;
-      btn.classList.toggle('is-active', active);
-      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
-    });
-    if (persist) {
-      try { localStorage.setItem(storageKey, mode); } catch (e) { /* preference storage is optional */ }
-    }
-  }
-  toggle.addEventListener('click', function(event){
-    var btn = event.target.closest('[data-scorecard-view]');
-    if (!btn || !toggle.contains(btn)) return;
-    applyMode(btn.getAttribute('data-scorecard-view'), true);
-  });
-  applyMode(readMode(), false);
-})();
-</script>
 
 </body></html>
