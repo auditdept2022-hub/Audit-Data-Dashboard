@@ -1,6 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v91'
+const CACHE_VERSION = 'audit-dashboard-v92'
+// v92: reduces avoidable background traffic (deferred Findings warm-up, 30 s My Devices modal refresh, 10 s server-side sheet-version memo).
 // v91: removes the external portfolio-risk status card and clarifies the average branch risk index label.
 // v89: protects pending shared rating-rule saves from stale background polling; syncs all scoring caps and retries after version conflicts.
 // v88: relocates portfolio risk status from the outer dashboard card into the Audit Risk & Schedule Analysis modal.
@@ -164,12 +165,6 @@ self.addEventListener('activate', (event) => {
 function isDashboardShellUrl(url) {
   const scopePath = new URL(self.registration.scope).pathname; // e.g. "/repo/" or "/"
   return url.pathname === scopePath || url.pathname === scopePath + 'index.html';
-}
-
-// A cheap "version" fingerprint for a response, without reading the body.
-function versionOf(res) {
-  if (!res) return '';
-  return res.headers.get('etag') || res.headers.get('last-modified') || res.headers.get('content-length') || '';
 }
 
 // True only when the two responses have different BODY bytes (SHA-256).
