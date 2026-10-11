@@ -1309,7 +1309,7 @@
           </button>
         </div>
       </div>
-      <div class="flex flex-wrap items-center gap-4 mb-4 px-1 text-[11px] font-semibold text-slate-500">
+      <div id="scorecardRiskLegend" class="flex flex-wrap items-center gap-4 mb-4 px-1 text-[11px] font-semibold text-slate-500">
         <span class="uppercase tracking-wider">Risk legend:</span>
         <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-accentRose"></span>High</span>
         <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-accentAmber"></span>Medium</span>
@@ -1768,14 +1768,14 @@ function tfEnsureStyle(){if(document.getElementById("topFindingsStyle"))return;c
  #topFindingsPopup .tf-head-actions{gap:3px;}
  #topFindingsPopup .tf-full{display:none!important;}
  #topFindingsPopup .tf-x{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.09);}
- #topFindingsPopup .tf-ctrl{display:flex;flex-direction:column;align-items:stretch;gap:7px;padding:9px 11px;background:#fff;flex-shrink:0;box-shadow:0 2px 8px rgba(15,23,42,.04);}
- #topFindingsPopup .tf-lbl{font-size:10px;letter-spacing:.07em;text-transform:uppercase;}
- #topFindingsPopup .tf-pills{width:100%;display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;overflow-y:hidden;padding:0 0 3px;scrollbar-width:thin;-webkit-overflow-scrolling:touch;}
- #topFindingsPopup .tf-pill{flex:0 0 auto;padding:7px 10px;font-size:11px;}
+ #topFindingsPopup .tf-ctrl{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);align-items:center;gap:7px;padding:7px 10px;background:#fff;flex-shrink:0;box-shadow:0 2px 8px rgba(15,23,42,.04);}
+ #topFindingsPopup .tf-lbl{display:none;}
+ #topFindingsPopup .tf-pills{grid-column:1 / -1;width:100%;min-width:0;display:flex;flex-wrap:nowrap;gap:5px;overflow-x:auto;overflow-y:hidden;padding:0 0 2px;scrollbar-width:thin;-webkit-overflow-scrolling:touch;}
+ #topFindingsPopup .tf-pill{flex:0 0 auto;padding:6px 9px;font-size:10.5px;}
  #topFindingsPopup .tf-spacer{display:none;}
- #topFindingsPopup .tf-sel{width:100%;max-width:none;min-height:38px;padding:8px 11px;font-size:13px;border-radius:10px;}
- #topFindingsPopup .tf-seg{display:flex;width:100%;}
- #topFindingsPopup .tf-seg button{flex:1 1 50%;padding:9px 8px;font-size:11px;white-space:normal;line-height:1.2;}
+ #topFindingsPopup .tf-sel{grid-column:1;align-self:stretch;width:100%;min-width:0;max-width:none;min-height:34px;padding:6px 22px 6px 8px;font-size:11px;border-radius:9px;}
+ #topFindingsPopup .tf-seg{grid-column:2;display:flex;width:100%;min-width:0;}
+ #topFindingsPopup .tf-seg button{flex:1 1 0;min-width:0;padding:7px 4px;font-size:10px;white-space:normal;line-height:1.15;}
  #topFindingsPopup .tf-body{padding:12px 10px calc(18px + env(safe-area-inset-bottom,0px));overflow-x:hidden;overflow-y:auto;min-height:0;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}
  #topFindingsPopup .tf-lead{display:grid;grid-template-columns:32px minmax(0,1fr);gap:8px 10px;padding:11px 10px;margin-bottom:11px;border-radius:13px;align-items:start;}
  #topFindingsPopup .tf-lead-icon{grid-column:1;grid-row:1;width:32px;height:32px;flex-basis:32px;border-radius:9px;font-size:14px;}
@@ -2086,27 +2086,24 @@ const HEALTH_SNAPSHOT_OK_MS=15000;
 const HEALTH_SNAPSHOT_ERROR_MS=8000;
 function applyHealthSnapshot(j,ms){
   if(!healthSnapshotGeneration)return;
-  if(C.backend.healthRunId===healthSnapshotGeneration)return;
+  if(C.sheet.healthRunId===healthSnapshotGeneration)return;
   const runId=healthSnapshotGeneration;
   const ok=!!(j&&j.success!==false&&!j.error);
-  const slow=Number(ms||0)>6000;
-  const serverMsg=slow?"Answering slowly":"Answering";
+  // This authenticated check verifies the Sheet and current user's edit permission.
+  // Backend reachability is measured separately with the lightweight ping action.
+  const slow=Number(ms||0)>12000;
   if(ok){
-    C.backend.healthFails=0;
-    if(slow)C.backend.slowFails=(C.backend.slowFails||0)+1;else C.backend.slowFails=0;
-    const badSlow=slow&&C.backend.slowFails>=2;
-    setC("backend",badSlow?"bad":(slow?"warn":"ok"),badSlow?"Backend is repeatedly slow":serverMsg,ms,true);
-    setC("sheet",badSlow?"warn":(slow?"warn":"ok"),slow?"Reachable slowly":"Live — Sheet reachable",ms,true);
-    setC("editor",j.canEdit?"ok":"off",j.canEdit?"You can edit":"View only — this account cannot edit",ms,true);
+    setC("sheet",slow?"warn":"ok",slow?"Sheet check responded slowly":"Live — Sheet reachable",ms,true);
+    if(j.canEdit===true)setC("editor","ok","You can edit",ms,true);
+    else if(j.canEdit===false)setC("editor","off","View only — this account cannot edit",ms,true);
+    else setC("editor","warn","Edit permission was not reported by the server",ms,true);
   }else{
-    C.backend.healthFails=(C.backend.healthFails||0)+1;
-    const bad=C.backend.healthFails>=2;
-    setC("backend",bad?"bad":"warn",bad?"Backend health check failed":"Backend health check is unavailable",ms,true);
-    setC("sheet","warn","Could not verify live Sheet",ms,true);
+    const reason=String(healthSnapshotError&&healthSnapshotError.message||"Health check failed").slice(0,110);
+    setC("sheet","warn","Could not verify live Sheet: "+reason,ms,true);
     setC("editor","warn","Could not verify edit permission",ms,true);
   }
-  C.backend.healthRunId=runId;C.sheet.healthRunId=runId;C.editor.healthRunId=runId;
-  C.backend.healthFailure=!ok;C.sheet.healthFailure=!ok;C.editor.healthFailure=!ok;
+  C.sheet.healthRunId=runId;C.editor.healthRunId=runId;
+  C.sheet.healthFailure=!ok;C.editor.healthFailure=!ok;
   paint();
 }
 function sharedHealthError_(){
@@ -2146,6 +2143,21 @@ function passiveFail(action,e){if(action==="health")return;var m=e&&e.message?e.
 if(typeof fetchSheetOnce==="function"){var origOnce=fetchSheetOnce;fetchSheetOnce=async function(url){var a=actionOf(url),t0=Date.now();try{var j=await origOnce.apply(this,arguments);passiveOk(a,Date.now()-t0);return j}catch(e){passiveFail(a,e);throw e}}}
 if(typeof fetchSheet==="function"){var origFS=fetchSheet;fetchSheet=async function(isAuto){if(!isAuto)setC("data","warn","Updating…");var t0=Date.now();try{var r=await origFS.apply(this,arguments);var ms=Date.now()-t0;testData(ms);if(typeof navigator==="undefined"||navigator.onLine!==false){setC("net","ok","Online",ms);setC("backend",ms>1e4?"warn":"ok",ms>1e4?"Answering slowly":"Answering",ms);setC("sheet","ok","Live — Sheet reachable",ms)}return r}catch(e){failC("data",e,"Load failed");C.data.fails=2;setC("data","bad","Load failed: "+String(e&&e.message||e).slice(0,120));throw e}}}
 function testData(ms){var usable=g(function(){return isDashboardDataUsable()},false);var n=g(function(){return activeData.branches.length},0);var synced=g(function(){var t=localStorage.getItem(dashCacheTsKeyFor(currentCacheOwnerEmail()));return t?new Date(Number(t)||t).toLocaleString(void 0,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}):""},"")||"";if(usable&&n)setC("data","ok",n+" branches loaded"+(synced?" · synced "+synced:""),ms);else if(g(function(){return isFetchingSheet},false))setC("data","warn","Loading…");else setC("data","warn","No data on screen yet")}
+async function checkBackendPing_(){
+  const t0=Date.now();
+  const pingUrl=defaultAppsScriptUrl+"?action=ping&t="+Date.now();
+  const j=await fetchSheetTransport(pingUrl,{directMs:8000,jsonpMs:8000});
+  const ms=Date.now()-t0;
+  if(!j||j.success!==true||!j.pong){
+    throw new Error(j&&j.error?String(j.error):"Backend ping returned an invalid response");
+  }
+  const slow=ms>6000;
+  C.backend.slowFails=slow?(C.backend.slowFails||0)+1:0;
+  const repeatedlySlow=slow&&C.backend.slowFails>=2;
+  C.backend.healthFailure=false;
+  setC("backend",repeatedlySlow?"bad":slow?"warn":"ok",repeatedlySlow?"Backend is repeatedly slow":slow?"Responded slowly":"Reachable",ms);
+  return j;
+}
 async function checkSharedHealth_(){
   const t0=Date.now();
   try{
@@ -2160,7 +2172,7 @@ async function checkSharedHealth_(){
 var TESTS={
   net:async function(){navigator.onLine?setC("net","ok","Online"):setC("net","bad","This device is offline")},
   auth:async function(){var t=await token();if(!t){setC("auth","warn","Not signed in");return}var p=g(function(){return JSON.parse(atob(t.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")))},null);setC("auth","ok",p&&p.email?"Signed in as "+p.email:"Signed in");if(p&&p.email)window.__connEmail=p.email},
-  backend:async function(){await checkSharedHealth_()},
+  backend:async function(){await checkBackendPing_()},
   sheet:async function(){await checkSharedHealth_()},
   data:async function(){testData(0)},
   editor:async function(){await checkSharedHealth_()},
@@ -2170,11 +2182,11 @@ var TESTS={
   log:async function(){if(C.editor.state==="off"){setC("log","off","Editors only");return}var t0=Date.now();try{await api("auditLog",15e3);setC("log","ok","Readable",Date.now()-t0)}catch(e){if(isPerm(e.message))setC("log","off","Editors only");else failC("log",e)}},
   app:async function(){if(!("serviceWorker"in navigator)){setC("app","off","Not supported in this browser");return}var reg=await navigator.serviceWorker.getRegistration();if(!reg){setC("app","warn","Not installed yet");return}var keys=window.caches&&await caches.keys()||[];setC("app",navigator.serviceWorker.controller?"ok":"warn",navigator.serviceWorker.controller?"Works offline · "+(keys[0]||"cached"):"Installed — reload once to activate")}
 };
-var running={};async function runTest(id){if(running[id])return;running[id]=true;busy[id]=true;if(modalOpen())renderModal();try{await TESTS[id]()}catch(e){if(id==="backend"||id==="sheet"||id==="editor"){if(e&&e.sharedHealth){if(id!=="backend")C[id].healthFailure=true}else failC(id,e,"Health check")}else failC(id,e)}running[id]=false;busy[id]=false;paint()}
+var running={};async function runTest(id){if(running[id])return;running[id]=true;busy[id]=true;if(modalOpen())renderModal();try{await TESTS[id]()}catch(e){if(id==="backend"||id==="sheet"||id==="editor"){if(e&&e.sharedHealth){if(id!=="backend")C[id].healthFailure=true}else failC(id,e,id==="backend"?"Backend ping":"Health check")}else failC(id,e)}running[id]=false;busy[id]=false;paint()}
 async function fixOne(id){if(busy[id])return;C[id].fails=0;busy[id]=true;if(modalOpen())renderModal();try{if(id!=="net"&&!navigator.onLine){busy[id]=false;await runTest("net");return}if(id==="data"){try{await fetchSheet()}catch(e){}testData(0)}else if(id==="app"){var r=await navigator.serviceWorker.getRegistration();if(r)await r.update();busy[id]=false;await runTest("app")}else{busy[id]=false;await runTest(id)}}catch(e){failC(id,e)}busy[id]=false;paint();if(!isProblem(id)){if(typeof showToast==="function")showToast(names(id)+" is working again");if(id==="net"||id==="backend"){var rest=problems().filter(function(k){return k!==id});for(var i=0;i<rest.length;i++)await runTest(rest[i])}}}
 async function fixAll(){var b=$("cmFixAll");if(b){b.disabled=true;b.textContent="Fixing\u2026"}var p=problems().slice();for(var i=0;i<p.length;i++)await fixOne(p[i]);if(b){b.disabled=false;b.textContent="Fix all problems"}}
 async function recheckProblems(){if(document.hidden)return;var p=problems();if(!p.length)return;if(p[0]==="net"){await runTest("net");if(navigator.onLine)runBasic();return}for(var i=0;i<p.length;i++)await runTest(p[i])}
-async function runAll(){var b=$("cmCheckAll");if(b){b.disabled=true;b.textContent="Checking…"}try{await runTest("net");if(!navigator.onLine)return;await runTest("auth");if(C.auth.state!=="ok")return;await runTest("backend");await runTest("data");if(C.backend.state!=="bad"){await runTest("overall");await runTest("links");await runTest("analysis");await runTest("log")}else{setC("overall","warn","Not verified — backend is unavailable");setC("links","warn","Not verified — backend is unavailable");setC("analysis","warn","Not verified — backend is unavailable");setC("log","warn","Not verified — backend is unavailable")}await runTest("app")}finally{if(b){b.disabled=false;b.textContent="Check all"}}}async function runBasic(){if(document.hidden)return;await runTest("net");await runTest("auth");if(!navigator.onLine||C.auth.state!=="ok")return;/* During initial data loading the real dashboard request is the authoritative backend signal. Do not add a parallel health probe. Once cached data is already on screen, one shared health request verifies backend + Sheet + edit permission together. */await runTest("data");if(typeof isFetchingSheet!=="undefined"&&isFetchingSheet)return;var backendFresh=C.backend.at&&Date.now()-C.backend.at<6e4;var healthFresh=healthSnapshotAt&&Date.now()-healthSnapshotAt<15e3;if(!backendFresh&&!healthFresh)await runTest("backend");else if(C.editor.state==="idle")setC("editor","warn","Check when you edit")}function needsEditor(){var s=C.editor.state;return s==="ok"?true:s==="off"?false:null}var FUNCS=[{name:"Add Assignment",desc:"Assign auditors to branches",need:"editor",run:function(){openEditAssignmentModal(headerEditAssignBranch||activeData.branches&&activeData.branches[0]&&activeData.branches[0].name)}},{name:"Set Emergency Auditor",desc:"Emergency auditor and rotation",need:"editor",run:function(){openEditEmergencyModal()}},{name:"Add Findings",desc:"Log an audit finding",need:"editor",run:function(){openAddFindingModal()}},{name:"Update Sheet",desc:"Add the newest month to OVERALL DATA",need:"editor",run:function(){updateOverallDataFromMenu()}},{name:"Recent Activity",desc:"Who changed what",need:"editor",run:function(){openAuditLogModal()}},{name:"Data Updater",desc:"Push / pull branch data",need:"any",run:function(){openDataUpdater()}},{name:"Download Report",desc:"Export (asks your password)",need:"any",run:function(){openExportPicker("consolidated")}},{name:"My Devices",desc:"See and sign out your devices",need:"any",run:function(){openMyDevicesModal()}},{name:"Quick Links",desc:"Google Sheets & folders shortcuts",need:"links",run:function(){var b=$("hamburgerBtn");if(b)b.click()}},{name:"Update data",desc:"Refresh the dashboard now",need:"any",run:function(){fetchSheet()}}];function funcAvail(f){if(!navigator.onLine)return{s:"bad",t:"Offline"};if(f.need==="editor"){var e=needsEditor();return e===true?{s:"ok",t:"Available"}:e===false?{s:"off",t:"View only"}:{s:"warn",t:"Checking"}}if(f.need==="links"){var l=C.links.state;return l==="ok"?{s:"ok",t:"Available"}:l==="off"?{s:"off",t:"Not allowed"}:{s:"warn",t:"Checking"}}return C.backend.state==="bad"?{s:"bad",t:"Server down"}:{s:"ok",t:"Available"}}var overall={s:"ok",label:"Online",why:"No problems found.",p:[]};var busy={};
+async function runAll(){var b=$("cmCheckAll");if(b){b.disabled=true;b.textContent="Checking…"}try{await runTest("net");if(!navigator.onLine)return;await runTest("auth");if(C.auth.state!=="ok")return;await runTest("backend");await runTest("sheet");await runTest("editor");await runTest("data");if(C.backend.state!=="bad"){await runTest("overall");await runTest("links");await runTest("analysis");await runTest("log")}else{setC("overall","warn","Not verified — backend is unavailable");setC("links","warn","Not verified — backend is unavailable");setC("analysis","warn","Not verified — backend is unavailable");setC("log","warn","Not verified — backend is unavailable")}await runTest("app")}finally{if(b){b.disabled=false;b.textContent="Check all"}}}async function runBasic(){if(document.hidden)return;await runTest("net");await runTest("auth");if(!navigator.onLine||C.auth.state!=="ok")return;/* During initial data loading the real dashboard request is the authoritative backend signal. Do not add a parallel health probe. Once cached data is already on screen, one shared health request verifies backend + Sheet + edit permission together. */await runTest("data");if(typeof isFetchingSheet!=="undefined"&&isFetchingSheet)return;var backendFresh=C.backend.at&&Date.now()-C.backend.at<6e4;var healthFresh=healthSnapshotAt&&Date.now()-healthSnapshotAt<15e3;if(!backendFresh&&!healthFresh)await runTest("backend");else if(C.editor.state==="idle")setC("editor","warn","Check when you edit")}function needsEditor(){var s=C.editor.state;return s==="ok"?true:s==="off"?false:null}var FUNCS=[{name:"Add Assignment",desc:"Assign auditors to branches",need:"editor",run:function(){openEditAssignmentModal(headerEditAssignBranch||activeData.branches&&activeData.branches[0]&&activeData.branches[0].name)}},{name:"Set Emergency Auditor",desc:"Emergency auditor and rotation",need:"editor",run:function(){openEditEmergencyModal()}},{name:"Add Findings",desc:"Log an audit finding",need:"editor",run:function(){openAddFindingModal()}},{name:"Update Sheet",desc:"Add the newest month to OVERALL DATA",need:"editor",run:function(){updateOverallDataFromMenu()}},{name:"Recent Activity",desc:"Who changed what",need:"editor",run:function(){openAuditLogModal()}},{name:"Data Updater",desc:"Push / pull branch data",need:"any",run:function(){openDataUpdater()}},{name:"Download Report",desc:"Export (asks your password)",need:"any",run:function(){openExportPicker("consolidated")}},{name:"My Devices",desc:"See and sign out your devices",need:"any",run:function(){openMyDevicesModal()}},{name:"Quick Links",desc:"Google Sheets & folders shortcuts",need:"links",run:function(){var b=$("hamburgerBtn");if(b)b.click()}},{name:"Update data",desc:"Refresh the dashboard now",need:"any",run:function(){fetchSheet()}}];function funcAvail(f){if(!navigator.onLine)return{s:"bad",t:"Offline"};if(f.need==="editor"){var e=needsEditor();return e===true?{s:"ok",t:"Available"}:e===false?{s:"off",t:"View only"}:{s:"warn",t:"Checking"}}if(f.need==="links"){var l=C.links.state;return l==="ok"?{s:"ok",t:"Available"}:l==="off"?{s:"off",t:"Not allowed"}:{s:"warn",t:"Checking"}}return C.backend.state==="bad"?{s:"bad",t:"Server down"}:{s:"ok",t:"Available"}}var overall={s:"ok",label:"Online",why:"No problems found.",p:[]};var busy={};
 function isProblem(id){var o=C[id];if(!o)return false;if(o.state==="bad")return true;if(CRITICAL.indexOf(id)>=0&&o.state==="warn"&&/not signed in/i.test(o.msg))return true;if(id==="backend"&&o.state==="warn"&&/slowly/i.test(o.msg))return (o.slowFails||0)>=2;return false}
 function problems(){if(!navigator.onLine){var n=C.net;if(n.state!=="bad"){n.state="bad";n.msg="This device is offline";n.at=Date.now()}return["net"]}var p=CONN.filter(function(c){return isProblem(c.id)}).map(function(c){return c.id});/* Backend health is the root dependency for Sheet reachability and edit permission. If the same shared health run failed, report ONE backend problem instead of three identical cards. */if(p.indexOf("backend")>=0&&C.backend.healthFailure){var id=C.backend.healthRunId;p=p.filter(function(k){return k!=="sheet"&&k!=="editor"||C[k].healthRunId!==id})}return p}
 function names(id){for(var i=0;i<CONN.length;i++)if(CONN[i].id===id)return CONN[i].name;return id}
@@ -2892,5 +2904,355 @@ async function refreshConnectionSnapshot(){if(!modalOpen())return;await runTest(
   }
 }
 </style>
+
+
+<style id="mobile-first-scorecard-v93">
+/* v93: phone-first layout refinements. Desktop styles remain unchanged. */
+@media (max-width: 767px) {
+  html, body {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: clip !important;
+  }
+  body { padding-bottom: max(8px, env(safe-area-inset-bottom, 0px)) !important; }
+  main.dash-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-top: 8px !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+  main.dash-container > * + * { margin-top: 10px !important; }
+  .dash-container-header {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+  .dash-container-header.py-3 {
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+    min-height: 0 !important;
+    gap: 6px !important;
+  }
+  .dash-container-header h1 {
+    max-width: min(58vw, 270px) !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    font-size: 16px !important;
+    line-height: 1.2 !important;
+  }
+  .dash-container-header p { line-height: 1.25 !important; }
+  .dash-container-header .header-action-controls { gap: 2px !important; }
+  .dash-container-header .header-action-controls > button { padding: 7px !important; }
+
+  /* The dashboard's KPI cards fit two columns on phones rather than consuming one full row each. */
+  #section-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+  #section-overview > * { min-width: 0 !important; padding: 10px !important; border-radius: 12px !important; }
+  #section-overview > * * { min-width: 0; }
+  #section-overview [class*="text-2xl"],
+  #section-overview [class*="text-3xl"] { font-size: clamp(18px, 5vw, 24px) !important; line-height: 1.15 !important; }
+  #section-charts { gap: 10px !important; }
+  #section-charts > * { min-width: 0 !important; width: 100% !important; }
+  #section-rankings, #section-findings { padding: 12px !important; border-radius: 14px !important; }
+  #section-scorecard {
+    padding: 11px !important;
+    border-radius: 14px !important;
+    margin-bottom: 10px !important;
+  }
+  #section-scorecard > .flex:first-child { margin-bottom: 10px !important; gap: 5px !important; }
+  #section-scorecard h3 { font-size: 16px !important; line-height: 1.25 !important; gap: 7px !important; }
+  #section-scorecard h3 svg { width: 18px !important; height: 18px !important; flex: 0 0 auto !important; }
+  #section-scorecard > .flex:first-child p {
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+    margin-top: 4px !important;
+  }
+
+  /* Scorecard controls: keep search prominent and tuck filters behind one compact toggle. */
+  #scorecardControlsLayout {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    margin-bottom: 10px !important;
+    min-width: 0 !important;
+  }
+  #scorecardControlToolbar {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    grid-template-areas: "search search" "filters reset" !important;
+    gap: 7px !important;
+    align-items: stretch !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  #scorecardControlSearchWrap { grid-area: search !important; width: 100% !important; min-width: 0 !important; }
+  #scorecardControlSearchWrap input {
+    width: 100% !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+    font-size: 16px !important;
+    border-radius: 11px !important;
+  }
+  #scorecardMobileFilterToggle {
+    grid-area: filters !important;
+    display: inline-flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 7px !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    min-height: 39px !important;
+    padding: 7px 10px !important;
+    border: 1px solid #d8e0e9 !important;
+    border-radius: 10px !important;
+    background: #f8fafc !important;
+    color: #334155 !important;
+    font-family: inherit !important; font-size: 12px !important; font-weight: 700 !important; line-height: 1.2 !important;
+    box-shadow: none !important;
+  }
+  #scorecardMobileFilterToggle .scorecard-filter-count[hidden] { display: none !important; }
+  #scorecardMobileFilterToggle .scorecard-filter-count {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 19px !important;
+    height: 19px !important;
+    padding: 0 5px !important;
+    border-radius: 999px !important;
+    background: #dbeafe !important;
+    color: #1d4ed8 !important;
+    font-size: 10px !important;
+    font-weight: 800 !important;
+  }
+  #scorecardFilterResetBtn {
+    grid-area: reset !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 39px !important;
+    padding: 7px 10px !important;
+    margin: 0 !important;
+    border-radius: 10px !important;
+    font-size: 12px !important;
+    box-shadow: none !important;
+  }
+  #scorecardFilterControls {
+    display: none !important;
+    flex: none !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 7px !important;
+    padding: 9px !important;
+    margin: 0 !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    background: #f8fafc !important;
+  }
+  #section-scorecard.scorecard-mobile-filters-open #scorecardFilterControls {
+    display: grid !important;
+  }
+  #scorecardFilterControls > select,
+  #scorecardFilterControls > #branchFilterWrap {
+    display: block !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: none !important;
+    height: 39px !important;
+    min-height: 39px !important;
+    margin: 0 !important;
+    padding: 7px 7px !important;
+    border-radius: 9px !important;
+    font-size: 16px !important;
+  }
+  #scorecardFilterControls > #branchFilterWrap { padding: 0 !important; }
+  #branchFilterBtn {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 39px !important;
+    min-height: 39px !important;
+    padding: 7px !important;
+    border-radius: 9px !important;
+    font-size: 14px !important;
+  }
+  #branchFilterBtnLabel { max-width: 100% !important; min-width: 0 !important; }
+  #section-scorecard #scorecardRiskLegend {
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 8px 10px !important;
+    padding: 0 2px !important;
+    margin-bottom: 8px !important;
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+  }
+  #section-scorecard #scorecardRiskLegend > span:last-child { display: none !important; }
+  #section-scorecard #scorecardSwipeHint {
+    margin: 5px auto 7px !important;
+    font-size: 10px !important;
+    line-height: 1.25 !important;
+  }
+  #section-scorecard #scorecardScrollWrap {
+    height: max(300px, calc(100dvh - 325px)) !important;
+    max-height: calc(100dvh - 210px) !important;
+    min-height: 300px !important;
+    border-radius: 10px !important;
+  }
+  #section-scorecard #scorecardScrollWrap table { min-width: 1311px !important; width: 1311px !important; }
+  #section-scorecard #scorecardTableBody tr > td { padding-top: 8px !important; padding-bottom: 8px !important; }
+  #section-scorecard #tablePagination {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    margin-top: 10px !important;
+    font-size: 11px !important;
+  }
+  #section-scorecard #tablePagination button { min-height: 36px !important; padding: 7px 10px !important; }
+
+  /* Keep content inside cards on small screens; chart canvases and long labels may not widen the page. */
+  .dash-container :is(img, video, canvas, iframe) { max-width: 100% !important; }
+  .dash-container :is(.apexcharts-canvas, .apexcharts-svg) { max-width: 100% !important; }
+  .dash-container button, .dash-container select { max-width: 100%; }
+  .dash-container .overflow-x-auto { -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+  .dash-container .rounded-2xl { border-radius: 13px !important; }
+}
+
+@media (min-width: 768px) {
+  #scorecardControlToolbar {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex: 1 1 300px !important;
+    min-width: 240px !important;
+  }
+  #scorecardControlSearchWrap { flex: 1 1 180px !important; min-width: 180px !important; }
+  #scorecardMobileFilterToggle { display: none !important; }
+  #scorecardFilterResetBtn { flex: 0 0 auto !important; white-space: nowrap !important; }
+  #scorecardControlsLayout {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+    flex-wrap: wrap !important;
+  }
+  #scorecardFilterControls {
+    display: flex !important;
+    flex: 2 1 540px !important;
+    min-width: 0 !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+}
+
+@media (max-width: 360px) {
+  #scorecardFilterControls { grid-template-columns: minmax(0, 1fr) !important; }
+  #section-overview { gap: 6px !important; }
+  #section-overview > * { padding: 8px !important; }
+  #section-scorecard h3 { font-size: 15px !important; }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .dash-card-accent:hover,
+  .bg-coolCard.border.border-coolBorder.rounded-2xl:hover { transform: none !important; }
+}
+</style>
+
+
+<script id="mobile-scorecard-controls-v93">
+(function () {
+  'use strict';
+  function initMobileScorecardControls() {
+    var section = document.getElementById('section-scorecard');
+    var filters = document.getElementById('scorecardFilterControls');
+    if (!section || !filters || filters.dataset.mobileToolbarReady === '1') return;
+    var layout = filters.parentElement;
+    var searchInput = document.getElementById('tableSearch');
+    var searchWrap = searchInput ? searchInput.parentElement : null;
+    var resetButton = filters.querySelector('button[onclick="resetScorecardFilters()"]');
+    if (!layout || !searchWrap || !resetButton) return;
+
+    layout.id = 'scorecardControlsLayout';
+    layout.classList.add('scorecard-controls-layout');
+    searchWrap.id = 'scorecardControlSearchWrap';
+
+    var toolbar = document.createElement('div');
+    toolbar.id = 'scorecardControlToolbar';
+    toolbar.className = 'scorecard-control-toolbar';
+
+    var toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.id = 'scorecardMobileFilterToggle';
+    toggle.setAttribute('aria-controls', 'scorecardFilterControls');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.innerHTML = '<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M7 12h10m-7 7h4"/></svg><span>Filters</span><span class="scorecard-filter-count" hidden>0</span>';
+
+    resetButton.id = 'scorecardFilterResetBtn';
+    searchWrap.classList.add('scorecard-control-search-wrap');
+    toolbar.appendChild(searchWrap);
+    toolbar.appendChild(toggle);
+    toolbar.appendChild(resetButton);
+    layout.insertBefore(toolbar, filters);
+    filters.classList.add('scorecard-filter-panel');
+    filters.setAttribute('aria-label', 'Branch scorecard filters');
+    filters.dataset.mobileToolbarReady = '1';
+
+    function activeFilterCount() {
+      var ids = ['filterCollection', 'filterSales', 'filterService', 'filterAuditStatus', 'filterRisk'];
+      var count = 0;
+      ids.forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el && el.value && el.value !== 'ALL') count++;
+      });
+      var branchLabel = document.getElementById('branchFilterBtnLabel');
+      if (branchLabel && branchLabel.textContent.trim() && !/^all branches$/i.test(branchLabel.textContent.trim())) count++;
+      return count;
+    }
+    function updateToggleLabel() {
+      var count = activeFilterCount();
+      var text = toggle.querySelector('span:not(.scorecard-filter-count)');
+      var countEl = toggle.querySelector('.scorecard-filter-count');
+      if (text) text.textContent = 'Filters';
+      if (countEl) {
+        countEl.textContent = String(count);
+        countEl.hidden = count === 0;
+      }
+      toggle.setAttribute('aria-label', count ? 'Filters, ' + count + ' active' + (count === 1 ? ' filter' : ' filters') : 'Filters');
+    }
+    toggle.addEventListener('click', function () {
+      var open = section.classList.toggle('scorecard-mobile-filters-open');
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      updateToggleLabel();
+    });
+    ['filterCollection', 'filterSales', 'filterService', 'filterAuditStatus', 'filterRisk'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('change', updateToggleLabel);
+    });
+    resetButton.addEventListener('click', function () { window.setTimeout(updateToggleLabel, 80); });
+    var branchLabel = document.getElementById('branchFilterBtnLabel');
+    if (branchLabel && window.MutationObserver) {
+      new MutationObserver(updateToggleLabel).observe(branchLabel, { childList: true, characterData: true, subtree: true });
+    }
+    updateToggleLabel();
+  }
+  /* All scorecard elements already exist at this point; preserve the original dashboard handlers. */
+  initMobileScorecardControls();
+})();
+</script>
 
 </body></html>
