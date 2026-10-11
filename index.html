@@ -2502,9 +2502,10 @@ const CONNECTION_STATUS_FRESH_MS=60e3;function connectionStatusStale_(id,now){co
     if(card&&window.MutationObserver){
       new MutationObserver(schedule).observe(card,{attributes:true,attributeFilter:["class","style"]});
     }
-    /* Let the outer page continue scrolling when the branch list reaches an edge.
-       Native scroll chaining remains enabled; touch handoff is a fallback for mobile
-       browsers that keep the gesture trapped inside a nested overflow container. */
+    /* Desktop wheel hand-off only. On touch devices, do not intercept touchmove
+       or call preventDefault(): that breaks native scroll chaining at the top/bottom
+       of the inner scorecard on some mobile browsers. CSS keeps overscroll behavior
+       set to auto so the page can continue scrolling naturally at either edge. */
     var wrapEl=document.getElementById("scorecardScrollWrap");
     if(wrapEl){
       wrapEl.addEventListener("wheel",function(e){
@@ -2514,23 +2515,6 @@ const CONNECTION_STATUS_FRESH_MS=60e3;function connectionStatusStale_(id,now){co
         if((e.deltaY<0&&atTop)||(e.deltaY>0&&atBottom)){
           e.preventDefault();
           window.scrollBy({top:e.deltaY,left:0,behavior:"auto"});
-        }
-      },{passive:false});
-      var touchY=0,touchX=0;
-      wrapEl.addEventListener("touchstart",function(e){
-        if(!e.touches||e.touches.length!==1)return;
-        touchY=e.touches[0].clientY;touchX=e.touches[0].clientX;
-      },{passive:true});
-      wrapEl.addEventListener("touchmove",function(e){
-        if(!window.matchMedia("(max-width: 767px)").matches||!e.touches||e.touches.length!==1)return;
-        var nowY=e.touches[0].clientY,nowX=e.touches[0].clientX;
-        var dy=nowY-touchY,dx=nowX-touchX;touchY=nowY;touchX=nowX;
-        if(Math.abs(dy)<2||Math.abs(dx)>Math.abs(dy))return;
-        var atTop=wrapEl.scrollTop<=1;
-        var atBottom=wrapEl.scrollTop+wrapEl.clientHeight>=wrapEl.scrollHeight-2;
-        if((dy>0&&atTop)||(dy<0&&atBottom)){
-          e.preventDefault();
-          window.scrollBy(0,-dy);
         }
       },{passive:false});
     }
@@ -3499,9 +3483,16 @@ const CONNECTION_STATUS_FRESH_MS=60e3;function connectionStatusStale_(id,now){co
     overflow-x: auto !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
+    /* Allow the browser to hand vertical swipes to the page at the list edges. */
     overscroll-behavior-y: auto !important;
     touch-action: pan-x pan-y !important;
     scroll-behavior: auto !important;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* The page itself must remain a valid vertical scroll target around the list. */
+  html, body {
+    overscroll-behavior-y: auto !important;
+    touch-action: pan-y pan-x !important;
   }
 }
 </style>
