@@ -1,6 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v92'
+const CACHE_VERSION = 'audit-dashboard-v93'
+// v93: stable reveal visibility, mobile drawer sizing, and fewer redundant SW update checks.
 // v92: reduces avoidable background traffic (deferred Findings warm-up, 30 s My Devices modal refresh, 10 s server-side sheet-version memo).
 // v91: removes the external portfolio-risk status card and clarifies the average branch risk index label.
 // v89: protects pending shared rating-rule saves from stale background polling; syncs all scoring caps and retries after version conflicts.
