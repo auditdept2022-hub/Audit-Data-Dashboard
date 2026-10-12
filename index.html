@@ -200,6 +200,10 @@ function updateCalculations(){const tb=activeData.branches;const rawLatestSum=tb
 .bqs-panel{min-width:0}
 }
 </style>
+<style id="scorecard-smooth-scroll-fix">
+#scorecardScrollWrap,#section-scorecard #scorecardScrollWrap{scroll-behavior:auto!important;overscroll-behavior-y:auto!important}
+#scorecardTableBody tr{animation:none!important}
+</style>
 </head>
 <body class="bg-coolDark text-slate-800 min-h-screen selection:bg-accentCyan/30 selection:text-slate-900 relative">
   <script>(function(){try{if(new URLSearchParams(window.location.search).get("skipLoading")==="1")document.documentElement.style.visibility="hidden"}catch(e){}})();</script>
@@ -2749,18 +2753,8 @@ const CONNECTION_STATUS_FRESH_MS=60e3;function connectionStatusStale_(id,now){co
        or call preventDefault(): that breaks native scroll chaining at the top/bottom
        of the inner scorecard on some mobile browsers. CSS keeps overscroll behavior
        set to auto so the page can continue scrolling naturally at either edge. */
-    var wrapEl=document.getElementById("scorecardScrollWrap");
-    if(wrapEl){
-      wrapEl.addEventListener("wheel",function(e){
-        if(e.ctrlKey||Math.abs(e.deltaX)>Math.abs(e.deltaY))return;
-        var atTop=wrapEl.scrollTop<=1;
-        var atBottom=wrapEl.scrollTop+wrapEl.clientHeight>=wrapEl.scrollHeight-2;
-        if((e.deltaY<0&&atTop)||(e.deltaY>0&&atBottom)){
-          e.preventDefault();
-          window.scrollBy({top:e.deltaY,left:0,behavior:"auto"});
-        }
-      },{passive:false});
-    }
+    /* Wheel hand-off removed: native overscroll-behavior:auto already passes the
+       scroll to the page at the top/bottom, without the smooth-scroll stutter. */
     setTimeout(schedule,400);setTimeout(schedule,1500);
   }
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init();
