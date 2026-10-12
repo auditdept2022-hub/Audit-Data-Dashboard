@@ -1,6 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v98'
+const CACHE_VERSION = 'audit-dashboard-v100'
+// v100: mobile branch scorecard names are left-aligned; preserves v99 touch-scrolling fixes.
 // v98: repeat-issues popup lists all branches, reuses branch-detail analysis, and reduces unnecessary re-render work.
 // v93: stable reveal visibility, mobile drawer sizing, and fewer redundant SW update checks.
 // v92: reduces avoidable background traffic (deferred Findings warm-up, 30 s My Devices modal refresh, 10 s server-side sheet-version memo).

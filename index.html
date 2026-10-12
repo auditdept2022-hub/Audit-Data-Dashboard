@@ -3731,4 +3731,92 @@ const CONNECTION_STATUS_FRESH_MS=60e3;function connectionStatusStale_(id,now){co
   #findingsEditorModal #findingsEditorDialog > .modal-header-bar > div:nth-child(2) { gap: 8px !important; }
 }
 </style>
+<style id="repeat-issues-mobile-scroll-v99">
+/* Mobile scroll fix: unlock vertical touch scrolling inside repeat-issue lists and branch detail content.
+   Keep the page behind the modal locked, while giving the visible panel its own native scroll area. */
+#topFindingsPopup .tf-dialog { min-height: 0; }
+#topFindingsPopup .tf-body {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  touch-action: pan-y !important;
+  overscroll-behavior-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+#topFindingsPopup .tf-off-list {
+  display: block;
+  max-width: 100%;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  touch-action: pan-y !important;
+  overscroll-behavior-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  contain: none !important;
+  scrollbar-gutter: auto !important;
+}
+#tfBranchPopup { touch-action: pan-y; }
+#tfBranchPopup .tf-bdialog {
+  height: min(88vh, 860px);
+  height: min(88dvh, 860px);
+  max-height: min(88vh, 860px);
+  max-height: min(88dvh, 860px);
+  min-height: 0;
+}
+#tfBranchPopup .tf-bcontent {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  touch-action: pan-y !important;
+  overscroll-behavior-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+@media (max-width: 600px) {
+  #topFindingsPopup .tf-body {
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  #topFindingsPopup .tf-off-list {
+    max-height: min(44vh, 420px) !important;
+    max-height: min(44dvh, 420px) !important;
+    scroll-padding-block: 12px;
+  }
+  #tfBranchPopup {
+    align-items: stretch;
+    overflow-y: hidden;
+  }
+  #tfBranchPopup .tf-bdialog {
+    width: 100%;
+    height: 94vh;
+    height: 94dvh;
+    max-height: 94vh;
+    max-height: 94dvh;
+    min-height: 0;
+    align-self: center;
+    overflow: hidden;
+  }
+  #tfBranchPopup .tf-bcontent {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #tfBranchPopup, #tfBranchPopup .tf-bdialog { transition: none !important; }
+}
+</style>
+
+<style id="mobile-branch-scorecard-name-align-v100">
+/* v100: on mobile, left-align only branch names in the scorecard. All metric columns keep their existing alignment. */
+@media (max-width: 767px) {
+  #section-scorecard #scorecardScrollWrap #scorecardTableBody > tr:not(:has(td[colspan="13"])) > td:nth-child(2) {
+    text-align: left !important;
+    text-align: start !important;
+  }
+  #section-scorecard #scorecardScrollWrap #scorecardTableBody > tr:not(:has(td[colspan="13"])) > td:nth-child(2) * {
+    text-align: left !important;
+    text-align: start !important;
+    justify-content: flex-start !important;
+  }
+}
+</style>
 </body></html>
