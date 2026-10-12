@@ -784,6 +784,10 @@
 
   .dot.warn{background:var(--amber);}
 
+  .undo-info{font-family:var(--sans); font-size:11.5px; color:var(--ink-soft); align-self:center; max-width:260px;}
+  .undo-info.warn{color:var(--amber);}
+  .btn-undo{display:inline-flex; align-items:center; gap:6px;}
+
 
 </style>
 </head>
@@ -929,6 +933,7 @@
             </div>
           </div>
           <button class="btn btn-primary" onclick="pushExtract()">Push to Google Sheet</button>
+          <button class="btn btn-danger btn-undo" id="undo-extract" onclick="undoPush('extract')" disabled title="Restore the sheet to how it was before the last push">↶ Undo last push</button><div class="undo-info" id="undoinfo-extract"></div>
           <div class="push-status" id="status-extract"></div>
         </div>
         <div id="extractTableWrap"></div>
@@ -981,6 +986,7 @@
             </div>
           </div>
           <button class="btn btn-primary" onclick="pushMonthlySales()">Push to Google Sheet</button>
+          <button class="btn btn-danger btn-undo" id="undo-sales" onclick="undoPush('sales')" disabled title="Restore the sheet to how it was before the last push">↶ Undo last push</button><div class="undo-info" id="undoinfo-sales"></div>
           <div class="push-status" id="status-sales"></div>
         </div>
         <div id="salesTableWrap"></div>
@@ -1033,6 +1039,7 @@
             </div>
           </div>
           <button class="btn btn-primary" onclick="pushRepo()">Push to Google Sheet</button>
+          <button class="btn btn-danger btn-undo" id="undo-repo" onclick="undoPush('repo')" disabled title="Restore the sheet to how it was before the last push">↶ Undo last push</button><div class="undo-info" id="undoinfo-repo"></div>
           <div class="push-status" id="status-repo"></div>
         </div>
         <div id="repoTableWrap"></div>
@@ -1104,6 +1111,7 @@
             </div>
           </div>
           <button class="btn btn-primary" onclick="pushService()">Push to Google Sheet</button>
+          <button class="btn btn-danger btn-undo" id="undo-service" onclick="undoPush('service')" disabled title="Restore the sheet to how it was before the last push">↶ Undo last push</button><div class="undo-info" id="undoinfo-service"></div>
           <div class="push-status" id="status-service"></div>
         </div>
         <div class="note" style="margin-bottom:8px;">Double-check the numbers below before pushing — Excel extraction can misread a digit or wrong column. Click any BRANCH or SERVICE INCOME value to fix it. STATUS is computed in the Sheet as a live formula against whatever EXPECTED TARGET SERVICE is already there — this panel no longer sends or edits that column.</div>
@@ -1161,6 +1169,25 @@
  * use Deploy → Manage deployments → Edit (pencil icon) → New version,
  * so your existing URL keeps working.
  *
+ * &gt;&gt;&gt; NEW (2026-10): UNDO SUPPORT
+ * Before EVERY push (and before every deletePeriod), the script saves a
+ * full copy of the target tab into a hidden backup tab named
+ * "__undo_&lt;TabName&gt;" and remembers a short label + time for it. The
+ * dashboard's "Undo last push" button then calls:
+ *     { action: "undo", name: "Collection Efficiency" }
+ * which restores the tab exactly as it was before that last push (values,
+ * formulas, merges, colors, borders) and removes the backup. Only ONE
+ * level of undo is kept per tab (the most recent push). If the push
+ * created a brand-new tab, undo deletes that tab again.
+ * The dashboard asks whether an undo exists with:
+ *     ?action=undoInfo&amp;sheet=Collection Efficiency
+ * Backup tabs are hidden and are NOT returned by ?action=list / ?action=all,
+ * so they never show up in the dashboard. Please don't delete or rename
+ * the "__undo_" tabs by hand.
+ * NOTE: Collection Efficiency and Repo both write to the same
+ * "Collection Efficiency" tab, so "undo" always reverts whichever of the
+ * two pushed last.
+ *
  * What it does:
  * - Receives a JSON payload from the dashboard shaped like:
  *     { sheets: [ { name, mode, data }, ... ] }
@@ -1172,173 +1199,62 @@
  *                    whatever was already there to the right (with a
  *                    1-column gap), then writes the new data into the
  *                    freed-up columns on the left.
- *   (This generic "insertLeft" mode is unchanged — it's only used by
- *   the raw/whole-sheet "Live branch data" panel, which has no
- *   branchNames/period concept. The direction change described below
- *   applies only to the KEYED pushes.)
+ *   (This generic "insertLeft" mode is only used by the raw/whole-sheet
+ *   push, which has no branchNames/period concept.)
  *
  * - Keyed pushes (branchNames present): row-number and Branch Name
  *   columns stay constant instead of being duplicated on every push.
  *   There are three keyed layouts, picked via `sheetJob.layout`:
  *
- *   1) layout: "metricGrouped" (default — used by "Collection
- *      Efficiency" and "Repo"). Columns are grouped by METRIC across periods:
- *        {
- *          name: "Collection Efficiency",
- *          mode: "insertLeft" | "overwrite",  // "insertLeft" here just
- *                                              // means "keyed push",
- *                                              // see direction note below
- *          sheetTitle: "CONSOLIDATED AGING OF ACCOUNTS: 2026",
- *          branchNames: [ "ALFONSO", ..., "GRAND TOTAL" ], // fixed order
- *          totalsLabel: "GRAND TOTAL",
- *          period: "AUGUST",
- *          columnHeaders: ["# OF ACCOUNTS", "EFFICIENCY RATE"],
- *          data: [ [accounts, effRate], ... ],   // same order as branchNames
- *          maxPeriods: 3            // optional, default 3 — rolling window
- *        }
- *      Sheet layout (as of the OLDEST→NEWEST left-to-right ordering):
- *        Row 1: [sheetTitle, merged A:B] | MAY|JUNE|JULY |(gap)| MAY|JUNE|JULY
- *        Row 2: (blank) | BRANCHES       | # OF ACCOUNTS x3   |     | EFFICIENCY RATE x3
- *      Each metric has its own column GROUP. Every push adds ONE new
- *      column at the RIGHT edge of its metric's group (newest period
- *      rightmost). Once a group exceeds `maxPeriods` columns, the
- *      oldest (leftmost) column in that group is deleted — so each
- *      metric group always shows only the newest `maxPeriods` periods,
- *      oldest to newest, left to right.
+ *   1) layout: "metricGrouped" (default — "Collection Efficiency" and
+ *      "Repo"). Columns are grouped by METRIC across periods. Every push
+ *      adds ONE new column at the RIGHT edge of its metric's group
+ *      (newest period rightmost); once a group exceeds `maxPeriods`
+ *      (default 3) columns, the oldest (leftmost) is deleted.
+ *      REPO RATE is written as a live formula: NO. OF REPO ÷ # OF
+ *      ACCOUNTS for the same period (see applyComputedRateFormulas).
  *
- *   2) layout: "periodBlocks" (used by "Sales"). Columns are grouped
- *      by PERIOD (each period gets one block with all its metrics
- *      side by side), plus two extra fixed groups before the period
- *      area that are overwritten in place on every push (not shifted):
- *        {
- *          name: "Sales",
- *          layout: "periodBlocks",
- *          mode: "insertLeft" | "overwrite",
- *          branchNames: [ "ALFONSO", ..., "GRAND TOTAL" ],  // fixed order
- *          totalsLabel: "GRAND TOTAL",                       // optional
- *          expectedGroupLabel: "EXPECTED",                   // optional
- *          expectedHeaders: ["INS", "COD"],
- *          expectedData: [ [ins, cod], ... ],   // same order as branchNames,
- *                                                 // overwritten every push
- *          totalTargetHeader: "TOTAL TARGET",                // optional
- *          totalTargetData: [ total, ... ],     // same order as branchNames,
- *                                                 // overwritten every push
- *          period: "AUGUST",
- *          periodHeaders: ["INS", "COD", "CA"],
- *          data: [ [ins, cod, ca], ... ],        // same order as branchNames
- *          maxPeriods: 3           // optional, default 3 — rolling window
- *        }
- *      Sheet layout:
- *        Row 1/2: NO. | BRANCHES | EXPECTED(INS,COD) | TOTAL TARGET |(gap)| JUNE(...) | JULY(...) | AUGUST(INS,COD,CA)
- *      Every push overwrites the EXPECTED and TOTAL TARGET columns in
- *      place, then inserts ONE new period block at the RIGHT edge of
- *      the period area (newest period rightmost). Once there are more
- *      than `maxPeriods` month-blocks, the oldest block (now at the
- *      far left of the period area) is deleted entirely — no
- *      continuous growth.
+ *   2) layout: "periodBlocks" ("Sales"). Columns grouped by PERIOD, plus
+ *      fixed EXPECTED / TOTAL TARGET groups overwritten in place. Each
+ *      push inserts ONE new period block at the RIGHT edge; once there
+ *      are more than `maxPeriods` blocks, the oldest is deleted.
  *
- *   3) layout: "serviceBlocks" (used by "Service"/"Branch Service
- *      Labor"). Like periodBlocks, but with a single fixed reference
- *      column instead of an EXPECTED group + TOTAL TARGET column, and
- *      the sheet title lives in row 1 (merged over NO./BRANCHES)
- *      instead of row 1 being blank there:
- *        {
- *          name: "Service",
- *          layout: "serviceBlocks",
- *          mode: "insertLeft" | "overwrite",
- *          sheetTitle: "BRANCH SERVICE/LABOR",
- *          branchNames: [ "ALFONSO", ..., "GRAND TOTAL" ],  // fixed order,
- *                                                             // whatever
- *                                                             // order the
- *                                                             // source
- *                                                             // report uses
- *          totalsLabel: "GRAND TOTAL",                       // optional
- *          expectedHeader: "EXPECTED TARGET SERVICE",        // optional
- *          expectedData: [ target, ... ],        // same order as
- *                                                 // branchNames, a single
- *                                                 // value per branch,
- *                                                 // overwritten every push
- *          period: "AUGUST",
- *          periodHeaders: ["SERVICE INCOME", "STATUS"],
- *          data: [ [income, status], ... ],      // same order as
- *                                                 // branchNames; the
- *                                                 // "status" value sent
- *                                                 // here is ignored —
- *                                                 // STATUS is always
- *                                                 // written as a live
- *                                                 // formula (see below)
- *          maxPeriods: 3           // optional, default 3 — rolling window
- *        }
- *      Sheet layout (no gap column — the title banner butts right up
- *      against the first period block):
- *        Row 1: [sheetTitle, merged A:C] | MAY(...) | JUNE(...) | JULY(...)
- *        Row 2: NO. | BRANCHES | EXPECTED TARGET SERVICE | SERVICE INCOME STATUS | SERVICE INCOME STATUS | SERVICE INCOME STATUS
- *      EXPECTED TARGET SERVICE is overwritten in place every push (never
- *      shifted). Every push inserts ONE new period block (SERVICE INCOME
- *      + STATUS) at the RIGHT edge; once there are more than
- *      `maxPeriods` blocks, the oldest is deleted entirely, same
- *      rolling-window behavior as periodBlocks. STATUS is a live
- *      =IF(...) formula comparing that period's SERVICE INCOME against
- *      EXPECTED TARGET SERVICE on the same row — written once when the
- *      block is created, and never overwritten by later pushes.
+ *   3) layout: "serviceBlocks" ("Service"). Columns A:D fixed (NO. /
+ *      BRANCHES / EXPECTED TARGET SERVICE / gap) and E onward is a
+ *      permanently FIXED bank of maxPeriods x blockWidth slot columns.
+ *      Every push shifts each slot's VALUES one slot to the left and
+ *      writes the new data into the rightmost slot. No column is ever
+ *      inserted or deleted for this layout. STATUS is always a live
+ *      =IF(...) formula.
  *
- *   DIRECTION (applies to all three keyed layouts, always on): every
- *   keyed push adds its new period at the RIGHT edge, and the rolling
- *   window always drops the oldest period from the LEFT. This matches a
- *   sheet ordered oldest → newest, left to right (e.g. MAY, JUNE, JULY).
- *
- *   Columns A (row #) and B (branch names) — and for Sales, also the
- *   EXPECTED/TOTAL TARGET group headers, and for Service, also the
- *   EXPECTED TARGET SERVICE header — are written ONCE, the first
- *   time a tab is built.
- *
- * - Deleting a wrongly-pushed period, without touching the Sheet by
- *   hand — sent as its own request (no "sheets" array):
+ * - Deleting a wrongly-pushed period:
  *     { action: "deletePeriod", name: "Collection Efficiency", period: "JULY" }
- *   Works for ALL THREE keyed layouts above without needing to say which
- *   one: it reads row 2 (headers) alongside row 1 (labels) to tell a real
- *   gap column apart from a merged period label's blank continuation
- *   cells, finds every column belonging to that period (a metricGrouped
- *   push scatters them one column per metric group; a periodBlocks or
- *   serviceBlocks push has them as one contiguous block), and deletes
- *   them right-to-left so nothing shifts underneath itself mid-delete.
- *   Columns A/B (and any fixed EXPECTED/TOTAL TARGET columns) are never
- *   touched. This works regardless of which direction periods were
- *   inserted from.
+ *   Works for metricGrouped and periodBlocks. (Not meaningful for
+ *   serviceBlocks — use Undo, or push a corrected value.)
  *
  * - Styling: every push re-applies header background colors and a full
- *   grid border to the whole built table, for ALL THREE keyed layouts.
- *   This is done from scratch every time (not "preserved") specifically
- *   because inserting/deleting columns does not reliably carry
- *   formatting along with it — so instead of hoping Sheets keeps the
- *   borders/colors, the script always repaints them at the end of a
- *   push, based only on what's actually on the sheet at that moment.
- *   To change a metric's color, just edit its hex code in
- *   METRIC_HEADER_COLORS below — no other code needs to change.
+ *   grid border from scratch. Edit hex codes in METRIC_HEADER_COLORS
+ *   below to change a metric's color.
  */
 
 // Fixed background color per metric name (case-insensitive match against
-// whatever is in the header-labels row). Same metric = same color, every
-// time, on every sheet — order/position doesn't matter. Anything not
-// listed here falls back to DEFAULT_METRIC_COLOR.
+// whatever is in the header-labels row). Anything not listed here falls
+// back to DEFAULT_METRIC_COLOR.
 var METRIC_HEADER_COLORS = {
-  '# OF ACCOUNTS':   '#D9D9D9', // gray
-  'EFFICIENCY RATE': '#DCE6F1', // light blue
-  'NO. OF REPO':     '#FBE0E5', // light pink
-  'REPO RATE':       '#FDEBD3', // light peach
-  // Sales (periodBlocks) sub-header metrics — reusing the same palette
-  // so the two sheets read consistently. Change freely.
-  'INS':             '#DCE6F1', // light blue
-  'COD':             '#FBE0E5', // light pink
-  'CA':              '#FDEBD3', // light peach
-  // Service (serviceBlocks) columns — reusing the same palette again.
-  'EXPECTED TARGET SERVICE': '#FBE0E5', // light pink
-  'SERVICE INCOME':  '#DCE6F1', // light blue
-  'ACTUAL':          '#DCE6F1', // light blue (kept as an alias, in case any old push still uses this label)
-  'STATUS':          '#D9D9D9'  // gray
+  '# OF ACCOUNTS':   '#EAD1DC', // soft pink
+  'EFFICIENCY RATE': '#D5A6BD', // mauve
+  'NO. OF REPO':     '#EAD1DC', // soft pink
+  'REPO RATE':       '#D5A6BD', // mauve
+  'INS':             '#EAD1DC', // soft pink
+  'COD':             '#D5A6BD', // mauve
+  'CA':              '#C27BA0', // deeper mauve
+  'EXPECTED TARGET SERVICE': '#EAD1DC', // soft pink
+  'SERVICE INCOME':  '#D5A6BD', // mauve
+  'ACTUAL':          '#D5A6BD', // mauve (alias for old pushes)
+  'STATUS':          '#EAD1DC'  // soft pink
 };
-var DEFAULT_METRIC_COLOR = '#EFEFEF';    // fallback for any future/unmapped metric name
-var STRUCTURAL_HEADER_COLOR = '#BFBFBF'; // NO. / BRANCHES / EXPECTED / TOTAL TARGET / sheet title / period-block title
+var DEFAULT_METRIC_COLOR = '#EAD1DC';    // fallback for any unmapped metric name
+var STRUCTURAL_HEADER_COLOR = '#C27BA0'; // NO. / BRANCHES / EXPECTED / TOTAL TARGET / sheet title / period-block title
 var GRID_BORDER_COLOR = '#999999';
 
 function colorForMetric(headerText) {
@@ -1348,7 +1264,7 @@ function colorForMetric(headerText) {
 
 /** Draws a solid border around and between every cell in the given range. */
 function applyFullGridBorder(sheet, firstRow, firstCol, lastRow, lastCol) {
-  if (lastRow < firstRow || lastCol < firstCol) return;
+  if (lastRow &lt; firstRow || lastCol &lt; firstCol) return;
   sheet.getRange(firstRow, firstCol, lastRow - firstRow + 1, lastCol - firstCol + 1)
     .setBorder(true, true, true, true, true, true, GRID_BORDER_COLOR, SpreadsheetApp.BorderStyle.SOLID);
 }
@@ -1359,10 +1275,10 @@ function applyFullGridBorder(sheet, firstRow, firstCol, lastRow, lastCol) {
  * Blank labelsRow cells (gap columns) are left uncolored.
  */
 function colorMetricColumnsInRange(sheet, titleRow, labelsRow, firstCol, lastCol, colorTitleRow) {
-  if (lastCol < firstCol) return;
+  if (lastCol &lt; firstCol) return;
   var width = lastCol - firstCol + 1;
   var labelVals = sheet.getRange(labelsRow, firstCol, 1, width).getValues()[0];
-  for (var i = 0; i < width; i++) {
+  for (var i = 0; i &lt; width; i++) {
     var label = String(labelVals[i]).trim();
     if (label === '') continue; // gap column — leave uncolored
     var col = firstCol + i;
@@ -1372,58 +1288,41 @@ function colorMetricColumnsInRange(sheet, titleRow, labelsRow, firstCol, lastCol
   }
 }
 
-/**
- * Re-applies the full look (header colors + grid border) for a
- * metricGrouped sheet (e.g. Collection Efficiency). Driven entirely by
- * what's currently on the sheet, so it's safe to call after every push
- * regardless of which columns were just inserted or deleted.
- */
+/** Re-applies header colors + grid border for a metricGrouped sheet. */
 function applyMetricGroupedStyle(sheet, titleRow, labelsRow, firstDataRow, totalRows,
   indexCol, branchCol, firstGroupCol) {
 
   var lastCol = sheet.getLastColumn();
   var lastRow = firstDataRow + totalRows - 1;
-  if (lastCol < indexCol || lastRow < titleRow) return;
+  if (lastCol &lt; indexCol || lastRow &lt; titleRow) return;
 
-  // Structural (fixed) header cells: the merged sheet-title cell + BRANCHES.
   sheet.getRange(titleRow, indexCol).setBackground(STRUCTURAL_HEADER_COLOR);
   sheet.getRange(labelsRow, branchCol).setBackground(STRUCTURAL_HEADER_COLOR);
 
-  // Metric columns: color both header rows by the metric name in labelsRow.
   colorMetricColumnsInRange(sheet, titleRow, labelsRow, firstGroupCol, lastCol, true);
 
   applyFullGridBorder(sheet, titleRow, indexCol, lastRow, lastCol);
 }
 
-/**
- * Same idea for a periodBlocks sheet (e.g. Sales). The merged
- * period-title cell (one per block) and the EXPECTED/TOTAL TARGET group
- * labels get the neutral structural color; each individual metric
- * column (INS/COD/CA, repeated in every period block, and in EXPECTED)
- * gets its own fixed metric color.
- */
+/** Re-applies header colors + grid border for a periodBlocks sheet (Sales). */
 function applySalesStyle(sheet, titleRow, labelsRow, firstDataRow, totalRows,
   indexCol, branchCol, expectedStartCol, expectedEndCol, totalTargetCol, firstPeriodCol) {
 
   var lastCol = sheet.getLastColumn();
   var lastRow = firstDataRow + totalRows - 1;
-  if (lastCol < indexCol || lastRow < titleRow) return;
+  if (lastCol &lt; indexCol || lastRow &lt; titleRow) return;
 
-  // Structural (fixed) header cells.
   sheet.getRange(titleRow, indexCol).setBackground(STRUCTURAL_HEADER_COLOR);
   sheet.getRange(titleRow, branchCol).setBackground(STRUCTURAL_HEADER_COLOR);
   sheet.getRange(titleRow, expectedStartCol).setBackground(STRUCTURAL_HEADER_COLOR); // "EXPECTED" merged label
   sheet.getRange(titleRow, totalTargetCol).setBackground(STRUCTURAL_HEADER_COLOR);   // "TOTAL TARGET" merged label
 
-  // EXPECTED sub-header metrics (e.g. INS/COD), colored individually.
   colorMetricColumnsInRange(sheet, titleRow, labelsRow, expectedStartCol, expectedEndCol, false);
 
-  // Period blocks: structural gray on each block's merged period-title
-  // cell, and each sub-header column its own fixed metric color.
-  if (lastCol >= firstPeriodCol) {
+  if (lastCol &gt;= firstPeriodCol) {
     var width = lastCol - firstPeriodCol + 1;
     var titleVals = sheet.getRange(titleRow, firstPeriodCol, 1, width).getValues()[0];
-    for (var i = 0; i < width; i++) {
+    for (var i = 0; i &lt; width; i++) {
       var t = String(titleVals[i]).trim();
       if (t !== '') { // top-left cell of a merged period-title block
         sheet.getRange(titleRow, firstPeriodCol + i).setBackground(STRUCTURAL_HEADER_COLOR);
@@ -1435,35 +1334,24 @@ function applySalesStyle(sheet, titleRow, labelsRow, firstDataRow, totalRows,
   applyFullGridBorder(sheet, titleRow, indexCol, lastRow, lastCol);
 }
 
-/**
- * Same idea for a serviceBlocks sheet (e.g. Service / Branch Service
- * Labor). The merged sheet-title cell (row 1, over NO./BRANCHES), the
- * "NO." header, and each period block's merged title cell get the
- * neutral structural color; the fixed EXPECTED TARGET SERVICE column
- * and each period's SERVICE INCOME/STATUS sub-header get their own fixed
- * metric color.
- */
+/** Re-applies header colors + grid border for a serviceBlocks sheet. */
 function applyServiceStyle(sheet, titleRow, labelsRow, firstDataRow, totalRows,
   indexCol, branchCol, expectedCol, firstPeriodCol) {
 
   var lastCol = sheet.getLastColumn();
   var lastRow = firstDataRow + totalRows - 1;
-  if (lastCol < indexCol || lastRow < titleRow) return;
+  if (lastCol &lt; indexCol || lastRow &lt; titleRow) return;
 
-  // Structural (fixed) header cells: the merged sheet-title cell + NO./BRANCHES.
   sheet.getRange(titleRow, indexCol).setBackground(STRUCTURAL_HEADER_COLOR);
   sheet.getRange(labelsRow, indexCol).setBackground(STRUCTURAL_HEADER_COLOR);
   sheet.getRange(labelsRow, branchCol).setBackground(STRUCTURAL_HEADER_COLOR);
 
-  // Fixed EXPECTED TARGET SERVICE column, colored by its own header text.
   colorMetricColumnsInRange(sheet, titleRow, labelsRow, expectedCol, expectedCol, false);
 
-  // Period blocks: structural gray on each block's merged period-title
-  // cell, and each sub-header column (SERVICE INCOME/STATUS) its own fixed color.
-  if (lastCol >= firstPeriodCol) {
+  if (lastCol &gt;= firstPeriodCol) {
     var width = lastCol - firstPeriodCol + 1;
     var titleVals = sheet.getRange(titleRow, firstPeriodCol, 1, width).getValues()[0];
-    for (var i = 0; i < width; i++) {
+    for (var i = 0; i &lt; width; i++) {
       var t = String(titleVals[i]).trim();
       if (t !== '') {
         sheet.getRange(titleRow, firstPeriodCol + i).setBackground(STRUCTURAL_HEADER_COLOR);
@@ -1475,20 +1363,138 @@ function applyServiceStyle(sheet, titleRow, labelsRow, firstDataRow, totalRows,
   applyFullGridBorder(sheet, titleRow, indexCol, lastRow, lastCol);
 }
 
+/* =========================================================================
+ * UNDO (snapshot before every push, restore on request)
+ * ========================================================================= */
+
+var UNDO_PREFIX = '__undo_';
+
+function undoSheetName(name) {
+  return (UNDO_PREFIX + String(name)).substring(0, 99);
+}
+
+function isUndoSheetName(name) {
+  return String(name).indexOf(UNDO_PREFIX) === 0;
+}
+
+/** Short human-readable description of a push, shown next to the Undo button. */
+function describeJob(sheetJob) {
+  var parts = [];
+  if (sheetJob.period) parts.push(String(sheetJob.period));
+  if (sheetJob.columnHeaders &amp;&amp; sheetJob.columnHeaders.length) {
+    parts.push(sheetJob.columnHeaders.join(' / '));
+  } else if (sheetJob.layout === 'periodBlocks') {
+    parts.push('Sales');
+  } else if (sheetJob.layout === 'serviceBlocks') {
+    parts.push('Service');
+  }
+  return parts.join(' — ') || 'push';
+}
+
+/**
+ * Saves a full copy of tab `name` (if it exists) into a hidden
+ * "__undo_&lt;name&gt;" tab, replacing any older backup of that tab, and records
+ * { label, time, wasNew } in the document properties. Only one level of
+ * undo is kept per tab.
+ */
+function saveUndoSnapshot(ss, name, label, existed) {
+  var bname = undoSheetName(name);
+  var old = ss.getSheetByName(bname);
+  if (old) ss.deleteSheet(old);
+
+  if (existed) {
+    var src = ss.getSheetByName(name);
+    var copy = src.copyTo(ss);
+    copy.setName(bname);
+    try { copy.hideSheet(); } catch (err) { /* hiding is cosmetic */ }
+  }
+
+  PropertiesService.getDocumentProperties().setProperty(bname, JSON.stringify({
+    label: label,
+    time: new Date().toISOString(),
+    wasNew: !existed
+  }));
+}
+
+/** Reads the undo metadata for a tab, or null if there is nothing to undo. */
+function getUndoMeta(name) {
+  var raw = PropertiesService.getDocumentProperties().getProperty(undoSheetName(name));
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch (err) { return null; }
+}
+
+/** Restores tab `name` to how it looked before its last push. */
+function restoreUndoSnapshot(ss, name) {
+  var bname = undoSheetName(name);
+  var meta = getUndoMeta(name);
+  if (!meta) return { ok: false, error: 'Nothing to undo for "' + name + '".' };
+
+  var target = ss.getSheetByName(name);
+
+  if (meta.wasNew) {
+    // That push created the tab — undoing it means removing it again.
+    if (target) {
+      try {
+        ss.deleteSheet(target);
+      } catch (err) {
+        target.getDataRange().breakApart();
+        target.clear();
+      }
+    }
+  } else {
+    var backup = ss.getSheetByName(bname);
+    if (!backup) return { ok: false, error: 'The backup for "' + name + '" is missing, so it can\'t be undone.' };
+    if (!target) target = ss.insertSheet(name);
+
+    target.getDataRange().breakApart();
+    target.clear();
+
+    var rows = backup.getLastRow();
+    var cols = backup.getLastColumn();
+    if (rows &gt; 0 &amp;&amp; cols &gt; 0) {
+      if (target.getMaxColumns() &lt; cols) {
+        target.insertColumnsAfter(target.getMaxColumns(), cols - target.getMaxColumns());
+      }
+      if (target.getMaxRows() &lt; rows) {
+        target.insertRowsAfter(target.getMaxRows(), rows - target.getMaxRows());
+      }
+      backup.getRange(1, 1, rows, cols).copyTo(target.getRange(1, 1));
+    }
+
+    var oldBackup = ss.getSheetByName(bname);
+    if (oldBackup) ss.deleteSheet(oldBackup);
+  }
+
+  PropertiesService.getDocumentProperties().deleteProperty(bname);
+  return { ok: true, restored: name, label: meta.label, wasNew: !!meta.wasNew };
+}
+
+/* =========================================================================
+ * doPost
+ * ========================================================================= */
+
 function doPost(e) {
   try {
     var payload = JSON.parse(e.postData.contents);
     var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    if (payload.action === 'undo') {
+      if (!payload.name) return respond({ ok: false, error: 'Missing tab name to undo.' });
+      return respond(restoreUndoSnapshot(ss, payload.name));
+    }
 
     if (payload.action === 'deletePeriod') {
       var targetSheet = ss.getSheetByName(payload.name);
       if (!targetSheet) return respond({ ok: false, error: 'Sheet not found: ' + payload.name });
       if (!payload.period) return respond({ ok: false, error: 'Missing period to delete.' });
 
-      var delResult = deletePeriodColumns(targetSheet, payload.period);
-      if (delResult.deletedColumns === 0) {
+      // Dry run first, so a "not found" doesn't overwrite a useful backup.
+      var dry = deletePeriodColumns(targetSheet, payload.period, true);
+      if (dry.deletedColumns === 0) {
         return respond({ ok: false, error: 'No columns found for period "' + payload.period + '" on "' + payload.name + '".' });
       }
+      saveUndoSnapshot(ss, payload.name, 'delete ' + payload.period, true);
+      var delResult = deletePeriodColumns(targetSheet, payload.period, false);
       return respond({ ok: true, deletedColumns: delResult.deletedColumns, deletedRuns: delResult.runs });
     }
 
@@ -1496,12 +1502,18 @@ function doPost(e) {
 
     payload.sheets.forEach(function (sheetJob) {
       var name = sheetJob.name;
+      if (isUndoSheetName(name)) throw new Error('"' + name + '" is a reserved backup tab name.');
+
       var sheet = ss.getSheetByName(name);
+      var existed = !!sheet;
+
+      // Back up the tab as it is RIGHT NOW, before touching anything.
+      saveUndoSnapshot(ss, name, describeJob(sheetJob), existed);
+
       if (!sheet) sheet = ss.insertSheet(name);
 
-      if (sheetJob.branchNames && sheetJob.branchNames.length > 0) {
+      if (sheetJob.branchNames &amp;&amp; sheetJob.branchNames.length &gt; 0) {
         if (sheetJob.layout === 'periodBlocks') {
-          // Sales-style: columns grouped by period, rolling window.
           handleSalesPush(sheet, sheetJob);
           results.push({
             name: name,
@@ -1510,8 +1522,6 @@ function doPost(e) {
             layout: 'periodBlocks'
           });
         } else if (sheetJob.layout === 'serviceBlocks') {
-          // Service-style: single fixed reference column + period
-          // blocks (SERVICE INCOME/STATUS), rolling window.
           handleServicePush(sheet, sheetJob);
           results.push({
             name: name,
@@ -1520,7 +1530,6 @@ function doPost(e) {
             layout: 'serviceBlocks'
           });
         } else {
-          // Collection-Efficiency-style: columns grouped by metric, rolling window.
           handleKeyedPush(sheet, sheetJob);
           results.push({
             name: name,
@@ -1530,19 +1539,18 @@ function doPost(e) {
           });
         }
       } else {
-        // Original generic behavior, unchanged — used by the "Live
-        // branch data" panel which pushes whole raw sheets.
+        // Original generic behavior — whole raw sheets.
         var mode = sheetJob.mode || 'overwrite';
         var data = sheetJob.data || [];
 
-        if (data.length > 0) {
+        if (data.length &gt; 0) {
           var numCols = data.reduce(function (m, row) {
             return Math.max(m, row.length);
           }, 0);
 
           var padded = data.map(function (row) {
             var r = row.slice();
-            while (r.length < numCols) r.push('');
+            while (r.length &lt; numCols) r.push('');
             return r;
           });
 
@@ -1553,7 +1561,7 @@ function doPost(e) {
           } else if (mode === 'insertLeft') {
             var gap = 1;
             var shiftBy = numCols + gap;
-            if (sheet.getLastColumn() > 0 && sheet.getLastRow() > 0) {
+            if (sheet.getLastColumn() &gt; 0 &amp;&amp; sheet.getLastRow() &gt; 0) {
               sheet.insertColumnsBefore(1, shiftBy);
             }
             sheet.getRange(1, 1, padded.length, numCols).setValues(padded);
@@ -1588,18 +1596,17 @@ function doPost(e) {
 
 /**
  * Handles a "keyed" push where Column A (row #) and Column B (branch
- * name) are fixed, constant columns, and columns to the right are
- * grouped by METRIC (columnHeaders entry). Each push inserts one new
- * period-column at the RIGHT edge of its metric's group (newest period
- * rightmost); once a group exceeds maxPeriods columns, the oldest
- * (leftmost) column in that group is deleted.
+ * name) are fixed, and columns to the right are grouped by METRIC
+ * (columnHeaders entry). Each push inserts one new period-column at the
+ * RIGHT edge of its metric's group (newest rightmost); once a group
+ * exceeds maxPeriods columns, the oldest (leftmost) column is deleted.
  */
 function handleKeyedPush(sheet, sheetJob) {
   var branchNames = sheetJob.branchNames;
   var period = sheetJob.period || '';
   var sheetTitle = sheetJob.sheetTitle || 'CONSOLIDATED AGING OF ACCOUNTS';
   var totalsLabel = (sheetJob.totalsLabel || 'GRAND TOTAL').toString().trim().toUpperCase();
-  var headers = (sheetJob.columnHeaders && sheetJob.columnHeaders.length)
+  var headers = (sheetJob.columnHeaders &amp;&amp; sheetJob.columnHeaders.length)
     ? sheetJob.columnHeaders
     : ['# OF ACCOUNTS', 'EFFICIENCY RATE'];
   var data = sheetJob.data || [];
@@ -1616,16 +1623,21 @@ function handleKeyedPush(sheet, sheetJob) {
   var totalRows = branchNames.length;
 
   var totalRowIndex = -1;
-  for (var t = 0; t < branchNames.length; t++) {
+  for (var t = 0; t &lt; branchNames.length; t++) {
     if (String(branchNames[t]).trim().toUpperCase() === totalsLabel) {
       totalRowIndex = t;
       break;
     }
   }
-  var totalSheetRow = totalRowIndex >= 0 ? (FIRST_DATA_ROW + totalRowIndex) : -1;
+  var totalSheetRow = totalRowIndex &gt;= 0 ? (FIRST_DATA_ROW + totalRowIndex) : -1;
 
   var anchorCell = sheet.getRange(HEADER_ROW_LABELS, BRANCH_COL).getValue();
   var hasAnchor = String(anchorCell).trim() !== '';
+
+  // Tracks, for THIS push only, which column each header's data landed
+  // in — keyed by uppercased header text. Used afterward by
+  // applyComputedRateFormulas() to wire up REPO RATE.
+  var writtenCols = {};
 
   if (mode === 'overwrite' || !hasAnchor) {
     sheet.clear();
@@ -1640,7 +1652,7 @@ function handleKeyedPush(sheet, sheetJob) {
     var colA = [];
     var colB = [];
     var seq = 0;
-    for (var i = 0; i < totalRows; i++) {
+    for (var i = 0; i &lt; totalRows; i++) {
       if (i === totalRowIndex) {
         colA.push(['']);
       } else {
@@ -1652,26 +1664,27 @@ function handleKeyedPush(sheet, sheetJob) {
     sheet.getRange(FIRST_DATA_ROW, INDEX_COL, totalRows, 1).setValues(colA);
     sheet.getRange(FIRST_DATA_ROW, BRANCH_COL, totalRows, 1).setValues(colB);
 
-    if (totalSheetRow > 0) {
+    if (totalSheetRow &gt; 0) {
       sheet.getRange(totalSheetRow, INDEX_COL, 1, 2).setFontWeight('bold');
     }
 
     var col = FIRST_GROUP_COL;
-    for (var j = 0; j < headers.length; j++) {
-      if (j > 0) col += GAP;
+    for (var j = 0; j &lt; headers.length; j++) {
+      if (j &gt; 0) col += GAP;
       writeMetricColumn(sheet, col, headers[j], period, data, j,
         HEADER_ROW_TITLE, HEADER_ROW_LABELS, FIRST_DATA_ROW, totalRows, totalSheetRow);
+      writtenCols[String(headers[j]).trim().toUpperCase()] = col;
       col += 1;
     }
 
   } else {
-    for (var k = 0; k < headers.length; k++) {
+    for (var k = 0; k &lt; headers.length; k++) {
       var headerText = String(headers[k]).trim();
       var lastCol = sheet.getLastColumn();
       var groups = findMetricGroups(sheet, HEADER_ROW_LABELS, FIRST_GROUP_COL, lastCol);
 
       var match = null;
-      for (var g = 0; g < groups.length; g++) {
+      for (var g = 0; g &lt; groups.length; g++) {
         if (groups[g].label.toUpperCase() === headerText.toUpperCase()) {
           match = groups[g];
           break;
@@ -1680,11 +1693,9 @@ function handleKeyedPush(sheet, sheetJob) {
 
       var targetCol;
       if (match) {
-        // New period goes at the RIGHT edge of this metric's existing
-        // group (newest period rightmost).
         sheet.insertColumnsAfter(match.endCol, 1);
         targetCol = match.endCol + 1;
-      } else if (lastCol >= FIRST_GROUP_COL) {
+      } else if (lastCol &gt;= FIRST_GROUP_COL) {
         targetCol = lastCol + 1 + GAP;
       } else {
         targetCol = FIRST_GROUP_COL;
@@ -1692,16 +1703,18 @@ function handleKeyedPush(sheet, sheetJob) {
 
       writeMetricColumn(sheet, targetCol, headerText, period, data, k,
         HEADER_ROW_TITLE, HEADER_ROW_LABELS, FIRST_DATA_ROW, totalRows, totalSheetRow);
+      writtenCols[headerText.toUpperCase()] = targetCol;
 
-      // Rolling window: this metric's group should never exceed
-      // maxPeriods columns — drop the oldest (now leftmost) if it does.
+      // Rolling window: drop the oldest (leftmost) column if the group
+      // now exceeds maxPeriods.
       var groupsAfter = findMetricGroups(sheet, HEADER_ROW_LABELS, FIRST_GROUP_COL, sheet.getLastColumn());
-      for (var gg = 0; gg < groupsAfter.length; gg++) {
+      for (var gg = 0; gg &lt; groupsAfter.length; gg++) {
         if (groupsAfter[gg].label.toUpperCase() === headerText.toUpperCase()) {
           var width = groupsAfter[gg].endCol - groupsAfter[gg].startCol + 1;
-          if (width > maxPeriods) {
+          if (width &gt; maxPeriods) {
             var extra = width - maxPeriods;
             sheet.deleteColumns(groupsAfter[gg].startCol, extra);
+            writtenCols[headerText.toUpperCase()] -= extra;
           }
           break;
         }
@@ -1709,8 +1722,11 @@ function handleKeyedPush(sheet, sheetJob) {
     }
   }
 
-  // Re-paint header colors + grid border from scratch — safe every time,
-  // regardless of what was just inserted/deleted above.
+  // If this push wrote both "NO. OF REPO" and "REPO RATE", turn REPO
+  // RATE into a live NO. OF REPO ÷ # OF ACCOUNTS percentage formula.
+  applyComputedRateFormulas(sheet, HEADER_ROW_TITLE, HEADER_ROW_LABELS, FIRST_DATA_ROW,
+    totalRows, FIRST_GROUP_COL, sheet.getLastColumn(), period, writtenCols);
+
   applyMetricGroupedStyle(sheet, HEADER_ROW_TITLE, HEADER_ROW_LABELS, FIRST_DATA_ROW,
     totalRows, INDEX_COL, BRANCH_COL, FIRST_GROUP_COL);
 }
@@ -1723,12 +1739,12 @@ function handleKeyedPush(sheet, sheetJob) {
  */
 function findMetricGroups(sheet, labelsRow, firstCol, lastCol) {
   var groups = [];
-  if (lastCol < firstCol) return groups;
+  if (lastCol &lt; firstCol) return groups;
 
   var values = sheet.getRange(labelsRow, firstCol, 1, lastCol - firstCol + 1).getValues()[0];
   var current = null;
 
-  for (var i = 0; i < values.length; i++) {
+  for (var i = 0; i &lt; values.length; i++) {
     var col = firstCol + i;
     var label = String(values[i]).trim();
 
@@ -1737,7 +1753,7 @@ function findMetricGroups(sheet, labelsRow, firstCol, lastCol) {
       continue;
     }
 
-    if (current && current.label.toUpperCase() === label.toUpperCase()) {
+    if (current &amp;&amp; current.label.toUpperCase() === label.toUpperCase()) {
       current.endCol = col;
     } else {
       current = { label: label, startCol: col, endCol: col };
@@ -1746,6 +1762,56 @@ function findMetricGroups(sheet, labelsRow, firstCol, lastCol) {
   }
 
   return groups;
+}
+
+/**
+ * Finds the single column in `metricLabel`'s group whose title-row
+ * (row 1) text equals `period`. Returns -1 if none exists yet.
+ */
+function findMetricColumnForPeriod(sheet, titleRow, labelsRow, firstCol, lastCol, metricLabel, period) {
+  var groups = findMetricGroups(sheet, labelsRow, firstCol, lastCol);
+  var wantLabel = String(metricLabel).trim().toUpperCase();
+  var wantPeriod = String(period).trim().toUpperCase();
+
+  for (var g = 0; g &lt; groups.length; g++) {
+    if (groups[g].label.toUpperCase() !== wantLabel) continue;
+    var width = groups[g].endCol - groups[g].startCol + 1;
+    var titleVals = sheet.getRange(titleRow, groups[g].startCol, 1, width).getValues()[0];
+    for (var i = 0; i &lt; width; i++) {
+      if (String(titleVals[i]).trim().toUpperCase() === wantPeriod) {
+        return groups[g].startCol + i;
+      }
+    }
+  }
+  return -1;
+}
+
+/**
+ * REPO RATE = NO. OF REPO ÷ # OF ACCOUNTS, as a live percentage formula,
+ * for the column THIS push just wrote REPO RATE into. If # OF ACCOUNTS
+ * hasn't been pushed for this period yet, REPO RATE is left blank —
+ * re-push Repo for that period once Collection Efficiency exists.
+ */
+function applyComputedRateFormulas(sheet, titleRow, labelsRow, firstDataRow, totalRows,
+  firstGroupCol, lastCol, period, writtenCols) {
+
+  var repoRateCol = writtenCols['REPO RATE'];
+  var repoCountCol = writtenCols['NO. OF REPO'];
+  if (!repoRateCol || !repoCountCol) return; // not a Repo push
+
+  var accountsCol = findMetricColumnForPeriod(sheet, titleRow, labelsRow, firstGroupCol, lastCol,
+    '# OF ACCOUNTS', period);
+  if (accountsCol === -1) return;
+
+  var repoColLetter = columnToLetter(repoCountCol);
+  var accountsColLetter = columnToLetter(accountsCol);
+  var formulas = [];
+  for (var i = 0; i &lt; totalRows; i++) {
+    var r = firstDataRow + i;
+    formulas.push(['=IF(OR(' + repoColLetter + r + '="",' + accountsColLetter + r + '="",' +
+      accountsColLetter + r + '=0),"",' + repoColLetter + r + '/' + accountsColLetter + r + ')']);
+  }
+  sheet.getRange(firstDataRow, repoRateCol, totalRows, 1).setFormulas(formulas).setNumberFormat('0.00%');
 }
 
 /**
@@ -1766,9 +1832,9 @@ function writeMetricColumn(sheet, col, headerText, period, data, dataIndex,
     .setFontWeight('bold');
 
   var colValues = [];
-  for (var i = 0; i < totalRows; i++) {
+  for (var i = 0; i &lt; totalRows; i++) {
     var row = data[i] || [];
-    var v = (row[dataIndex] !== undefined && row[dataIndex] !== null) ? row[dataIndex] : '';
+    var v = (row[dataIndex] !== undefined &amp;&amp; row[dataIndex] !== null) ? row[dataIndex] : '';
     colValues.push([v]);
   }
   sheet.getRange(firstDataRow, col, totalRows, 1).setValues(colValues);
@@ -1780,7 +1846,7 @@ function writeMetricColumn(sheet, col, headerText, period, data, dataIndex,
   sheet.getRange(firstDataRow, col, totalRows, 1)
     .setNumberFormat(isRateColumn ? '0"%"' : '0');
 
-  if (totalSheetRow && totalSheetRow > 0) {
+  if (totalSheetRow &amp;&amp; totalSheetRow &gt; 0) {
     sheet.getRange(totalSheetRow, col, 1, 1).setFontWeight('bold');
   }
 }
@@ -1790,26 +1856,23 @@ function writeMetricColumn(sheet, col, headerText, period, data, dataIndex,
  * ========================================================================= */
 
 /**
- * Handles a keyed push laid out as: NO. | BRANCHES | EXPECTED(...) |
- * TOTAL TARGET |(gap)| [oldest period block] | ... | [newest period block]
+ * NO. | BRANCHES | EXPECTED(...) | TOTAL TARGET |(gap)| [oldest period block] ... [newest]
  *
- * EXPECTED and TOTAL TARGET are overwritten in place every push (never
- * shifted). Each push inserts ONE new period block at the RIGHT edge of
- * the period area (newest period rightmost); once there are more than
- * maxPeriods blocks, the oldest block (now at the far left of the
- * period area) is deleted entirely.
+ * EXPECTED and TOTAL TARGET are overwritten in place every push. Each
+ * push inserts ONE new period block at the RIGHT edge; once there are
+ * more than maxPeriods blocks, the oldest block is deleted.
  */
 function handleSalesPush(sheet, sheetJob) {
   var branchNames = sheetJob.branchNames;
   var totalsLabel = (sheetJob.totalsLabel || '').toString().trim().toUpperCase();
-  var expectedHeaders = (sheetJob.expectedHeaders && sheetJob.expectedHeaders.length)
+  var expectedHeaders = (sheetJob.expectedHeaders &amp;&amp; sheetJob.expectedHeaders.length)
     ? sheetJob.expectedHeaders : ['INS', 'COD'];
   var expectedData = sheetJob.expectedData || [];
   var expectedGroupLabel = sheetJob.expectedGroupLabel || 'EXPECTED';
   var totalTargetHeader = sheetJob.totalTargetHeader || 'TOTAL TARGET';
   var totalTargetData = sheetJob.totalTargetData || [];
   var period = sheetJob.period || '';
-  var periodHeaders = (sheetJob.periodHeaders && sheetJob.periodHeaders.length)
+  var periodHeaders = (sheetJob.periodHeaders &amp;&amp; sheetJob.periodHeaders.length)
     ? sheetJob.periodHeaders : ['INS', 'COD', 'CA'];
   var data = sheetJob.data || [];
   var mode = sheetJob.mode || 'insertLeft';
@@ -1827,36 +1890,34 @@ function handleSalesPush(sheet, sheetJob) {
 
   var totalRowIndex = -1;
   if (totalsLabel !== '') {
-    for (var t = 0; t < branchNames.length; t++) {
+    for (var t = 0; t &lt; branchNames.length; t++) {
       if (String(branchNames[t]).trim().toUpperCase() === totalsLabel) {
         totalRowIndex = t;
         break;
       }
     }
   }
-  var totalSheetRow = totalRowIndex >= 0 ? (FIRST_DATA_ROW + totalRowIndex) : -1;
+  var totalSheetRow = totalRowIndex &gt;= 0 ? (FIRST_DATA_ROW + totalRowIndex) : -1;
 
-  // NOTE: "BRANCHES" is written into a MERGED cell spanning ROW_GROUP
-  // and ROW_SUB (see below). A merged range only stores its value in
-  // its top-left cell, so checking ROW_SUB here always reads blank —
-  // that made every push think the sheet was empty and clear() it.
-  // Check ROW_GROUP (the real top-left of the merge) instead.
+  // "BRANCHES" is written into a MERGED cell spanning ROW_GROUP and
+  // ROW_SUB; a merged range only stores its value in its top-left cell,
+  // so the anchor check must read ROW_GROUP.
   var anchorCell = sheet.getRange(ROW_GROUP, BRANCH_COL).getValue();
   var hasAnchor = String(anchorCell).trim() !== '';
 
   function scalarAt(arr, idx) {
     var v = arr[idx];
     if (v === undefined || v === null) return '';
-    if (Array.isArray(v)) return (v[0] !== undefined && v[0] !== null) ? v[0] : '';
+    if (Array.isArray(v)) return (v[0] !== undefined &amp;&amp; v[0] !== null) ? v[0] : '';
     return v;
   }
 
   function buildExpectedRows() {
     var rows = [];
-    for (var i = 0; i < totalRows; i++) {
+    for (var i = 0; i &lt; totalRows; i++) {
       var erow = expectedData[i] || [];
       rows.push(expectedHeaders.map(function (_, c) {
-        return (erow[c] !== undefined && erow[c] !== null) ? erow[c] : '';
+        return (erow[c] !== undefined &amp;&amp; erow[c] !== null) ? erow[c] : '';
       }));
     }
     return rows;
@@ -1864,7 +1925,7 @@ function handleSalesPush(sheet, sheetJob) {
 
   function buildTargetRows() {
     var rows = [];
-    for (var i = 0; i < totalRows; i++) rows.push([scalarAt(totalTargetData, i)]);
+    for (var i = 0; i &lt; totalRows; i++) rows.push([scalarAt(totalTargetData, i)]);
     return rows;
   }
 
@@ -1886,7 +1947,7 @@ function handleSalesPush(sheet, sheetJob) {
 
     var colA = [], colB = [];
     var seq = 0;
-    for (var i = 0; i < totalRows; i++) {
+    for (var i = 0; i &lt; totalRows; i++) {
       if (i === totalRowIndex) {
         colA.push(['']);
       } else {
@@ -1903,7 +1964,7 @@ function handleSalesPush(sheet, sheetJob) {
     sheet.getRange(FIRST_DATA_ROW, TOTAL_TARGET_COL, totalRows, 1)
       .setValues(buildTargetRows()).setNumberFormat('0');
 
-    if (totalSheetRow > 0) {
+    if (totalSheetRow &gt; 0) {
       sheet.getRange(totalSheetRow, INDEX_COL, 1, TOTAL_TARGET_COL - INDEX_COL + 1).setFontWeight('bold');
     }
 
@@ -1911,7 +1972,6 @@ function handleSalesPush(sheet, sheetJob) {
       ROW_GROUP, ROW_SUB, FIRST_DATA_ROW, totalRows, totalSheetRow);
 
   } else {
-    // Overwrite EXPECTED + TOTAL TARGET in place (every push).
     if (expectedData.length) {
       sheet.getRange(FIRST_DATA_ROW, EXPECTED_START_COL, totalRows, expectedHeaders.length)
         .setValues(buildExpectedRows());
@@ -1921,27 +1981,20 @@ function handleSalesPush(sheet, sheetJob) {
         .setValues(buildTargetRows());
     }
 
-    // Insert the new period block at the RIGHT edge of the period area
-    // (newest period rightmost).
     var lastColBeforeInsert = sheet.getLastColumn();
     var newBlockCol = lastColBeforeInsert + 1;
     sheet.insertColumnsAfter(lastColBeforeInsert, blockWidth);
     writeSalesPeriodBlock(sheet, newBlockCol, periodHeaders, period, data,
       ROW_GROUP, ROW_SUB, FIRST_DATA_ROW, totalRows, totalSheetRow);
 
-    // Rolling window: keep only the newest maxPeriods month-blocks —
-    // delete the oldest block (now at the far left of the period area)
-    // if we've exceeded it.
     var periodColsUsed = sheet.getLastColumn() - FIRST_PERIOD_COL + 1;
     var blockCount = Math.round(periodColsUsed / blockWidth);
-    if (blockCount > maxPeriods) {
+    if (blockCount &gt; maxPeriods) {
       var extraBlocks = blockCount - maxPeriods;
       sheet.deleteColumns(FIRST_PERIOD_COL, extraBlocks * blockWidth);
     }
   }
 
-  // Re-paint header colors + grid border from scratch — safe every time,
-  // regardless of what was just inserted/deleted above.
   applySalesStyle(sheet, ROW_GROUP, ROW_SUB, FIRST_DATA_ROW, totalRows,
     INDEX_COL, BRANCH_COL, EXPECTED_START_COL, EXPECTED_END_COL, TOTAL_TARGET_COL, FIRST_PERIOD_COL);
 }
@@ -1967,15 +2020,15 @@ function writeSalesPeriodBlock(sheet, startCol, headers, period, data,
     .setFontWeight('bold');
 
   var padded = [];
-  for (var i = 0; i < totalRows; i++) {
+  for (var i = 0; i &lt; totalRows; i++) {
     var row = data[i] || [];
     var r = row.slice(0, numCols);
-    while (r.length < numCols) r.push('');
+    while (r.length &lt; numCols) r.push('');
     padded.push(r);
   }
   sheet.getRange(firstDataRow, startCol, totalRows, numCols).setValues(padded);
 
-  for (var c = 0; c < numCols; c++) {
+  for (var c = 0; c &lt; numCols; c++) {
     var header = String(headers[c]).toUpperCase();
     var isRate = header.indexOf('RATE') !== -1 ||
       header.indexOf('EFFICIENCY') !== -1 ||
@@ -1984,7 +2037,7 @@ function writeSalesPeriodBlock(sheet, startCol, headers, period, data,
       .setNumberFormat(isRate ? '0"%"' : '0');
   }
 
-  if (totalSheetRow && totalSheetRow > 0) {
+  if (totalSheetRow &amp;&amp; totalSheetRow &gt; 0) {
     sheet.getRange(totalSheetRow, startCol, 1, numCols).setFontWeight('bold');
   }
 }
@@ -1994,25 +2047,14 @@ function writeSalesPeriodBlock(sheet, startCol, headers, period, data,
  * ========================================================================= */
 
 /**
- * Handles a keyed push laid out as (matching the branch's original sheet
- * exactly — no gap column, and the title banner spans NO./BRANCHES/
- * EXPECTED TARGET SERVICE):
- *   Row 1: [sheetTitle merged over NO./BRANCHES/EXPECTED] | [period block] ...
- *   Row 2: NO. | BRANCHES | EXPECTED TARGET SERVICE | SERVICE INCOME STATUS ...
+ * FIXED-COLUMN Service/Labor layout:
+ *   Row 1: [sheetTitle, merged over A:D] | [period 1] | [period 2] | ... | [period N]
+ *   Row 2: NO. | BRANCHES | EXPECTED TARGET SERVICE | (gap) | SERVICE INCOME STATUS | ...
  *
- * EXPECTED TARGET SERVICE is overwritten in place every push (never
- * shifted). Each push inserts ONE new period block (SERVICE INCOME +
- * STATUS) at the RIGHT edge of the period area; once there are more
- * than maxPeriods blocks, the oldest block is deleted entirely — same
- * rolling-window behavior as handleSalesPush.
- *
- * STATUS is written as a LIVE FORMULA (=IF(...)) comparing that period's
- * SERVICE INCOME cell against the fixed EXPECTED TARGET SERVICE cell on
- * the same row — not a plain pushed value. This is written once, when
- * that period's block is first created; later pushes only ever add a
- * brand-new block to the right, so an existing period's STATUS formula
- * is never touched again and keeps recalculating live even if you edit
- * the numbers by hand afterward.
+ * The period area (E onward) is a permanently FIXED bank of `maxPeriods`
+ * slots, built once. Column structure never changes — no insert, no
+ * delete. Each push shifts every slot's VALUES one slot left and writes
+ * the new data into the rightmost slot. STATUS is a live formula.
  */
 function handleServicePush(sheet, sheetJob) {
   var branchNames = sheetJob.branchNames;
@@ -2021,60 +2063,58 @@ function handleServicePush(sheet, sheetJob) {
   var expectedHeader = sheetJob.expectedHeader || 'EXPECTED TARGET SERVICE';
   var expectedData = sheetJob.expectedData || [];
   var period = sheetJob.period || '';
-  var periodHeaders = (sheetJob.periodHeaders && sheetJob.periodHeaders.length)
+  var periodHeaders = (sheetJob.periodHeaders &amp;&amp; sheetJob.periodHeaders.length)
     ? sheetJob.periodHeaders : ['SERVICE INCOME', 'STATUS'];
   var data = sheetJob.data || [];
   var mode = sheetJob.mode || 'insertLeft';
   var maxPeriods = sheetJob.maxPeriods || 3;
 
   var ROW_TITLE = 1, ROW_LABELS = 2, FIRST_DATA_ROW = 3;
-  var INDEX_COL = 1, BRANCH_COL = 2, EXPECTED_COL = 3, FIRST_PERIOD_COL = 4; // no gap column
+  var INDEX_COL = 1, BRANCH_COL = 2, EXPECTED_COL = 3, GAP_COL = 4;
+  var FIRST_PERIOD_COL = 5; // FIXED FOREVER — e.g. columns E:J for maxPeriods=3
   var blockWidth = periodHeaders.length;
   var totalRows = branchNames.length;
 
   var totalRowIndex = -1;
   if (totalsLabel !== '') {
-    for (var t = 0; t < branchNames.length; t++) {
+    for (var t = 0; t &lt; branchNames.length; t++) {
       if (String(branchNames[t]).trim().toUpperCase() === totalsLabel) {
         totalRowIndex = t;
         break;
       }
     }
   }
-  var totalSheetRow = totalRowIndex >= 0 ? (FIRST_DATA_ROW + totalRowIndex) : -1;
+  var totalSheetRow = totalRowIndex &gt;= 0 ? (FIRST_DATA_ROW + totalRowIndex) : -1;
 
   function scalarAt(arr, idx) {
     var v = arr[idx];
     if (v === undefined || v === null) return '';
-    if (Array.isArray(v)) return (v[0] !== undefined && v[0] !== null) ? v[0] : '';
+    if (Array.isArray(v)) return (v[0] !== undefined &amp;&amp; v[0] !== null) ? v[0] : '';
     return v;
   }
   function buildExpectedRows() {
     var rows = [];
-    for (var i = 0; i < totalRows; i++) rows.push([scalarAt(expectedData, i)]);
+    for (var i = 0; i &lt; totalRows; i++) rows.push([scalarAt(expectedData, i)]);
     return rows;
   }
 
-  // Unlike Sales, the sheet title lives in ROW_TITLE (merged over
-  // NO./BRANCHES) and "BRANCHES" itself is a plain, unmerged cell in
-  // ROW_LABELS — so that's the real anchor to check.
+  // The sheet title lives in ROW_TITLE (merged over A:D) and "BRANCHES"
+  // is a plain, unmerged cell in ROW_LABELS — that's the real anchor.
   var anchorCell = sheet.getRange(ROW_LABELS, BRANCH_COL).getValue();
   var hasAnchor = String(anchorCell).trim() !== '';
 
   if (mode === 'overwrite' || !hasAnchor) {
     sheet.clear();
 
-    // Title banner spans NO. / BRANCHES / EXPECTED TARGET SERVICE (3
-    // columns) — matches the branch's original sheet, and lines up
-    // right against the first period block with no gap in between.
-    sheet.getRange(ROW_TITLE, INDEX_COL, 1, 3).merge().setValue(sheetTitle).setFontWeight('bold');
+    sheet.getRange(ROW_TITLE, INDEX_COL, 1, GAP_COL - INDEX_COL + 1)
+      .merge().setValue(sheetTitle).setFontWeight('bold');
     sheet.getRange(ROW_LABELS, INDEX_COL).setValue('NO.').setFontWeight('bold').setHorizontalAlignment('center');
     sheet.getRange(ROW_LABELS, BRANCH_COL).setValue('BRANCHES').setFontWeight('bold');
     sheet.getRange(ROW_LABELS, EXPECTED_COL).setValue(expectedHeader).setFontWeight('bold');
 
     var colA = [], colB = [];
     var seq = 0;
-    for (var i = 0; i < totalRows; i++) {
+    for (var i = 0; i &lt; totalRows; i++) {
       if (i === totalRowIndex) {
         colA.push(['']);
       } else {
@@ -2088,44 +2128,144 @@ function handleServicePush(sheet, sheetJob) {
     sheet.getRange(FIRST_DATA_ROW, EXPECTED_COL, totalRows, 1)
       .setValues(buildExpectedRows()).setNumberFormat('#,##0.00');
 
-    if (totalSheetRow > 0) {
+    if (totalSheetRow &gt; 0) {
       sheet.getRange(totalSheetRow, INDEX_COL, 1, EXPECTED_COL - INDEX_COL + 1).setFontWeight('bold');
     }
 
-    writeServicePeriodBlock(sheet, FIRST_PERIOD_COL, periodHeaders, period, data,
-      ROW_TITLE, ROW_LABELS, FIRST_DATA_ROW, totalRows, totalSheetRow, EXPECTED_COL);
+    ensureServicePeriodStructure(sheet, ROW_TITLE, ROW_LABELS, FIRST_PERIOD_COL, blockWidth, maxPeriods, periodHeaders);
+
+    var lastSlotCol = FIRST_PERIOD_COL + (maxPeriods - 1) * blockWidth;
+    writeServiceSlotData(sheet, lastSlotCol, periodHeaders, period, data,
+      ROW_TITLE, FIRST_DATA_ROW, totalRows, totalSheetRow, EXPECTED_COL);
 
   } else {
-    // Overwrite EXPECTED TARGET SERVICE in place (every push).
     if (expectedData.length) {
       sheet.getRange(FIRST_DATA_ROW, EXPECTED_COL, totalRows, 1).setValues(buildExpectedRows());
     }
 
-    // Insert the new period block at the RIGHT edge of the period area
-    // (newest period rightmost).
-    var lastColBeforeInsert = sheet.getLastColumn();
-    var newBlockCol = lastColBeforeInsert + 1;
-    sheet.insertColumnsAfter(lastColBeforeInsert, blockWidth);
-    writeServicePeriodBlock(sheet, newBlockCol, periodHeaders, period, data,
-      ROW_TITLE, ROW_LABELS, FIRST_DATA_ROW, totalRows, totalSheetRow, EXPECTED_COL);
-
-    // Rolling window: keep only the newest maxPeriods month-blocks.
-    var periodColsUsed = sheet.getLastColumn() - FIRST_PERIOD_COL + 1;
-    var blockCount = Math.round(periodColsUsed / blockWidth);
-    if (blockCount > maxPeriods) {
-      var extraBlocks = blockCount - maxPeriods;
-      sheet.deleteColumns(FIRST_PERIOD_COL, extraBlocks * blockWidth);
+    for (var s = 1; s &lt;= maxPeriods - 1; s++) {
+      var destCol = FIRST_PERIOD_COL + (s - 1) * blockWidth;
+      var srcCol = FIRST_PERIOD_COL + s * blockWidth;
+      shiftServiceSlotLeft(sheet, srcCol, destCol, periodHeaders,
+        ROW_TITLE, FIRST_DATA_ROW, totalRows, totalSheetRow, EXPECTED_COL);
     }
+    var newestSlotCol = FIRST_PERIOD_COL + (maxPeriods - 1) * blockWidth;
+    writeServiceSlotData(sheet, newestSlotCol, periodHeaders, period, data,
+      ROW_TITLE, FIRST_DATA_ROW, totalRows, totalSheetRow, EXPECTED_COL);
   }
 
   applyServiceStyle(sheet, ROW_TITLE, ROW_LABELS, FIRST_DATA_ROW, totalRows,
     INDEX_COL, BRANCH_COL, EXPECTED_COL, FIRST_PERIOD_COL);
 }
 
-/** Converts a 1-based column number to its A1 letter(s) (1 -> "A", 28 -> "AB"). */
+/**
+ * Builds the fixed period-slot bank exactly once: merges the title cell
+ * and writes the sub-headers for every one of the `maxPeriods` slots.
+ */
+function ensureServicePeriodStructure(sheet, titleRow, labelsRow, firstPeriodCol, blockWidth, maxPeriods, headers) {
+  for (var s = 1; s &lt;= maxPeriods; s++) {
+    var col = firstPeriodCol + (s - 1) * blockWidth;
+    sheet.getRange(titleRow, col, 1, blockWidth)
+      .merge().setFontWeight('bold').setHorizontalAlignment('center');
+    sheet.getRange(labelsRow, col, 1, blockWidth)
+      .setValues([headers]).setFontWeight('bold');
+  }
+}
+
+/**
+ * Writes one period's data into an ALREADY-EXISTING fixed slot starting
+ * at `col`: the period title, SERVICE INCOME as a plain number, and
+ * STATUS as a live =IF(...) formula against expectedCol on the same row.
+ */
+function writeServiceSlotData(sheet, col, headers, period, data,
+  titleRow, firstDataRow, totalRows, totalSheetRow, expectedCol) {
+
+  sheet.getRange(titleRow, col).setValue(period);
+
+  var numCols = headers.length;
+  var statusColIndex = -1;
+  for (var h = 0; h &lt; headers.length; h++) {
+    if (String(headers[h]).toUpperCase().indexOf('STATUS') !== -1) { statusColIndex = h; break; }
+  }
+
+  var padded = [];
+  for (var i = 0; i &lt; totalRows; i++) {
+    var row = data[i] || [];
+    var r = row.slice(0, numCols);
+    while (r.length &lt; numCols) r.push('');
+    padded.push(r);
+  }
+
+  for (var c = 0; c &lt; numCols; c++) {
+    if (c === statusColIndex) continue; // written as a formula below
+    var colVals = padded.map(function (r) { return [r[c]]; });
+    sheet.getRange(firstDataRow, col + c, totalRows, 1).setValues(colVals).setNumberFormat('#,##0');
+  }
+
+  if (statusColIndex !== -1 &amp;&amp; expectedCol) {
+    writeServiceStatusFormula(sheet, col, statusColIndex, firstDataRow, totalRows, expectedCol);
+  }
+
+  if (totalSheetRow &amp;&amp; totalSheetRow &gt; 0) {
+    sheet.getRange(totalSheetRow, col, 1, numCols).setFontWeight('bold');
+  }
+}
+
+/**
+ * Copies slot `srcCol`'s current VALUES (period title, SERVICE INCOME)
+ * into slot `destCol`, and rewrites the STATUS formula at destCol. If
+ * the source slot was blank, the destination becomes blank too.
+ */
+function shiftServiceSlotLeft(sheet, srcCol, destCol, headers,
+  titleRow, firstDataRow, totalRows, totalSheetRow, expectedCol) {
+
+  var numCols = headers.length;
+  var statusColIndex = -1;
+  for (var h = 0; h &lt; headers.length; h++) {
+    if (String(headers[h]).toUpperCase().indexOf('STATUS') !== -1) { statusColIndex = h; break; }
+  }
+
+  var titleVal = sheet.getRange(titleRow, srcCol).getValue();
+  sheet.getRange(titleRow, destCol).setValue(titleVal);
+
+  for (var c = 0; c &lt; numCols; c++) {
+    if (c === statusColIndex) continue; // recomputed as a formula below
+    var vals = sheet.getRange(firstDataRow, srcCol + c, totalRows, 1).getValues();
+    sheet.getRange(firstDataRow, destCol + c, totalRows, 1).setValues(vals).setNumberFormat('#,##0');
+  }
+
+  if (statusColIndex !== -1 &amp;&amp; expectedCol) {
+    if (String(titleVal).trim() === '') {
+      sheet.getRange(firstDataRow, destCol + statusColIndex, totalRows, 1).clearContent();
+    } else {
+      writeServiceStatusFormula(sheet, destCol, statusColIndex, firstDataRow, totalRows, expectedCol);
+    }
+  }
+
+  if (totalSheetRow &amp;&amp; totalSheetRow &gt; 0) {
+    sheet.getRange(totalSheetRow, destCol, 1, numCols).setFontWeight('bold');
+  }
+}
+
+/** Writes the live STATUS formula for one slot at `slotCol`. */
+function writeServiceStatusFormula(sheet, slotCol, statusColIndex, firstDataRow, totalRows, expectedCol) {
+  var valueCol = slotCol + statusColIndex - 1; // column immediately before STATUS
+  var valueColLetter = columnToLetter(valueCol);
+  var expectedColLetter = columnToLetter(expectedCol);
+  var statusCol = slotCol + statusColIndex;
+  var formulas = [];
+  for (var i = 0; i &lt; totalRows; i++) {
+    var r = firstDataRow + i;
+    formulas.push(['=IF(' + valueColLetter + r + '="","",IF(' + valueColLetter + r + '&gt;=' +
+      expectedColLetter + r + ',"✓","✗"))']);
+  }
+  sheet.getRange(firstDataRow, statusCol, totalRows, 1).setFormulas(formulas);
+}
+
+/** Converts a 1-based column number to its A1 letter(s) (1 -&gt; "A", 28 -&gt; "AB"). */
 function columnToLetter(column) {
   var letter = '';
-  while (column > 0) {
+  while (column &gt; 0) {
     var rem = (column - 1) % 26;
     letter = String.fromCharCode(65 + rem) + letter;
     column = Math.floor((column - 1) / 26);
@@ -2133,105 +2273,23 @@ function columnToLetter(column) {
   return letter;
 }
 
-/**
- * Writes one period's block (merged period-label cell, SERVICE
- * INCOME/STATUS sub-header row, and data rows) starting at the given
- * column, aligned row-for-row against the branch names in Column B.
- *
- * SERVICE INCOME is written as a plain number (formatted #,##0). STATUS
- * is written as a LIVE FORMULA — =IF(<income cell>="","",IF(<income
- * cell> >= <expectedCol> on the same row, "✓","✗")) — instead of a
- * pushed value, referencing the column that comes right before it in
- * this same block. That keeps STATUS accurate even if someone edits the
- * income or the expected target by hand later, and it's only ever
- * written once (when the block is first created), so a later push never
- * overwrites it — it just adds a new block of its own.
- */
-function writeServicePeriodBlock(sheet, startCol, headers, period, data,
-  titleRow, labelsRow, firstDataRow, totalRows, totalSheetRow, expectedCol) {
-
-  var numCols = headers.length;
-
-  sheet.getRange(titleRow, startCol, 1, numCols)
-    .merge()
-    .setValue(period)
-    .setFontWeight('bold')
-    .setHorizontalAlignment('center');
-
-  sheet.getRange(labelsRow, startCol, 1, numCols)
-    .setValues([headers])
-    .setFontWeight('bold');
-
-  var padded = [];
-  for (var i = 0; i < totalRows; i++) {
-    var row = data[i] || [];
-    var r = row.slice(0, numCols);
-    while (r.length < numCols) r.push('');
-    padded.push(r);
-  }
-
-  var statusColIndex = -1;
-  for (var h = 0; h < headers.length; h++) {
-    if (String(headers[h]).toUpperCase().indexOf('STATUS') !== -1) { statusColIndex = h; break; }
-  }
-
-  for (var c = 0; c < numCols; c++) {
-    if (c === statusColIndex) continue; // written as a formula below, not a plain value
-    var colVals = padded.map(function (r) { return [r[c]]; });
-    sheet.getRange(firstDataRow, startCol + c, totalRows, 1)
-      .setValues(colVals)
-      .setNumberFormat('#,##0');
-  }
-
-  if (statusColIndex !== -1 && expectedCol) {
-    var valueCol = startCol + statusColIndex - 1; // the column immediately before STATUS in this block
-    var valueColLetter = columnToLetter(valueCol);
-    var expectedColLetter = columnToLetter(expectedCol);
-    var statusCol = startCol + statusColIndex;
-    var formulas = [];
-    for (var i = 0; i < totalRows; i++) {
-      var r = firstDataRow + i;
-      formulas.push(['=IF(' + valueColLetter + r + '="","",IF(' + valueColLetter + r + '>=' +
-        expectedColLetter + r + ',"✓","✗"))']);
-    }
-    sheet.getRange(firstDataRow, statusCol, totalRows, 1).setFormulas(formulas);
-  }
-
-  if (totalSheetRow && totalSheetRow > 0) {
-    sheet.getRange(totalSheetRow, startCol, 1, numCols).setFontWeight('bold');
-  }
-}
-
 /* =========================================================================
- * DELETE (undo a wrongly-pushed period)
+ * DELETE (remove a wrongly-pushed period)
  * ========================================================================= */
 
 /**
- * Deletes every column belonging to `period` from `sheet`, regardless of
- * which keyed layout wrote it, and regardless of which direction (left
- * or right) periods have been inserted from. Walks row 1 (labels) and
- * row 2 (sub-headers) together, columns 3+ (Columns A/B are never
- * touched):
- *   - A blank row 1 cell whose row 2 cell also has no value marks a real
- *     gap column between groups/blocks — resets the "current period".
- *   - A blank row 1 cell whose row 2 cell DOES have a value is a merged
- *     continuation cell (periodBlocks/serviceBlocks layout) — keeps the
- *     current period.
- *   - A non-blank row 1 cell starts (or restarts) the current period.
- * Every column whose current period matches (case-insensitively) is
- * collected, grouped into contiguous runs, and the runs are deleted
- * right-to-left so an earlier deletion never shifts a later one's index.
+ * Deletes every column belonging to `period` (metricGrouped and
+ * periodBlocks sheets). With dryRun = true it only counts and deletes
+ * nothing. Columns A/B are never touched.
  * Returns { deletedColumns, runs }.
  */
-function deletePeriodColumns(sheet, period) {
+function deletePeriodColumns(sheet, period, dryRun) {
   var HEADER_ROW_TITLE = 1;
   var HEADER_ROW_LABELS = 2;
-  var FIRST_COL = 3; // Column C — first column after the fixed A/B (and,
-                      // for Sales/Service, any fixed reference columns
-                      // are also to the left of every period column, so
-                      // this is still safe — see function doc above)
+  var FIRST_COL = 3; // Column C — first column after the fixed A/B
+
   var lastCol = sheet.getLastColumn();
-  if (lastCol < FIRST_COL) return { deletedColumns: 0, runs: 0 };
+  if (lastCol &lt; FIRST_COL) return { deletedColumns: 0, runs: 0 };
 
   var width = lastCol - FIRST_COL + 1;
   var titleVals = sheet.getRange(HEADER_ROW_TITLE, FIRST_COL, 1, width).getValues()[0];
@@ -2241,12 +2299,12 @@ function deletePeriodColumns(sheet, period) {
   var currentLabel = '';
   var matchCols = [];
 
-  for (var i = 0; i < titleVals.length; i++) {
+  for (var i = 0; i &lt; titleVals.length; i++) {
     var col = FIRST_COL + i;
     var t = String(titleVals[i]).trim();
     var s = String(subVals[i]).trim();
 
-    if (t === '' && s === '') {
+    if (t === '' &amp;&amp; s === '') {
       currentLabel = ''; // real gap column
       continue;
     }
@@ -2259,7 +2317,7 @@ function deletePeriodColumns(sheet, period) {
   var runs = [];
   var runStart = matchCols[0];
   var runEnd = matchCols[0];
-  for (var k = 1; k < matchCols.length; k++) {
+  for (var k = 1; k &lt; matchCols.length; k++) {
     if (matchCols[k] === runEnd + 1) {
       runEnd = matchCols[k];
     } else {
@@ -2269,6 +2327,8 @@ function deletePeriodColumns(sheet, period) {
     }
   }
   runs.push([runStart, runEnd]);
+
+  if (dryRun) return { deletedColumns: matchCols.length, runs: runs.length };
 
   runs.sort(function (a, b) { return b[0] - a[0]; }); // rightmost run first
   runs.forEach(function (r) {
@@ -2283,28 +2343,29 @@ function deletePeriodColumns(sheet, period) {
  * ========================================================================= */
 
 /**
- * Handles read requests from the dashboard so it can also SHOW what's
- * currently in the Google Sheet, not just push into it.
- *
- *   ?action=list            -> { ok, sheets: ["Tab1","Tab2",...] }
- *   ?action=all             -> { ok, sheets: { "Tab1": [[...]], ... } }
- *   ?action=read&sheet=Tab1 -> { ok, data: [[...]] }
- *   (no action)             -> simple health check, useful for testing
- *                              the deployed URL directly in a browser.
+ *   ?action=list                -&gt; { ok, sheets: ["Tab1","Tab2",...] }
+ *   ?action=all                 -&gt; { ok, sheets: { "Tab1": [[...]], ... } }
+ *   ?action=read&amp;sheet=Tab1     -&gt; { ok, data: [[...]] }
+ *   ?action=undoInfo&amp;sheet=Tab1 -&gt; { ok, undoSupported, available, label, time, wasNew }
+ *   (no action)                 -&gt; simple health check
+ * Hidden "__undo_" backup tabs are never returned by list/all/read.
  */
 function doGet(e) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var action = (e && e.parameter && e.parameter.action) || 'ping';
+  var action = (e &amp;&amp; e.parameter &amp;&amp; e.parameter.action) || 'ping';
 
   try {
     if (action === 'list') {
-      var names = ss.getSheets().map(function (s) { return s.getName(); });
+      var names = ss.getSheets()
+        .map(function (s) { return s.getName(); })
+        .filter(function (n) { return !isUndoSheetName(n); });
       return respond({ ok: true, sheets: names });
     }
 
     if (action === 'all') {
       var out = {};
       ss.getSheets().forEach(function (sh) {
+        if (isUndoSheetName(sh.getName())) return;
         out[sh.getName()] = sh.getDataRange().getDisplayValues();
       });
       return respond({ ok: true, sheets: out });
@@ -2312,13 +2373,29 @@ function doGet(e) {
 
     if (action === 'read') {
       var name = e.parameter.sheet;
+      if (isUndoSheetName(name)) return respond({ ok: false, error: 'Sheet not found: ' + name });
       var sheet = ss.getSheetByName(name);
       if (!sheet) return respond({ ok: false, error: 'Sheet not found: ' + name });
       return respond({ ok: true, data: sheet.getDataRange().getDisplayValues() });
     }
 
+    if (action === 'undoInfo') {
+      var uname = e.parameter.sheet;
+      var meta = getUndoMeta(uname);
+      var backupOk = meta &amp;&amp; (meta.wasNew || !!ss.getSheetByName(undoSheetName(uname)));
+      return respond({
+        ok: true,
+        undoSupported: true,
+        available: !!backupOk,
+        label: backupOk ? meta.label : '',
+        time: backupOk ? meta.time : '',
+        wasNew: backupOk ? !!meta.wasNew : false
+      });
+    }
+
     return respond({
       ok: true,
+      undoSupported: true,
       message: 'Branch Data Updater endpoint is live.',
       sheet: ss.getName()
     });
@@ -2331,7 +2408,8 @@ function respond(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
-}</div>
+}
+</div>
       <button class="copy-btn" onclick="copyCode()">Copy code</button>
 
       <h4>2. Deploy it as a web app</h4>
@@ -2472,7 +2550,10 @@ function markChipLoaded(inputId, filename) {
 
 function openModal(id) {
   document.getElementById(id).classList.add('show');
-  if (id === 'extractModal' || id === 'salesModal' || id === 'repoModal' || id === 'serviceModal') populateConnDropdowns();
+  if (id === 'extractModal' || id === 'salesModal' || id === 'repoModal' || id === 'serviceModal') {
+    populateConnDropdowns();
+    if (typeof refreshUndoState === 'function') refreshUndoState(UNDO_MODAL_KIND[id]);
+  }
 }
 function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
@@ -3491,6 +3572,7 @@ async function pushExtract() {
       statusEl.className = 'push-status ok';
       log('Extracted data pushed successfully → ' + json.results[0].rows + ' rows written to "' + targetName + '".', 'ok');
       loadFromGoogleSheet();
+      refreshAllUndoStates();
     } else {
       throw new Error(json.error || 'Unknown error from script.');
     }
@@ -3711,6 +3793,7 @@ async function pushRepo() {
       statusEl.className = 'push-status ok';
       log('Repo data pushed successfully → ' + json.results[0].rows + ' rows written to "' + targetName + '".', 'ok');
       loadFromGoogleSheet();
+      refreshAllUndoStates();
     } else {
       throw new Error(json.error || 'Unknown error from script.');
     }
@@ -3992,6 +4075,7 @@ async function pushMonthlySales() {
       statusEl.className = 'push-status ok';
       log('Monthly Sales data pushed successfully → ' + json.results[0].rows + ' rows written to "' + targetName + '".', 'ok');
       loadFromGoogleSheet();
+      refreshUndoState('sales');
     } else {
       throw new Error(json.error || 'Unknown error from script.');
     }
@@ -4316,6 +4400,7 @@ async function pushService() {
       log('Service data pushed successfully → ' + json.results[0].rows + ' rows written to "' + targetName + '".', 'ok');
       saveServiceBranchOrder(serviceBranchNames);
       loadFromGoogleSheet();
+      refreshUndoState('service');
     } else {
       throw new Error(json.error || 'Unknown error from script.');
     }
@@ -4325,6 +4410,116 @@ async function pushService() {
     log('Push failed for Service data: ' + err.message, 'err');
   }
 }
+
+// ---------- Undo last push ----------
+// The Apps Script snapshots the target tab before every push; these
+// helpers ask it whether an undo exists and ask it to restore it.
+const UNDO_CONFIG = {
+  extract: { connSel: 'extractTargetConn', tab: () => (document.getElementById('extractTargetName').value.trim() || 'Collection Efficiency'), status: 'status-extract' },
+  sales:   { connSel: 'salesTargetConn',   tab: () => (document.getElementById('salesTargetName').value.trim() || 'Monthly Sales'),            status: 'status-sales' },
+  // Repo always pushes into the Collection Efficiency tab.
+  repo:    { connSel: 'repoTargetConn',    tab: () => 'Collection Efficiency',                                                                  status: 'status-repo' },
+  service: { connSel: 'serviceTargetConn', tab: () => (document.getElementById('serviceTargetName').value.trim() || 'Service'),                 status: 'status-service' }
+};
+const UNDO_MODAL_KIND = { extractModal: 'extract', salesModal: 'sales', repoModal: 'repo', serviceModal: 'service' };
+
+function getUndoTarget(kind) {
+  const cfg = UNDO_CONFIG[kind];
+  const conns = getConnections().filter(c => connCategory(c) !== 'audit');
+  if (!conns.length) return null;
+  const sel = document.getElementById(cfg.connSel);
+  const conn = conns.find(c => c.id === (sel && sel.value)) || conns[0];
+  return { conn: conn, tabName: cfg.tab() };
+}
+
+function setUndoUi(kind, enabled, infoText, warn) {
+  const btn = document.getElementById('undo-' + kind);
+  const info = document.getElementById('undoinfo-' + kind);
+  if (btn) btn.disabled = !enabled;
+  if (info) {
+    info.textContent = infoText || '';
+    info.classList.toggle('warn', !!warn);
+  }
+}
+
+async function refreshUndoState(kind) {
+  const target = getUndoTarget(kind);
+  if (!target) { setUndoUi(kind, false, ''); return; }
+  try {
+    const res = await fetch(target.conn.url + '?action=undoInfo&sheet=' + encodeURIComponent(target.tabName));
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || 'Unknown error');
+    if (!json.undoSupported) {
+      setUndoUi(kind, false, 'Update your Apps Script (paste the new code, then Deploy → New version) to enable Undo.', true);
+      return;
+    }
+    if (json.available) {
+      const when = json.time ? new Date(json.time).toLocaleString() : '';
+      setUndoUi(kind, true, 'Can undo: ' + (json.label || 'last push') + (when ? ' (' + when + ')' : ''));
+    } else {
+      setUndoUi(kind, false, 'Nothing to undo yet.');
+    }
+  } catch (err) {
+    setUndoUi(kind, false, 'Could not check undo state.', true);
+  }
+}
+
+function refreshAllUndoStates() {
+  Object.keys(UNDO_CONFIG).forEach(k => refreshUndoState(k));
+}
+
+async function undoPush(kind) {
+  const cfg = UNDO_CONFIG[kind];
+  const statusEl = document.getElementById(cfg.status);
+  const btn = document.getElementById('undo-' + kind);
+  const target = getUndoTarget(kind);
+  if (!target) {
+    statusEl.textContent = 'Connect a Branch Data sheet first.';
+    statusEl.className = 'push-status err';
+    return;
+  }
+  const ok = window.confirm(
+    'Undo the last push to "' + target.tabName + '" on "' + target.conn.name + '"?\n\n' +
+    'The tab will be restored to exactly how it was before that push. This can only be done once (one level of undo).'
+  );
+  if (!ok) return;
+
+  if (btn) btn.disabled = true;
+  statusEl.textContent = 'Undoing…';
+  statusEl.className = 'push-status';
+  log('Undoing last push to "' + target.tabName + '" on "' + target.conn.name + '"…');
+
+  try {
+    const res = await fetch(target.conn.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'undo', name: target.tabName })
+    });
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || 'Unknown error from script.');
+    statusEl.textContent = 'Undone at ' + new Date().toLocaleTimeString();
+    statusEl.className = 'push-status ok';
+    log('Undid "' + (json.label || 'last push') + '" on "' + target.tabName + '" — sheet restored.', 'ok');
+    await loadFromGoogleSheet();
+  } catch (err) {
+    statusEl.textContent = 'Undo failed: ' + err.message;
+    statusEl.className = 'push-status err';
+    log('Undo failed: ' + err.message, 'err');
+  }
+  refreshAllUndoStates();
+}
+
+// Re-check whenever the target sheet / tab name changes.
+Object.keys(UNDO_CONFIG).forEach(kind => {
+  const cfg = UNDO_CONFIG[kind];
+  const sel = document.getElementById(cfg.connSel);
+  if (sel) sel.addEventListener('change', () => refreshUndoState(kind));
+});
+['extractTargetName', 'salesTargetName', 'serviceTargetName'].forEach(id => {
+  const el = document.getElementById(id);
+  const kind = { extractTargetName: 'extract', salesTargetName: 'sales', serviceTargetName: 'service' }[id];
+  if (el) el.addEventListener('change', () => refreshUndoState(kind));
+});
 
 // Default connection: this Google Apps Script Web app URL is baked in
 // here so the sheet is connected automatically on first load, with no
