@@ -159,6 +159,38 @@ let scorecardSortField="name";let scorecardSortDir="asc";let assignmentSortField
 .stat-compare-line .font-extrabold{margin-left:.15em}
 .col-sub-slot{display:flex;align-items:center;margin-bottom:.5rem}
 @media (min-width:1024px){.col-sub-slot{height:32px;overflow:hidden}}
+.bqs-wrap{position:relative;flex:1 1 auto;max-width:360px;min-width:0}
+.bqs-ico{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none;transition:color .15s}
+.bqs-wrap:focus-within .bqs-ico{color:#0ea5c7}
+.bqs-input{width:100%;box-sizing:border-box;height:34px;padding:0 34px 0 34px;font-size:12.5px;font-weight:600;color:#1e293b;background:#fff;border:1px solid #e2e8f0;border-radius:999px;box-shadow:0 1px 2px rgba(15,23,42,.05);outline:none;transition:border-color .15s,box-shadow .15s,background .15s}
+.bqs-input::placeholder{color:#94a3b8;font-weight:500}
+.bqs-input:hover{border-color:#cbd5e1}
+.bqs-input:focus{border-color:#0ea5c7;box-shadow:0 0 0 4px rgba(14,165,199,.14),0 1px 2px rgba(15,23,42,.05)}
+.bqs-clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);display:none;align-items:center;justify-content:center;width:20px;height:20px;border:0;border-radius:50%;background:#e2e8f0;color:#64748b;cursor:pointer;padding:0;transition:background .15s,color .15s}
+.bqs-clear:hover{background:#cbd5e1;color:#334155}
+.bqs-input:not(:placeholder-shown)~.bqs-clear{display:flex}
+.bqs-panel{position:absolute;left:0;right:0;top:calc(100% + 8px);z-index:60;min-width:280px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 20px 45px rgba(15,23,42,.16),0 2px 6px rgba(15,23,42,.06);overflow:hidden;animation:bqsIn .14s ease-out}
+.bqs-panel.hidden{display:none}
+@keyframes bqsIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.bqs-list{list-style:none;margin:0;padding:6px;max-height:330px;overflow-y:auto}
+.bqs-item{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:11px;cursor:pointer;font-size:12.5px;font-weight:600;color:#334155;transition:background .1s}
+.bqs-item[aria-selected="true"]{background:rgba(14,165,199,.1)}
+.bqs-av{flex:none;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;background:#f1f5f9;color:#64748b}
+.bqs-av.done{background:rgba(5,150,105,.12);color:#059669}
+.bqs-av.audit{background:rgba(217,119,6,.12);color:#d97706}
+.bqs-av.pending{background:rgba(225,29,72,.1);color:#e11d48}
+.bqs-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bqs-item mark{background:none;color:#0e7490;font-weight:800}
+.bqs-pill{flex:none;font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:999px;border:1px solid transparent}
+.bqs-pill.done{background:rgba(5,150,105,.1);color:#059669;border-color:rgba(5,150,105,.2)}
+.bqs-pill.audit{background:rgba(217,119,6,.1);color:#d97706;border-color:rgba(217,119,6,.2)}
+.bqs-pill.pending{background:rgba(225,29,72,.1);color:#e11d48;border-color:rgba(225,29,72,.2)}
+.bqs-empty{padding:16px 12px;font-size:12px;color:#64748b;text-align:center}
+.bqs-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 14px;border-top:1px solid #eef2f7;background:#f8fafc;font-size:10.5px;color:#94a3b8;font-weight:600}
+.bqs-foot:empty{display:none}
+.bqs-foot button{border:0;background:none;cursor:pointer;font-size:11px;font-weight:800;color:#0e7490;padding:0}
+.bqs-foot button:hover{text-decoration:underline}
+@media (max-width:639px){.bqs-wrap{max-width:none}}
 </style>
 </head>
 <body class="bg-coolDark text-slate-800 min-h-screen selection:bg-accentCyan/30 selection:text-slate-900 relative">
@@ -958,8 +990,17 @@ let scorecardSortField="name";let scorecardSortDir="asc";let assignmentSortField
   </aside>
   <main class="dash-container mt-4 space-y-4">
     <div id="overviewHeaderRow" class="flex items-center justify-between flex-wrap gap-2">
-      <div class="flex items-center gap-2">
-        <h2 class="text-sm sm:text-base font-bold text-slate-900 tracking-tight">Branch Performance</h2>
+      <div class="flex items-center gap-3 flex-1 min-w-[230px]">
+        <h2 class="text-sm sm:text-base font-bold text-slate-900 tracking-tight shrink-0">Branch Performance</h2>
+        <div id="branchQuickSearch" class="bqs-wrap">
+          <svg class="bqs-ico" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
+          <input id="branchQuickSearchInput" type="text" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="branchQuickSearchList" aria-label="Search a branch" placeholder="Search branch…" class="bqs-input">
+          <button type="button" id="branchQuickSearchClear" class="bqs-clear" aria-label="Clear search" tabindex="-1"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+          <div id="branchQuickSearchPanel" class="bqs-panel hidden">
+            <ul id="branchQuickSearchList" role="listbox" class="bqs-list"></ul>
+            <div id="branchQuickSearchFoot" class="bqs-foot"></div>
+          </div>
+        </div>
       </div>
       <div id="liveDateTime" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-label="Show calendar" class="relative flex items-center gap-1.5 leading-tight px-2.5 py-1 rounded-xl bg-coolCard border border-coolBorder shadow-sm whitespace-nowrap self-center cursor-pointer select-none">
         <span id="liveTimeText" class="text-xs sm:text-sm font-extrabold text-slate-900 tabular-nums tracking-tight">--:--:--</span>
@@ -3818,4 +3859,97 @@ const CONNECTION_STATUS_FRESH_MS=60e3;function connectionStatusStale_(id,now){co
   }
 }
 </style>
+<script id="branchQuickSearchScript">
+(function(){
+  function init(){
+    var input=document.getElementById("branchQuickSearchInput");
+    var panel=document.getElementById("branchQuickSearchPanel");
+    var list=document.getElementById("branchQuickSearchList");
+    var foot=document.getElementById("branchQuickSearchFoot");
+    if(!input||!panel||!list||!foot)return;
+    var matches=[],active=-1,rawQuery="";
+    var norm=function(v){return String(v==null?"":v).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,"")};
+    var esc=function(v){return String(v==null?"":v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")};
+    var allBranches=function(){try{return(activeData&&activeData.branches)||[]}catch(e){return[]}};
+    function compute(q){
+      var nq=norm(q);if(!nq)return[];
+      var out=[];
+      allBranches().forEach(function(b){var n=norm(b.name);var i=n.indexOf(nq);if(i!==-1)out.push({b:b,rank:i===0?0:1,idx:i})});
+      out.sort(function(a,c){return a.rank-c.rank||a.idx-c.idx||String(a.b.name).localeCompare(String(c.b.name))});
+      return out.map(function(o){return o.b});
+    }
+    function stCls(b){var st=String(b.auditStatus||"").toUpperCase();return st==="DONE"?"done":st==="FOR AUDIT"?"audit":st==="PENDING"?"pending":""}
+    function pill(b){
+      var st=String(b.auditStatus||"").toUpperCase();
+      var cls=stCls(b);
+      return st?'<span class="bqs-pill '+cls+'">'+esc(st)+'</span>':"";
+    }
+    function hl(name,q){
+      var i=String(name).toLowerCase().indexOf(String(q).trim().toLowerCase());
+      if(i===-1||!q.trim())return esc(name);
+      var n=q.trim().length;
+      return esc(name.slice(0,i))+"<mark>"+esc(name.slice(i,i+n))+"</mark>"+esc(name.slice(i+n));
+    }
+    function close(){panel.classList.add("hidden");input.setAttribute("aria-expanded","false");active=-1}
+    function setActive(i){
+      active=i;
+      Array.prototype.forEach.call(list.children,function(li,k){
+        var on=k===i;li.setAttribute("aria-selected",on?"true":"false");
+        if(on&&li.scrollIntoView)li.scrollIntoView({block:"nearest"});
+      });
+    }
+    function render(){
+      rawQuery=input.value;
+      if(!norm(rawQuery)){close();return}
+      matches=compute(rawQuery);
+      var shown=matches.slice(0,8);
+      if(!shown.length){
+        list.innerHTML='<li class="bqs-empty">No branch matches \u201c'+esc(rawQuery.trim())+'\u201d.</li>';
+        foot.innerHTML="";
+      }else{
+        list.innerHTML=shown.map(function(b,i){
+          return '<li class="bqs-item" role="option" id="bqs-opt-'+i+'" data-i="'+i+'" aria-selected="false"><span class="bqs-av '+stCls(b)+'">'+esc(String(b.name||"?").charAt(0).toUpperCase())+'</span><span class="bqs-name">'+hl(b.name,rawQuery)+'</span>'+pill(b)+'</li>';
+        }).join("");
+        foot.innerHTML='<span>Enter opens profile</span><button type="button" data-bqs="scorecard">Show '+matches.length+' in Scorecard \u2193</button>';
+      }
+      panel.classList.remove("hidden");
+      input.setAttribute("aria-expanded","true");
+      setActive(shown.length?0:-1);
+    }
+    function openProfile(b){
+      if(!b)return;
+      close();input.blur();
+      if(typeof openModalDetail==="function")openModalDetail(b.name);
+    }
+    function showInScorecard(){
+      var ts=document.getElementById("tableSearch");
+      var sec=document.getElementById("section-scorecard");
+      if(ts){ts.value=rawQuery.trim();if(typeof renderScorecardTable==="function")renderScorecardTable()}
+      close();input.blur();
+      if(sec&&sec.scrollIntoView)sec.scrollIntoView({behavior:"smooth",block:"start"});
+    }
+    input.addEventListener("input",render);
+    input.addEventListener("focus",function(){if(norm(input.value))render()});
+    input.addEventListener("keydown",function(e){
+      var n=Math.min(matches.length,8);
+      if(e.key==="ArrowDown"){e.preventDefault();if(panel.classList.contains("hidden"))render();else if(n)setActive((active+1)%n)}
+      else if(e.key==="ArrowUp"){e.preventDefault();if(n)setActive((active-1+n)%n)}
+      else if(e.key==="Enter"){e.preventDefault();if(e.shiftKey){showInScorecard()}else if(matches.length){openProfile(matches[active>=0?active:0])}}
+      else if(e.key==="Escape"){if(input.value){input.value="";}close();input.blur()}
+    });
+    list.addEventListener("mousemove",function(e){var li=e.target.closest&&e.target.closest(".bqs-item");if(li)setActive(Number(li.getAttribute("data-i")))});
+    list.addEventListener("mousedown",function(e){e.preventDefault()});
+    list.addEventListener("click",function(e){var li=e.target.closest&&e.target.closest(".bqs-item");if(li)openProfile(matches[Number(li.getAttribute("data-i"))])});
+    foot.addEventListener("mousedown",function(e){e.preventDefault()});
+    foot.addEventListener("click",function(e){if(e.target.closest&&e.target.closest('[data-bqs="scorecard"]'))showInScorecard()});
+    document.addEventListener("click",function(e){if(!e.target.closest||!e.target.closest("#branchQuickSearch"))close()});
+    var clearBtn=document.getElementById("branchQuickSearchClear");
+    if(clearBtn){
+      clearBtn.addEventListener("mousedown",function(e){e.preventDefault()});
+      clearBtn.addEventListener("click",function(){input.value="";close();input.focus()});
+    }
+  }
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init();
+})();
+</script>
 </body></html>
