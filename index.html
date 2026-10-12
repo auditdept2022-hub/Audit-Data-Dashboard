@@ -3967,4 +3967,95 @@ const CONNECTION_STATUS_FRESH_MS=60e3;function connectionStatusStale_(id,now){co
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init();
 })();
 </script>
+<script id="modal-state-restore">
+/* Popup "remember where I was": when a popup navigates forward (e.g. list -> branch profile),
+   its live DOM, scroll positions and filter state are kept in memory (this device/tab only).
+   Pressing Back puts it back exactly as left instead of rebuilding it from scratch. */
+(function(){
+  var GLOBAL_KEYS=["modalFilterState","modalMonthlyOpen","findingsModalSort","findingsModalSearch","findingsModalStatusFilter","findingsModalCategories","_findingsCategoryDraft","findingsModalState","accountsModalSort","accountsModalSearch","assignmentFilterState","assignmentStatusDropdownOpen","auditScheduleFilterRange","auditScheduleSearchQuery","auditScheduleAuditorFilter","auditScheduleSortOption","auditScheduleRoundFilter","editAssignStaged","editAssignCurrentBranch"];
+  var BTN_IDS=["modalEditAssignBtn","modalAddFindingBtn","modalPickerBtn","modalAnalysisSettingsBtn"];
+  var SCROLL_SELECTORS=["#modalBody",".mv-scroll","#modalTableContainer","#overallDataScrollBox","#auditScheduleCards",".aaq-body"];
+
+  function stash(){
+    var body=document.getElementById("modalBody");
+    if(!body)return null;
+    var wrap=document.querySelector("#dataModal > div.overflow-y-auto");
+    var scrolls=[[body,body.scrollTop,body.scrollLeft]];
+    if(wrap)scrolls.push([wrap,wrap.scrollTop,wrap.scrollLeft]);
+    body.querySelectorAll("*").forEach(function(el){
+      if(el.scrollTop>0||el.scrollLeft>0)scrolls.push([el,el.scrollTop,el.scrollLeft]);
+    });
+    var sel={};
+    SCROLL_SELECTORS.forEach(function(s){var el=document.querySelector("#dataModal "+s)||(s==="#modalBody"?body:null);if(el)sel[s]=el.scrollTop});
+    var frag=document.createDocumentFragment();
+    while(body.firstChild)frag.appendChild(body.firstChild);
+    var globals={};
+    GLOBAL_KEYS.forEach(function(k){if(k in window)globals[k]=window[k]});
+    var btns={};
+    BTN_IDS.forEach(function(id){var b=document.getElementById(id);if(b)btns[id]=b.classList.contains("hidden")});
+    var s={data:activeData,frag:frag,scrolls:scrolls,sel:sel,globals:globals,btns:btns,bodyClass:body.className};
+    try{s.sortField=assignmentSortField;s.sortDir=assignmentSortDir}catch(e){}
+    try{s.editBranch=headerEditAssignBranch}catch(e){}
+    return s;
+  }
+
+  function applyScrolls(s){
+    s.scrolls.forEach(function(r){try{r[0].scrollTop=r[1];r[0].scrollLeft=r[2]}catch(e){}});
+  }
+
+  function restore(prev,s){
+    var body=document.getElementById("modalBody");
+    var titleEl=document.getElementById("modalTitle");
+    body.innerHTML="";
+    body.className=s.bodyClass;
+    body.appendChild(s.frag);
+    if(titleEl){titleEl.innerHTML=prev.title;titleEl.title=titleEl.textContent}
+    Object.keys(s.globals).forEach(function(k){window[k]=s.globals[k]});
+    try{if(s.sortField!==undefined){assignmentSortField=s.sortField;assignmentSortDir=s.sortDir}}catch(e){}
+    try{if(s.editBranch!==undefined)headerEditAssignBranch=s.editBranch}catch(e){}
+    Object.keys(s.btns).forEach(function(id){var b=document.getElementById(id);if(b)b.classList.toggle("hidden",s.btns[id])});
+    delete prev.__stash;
+    modalCurrentState=prev;
+    updateModalBackButton();
+    applyScrolls(s);
+    requestAnimationFrame(function(){applyScrolls(s);requestAnimationFrame(function(){applyScrolls(s)})});
+  }
+
+  var _open=openModal;
+  openModal=function(title,type,filterValue,navOpts){
+    if(!(navOpts&&navOpts.fromBack)){
+      var el=document.getElementById("dataModal");
+      var isOpen=el&&!el.classList.contains("hidden");
+      if(isOpen&&modalCurrentState){
+        try{modalCurrentState.__stash=stash()}catch(e){console.warn("Popup state save failed:",e)}
+      }
+    }
+    return _open.apply(this,arguments);
+  };
+
+  var _back=modalGoBack;
+  modalGoBack=function(){
+    if(!modalHistory.length)return;
+    var prev=modalHistory[modalHistory.length-1];
+    var s=prev.__stash;
+    if(s&&s.data===activeData){
+      modalHistory.pop();
+      restore(prev,s);
+      return;
+    }
+    /* Data was refreshed while away: rebuild with fresh data, but keep the scroll spot. */
+    _back();
+    if(s){
+      var apply=function(){
+        SCROLL_SELECTORS.forEach(function(sl){
+          if(s.sel[sl]==null)return;
+          var el=document.querySelector("#dataModal "+sl)||(sl==="#modalBody"?document.getElementById("modalBody"):null);
+          if(el)el.scrollTop=s.sel[sl];
+        });
+      };
+      apply();requestAnimationFrame(function(){apply();requestAnimationFrame(apply)});
+    }
+  };
+})();
+</script>
 </body></html>
