@@ -3787,16 +3787,17 @@ const CONNECTION_STATUS_FRESH_MS=60e3;function connectionStatusStale_(id,now){co
 }
 </style>
 <style id="detail-profile-keep-header">
-/* Detailed Profile popup: start the overlay BELOW the app header so the header stays visible and undimmed. */
-#dataModal.detail-profile-modal-open{top:var(--detail-profile-header-height,0px)!important;bottom:0!important}
-#dataModal.detail-profile-modal-open #modalDialog{height:min(90dvh,calc(100dvh - var(--detail-profile-header-height,0px) - 1.5rem))!important;max-height:calc(100dvh - var(--detail-profile-header-height,0px) - 1.5rem)!important}
-#dataModal.detail-profile-modal-open #modalDialog.modal-fullscreen{top:var(--detail-profile-header-height,0px)!important;height:calc(100dvh - var(--detail-profile-header-height,0px))!important;max-height:calc(100dvh - var(--detail-profile-header-height,0px))!important}
-@media (max-width:767px){#dataModal.detail-profile-modal-open #modalDialog{top:var(--detail-profile-header-height,0px)!important;height:calc(100dvh - var(--detail-profile-header-height,0px))!important;max-height:calc(100dvh - var(--detail-profile-header-height,0px))!important}}
-/* Header stays on top of anything else (e.g. the risk popup behind the profile) and is not clickable while the popup is open. */
-body:has(#dataModal.detail-profile-modal-open:not(.hidden)){padding-top:var(--detail-profile-header-height,0px)!important}
-body:has(#dataModal.detail-profile-modal-open:not(.hidden))>header{position:fixed!important;top:0!important;left:0!important;right:0!important;width:100%!important;z-index:99998!important;pointer-events:none}
-body:has(#dataModal.detail-profile-modal-open:not(.hidden)) #branchRiskPopup{top:var(--detail-profile-header-height,0px)!important}
+/* ALL popups: while any popup locks page scroll (body overflow hidden), keep the app header pinned at the top,
+   showing dimmed behind the overlay. Without this the sticky header scrolls out of view and "disappears". */
+:root{--app-header-h:0px}
+body[style*="overflow: hidden"]{padding-top:var(--app-header-h)!important}
+body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;left:0!important;right:0!important;width:100%!important}
 </style>
+<script id="app-header-height-sync">
+(function(){function m(){var h=document.querySelector("body > header");if(!h)return;if(getComputedStyle(h).position==="fixed"&&document.body.style.overflow==="hidden")return;var v=Math.ceil(h.getBoundingClientRect().height);if(v>0)document.documentElement.style.setProperty("--app-header-h",v+"px")}
+function init(){m();var h=document.querySelector("body > header");if(h&&window.ResizeObserver)new ResizeObserver(m).observe(h);window.addEventListener("resize",m);window.addEventListener("orientationchange",m)}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init()})();
+</script>
 <style id="repeat-issues-mobile-scroll-v99">
 /* Mobile scroll fix: unlock vertical touch scrolling inside repeat-issue lists and branch detail content.
    Keep the page behind the modal locked, while giving the visible panel its own native scroll area. */
