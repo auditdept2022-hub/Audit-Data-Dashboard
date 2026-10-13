@@ -1,7 +1,8 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
 // v106: app header stays pinned (dimmed behind the overlay) while ANY popup is open.
-const CACHE_VERSION = 'audit-dashboard-v107'
+const CACHE_VERSION = 'audit-dashboard-v108'
+// v108: prevents close-animation races that left mobile popups visually open/closed out of sync.
 // v103: keeps the main dashboard header visible above the Detailed Profile popup on the scorecard.
 // v102: stable background refresh avoids dashboard flicker; pairs with reliable Overall Data header merging.
 // v101: manual Update Data verifies live sheet contents even when Drive modified-time is stale.
