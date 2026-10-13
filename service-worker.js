@@ -1,7 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
 // v106: app header stays pinned (dimmed behind the overlay) while ANY popup is open.
-const CACHE_VERSION = 'audit-dashboard-v108'
+const CACHE_VERSION = 'audit-dashboard-v109'
 // v108: prevents close-animation races that left mobile popups visually open/closed out of sync.
 // v103: keeps the main dashboard header visible above the Detailed Profile popup on the scorecard.
 // v102: stable background refresh avoids dashboard flicker; pairs with reliable Overall Data header merging.
@@ -9,6 +9,7 @@ const CACHE_VERSION = 'audit-dashboard-v108'
 // v100: mobile branch scorecard names are left-aligned; preserves v99 touch-scrolling fixes.
 // v98: repeat-issues popup lists all branches, reuses branch-detail analysis, and reduces unnecessary re-render work.
 // v93: stable reveal visibility, mobile drawer sizing, and fewer redundant SW update checks.
+// v109: popup open/close no longer shifts the dashboard cards (scrollbar gutter, scroll restore, no hover lift on touch).
 // v92: reduces avoidable background traffic (deferred Findings warm-up, 30 s My Devices modal refresh, 10 s server-side sheet-version memo).
 // v91: removes the external portfolio-risk status card and clarifies the average branch risk index label.
 // v89: protects pending shared rating-rule saves from stale background polling; syncs all scoring caps and retries after version conflicts.
