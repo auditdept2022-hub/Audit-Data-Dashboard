@@ -1,6 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v101'
+const CACHE_VERSION = 'audit-dashboard-v102'
+// v102: stable background refresh avoids dashboard flicker; pairs with reliable Overall Data header merging.
 // v101: manual Update Data verifies live sheet contents even when Drive modified-time is stale.
 // v100: mobile branch scorecard names are left-aligned; preserves v99 touch-scrolling fixes.
 // v98: repeat-issues popup lists all branches, reuses branch-detail analysis, and reduces unnecessary re-render work.
