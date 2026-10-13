@@ -161,30 +161,6 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
       #sideMenu, #menuOverlay { transition: none !important; }
     }
   </style>
-<style id="modal-shift-fix-v94">
-    /* Keep the page width the same when a popup locks/unlocks page scrolling.
-       Without this, the scrollbar appearing/disappearing re-wraps the stat cards. */
-    html { scrollbar-gutter: stable; }
-
-    /* Touch screens keep :hover "stuck" after a tap, so the tapped card stays lifted
-       and drops/rises again when a popup opens and closes. No hover lift on touch. */
-    @media (hover: none) {
-      .bg-coolCard:hover, .dash-card-accent:hover,
-      .hover\:-translate-y-1:hover, .hover\:-translate-y-0\.5:hover {
-        transform: none !important;
-      }
-    }
-
-    /* While a popup is open, freeze the cards behind it so they cannot animate. */
-    body.overlay-open .dash-container,
-    body.overlay-open .dash-container * {
-      transition: none !important;
-    }
-    body.overlay-open .dash-container .bg-coolCard,
-    body.overlay-open .dash-container .dash-card-accent {
-      transform: none !important;
-    }
-  </style>
 <style id="statCompareFitStyle">
 .stat-compare-cell{container-type:inline-size;min-width:0}
 .stat-compare-line{white-space:nowrap;font-size:clamp(8px,7cqw,14px);line-height:1.35;letter-spacing:0}
@@ -3818,9 +3794,33 @@ body[style*="overflow: hidden"]{padding-top:var(--app-header-h)!important}
 body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;left:0!important;right:0!important;width:100%!important}
 </style>
 <script id="app-header-height-sync">
-(function(){function m(){var h=document.querySelector("body > header");if(!h)return;if(getComputedStyle(h).position==="fixed"&&document.body.style.overflow==="hidden")return;var v=Math.ceil(h.getBoundingClientRect().height);if(v>0)document.documentElement.style.setProperty("--app-header-h",v+"px")}
-function init(){m();var h=document.querySelector("body > header");if(h&&window.ResizeObserver)new ResizeObserver(m).observe(h);window.addEventListener("resize",m);window.addEventListener("orientationchange",m)}
-if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init()})();
+(function(){
+  /* Keeps --app-header-h equal to the real header height. The popup lock turns the header
+     position:fixed and uses this value as body padding-top so nothing jumps. It must be measured
+     even while the header is fixed (the old version skipped that and stayed at 0px). */
+  var root=document.documentElement;
+  function m(){
+    var h=document.querySelector("body > header");
+    if(!h)return;
+    var v=Math.ceil(h.offsetHeight);
+    if(v>0&&root.style.getPropertyValue("--app-header-h")!==v+"px")root.style.setProperty("--app-header-h",v+"px");
+  }
+  function init(){
+    m();
+    var h=document.querySelector("body > header");
+    if(h&&window.ResizeObserver)new ResizeObserver(m).observe(h);
+    window.addEventListener("resize",m);
+    window.addEventListener("orientationchange",m);
+    window.addEventListener("load",m);
+    /* Re-measure right before any popup can open (runs before the card's own click handler). */
+    document.addEventListener("pointerdown",m,true);
+    document.addEventListener("click",m,true);
+    document.addEventListener("keydown",m,true);
+    if(document.fonts&&document.fonts.ready)document.fonts.ready.then(m);
+    setTimeout(m,500);setTimeout(m,2000);
+  }
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init();
+})();
 </script>
 <style id="repeat-issues-mobile-scroll-v99">
 /* Mobile scroll fix: unlock vertical touch scrolling inside repeat-issue lists and branch detail content.
@@ -4113,58 +4113,4 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
   #dataModal #modalDialog { height: 100dvh !important; max-height: 100dvh !important; }
 }
 </style>
-<script id="modal-shift-fix-v94-js">
-(function () {
-  /* Remember the page scroll position while a popup is open and put it back
-     instantly on close (html has scroll-behavior:smooth, which would otherwise
-     animate the page up and down when overflow is toggled). */
-  var de = document.documentElement;
-  var lastY = window.pageYOffset || 0;
-  var locked = false, lockY = 0;
-
-  function anyOpen() {
-    var dm = document.getElementById('dataModal');
-    if (dm && !dm.classList.contains('hidden')) return true;
-    return !!document.getElementById('branchRiskPopup');
-  }
-  function jump(y) {
-    var prev = de.style.scrollBehavior;
-    de.style.scrollBehavior = 'auto';
-    window.scrollTo(0, y);
-    de.style.scrollBehavior = prev;
-  }
-  function sync() {
-    var open = anyOpen();
-    if (open && !locked) {
-      locked = true;
-      lockY = lastY;
-      document.body.classList.add('overlay-open');
-    } else if (!open && locked) {
-      locked = false;
-      document.body.classList.remove('overlay-open');
-      if (Math.abs((window.pageYOffset || 0) - lockY) > 1) jump(lockY);
-    }
-  }
-  window.addEventListener('scroll', function () {
-    var y = window.pageYOffset || 0;
-    if (locked && anyOpen()) {
-      if (Math.abs(y - lockY) > 1) jump(lockY);
-    } else if (locked) {
-      sync();
-    } else {
-      lastY = y;
-    }
-  }, { passive: true });
-
-  function start() {
-    var mo = new MutationObserver(sync);
-    var dm = document.getElementById('dataModal');
-    if (dm) mo.observe(dm, { attributes: true, attributeFilter: ['class'] });
-    mo.observe(document.body, { childList: true });
-    sync();
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
-  else start();
-})();
-</script>
 </body></html>
