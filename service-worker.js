@@ -1,7 +1,12 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
 // v106: app header stays pinned (dimmed behind the overlay) while ANY popup is open.
-const CACHE_VERSION = 'audit-dashboard-v110'
+const CACHE_VERSION = 'audit-dashboard-v115'
+// v115: print only on-screen visible table rows/columns and current visible panels; keep wide prints readable.
+// v114: print only currently visible/filtered modal content, split wide tables into readable column groups, fix print widths, and add Service month filtering to Overall Data Snapshot.
+// v113: adds Collection/Sales metric filtering in Overall Data Snapshot, keeps filtered current-view exports aligned, and ensures the consolidated report uses refreshed dashboard data.
+// v112: completes Download Report coverage for Overall Data, risk/scheduling summaries, emergency rotation, and branch-detail exports; refreshes Overall Data before the consolidated report.
+// v111: repairs print layout and consistent Excel/Word/PDF export formatting without changing dashboard data or workflows.
 // v110: fixes Audit Risk & Schedule Analysis popups that opened behind the modal / swallowed taps on mobile; restores page scroll after closing.
 // v108: prevents close-animation races that left mobile popups visually open/closed out of sync.
 // v103: keeps the main dashboard header visible above the Detailed Profile popup on the scorecard.
