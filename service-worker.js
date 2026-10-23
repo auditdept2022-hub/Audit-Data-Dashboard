@@ -1,7 +1,8 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
 // v106: app header stays pinned (dimmed behind the overlay) while ANY popup is open.
-const CACHE_VERSION = 'audit-dashboard-v120'
+const CACHE_VERSION = 'audit-dashboard-v121'
+// v121: maps dashboard Audit Status to the NEXT ENGAGEMENT header, with legacy-header fallback.
 // v120: repairs auditor assignment header resolution when merged rotation headers export blank cells; prefers explicit auditor headers and safely falls back to the paired date column.
 // v118: one consolidated print stylesheet (no grey body band, icons no longer balloon, ID-scoped popup styling kept), Ctrl+P no longer prints a blank page, and print buttons added to the branch risk popup, Top Findings popups and score-factor popup.
 // v117: repairs print rendering, preserves sortable table header text, adds print actions to content popups including audit findings.
