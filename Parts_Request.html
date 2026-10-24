@@ -1119,11 +1119,22 @@ async function readApiResponse(res){
   if (!res.ok) throw new Error(data.error || ('Server request failed (' + res.status + ').'));
   return data;
 }
-async function apiGet(){
+async function apiGet(action, sinceRevision){
+  action = action || 'getAll';
   const separator = WEB_APP_URL.indexOf('?') === -1 ? '?' : '&';
-  const url = WEB_APP_URL + separator + 'action=getAll&_=' + Date.now();
-  const res = await fetch(url, { cache: 'no-store' });
-  return readApiResponse(res);
+  const attempts = 4;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const sincePart = (sinceRevision !== undefined && sinceRevision !== null) ? '&since=' + encodeURIComponent(String(sinceRevision)) : '';
+    const url = WEB_APP_URL + separator + 'action=' + encodeURIComponent(action) + sincePart + '&_=' + Date.now() + '-' + attempt;
+    const res = await fetch(url, { cache: 'no-store' });
+    const data = await readApiResponse(res);
+    if (!data || !data.busy) return data;
+    // A write was in progress while this snapshot was being read. Retry rather
+    // than showing a half-written group or a mixture of old/new history rows.
+    const waitMs = Math.max(250, Math.min(1200, Number(data.retryAfterMs) || 500));
+    await new Promise(resolve => setTimeout(resolve, waitMs));
+  }
+  throw new Error('The sheet is saving another request. Please refresh again in a moment.');
 }
 async function apiPost(payload){
   const res = await fetch(WEB_APP_URL, {
@@ -1137,16 +1148,45 @@ async function apiPost(payload){
   return data;
 }
 
+function collectCachedImages(state){
+  const map = {};
+  const add = r => {
+    if (r && r.id != null && r.image) map[String(r.id)] = { image: r.image, imageName: r.imageName || '' };
+  };
+  Object.values((state && state.requestsByUser) || {}).forEach(list => (list || []).forEach(add));
+  Object.values((state && state.requestGroupsByUser) || {}).forEach(groups => (groups || []).forEach(g => (g.items || []).forEach(add)));
+  return map;
+}
+
+function retainCachedImages(incoming){
+  if (!incoming || !incoming.syncOnly) return incoming;
+  const images = collectCachedImages(STATE);
+  const apply = r => {
+    if (!r || r.id == null || r.image) return;
+    const cached = images[String(r.id)];
+    if (cached) { r.image = cached.image; r.imageName = cached.imageName; }
+  };
+  Object.values(incoming.requestsByUser || {}).forEach(list => (list || []).forEach(apply));
+  Object.values(incoming.requestGroupsByUser || {}).forEach(groups => (groups || []).forEach(g => (g.items || []).forEach(apply)));
+  return incoming;
+}
+
+function isOlderSnapshot(incoming){
+  const next = Number(incoming && incoming.revision) || 0;
+  const current = Number(STATE && STATE.revision) || 0;
+  return next > 0 && current > 0 && next < current;
+}
+
 let loadAllInFlight = null;
 async function loadAll(){
   if (!WEB_APP_URL) { setConnStatus(false); return; }
   if (loadAllInFlight) return loadAllInFlight;
   loadAllInFlight = (async function(){
     try {
-      const data = await apiGet();
+      const data = await apiGet('getAll');
       if (data.error) throw new Error(data.error);
       if (!Array.isArray(data.users)) throw new Error('The sheet response is missing the employee list.');
-      STATE = data;
+      if (!isOlderSnapshot(data)) STATE = data;
       setConnStatus(true);
       if (selectedUser && !STATE.users.find(u => u.key === selectedUser)) selectedUser = null;
       renderEmployeeCards();
@@ -1839,6 +1879,7 @@ function startNewRequest(){
   editingRecordId = null;
   editingGroupIds = null;
   editingGroupBatchId = null;
+  editingGroupOriginal = [];
   setEditModeUI(false);
   setType('PARTS');
   clearItemFields();
@@ -1889,6 +1930,9 @@ function editGroup(g){
   lastSubmittedBatch = [];
   editingRecordId = null;
   editingGroupBatchId = g.batchId || (g.items[0] && g.items[0].batchId) || null;
+  // Preserve the raw server values (especially ISO dates) as the concurrency
+  // baseline. The editable copy below may display dates in MM/DD/YYYY form.
+  editingGroupOriginal = (g.items || []).map(it => ({ ...it }));
   // FIX (date format): dates coming back from the sheet are ISO
   // (YYYY-MM-DD). Converting them to MM/DD/YYYY here means the item list
   // and the date field show the same format the person actually types in,
@@ -1917,8 +1961,9 @@ async function saveEditedRecord(){
   try {
     const result = await apiPost({ action: 'updateRequest', id: editingRecordId, fields: entry });
     if (result.error) throw new Error(result.error);
-    msg.textContent = 'Request updated.'; msg.className = 'msg ok';
-    showToast('Saved changes to the sheet.');
+    msg.textContent = result.historyWarning ? 'Request saved, but History needs attention.' : 'Request updated.'; msg.className = result.historyWarning ? 'msg err' : 'msg ok';
+    if (result.historyWarning) showToast('Request saved. History update warning: ' + result.historyWarning, true);
+    else showToast('Saved changes to the sheet.');
     editingRecordId = null;
     setEditModeUI(false);
     clearItemFields();
@@ -1983,20 +2028,45 @@ async function saveEditedGroup(){
     return payload;
   });
 
+  const expectedById = {};
+  (editingGroupOriginal || []).forEach(item => {
+    if (item.id == null) return;
+    expectedById[String(item.id)] = {
+      type: item.type, item: item.item, qty: item.qty, amount: item.amount,
+      companyShare: item.companyShare, employeeShare: item.employeeShare,
+      date: item.date, odometer: item.odometer,
+      nextChangeOdometer: item.nextChangeOdometer, remarks: item.remarks,
+      batchId: item.batchId
+    };
+  });
+
   try {
     const result = await apiPost({
       action: 'saveRequestGroup',
       user: selectedUser,
       batchId: editingGroupBatchId || (toUpdate[0] && toUpdate[0].batchId) || null,
       items: itemsForSave,
-      deleteIds: toDeleteIds
+      deleteIds: toDeleteIds,
+      expectedById: expectedById
     });
-    if (result.error) throw new Error(result.error + (result.partial ? ' Some changes may already have been saved; refresh before retrying.' : ''));
+    if (result.error) {
+      if (result.conflict) {
+        showToast('Another device saved changes first. Your edit was not overwritten.', true);
+        await loadAll();
+        startNewRequest();
+        $('formMsg').textContent = 'Another device saved this request first. No changes from this attempt were applied. Reopen the request and reapply your changes.';
+        $('formMsg').className = 'msg err';
+        return;
+      }
+      throw new Error(result.error + (result.partial ? ' Some changes may already have been saved; refresh before retrying.' : ''));
+    }
 
-    msg.textContent = 'Request updated.'; msg.className = 'msg ok';
-    showToast('Saved changes to the sheet.');
+    msg.textContent = result.historyWarning ? 'Request saved, but History needs attention.' : 'Request updated.'; msg.className = result.historyWarning ? 'msg err' : 'msg ok';
+    if (result.historyWarning) showToast('Request saved. History update warning: ' + result.historyWarning, true);
+    else showToast('Saved changes to the sheet.');
     editingGroupIds = null;
     editingGroupBatchId = null;
+    editingGroupOriginal = [];
     pendingRequests = [];
     setEditModeUI(false);
     clearItemFields();
@@ -2233,19 +2303,32 @@ function renderMyRecords(){
       if (!ok) return;
       btn.disabled = true;
       try {
-        for (const it of g.items) {
-          const result = await apiPost({ action: 'deleteRequest', id: it.id });
-          if (result.error) throw new Error(result.error);
+        const expectedById = {};
+        g.items.forEach(item => {
+          expectedById[String(item.id)] = {
+            type: item.type, item: item.item, qty: item.qty, amount: item.amount,
+            companyShare: item.companyShare, employeeShare: item.employeeShare,
+            date: item.date, odometer: item.odometer,
+            nextChangeOdometer: item.nextChangeOdometer, remarks: item.remarks,
+            batchId: item.batchId
+          };
+        });
+        const result = await apiPost({
+          action: 'deleteRequestGroup',
+          ids: g.items.map(item => item.id),
+          expectedById: expectedById
+        });
+        if (result.error) {
+          if (result.conflict) {
+            showToast('Another device changed this request. Nothing was deleted; refresh and review it again.', true);
+            await loadAll();
+            return;
+          }
+          throw new Error(result.error + (result.partial ? ' Some items may already have been deleted; refresh to confirm.' : ''));
         }
-        showToast('Request deleted.');
-        const list = STATE.requestsByUser[selectedUser];
-        if (list) {
-          g.items.forEach(it => {
-            const idx = list.findIndex(r => String(r.id) === String(it.id));
-            if (idx !== -1) list.splice(idx, 1);
-          });
-        }
-        loadAll();
+        if (result.historyWarning) showToast('Request deleted, but History update warning: ' + result.historyWarning, true);
+        else showToast('Request deleted.');
+        await loadAll();
       } catch (err) {
         showToast(err.message, true);
         btn.disabled = false;
@@ -2273,15 +2356,26 @@ function renderMyRecords(){
       if (!ok) return;
       btn.disabled = true;
       try {
-        const result = await apiPost({ action: 'deleteRequest', id: btn.dataset.deleteId });
-        if (result.error) throw new Error(result.error);
-        showToast('Item deleted.');
-        const list = STATE.requestsByUser[selectedUser];
-        if (list) {
-          const idx = list.findIndex(r => String(r.id) === String(btn.dataset.deleteId));
-          if (idx !== -1) list.splice(idx, 1);
+        const currentRecord = (STATE.requestsByUser[selectedUser] || []).find(r => String(r.id) === String(btn.dataset.deleteId));
+        const expected = currentRecord ? {
+          type: currentRecord.type, item: currentRecord.item, qty: currentRecord.qty, amount: currentRecord.amount,
+          companyShare: currentRecord.companyShare, employeeShare: currentRecord.employeeShare,
+          date: currentRecord.date, odometer: currentRecord.odometer,
+          nextChangeOdometer: currentRecord.nextChangeOdometer, remarks: currentRecord.remarks,
+          batchId: currentRecord.batchId
+        } : null;
+        const result = await apiPost({ action: 'deleteRequest', id: btn.dataset.deleteId, expected: expected });
+        if (result.error) {
+          if (result.conflict) {
+            showToast('Another device changed this item. Nothing was deleted; refresh and review it again.', true);
+            await loadAll();
+            return;
+          }
+          throw new Error(result.error);
         }
-        loadAll();
+        if (result.historyWarning) showToast('Item deleted, but History update warning: ' + result.historyWarning, true);
+        else showToast('Item deleted.');
+        await loadAll();
       } catch (err) {
         showToast(err.message, true);
         btn.disabled = false;
@@ -2354,7 +2448,7 @@ function renderHistory(){
       </div>
       <div class="history-right">
         <div class="history-amt num">${escapeHtml(String(r.amount || ''))}</div>
-        <div class="history-shares">${escapeHtml(r.shares || '')}</div>
+        <div class="history-shares">${escapeHtml(r.shares || 'Share details unavailable for this older record')}</div>
       </div>
     </div>`;
   }).join('')}</div>`;
@@ -2362,10 +2456,12 @@ function renderHistory(){
 
 // ---------- auto-sync: quietly re-pull from the sheet so changes made ----------
 // ---------- elsewhere (another device, hand-edits, etc.) show up here, fast ----------
-const AUTO_SYNC_MS = 5 * 60 * 1000; // background refresh every 5 minutes — data's already loaded, no need to poll constantly
+const AUTO_SYNC_MS = 15 * 1000; // quick cross-device update for saved edits
+const FULL_SYNC_MS = 60 * 1000; // refresh image payloads less often to keep polling light
+let lastFullSyncAt = Date.now();
 let autoSyncInFlight = false;
 async function autoSyncTick(){
-  if (!WEB_APP_URL) return;
+  if (!WEB_APP_URL || document.hidden) return;
   if (autoSyncInFlight || loadAllInFlight) return; // don't stack background/foreground reads
   if (editingRecordId || editingGroupIds) return; // don't clobber an in-progress edit
   if ($('submitBtn') && $('submitBtn').disabled) return; // a submit is currently in flight
@@ -2373,8 +2469,12 @@ async function autoSyncTick(){
   const icon = $('syncIcon');
   if (icon) icon.classList.add('spin');
   try {
-    const data = await apiGet();
-    if (data.error) return;
+    const useFullSync = Date.now() - lastFullSyncAt >= FULL_SYNC_MS;
+    const data = await apiGet(useFullSync ? 'getAll' : 'getSync', useFullSync ? undefined : STATE.revision);
+    if (data.error || isOlderSnapshot(data)) return;
+    if (data.unchanged) { setConnStatus(true); return; }
+    if (useFullSync && !data.syncOnly) lastFullSyncAt = Date.now();
+    retainCachedImages(data);
     // FIX: a background poll used to null out selectedUser and hide the
     // whole workspace the instant this particular snapshot didn't contain
     // the current user (e.g. a stale/partial read right after another
