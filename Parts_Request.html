@@ -783,6 +783,7 @@ let editingRecordId = null;  // when set, the form is editing this existing save
 // readCurrentEntry() can stamp it back on, keeping the update in-place.
 let editingItemId = null;
 let editingGroupIds = null;  // when set, the form is editing every item in this saved request (a whole "batch") at once
+let editingGroupBatchId = null; // original batch key, so newly-added rows stay in the same request
 let currentImage = null;     // { data: base64DataUrl, name: filename }
 
 // The date field on the header always defaults to today's date (not the
@@ -1107,39 +1108,59 @@ async function forceResetApp(){
 })();
 
 // ---------- API ----------
+async function readApiResponse(res){
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); }
+  catch (err) {
+    const hint = String(text || '').replace(/\s+/g, ' ').slice(0, 180);
+    throw new Error('The server returned an unreadable response' + (hint ? ': ' + hint : '.') );
+  }
+  if (!res.ok) throw new Error(data.error || ('Server request failed (' + res.status + ').'));
+  return data;
+}
 async function apiGet(){
-  const res = await fetch(WEB_APP_URL + '?action=getAll');
-  return res.json();
+  const separator = WEB_APP_URL.indexOf('?') === -1 ? '?' : '&';
+  const url = WEB_APP_URL + separator + 'action=getAll&_=' + Date.now();
+  const res = await fetch(url, { cache: 'no-store' });
+  return readApiResponse(res);
 }
 async function apiPost(payload){
   const res = await fetch(WEB_APP_URL, {
     method: 'POST',
+    cache: 'no-store',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoids CORS preflight to Apps Script
     body: JSON.stringify(payload)
   });
-  return res.json();
+  const data = await readApiResponse(res);
+  if (data && data.ok === false && !data.error) data.error = 'The server did not confirm that the change was saved.';
+  return data;
 }
 
+let loadAllInFlight = null;
 async function loadAll(){
   if (!WEB_APP_URL) { setConnStatus(false); return; }
-  try {
-    $('formMsg').textContent = '';
-    const data = await apiGet();
-    if (data.error) throw new Error(data.error);
-    STATE = data;
-    setConnStatus(true);
-    if (selectedUser && !STATE.users.find(u => u.key === selectedUser)) {
-      selectedUser = null;
+  if (loadAllInFlight) return loadAllInFlight;
+  loadAllInFlight = (async function(){
+    try {
+      const data = await apiGet();
+      if (data.error) throw new Error(data.error);
+      if (!Array.isArray(data.users)) throw new Error('The sheet response is missing the employee list.');
+      STATE = data;
+      setConnStatus(true);
+      if (selectedUser && !STATE.users.find(u => u.key === selectedUser)) selectedUser = null;
+      renderEmployeeCards();
+      if (selectedUser) {
+        renderWorkspace();
+        renderMyRecords();
+      }
+    } catch (err) {
+      setConnStatus(false);
+      showToast('Could not reach the sheet: ' + err.message, true);
     }
-    renderEmployeeCards();
-    if (selectedUser) {
-      renderWorkspace();
-      renderMyRecords();
-    }
-  } catch (err) {
-    setConnStatus(false);
-    showToast('Could not reach the sheet: ' + err.message, true);
-  }
+  })();
+  try { await loadAllInFlight; }
+  finally { loadAllInFlight = null; }
 }
 
 // ---------- employee picker ----------
@@ -1644,8 +1665,17 @@ function renderProfileFields(){
 }
 
 // ---------- master render for the workspace ----------
+let summaryRenderQueued = false;
+function scheduleSummaryRender(){
+  if (summaryRenderQueued) return;
+  summaryRenderQueued = true;
+  requestAnimationFrame(() => {
+    summaryRenderQueued = false;
+    renderSummary();
+  });
+}
 ['itemInput','qtyInput','amountInput','dateInput','odoInput','nextChangeInput','remarksInput'].forEach(id => {
-  $(id).addEventListener('input', () => { renderSummary(); });
+  $(id).addEventListener('input', scheduleSummaryRender);
 });
 
 function renderWorkspace(){
@@ -1808,6 +1838,7 @@ function startNewRequest(){
   pendingRequests = [];
   editingRecordId = null;
   editingGroupIds = null;
+  editingGroupBatchId = null;
   setEditModeUI(false);
   setType('PARTS');
   clearItemFields();
@@ -1857,6 +1888,7 @@ function setEditModeUI(mode){
 function editGroup(g){
   lastSubmittedBatch = [];
   editingRecordId = null;
+  editingGroupBatchId = g.batchId || (g.items[0] && g.items[0].batchId) || null;
   // FIX (date format): dates coming back from the sheet are ISO
   // (YYYY-MM-DD). Converting them to MM/DD/YYYY here means the item list
   // and the date field show the same format the person actually types in,
@@ -1876,32 +1908,26 @@ async function saveEditedRecord(){
   const msg = $('formMsg');
   const entry = readCurrentEntry();
   if (!entry) { msg.textContent = 'Enter an item name first.'; msg.className = 'msg err'; return; }
+  if (!editingRecordId) { msg.textContent = 'The request ID is missing. Reopen the request and try again.'; msg.className = 'msg err'; return; }
 
   $('addItemBtn').disabled = true;
   $('submitBtn').disabled = true;
   msg.textContent = 'Saving changes…';
   msg.className = 'msg';
-
-  const fields = ['item', 'qty', 'amount', 'date', 'odometer', 'nextChangeOdometer', 'splitLabel', 'remarks', 'image', 'imageName'];
   try {
-    const outcomes = await Promise.all(fields.map(field =>
-      apiPost({ action: 'updateField', id: editingRecordId, field, value: entry[field] })
-        .then(result => ({ field, ok: !result.error, result }))
-        .catch(err => ({ field, ok: false, result: { error: err.message } }))
-    ));
-    const failed = outcomes.find(o => !o.ok);
-    if (failed) throw new Error(failed.result.error || `Could not update ${failed.field}.`);
-
+    const result = await apiPost({ action: 'updateRequest', id: editingRecordId, fields: entry });
+    if (result.error) throw new Error(result.error);
     msg.textContent = 'Request updated.'; msg.className = 'msg ok';
     showToast('Saved changes to the sheet.');
     editingRecordId = null;
     setEditModeUI(false);
     clearItemFields();
     renderWorkspace();
-    await loadAll(); // FIX: was fire-and-forget — see note in the Submit handler above
+    await loadAll();
     renderMyRecords();
   } catch (err) {
-    msg.textContent = err.message; msg.className = 'msg err';
+    msg.textContent = err.message || 'Could not save this request. Please try again.';
+    msg.className = 'msg err';
   } finally {
     $('addItemBtn').disabled = false;
     $('submitBtn').disabled = false;
@@ -1910,9 +1936,19 @@ async function saveEditedRecord(){
 
 async function saveEditedGroup(){
   const msg = $('formMsg');
+  // Build from a copy. Previously the active form item was pushed into
+  // pendingRequests before confirmation; cancelling or retrying could add it
+  // a second time and accidentally create duplicate rows.
+  const currentItems = pendingRequests.slice();
   const leftover = readCurrentEntry();
-  if (leftover) pendingRequests.push(leftover);
-  if (!pendingRequests.length) { msg.textContent = 'Add at least one item.'; msg.className = 'msg err'; return; }
+  if (leftover) {
+    const existingIndex = leftover.id != null
+      ? currentItems.findIndex(it => String(it.id) === String(leftover.id))
+      : -1;
+    if (existingIndex >= 0) currentItems[existingIndex] = leftover;
+    else currentItems.push(leftover);
+  }
+  if (!currentItems.length) { msg.textContent = 'Add at least one item.'; msg.className = 'msg err'; return; }
 
   const okSave = await confirmDialog({
     title: 'Save changes?',
@@ -1926,53 +1962,50 @@ async function saveEditedGroup(){
   msg.textContent = 'Saving changes…';
   msg.className = 'msg';
 
-  const currentItems = pendingRequests.slice();
   const toUpdate = currentItems.filter(it => it.id != null);
-  const toCreate = currentItems.filter(it => it.id == null);
   const keptIds = new Set(toUpdate.map(it => String(it.id)));
   const toDeleteIds = (editingGroupIds || []).filter(id => !keptIds.has(String(id)));
-
-  // If a new screenshot was attached while editing, it belongs to the whole
-  // request — same as on a fresh submit. Only stamp it onto a newly-added
-  // item (never overwrite an existing saved item's own photo here).
+  const toCreate = currentItems.filter(it => it.id == null);
   if (currentImage && toCreate.length) applyBatchImage(toCreate);
 
-  const fields = ['item', 'qty', 'amount', 'date', 'odometer', 'nextChangeOdometer', 'splitLabel', 'remarks', 'image', 'imageName'];
+  // Large images are unchanged on most edits. Omit them from the save payload
+  // unless the attachment or filename actually changed, keeping requests small.
+  const originalRecords = STATE.requestsByUser[selectedUser] || [];
+  const itemsForSave = currentItems.map(item => {
+    const payload = { ...item };
+    if (item.id != null) {
+      const original = originalRecords.find(r => String(r.id) === String(item.id));
+      if (original && item.image === original.image && item.imageName === original.imageName) {
+        delete payload.image;
+        delete payload.imageName;
+      }
+    }
+    return payload;
+  });
 
   try {
-    for (const it of toUpdate) {
-      const outcomes = await Promise.all(fields.map(field =>
-        apiPost({ action: 'updateField', id: it.id, field, value: it[field] })
-          .then(result => ({ field, ok: !result.error, result }))
-          .catch(err => ({ field, ok: false, result: { error: err.message } }))
-      ));
-      const failed = outcomes.find(o => !o.ok);
-      if (failed) throw new Error(failed.result.error || `Could not update ${failed.field}.`);
-    }
-
-    for (const id of toDeleteIds) {
-      const result = await apiPost({ action: 'deleteRequest', id });
-      if (result.error) throw new Error(result.error);
-    }
-
-    if (toCreate.length) {
-      const batchResult = await apiPost({ action: 'addRequests', user: selectedUser, items: toCreate });
-      if (batchResult.error) throw new Error(batchResult.error);
-      const failed = (batchResult.results || []).find(r => r.error);
-      if (failed) throw new Error(failed.error);
-    }
+    const result = await apiPost({
+      action: 'saveRequestGroup',
+      user: selectedUser,
+      batchId: editingGroupBatchId || (toUpdate[0] && toUpdate[0].batchId) || null,
+      items: itemsForSave,
+      deleteIds: toDeleteIds
+    });
+    if (result.error) throw new Error(result.error + (result.partial ? ' Some changes may already have been saved; refresh before retrying.' : ''));
 
     msg.textContent = 'Request updated.'; msg.className = 'msg ok';
     showToast('Saved changes to the sheet.');
     editingGroupIds = null;
+    editingGroupBatchId = null;
     pendingRequests = [];
     setEditModeUI(false);
     clearItemFields();
     renderWorkspace();
-    await loadAll(); // FIX: was fire-and-forget — see note in the Submit handler above
+    await loadAll();
     renderMyRecords();
   } catch (err) {
-    msg.textContent = err.message; msg.className = 'msg err';
+    msg.textContent = err.message || 'Could not save this request. Please try again.';
+    msg.className = 'msg err';
   } finally {
     $('addItemBtn').disabled = false;
     $('submitBtn').disabled = false;
@@ -2333,7 +2366,7 @@ const AUTO_SYNC_MS = 5 * 60 * 1000; // background refresh every 5 minutes — da
 let autoSyncInFlight = false;
 async function autoSyncTick(){
   if (!WEB_APP_URL) return;
-  if (autoSyncInFlight) return;                   // don't stack overlapping polls
+  if (autoSyncInFlight || loadAllInFlight) return; // don't stack background/foreground reads
   if (editingRecordId || editingGroupIds) return; // don't clobber an in-progress edit
   if ($('submitBtn') && $('submitBtn').disabled) return; // a submit is currently in flight
   autoSyncInFlight = true;
