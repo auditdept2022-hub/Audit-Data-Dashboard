@@ -4715,75 +4715,113 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
 <style id="geminiAssistantStyles">
   #geminiAssistantLauncher{position:fixed;right:20px;bottom:20px;z-index:140;background:#173b72;color:#fff;border:1px solid rgba(255,255,255,.24);border-radius:999px;padding:12px 17px;box-shadow:0 12px 32px rgba(2,12,30,.28);font:700 13px/1.2 system-ui,-apple-system,Segoe UI,sans-serif;display:flex;align-items:center;gap:9px;cursor:pointer;touch-action:manipulation}
   #geminiAssistantLauncher:hover{filter:brightness(1.08)}
+  #geminiAssistantLauncherDot{display:none;min-width:17px;height:17px;border-radius:9px;background:#ef4444;color:#fff;font-size:10px;font-weight:800;align-items:center;justify-content:center;padding:0 4px}
+  #geminiAssistantLauncherDot.gai-on{display:inline-flex}
   #geminiAssistantLauncher:focus-visible,#geminiAssistantPanel button:focus-visible,#geminiAssistantPanel textarea:focus-visible{outline:3px solid #38bdf8;outline-offset:2px}
-  #geminiAssistantPanel{position:fixed;right:20px;bottom:78px;z-index:140;width:min(440px,calc(100vw - 24px));height:min(690px,calc(100dvh - 110px));display:none;flex-direction:column;background:#f8fafc;color:#0f172a;border:1px solid #cbd5e1;border-radius:18px;box-shadow:0 24px 70px rgba(2,12,30,.3);overflow:hidden;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+  #geminiAssistantPanel{position:fixed;right:20px;bottom:78px;z-index:140;width:min(460px,calc(100vw - 24px));height:min(740px,calc(100dvh - 110px));display:none;flex-direction:column;background:#f8fafc;color:#0f172a;border:1px solid #cbd5e1;border-radius:18px;box-shadow:0 24px 70px rgba(2,12,30,.3);overflow:hidden;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
   #geminiAssistantPanel.gai-open{display:flex}
-  #geminiAssistantHeader{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;background:linear-gradient(115deg,#102d56,#1e4c83);color:#fff}
+  #geminiAssistantHeader{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;background:linear-gradient(115deg,#102d56,#1e4c83);color:#fff}
   #geminiAssistantHeaderTitle{font-size:14px;font-weight:800;letter-spacing:.01em}
-  #geminiAssistantHeaderSub{font-size:10px;color:#cbd5e1;margin-top:3px}
+  #geminiAssistantHeaderSub{font-size:10px;color:#cbd5e1;margin-top:2px}
+  #geminiAssistantHeaderBtns{display:flex;align-items:center;gap:8px}
+  #geminiAssistantApprovalsBtn{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.12);color:#fff;border-radius:9px;height:32px;padding:0 10px;font-size:11px;font-weight:800;cursor:pointer}
+  #geminiAssistantApprovalsBtn[hidden]{display:none}
+  #geminiAssistantApprovalsBadge{min-width:18px;height:18px;border-radius:9px;background:#ef4444;color:#fff;font-size:10px;line-height:18px;text-align:center;padding:0 5px}
+  #geminiAssistantApprovalsBadge[hidden]{display:none}
   #geminiAssistantClose{border:0;background:rgba(255,255,255,.12);color:#fff;border-radius:9px;width:32px;height:32px;font-size:18px;cursor:pointer}
-  #geminiAssistantStatus{padding:8px 13px;background:#eff6ff;border-bottom:1px solid #dbeafe;color:#1e40af;font-size:11px;line-height:1.4}
-  #geminiAssistantMessages{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:11px;overscroll-behavior:contain}
-  .gai-message{max-width:92%;padding:10px 12px;border-radius:13px;font-size:12px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+  #geminiAssistantStatus{padding:5px 13px;background:#eff6ff;border-bottom:1px solid #dbeafe;color:#1e40af;font-size:10px;line-height:1.4}
+  #geminiAssistantStatus:empty{display:none}
+  #geminiAssistantMessages{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:12px;overscroll-behavior:contain}
+  .gai-message{max-width:94%;padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
   .gai-message.gai-ai{align-self:flex-start;background:#fff;border:1px solid #e2e8f0;color:#1e293b;border-top-left-radius:4px}
-  .gai-message.gai-user{align-self:flex-end;background:#dbeafe;border:1px solid #bfdbfe;color:#1e3a8a;border-top-right-radius:4px}
-  .gai-message.gai-error{align-self:flex-start;background:#fff1f2;border:1px solid #fecdd3;color:#9f1239}
-  #geminiAssistantQueue{border-top:1px solid #e2e8f0;background:#fff;max-height:38%;overflow:auto;padding:10px 12px}
-  #geminiAssistantQueueTitle{font-size:11px;font-weight:800;color:#334155;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center}
-  .gai-proposal{border:1px solid #cbd5e1;background:#fff;border-radius:12px;padding:10px;margin:7px 0}
-  .gai-proposal-title{font-size:12px;font-weight:800;color:#0f172a;margin-bottom:4px}
-  .gai-proposal-meta{font-size:10px;color:#64748b;margin-bottom:7px}
-  .gai-proposal-reason{font-size:11px;line-height:1.45;color:#334155;white-space:pre-wrap}
-  .gai-proposal-diff{margin-top:7px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;padding:8px;max-height:150px;overflow:auto;font:10px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;color:#334155}
-  .gai-proposal-actions{display:flex;gap:7px;margin-top:9px}
-  .gai-btn{border:0;border-radius:8px;padding:8px 11px;font-size:11px;font-weight:800;cursor:pointer;touch-action:manipulation}
-  .gai-btn:disabled{opacity:.5;cursor:not-allowed}
-  .gai-approve{background:#166534;color:white}
-  .gai-reject{background:#e2e8f0;color:#334155}
-  #geminiAssistantComposer{display:flex;align-items:flex-end;gap:8px;padding:10px 12px;background:#fff;border-top:1px solid #e2e8f0}
-  #geminiAssistantInput{resize:none;min-height:42px;max-height:105px;flex:1;border:1px solid #cbd5e1;border-radius:11px;padding:10px 11px;background:#fff;color:#0f172a;font:12px/1.4 system-ui,-apple-system,Segoe UI,sans-serif;outline:0}
-  #geminiAssistantAttach{border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#334155;padding:0 11px;font-size:17px;cursor:pointer;min-height:42px}
-  #geminiAssistantAttach:disabled{opacity:.5;cursor:default}
-  #geminiAssistantFiles{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px 0;background:#fff}
+  .gai-message.gai-user{align-self:flex-end;background:#dbeafe;border:1px solid #bfdbfe;color:#1e3a8a;border-top-right-radius:4px;white-space:pre-wrap}
+  .gai-message.gai-error{align-self:flex-start;background:#fff1f2;border:1px solid #fecdd3;color:#9f1239;white-space:pre-wrap}
+  .gai-message.gai-note{align-self:flex-start;background:#fffbeb;border:1px solid #fde68a;color:#92400e;font-size:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .gai-message.gai-thinking{white-space:pre-wrap;color:#64748b}
+  .gai-message p{margin:0 0 9px}.gai-message p:last-child,.gai-message ul:last-child,.gai-message ol:last-child{margin-bottom:0}
+  .gai-message ul,.gai-message ol{margin:0 0 9px;padding-left:20px}.gai-message li{margin:2px 0}
+  .gai-message .gai-h{font-weight:800;font-size:14px;margin:12px 0 6px;color:#0f172a}.gai-message .gai-h:first-child{margin-top:0}
+  .gai-message code{background:#f1f5f9;border-radius:5px;padding:1px 5px;font:12px ui-monospace,SFMono-Regular,Consolas,monospace}
+  .gai-message pre{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:10px 12px;overflow:auto;margin:0 0 9px;font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
+  .gai-message pre code{background:transparent;color:inherit;padding:0}
+  .gai-message a{color:#1d4ed8;text-decoration:underline}
+  .gai-tablewrap{overflow:auto;margin:0 0 9px}.gai-table{border-collapse:collapse;font-size:12px;min-width:100%}
+  .gai-table th,.gai-table td{border:1px solid #e2e8f0;padding:5px 8px;text-align:left;vertical-align:top}.gai-table th{background:#f1f5f9;font-weight:800}
+  .gai-copy{display:block;margin-top:9px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:8px;padding:3px 9px;font-size:10px;font-weight:700;cursor:pointer}
+  #geminiAssistantFiles{display:flex;flex-wrap:wrap;gap:5px;padding:7px 12px 0;background:#fff;border-top:1px solid #e2e8f0}
   #geminiAssistantFiles[hidden]{display:none}
-  .gai-chip{display:inline-flex;align-items:center;gap:6px;max-width:100%;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;border-radius:999px;padding:3px 6px 3px 10px;font-size:11px}
-  .gai-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px}
-  .gai-chip button{border:0;background:transparent;color:#1e3a8a;font-size:14px;line-height:1;cursor:pointer;padding:0 2px}
-  .gai-copy{display:block;margin-top:8px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:8px;padding:3px 9px;font-size:10px;font-weight:700;cursor:pointer}
-  #geminiAssistantSend{border:0;border-radius:10px;background:#1d4ed8;color:#fff;padding:11px 13px;font-size:11px;font-weight:800;cursor:pointer;min-height:42px}
-  #geminiAssistantPrivacy{padding:0 13px 10px;background:#fff;color:#64748b;font-size:9px;line-height:1.4}
+  .gai-chip{display:inline-flex;align-items:center;gap:5px;max-width:100%;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;border-radius:999px;padding:2px 5px 2px 9px;font-size:10px}
+  .gai-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:170px}
+  .gai-chip button{border:0;background:transparent;color:#1e3a8a;font-size:13px;line-height:1;cursor:pointer;padding:0 2px}
+  #geminiAssistantComposer{display:flex;align-items:flex-end;gap:7px;padding:9px 11px;background:#fff;border-top:1px solid #e2e8f0}
+  #geminiAssistantFiles:not([hidden])+#geminiAssistantComposer{border-top:0}
+  #geminiAssistantAttach{flex:none;width:34px;height:34px;border:0;border-radius:50%;background:#f1f5f9;color:#475569;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0}
+  #geminiAssistantAttach:hover{background:#e2e8f0}#geminiAssistantAttach:disabled{opacity:.5;cursor:default}
+  #geminiAssistantInput{resize:none;min-height:36px;max-height:140px;flex:1;border:1px solid #cbd5e1;border-radius:18px;padding:8px 13px;background:#fff;color:#0f172a;font:13px/1.45 system-ui,-apple-system,Segoe UI,sans-serif;outline:0;overflow-y:auto}
+  #geminiAssistantSend{flex:none;border:0;border-radius:18px;background:#1d4ed8;color:#fff;padding:0 15px;font-size:12px;font-weight:800;cursor:pointer;height:36px}
+  #geminiAssistantSend:disabled{opacity:.55;cursor:default}
+  #geminiAssistantApprovals{position:absolute;inset:0;background:rgba(15,23,42,.55);display:none;align-items:stretch;justify-content:center;padding:12px;z-index:5}
+  #geminiAssistantApprovals.gai-open{display:flex}
+  .gai-sheet{flex:1;display:flex;flex-direction:column;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 18px 50px rgba(2,12,30,.35)}
+  .gai-sheet-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #e2e8f0;font-size:13px;font-weight:800;color:#0f172a}
+  .gai-sheet-close{border:0;background:#f1f5f9;color:#334155;border-radius:8px;width:28px;height:28px;font-size:16px;cursor:pointer}
+  #geminiAssistantQueueItems{flex:1;overflow:auto;padding:10px 12px}
+  .gai-empty{padding:34px 10px;text-align:center;color:#64748b;font-size:12px}
+  .gai-proposal{border:1px solid #cbd5e1;background:#fff;border-radius:12px;padding:11px;margin:0 0 10px}
+  .gai-proposal-title{font-size:13px;font-weight:800;color:#0f172a;margin-bottom:3px}
+  .gai-proposal-meta{font-size:10px;color:#64748b;margin-bottom:7px}
+  .gai-proposal-reason{font-size:12px;line-height:1.5;color:#334155;white-space:pre-wrap}
+  .gai-change{margin-top:8px;border:1px solid #e2e8f0;border-radius:9px;background:#f8fafc;padding:4px 9px}
+  .gai-change-row{padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:11px;line-height:1.45;overflow-wrap:anywhere}.gai-change-row:last-child{border-bottom:0}
+  .gai-change-key{font-weight:800;color:#334155;text-transform:capitalize}
+  .gai-old{color:#9f1239;text-decoration:line-through;margin-right:6px}.gai-new{color:#166534;font-weight:700}
+  .gai-proposal-actions{display:flex;gap:8px;margin-top:10px}
+  .gai-btn{border:0;border-radius:9px;padding:9px 13px;font-size:12px;font-weight:800;cursor:pointer;touch-action:manipulation}
+  .gai-btn:disabled{opacity:.5;cursor:not-allowed}
+  .gai-approve{background:#166534;color:white;flex:1}
+  .gai-reject{background:#e2e8f0;color:#334155;flex:1}
+  .gai-btn-sm{padding:5px 10px;font-size:11px;background:#92400e;color:#fff;border-radius:8px}
   @media(max-width:560px){#geminiAssistantLauncher{right:12px;bottom:14px;padding:11px 14px}#geminiAssistantPanel{right:8px;bottom:65px;width:calc(100vw - 16px);height:calc(100dvh - 82px);border-radius:15px}}
 </style>
 
 <button id="geminiAssistantLauncher" type="button" aria-controls="geminiAssistantPanel" aria-expanded="false">
   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-2-5.8L4 11l6-2.2L12 3Z"/><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16Z"/></svg>
-  AI Assistant
+  AI Assistant<span id="geminiAssistantLauncherDot"></span>
 </button>
 
 <section id="geminiAssistantPanel" aria-label="Gemini dashboard assistant" role="dialog" aria-modal="false">
   <header id="geminiAssistantHeader">
     <div>
       <div id="geminiAssistantHeaderTitle">Audit Dashboard Assistant</div>
-      <div id="geminiAssistantHeaderSub">Gemini · approval required for changes</div>
+      <div id="geminiAssistantHeaderSub">Gemini · changes need approval</div>
     </div>
-    <button id="geminiAssistantClose" type="button" aria-label="Close assistant">×</button>
+    <div id="geminiAssistantHeaderBtns">
+      <button id="geminiAssistantApprovalsBtn" type="button" hidden aria-label="Open approvals">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+        Approvals<span id="geminiAssistantApprovalsBadge" hidden>0</span>
+      </button>
+      <button id="geminiAssistantClose" type="button" aria-label="Close assistant">×</button>
+    </div>
   </header>
   <div id="geminiAssistantStatus" role="status">Checking assistant access…</div>
   <div id="geminiAssistantMessages" aria-live="polite">
-    <div class="gai-message gai-ai">Hello! I can review the available dashboard data, identify audit risks and prepare proposed changes. I will not change anything until the designated owner approves it.</div>
-  </div>
-  <div id="geminiAssistantQueue" hidden>
-    <div id="geminiAssistantQueueTitle"><span>Pending approval</span><span id="geminiAssistantQueueCount"></span></div>
-    <div id="geminiAssistantQueueItems"></div>
+    <div class="gai-message gai-ai">Hello! Ask me anything, like a normal Gemini chat. I can also review the dashboard, help with reports (attach files with the paperclip), and prepare changes for approval.</div>
   </div>
   <div id="geminiAssistantFiles" hidden></div>
   <div id="geminiAssistantComposer">
-    <button id="geminiAssistantAttach" type="button" title="Attach files (PDF, images, Excel, CSV, Word, text)" aria-label="Attach files">&#128206;</button>
+    <button id="geminiAssistantAttach" type="button" title="Attach files" aria-label="Attach files">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.4 11.1-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg>
+    </button>
     <input id="geminiAssistantFile" type="file" multiple hidden accept=".pdf,.png,.jpg,.jpeg,.webp,.heic,.heif,.xlsx,.xls,.csv,.txt,.md,.json,.docx">
-    <textarea id="geminiAssistantInput" rows="2" maxlength="2400" placeholder="Ask me anything, or about branches, audits and schedules…"></textarea>
+    <textarea id="geminiAssistantInput" rows="1" maxlength="12000" placeholder="Message Gemini…"></textarea>
     <button id="geminiAssistantSend" type="button">Send</button>
   </div>
-  <div id="geminiAssistantPrivacy">Your messages, any files you attach and a compact dashboard summary are sent to Google Gemini to answer your request. Only attach files you are allowed to share. Detailed audit remarks, customer contacts and account identifiers are excluded. Changes require a separate owner approval.</div>
+  <div id="geminiAssistantApprovals" role="dialog" aria-label="Pending approvals">
+    <div class="gai-sheet">
+      <div class="gai-sheet-head"><span>Pending approval <span id="geminiAssistantQueueCount"></span></span><button id="geminiAssistantApprovalsClose" class="gai-sheet-close" type="button" aria-label="Close approvals">×</button></div>
+      <div id="geminiAssistantQueueItems"></div>
+    </div>
+  </div>
 </section>
 
 <script id="geminiAssistantClient">
@@ -4797,15 +4835,19 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   var closeBtn = document.getElementById("geminiAssistantClose");
   var statusEl = document.getElementById("geminiAssistantStatus");
   var messagesEl = document.getElementById("geminiAssistantMessages");
-  var queueEl = document.getElementById("geminiAssistantQueue");
+  var approvalsEl = document.getElementById("geminiAssistantApprovals");
+  var approvalsBtn = document.getElementById("geminiAssistantApprovalsBtn");
+  var approvalsBadge = document.getElementById("geminiAssistantApprovalsBadge");
+  var approvalsClose = document.getElementById("geminiAssistantApprovalsClose");
+  var launcherDot = document.getElementById("geminiAssistantLauncherDot");
   var queueItemsEl = document.getElementById("geminiAssistantQueueItems");
   var queueCountEl = document.getElementById("geminiAssistantQueueCount");
   var inputEl = document.getElementById("geminiAssistantInput");
   var sendBtn = document.getElementById("geminiAssistantSend");
-  var aiState = { checked: false, canPropose: false, canApprove: false, apiConfigured: false, sending: false, reading: false, files: [], history: [] };
   var attachBtn = document.getElementById("geminiAssistantAttach");
   var fileInput = document.getElementById("geminiAssistantFile");
   var filesEl = document.getElementById("geminiAssistantFiles");
+  var aiState = { checked: false, canPropose: false, canApprove: false, apiConfigured: false, sending: false, reading: false, files: [], history: [], pendingCount: 0 };
   var MAX_FILES = 5, MAX_INLINE_TOTAL = 9 * 1024 * 1024, MAX_TEXT_CHARS = 120000;
 
   function assistantApiBase_() {
@@ -4816,7 +4858,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     try { if (typeof appsScriptSecret !== "undefined" && appsScriptSecret) return String(appsScriptSecret); } catch (e) {}
     return String(window.appsScriptSecret || "");
   }
-  async function assistantRequest_(action, fields) {
+  async function baseParams_(action, fields) {
     var base = assistantApiBase_();
     if (!base) throw new Error("The dashboard API endpoint is not available on this page.");
     if (typeof window.getCurrentIdToken !== "function") throw new Error("The dashboard sign-in token is unavailable. Sign in again and retry.");
@@ -4827,40 +4869,143 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     params.set("secret", assistantSecret_());
     params.set("idToken", token);
     Object.keys(fields || {}).forEach(function (key) { params.set(key, String(fields[key])); });
-    var url = base + (base.indexOf("?") >= 0 ? "&" : "?") + params.toString();
+    return { base: base, params: params };
+  }
+  async function assistantRequest_(action, fields) {
+    var b = await baseParams_(action, fields);
+    var url = b.base + (b.base.indexOf("?") >= 0 ? "&" : "?") + b.params.toString();
     var result;
     if (typeof fetchSheetOnce === "function") result = await fetchSheetOnce(url, { directMs: 55000, jsonpMs: 60000 });
     else throw new Error("The dashboard's secure request helper is unavailable. Please reload the latest dashboard version.");
     if (!result || typeof result !== "object") throw new Error("The dashboard server returned an invalid response.");
-    if (result.error) throw new Error(String(result.error));
+    if (result.error) { var re = new Error(String(result.error)); re.retryable = !!result.retryable; throw re; }
     return result;
   }
+  // POST: no URL size limit and a long timeout, so long answers and file uploads work.
   async function assistantPost_(action, fields) {
-    var base = assistantApiBase_();
-    if (!base) throw new Error("The dashboard API endpoint is not available on this page.");
-    if (typeof window.getCurrentIdToken !== "function") throw new Error("The dashboard sign-in token is unavailable. Sign in again and retry.");
-    var token = await window.getCurrentIdToken();
-    if (!token) throw new Error("Your dashboard session has expired. Sign in again and retry.");
-    var params = new URLSearchParams();
-    params.set("action", action);
-    params.set("secret", assistantSecret_());
-    params.set("idToken", token);
-    Object.keys(fields || {}).forEach(function (key) { params.set(key, String(fields[key])); });
+    var b = await baseParams_(action, fields);
     var ctl = new AbortController();
-    var timer = setTimeout(function () { ctl.abort(); }, 150000);
+    var timer = setTimeout(function () { ctl.abort(); }, 170000);
     var resp;
     try {
-      resp = await fetch(base, { method: "POST", body: params, signal: ctl.signal, redirect: "follow" });
+      resp = await fetch(b.base, { method: "POST", body: b.params, signal: ctl.signal, redirect: "follow" });
     } catch (err) {
-      throw new Error(err && err.name === "AbortError" ? "The assistant took too long. Try fewer or smaller files." : "Could not upload the files. Check your connection and try again.");
+      var e1 = new Error(err && err.name === "AbortError" ? "The assistant took too long to answer. Please try again." : "Could not reach the dashboard server. Check your connection and try again.");
+      e1.transport = !(err && err.name === "AbortError");
+      throw e1;
     } finally { clearTimeout(timer); }
     var raw = await resp.text();
     var json;
-    try { json = JSON.parse(raw); } catch (err) { throw new Error("The server returned an unexpected response to the upload. Make sure the latest Code.gs (with doPost) is deployed as a new version."); }
+    try { json = JSON.parse(raw); } catch (err) {
+      var e2 = new Error("The server returned an unexpected response. Make sure the latest Code.gs (with doPost) is deployed as a new version.");
+      e2.transport = true;
+      throw e2;
+    }
     if (!json || typeof json !== "object") throw new Error("The dashboard server returned an invalid response.");
-    if (json.error) throw new Error(String(json.error));
+    if (json.error) { var je = new Error(String(json.error)); je.retryable = !!json.retryable; throw je; }
     return json;
   }
+  function isRetryable_(err) {
+    if (!err) return false;
+    if (err.retryable) return true;
+    if (err.transport) return false;
+    return /request limit|busy right now|temporarily|try again in a (moment|minute)|wait a few seconds|overloaded|at capacity/i.test(String(err.message || ""));
+  }
+  function sleep_(ms) { return new Promise(function (resolve) { setTimeout(resolve, ms); }); }
+
+  function textNode_(tag, cls, value) {
+    var el = document.createElement(tag);
+    if (cls) el.className = cls;
+    el.textContent = value == null ? "" : String(value);
+    return el;
+  }
+
+  /* ---------- safe markdown (DOM only, never innerHTML) ---------- */
+  function mdInline_(parent, str) {
+    var re = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^\s)]+\))/g;
+    var last = 0, m;
+    while ((m = re.exec(str))) {
+      if (m.index > last) parent.appendChild(document.createTextNode(str.slice(last, m.index)));
+      var t = m[0];
+      if (t.charAt(0) === "*") { parent.appendChild(textNode_("strong", "", t.slice(2, -2))); }
+      else if (t.charAt(0) === "`") { parent.appendChild(textNode_("code", "", t.slice(1, -1))); }
+      else {
+        var mm = /^\[([^\]]+)\]\((.+)\)$/.exec(t);
+        var a = textNode_("a", "", mm[1]); a.href = mm[2]; a.target = "_blank"; a.rel = "noopener noreferrer";
+        parent.appendChild(a);
+      }
+      last = m.index + t.length;
+    }
+    if (last < str.length) parent.appendChild(document.createTextNode(str.slice(last)));
+  }
+  function renderMarkdown_(el, text) {
+    el.textContent = "";
+    var lines = String(text || "").replace(/\r/g, "").split("\n");
+    var i = 0;
+    var UL = /^\s*[-*\u2022]\s+/, OL = /^\s*\d+[.)]\s+/, SPECIAL = /^```|^#{1,4}\s|^\s*[-*\u2022]\s+|^\s*\d+[.)]\s+|^\s*\|/;
+    while (i < lines.length) {
+      var line = lines[i];
+      if (/^```/.test(line)) {
+        var buf = []; i++;
+        while (i < lines.length && !/^```/.test(lines[i])) { buf.push(lines[i]); i++; }
+        i++;
+        var pre = document.createElement("pre"); pre.appendChild(textNode_("code", "", buf.join("\n"))); el.appendChild(pre);
+        continue;
+      }
+      var h = /^#{1,4}\s+(.*)$/.exec(line);
+      if (h) { var hh = document.createElement("div"); hh.className = "gai-h"; mdInline_(hh, h[1]); el.appendChild(hh); i++; continue; }
+      if (UL.test(line) || OL.test(line)) {
+        var ordered = OL.test(line);
+        var list = document.createElement(ordered ? "ol" : "ul");
+        while (i < lines.length && (ordered ? OL : UL).test(lines[i])) {
+          var li = document.createElement("li"); mdInline_(li, lines[i].replace(ordered ? OL : UL, "")); list.appendChild(li); i++;
+        }
+        el.appendChild(list);
+        continue;
+      }
+      if (/^\s*\|/.test(line)) {
+        var rows = [];
+        while (i < lines.length && /^\s*\|/.test(lines[i])) { rows.push(lines[i]); i++; }
+        var table = document.createElement("table"); table.className = "gai-table";
+        var headDone = false;
+        rows.forEach(function (r) {
+          if (/^\s*\|?\s*:?-{2,}/.test(r.replace(/\|/g, "|").replace(/\s/g, "")) && /^[\s|:\-]+$/.test(r)) return;
+          var cells = r.trim().replace(/^\|/, "").replace(/\|$/, "").split("|");
+          var tr = document.createElement("tr");
+          cells.forEach(function (c) { var td = document.createElement(headDone ? "td" : "th"); mdInline_(td, c.trim()); tr.appendChild(td); });
+          headDone = true;
+          table.appendChild(tr);
+        });
+        var wrap = document.createElement("div"); wrap.className = "gai-tablewrap"; wrap.appendChild(table); el.appendChild(wrap);
+        continue;
+      }
+      if (!line.trim()) { i++; continue; }
+      var p = document.createElement("p"), first = true;
+      while (i < lines.length && lines[i].trim() && (first || !SPECIAL.test(lines[i]))) {
+        if (!first) p.appendChild(document.createElement("br"));
+        mdInline_(p, lines[i]); first = false; i++;
+      }
+      el.appendChild(p);
+    }
+  }
+
+  function addMessage_(text, kind) {
+    var cls = kind === "user" ? "gai-user" : kind === "error" ? "gai-error" : kind === "note" ? "gai-note" : kind === "thinking" ? "gai-ai gai-thinking" : "gai-ai";
+    var bubble = textNode_("div", "gai-message " + cls, "");
+    if (kind === "ai") renderMarkdown_(bubble, text); else bubble.textContent = text;
+    messagesEl.appendChild(bubble);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return bubble;
+  }
+  function setStatus_(text) { statusEl.textContent = text || ""; }
+  function setBusy_(busy) {
+    aiState.sending = !!busy;
+    sendBtn.disabled = !!busy;
+    sendBtn.textContent = busy ? "…" : "Send";
+  }
+  function autoGrow_() { inputEl.style.height = "auto"; inputEl.style.height = Math.min(140, inputEl.scrollHeight) + "px"; }
+
+  /* ---------- attachments ---------- */
   function readB64_(file) {
     return new Promise(function (resolve, reject) {
       var r = new FileReader();
@@ -4942,27 +5087,11 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       aiState.reading = false; attachBtn.disabled = false; sendBtn.disabled = !!aiState.sending;
       fileInput.value = "";
       renderFiles_();
-      setStatus_(aiState.files.length ? aiState.files.length + " file(s) attached. Tell me what to do with them." : "Gemini is ready.");
+      setStatus_(aiState.files.length ? aiState.files.length + " file(s) attached." : "");
     }
   }
-  function textNode_(tag, cls, value) {
-    var el = document.createElement(tag);
-    if (cls) el.className = cls;
-    el.textContent = value == null ? "" : String(value);
-    return el;
-  }
-  function addMessage_(text, kind) {
-    var bubble = textNode_("div", "gai-message " + (kind === "user" ? "gai-user" : kind === "error" ? "gai-error" : "gai-ai"), text);
-    messagesEl.appendChild(bubble);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-    return bubble;
-  }
-  function setStatus_(text) { statusEl.textContent = text; }
-  function setBusy_(busy) {
-    aiState.sending = !!busy;
-    sendBtn.disabled = !!busy;
-    sendBtn.textContent = busy ? "…" : "Send";
-  }
+
+  /* ---------- approvals popup ---------- */
   function formatAction_(type) {
     if (type === "saveAssignment") return "Audit assignment / schedule";
     if (type === "saveHighlight") return "Branch highlight";
@@ -4972,24 +5101,45 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     if (type === "saveEmergencyRotation") return "Emergency rotation";
     return "Dashboard action";
   }
+  function fmtVal_(v) {
+    if (v === undefined || v === null || v === "") return "\u2014";
+    if (Array.isArray(v)) return v.map(function (x) { return fmtVal_(x); }).join("  |  ");
+    if (typeof v === "object") return Object.keys(v).map(function (k) { return k + ": " + fmtVal_(v[k]); }).join(", ");
+    return String(v);
+  }
+  function changeBox_(before, after) {
+    var box = document.createElement("div");
+    box.className = "gai-change";
+    var keys = Object.keys(after || {});
+    var b = before || {};
+    if (b.note) { var n = textNode_("div", "gai-change-row", b.note); box.appendChild(n); }
+    keys.forEach(function (k) {
+      var row = document.createElement("div");
+      row.className = "gai-change-row";
+      row.appendChild(textNode_("span", "gai-change-key", k.replace(/([A-Z])/g, " $1") + ": "));
+      var hasOld = Object.prototype.hasOwnProperty.call(b, k) && fmtVal_(b[k]) !== fmtVal_(after[k]);
+      if (hasOld) row.appendChild(textNode_("span", "gai-old", fmtVal_(b[k])));
+      row.appendChild(textNode_("span", "gai-new", fmtVal_(after[k])));
+      box.appendChild(row);
+    });
+    if (!keys.length && !b.note) box.appendChild(textNode_("div", "gai-change-row", "Runs the dashboard\u2019s Update Overall Data action."));
+    return box;
+  }
   function proposalCard_(proposal) {
     var card = document.createElement("div");
     card.className = "gai-proposal";
     card.appendChild(textNode_("div", "gai-proposal-title", proposal.title || formatAction_(proposal.actionType)));
-    card.appendChild(textNode_("div", "gai-proposal-meta", formatAction_(proposal.actionType) + " · " + (proposal.status || "pending")));
+    card.appendChild(textNode_("div", "gai-proposal-meta", formatAction_(proposal.actionType) + " \u00b7 requested by " + (proposal.requestedBy || "assistant")));
     card.appendChild(textNode_("div", "gai-proposal-reason", proposal.reason || "Review the proposed change below."));
-    var diff = document.createElement("pre");
-    diff.className = "gai-proposal-diff";
-    diff.textContent = "CURRENT VALUES\n" + JSON.stringify(proposal.before || {}, null, 2) + "\n\nPROPOSED VALUES\n" + JSON.stringify(proposal.after || {}, null, 2);
-    card.appendChild(diff);
+    card.appendChild(changeBox_(proposal.before, proposal.after));
     if (aiState.canApprove && proposal.status === "pending") {
       var actions = document.createElement("div");
       actions.className = "gai-proposal-actions";
-      var approve = textNode_("button", "gai-btn gai-approve", "Approve change");
+      var approve = textNode_("button", "gai-btn gai-approve", "Approve");
       approve.type = "button";
-      approve.addEventListener("click", function () { decideProposal_(proposal.proposalId, true, approve, reject); });
       var reject = textNode_("button", "gai-btn gai-reject", "Reject");
       reject.type = "button";
+      approve.addEventListener("click", function () { decideProposal_(proposal.proposalId, true, approve, reject); });
       reject.addEventListener("click", function () { decideProposal_(proposal.proposalId, false, approve, reject); });
       actions.appendChild(approve);
       actions.appendChild(reject);
@@ -4998,11 +5148,16 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     return card;
   }
   function renderQueue_(proposals) {
-    queueItemsEl.textContent = "";
     var list = Array.isArray(proposals) ? proposals : [];
-    queueCountEl.textContent = String(list.length);
-    queueEl.hidden = !aiState.canApprove || !list.length;
-    if (!aiState.canApprove || !list.length) return;
+    aiState.pendingCount = aiState.canApprove ? list.length : 0;
+    approvalsBtn.hidden = !aiState.canApprove;
+    approvalsBadge.hidden = !aiState.pendingCount;
+    approvalsBadge.textContent = String(aiState.pendingCount);
+    launcherDot.classList.toggle("gai-on", !!aiState.pendingCount);
+    launcherDot.textContent = String(aiState.pendingCount);
+    queueCountEl.textContent = aiState.pendingCount ? "(" + aiState.pendingCount + ")" : "";
+    queueItemsEl.textContent = "";
+    if (!list.length) { queueItemsEl.appendChild(textNode_("div", "gai-empty", "No changes are waiting for approval.")); return; }
     list.forEach(function (proposal) { queueItemsEl.appendChild(proposalCard_(proposal)); });
   }
   async function refreshPending_() {
@@ -5011,36 +5166,15 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       var data = await assistantRequest_("aiAssistantPending", {});
       renderQueue_(data.proposals || []);
     } catch (err) {
-      setStatus_("Pending approval queue could not be refreshed: " + (err.message || err));
+      setStatus_("Approvals could not be refreshed: " + (err.message || err));
     }
   }
-  async function loadStatus_() {
-    try {
-      var data = await assistantRequest_("aiAssistantStatus", {});
-      aiState.checked = true;
-      aiState.canPropose = !!data.canPropose;
-      aiState.canApprove = !!data.canApprove;
-      aiState.apiConfigured = !!data.apiConfigured;
-      if (!data.allowed) {
-        setStatus_("Your account does not have permission to use the dashboard assistant.");
-        inputEl.disabled = true; sendBtn.disabled = true; return;
-      }
-      if (!aiState.apiConfigured) {
-        setStatus_("Gemini is not configured yet. Add GEMINI_API_KEY in Apps Script Script Properties.");
-      } else {
-        setStatus_(aiState.canApprove ? "Gemini is ready · you are the designated approver. No change runs without your approval." : aiState.canPropose ? "Gemini is ready · you can request proposals, but only the designated owner can approve them." : "Gemini is ready · read-only analysis. You cannot create change proposals.");
-      }
-      inputEl.disabled = false; sendBtn.disabled = false;
-      await refreshPending_();
-    } catch (err) {
-      setStatus_(err.message || "Could not connect to the assistant.");
-      inputEl.disabled = true; sendBtn.disabled = true;
-    }
-  }
+  function openApprovals_() { approvalsEl.classList.add("gai-open"); refreshPending_(); }
+  function closeApprovals_() { approvalsEl.classList.remove("gai-open"); }
   async function decideProposal_(proposalId, approve, approveBtn, rejectBtn) {
     if (!proposalId) return;
     var verb = approve ? "approve" : "reject";
-    if (!window.confirm(approve ? "Approve this exact dashboard change? The server will recheck the current branch values before applying it." : "Reject this AI proposal? No dashboard data will be changed.")) return;
+    if (!window.confirm(approve ? "Approve this exact dashboard change? The server will recheck the current values before applying it." : "Reject this AI proposal? No dashboard data will be changed.")) return;
     approveBtn.disabled = true; rejectBtn.disabled = true;
     try {
       var data = await assistantRequest_(approve ? "aiAssistantApprove" : "aiAssistantReject", { proposalId: proposalId });
@@ -5055,42 +5189,88 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       await refreshPending_();
     }
   }
+
+  async function loadStatus_() {
+    try {
+      var data = await assistantRequest_("aiAssistantStatus", {});
+      aiState.checked = true;
+      aiState.canPropose = !!data.canPropose;
+      aiState.canApprove = !!data.canApprove;
+      aiState.apiConfigured = !!data.apiConfigured;
+      if (!data.allowed) {
+        setStatus_("Your account does not have permission to use the dashboard assistant.");
+        inputEl.disabled = true; sendBtn.disabled = true; attachBtn.disabled = true; return;
+      }
+      setStatus_(aiState.apiConfigured ? "" : "Gemini is not configured yet. Add GEMINI_API_KEY in Apps Script Script Properties.");
+      inputEl.disabled = false; sendBtn.disabled = false; attachBtn.disabled = false;
+      approvalsBtn.hidden = !aiState.canApprove;
+      await refreshPending_();
+    } catch (err) {
+      setStatus_(err.message || "Could not connect to the assistant.");
+      inputEl.disabled = true; sendBtn.disabled = true;
+    }
+  }
+
   async function sendMessage_() {
     var message = String(inputEl.value || "").trim();
     if (aiState.sending || aiState.reading) return;
     if (!message && !aiState.files.length) return;
     if (!message) message = "Please review the attached file(s) and summarize the key points.";
+    if (!aiState.apiConfigured) { addMessage_("Gemini is not configured. Add GEMINI_API_KEY under Apps Script Project Settings > Script properties, then reload the dashboard.", "error"); return; }
     var sentFiles = aiState.files.slice();
     var fileNames = sentFiles.map(function (f) { return f.name; });
-    if (!aiState.apiConfigured) { addMessage_("Gemini is not configured. Add GEMINI_API_KEY under Apps Script Project Settings > Script properties, then reload the dashboard.", "error"); return; }
-    inputEl.value = "";
+    inputEl.value = ""; autoGrow_();
     addMessage_(message + (fileNames.length ? "\n\ud83d\udcce " + fileNames.join(", ") : ""), "user");
     setBusy_(true);
-    setStatus_("Gemini is thinking…");
-    var thinkingBubble = addMessage_("Thinking… 0s", "ai");
+    setStatus_("");
+    var thinkingBubble = addMessage_("Thinking\u2026 0s", "thinking");
     var startedAt = Date.now();
+    var retryState = null; // { until: ms timestamp, attempt: n }
+    var MAX_ATTEMPTS = 6;
     var tick = setInterval(function () {
       var sec = Math.round((Date.now() - startedAt) / 1000);
-      thinkingBubble.textContent = "Thinking… " + sec + "s" + (sec >= 15 ? "\n(Apps Script may be waking up or Gemini is busy. Still waiting…)" : "");
+      if (retryState && Date.now() < retryState.until) {
+        thinkingBubble.textContent = "Gemini is busy right now. Retrying automatically in " + Math.ceil((retryState.until - Date.now()) / 1000) + "s\u2026 (attempt " + (retryState.attempt + 1) + " of " + MAX_ATTEMPTS + ")";
+      } else {
+        thinkingBubble.textContent = "Thinking\u2026 " + sec + "s" + (sec >= 15 ? "\n(Still waiting \u2014 the server may be waking up or Gemini is busy.)" : "");
+      }
     }, 1000);
     try {
-      var history = aiState.history.slice(-6).map(function (item) { return { role: item.role, text: item.text.slice(0, 500) }; });
-      var chatFields = { message: message, history: JSON.stringify(history) };
-      var data;
+      var history = aiState.history.slice(-10).map(function (item) { return { role: item.role, text: item.text.slice(0, 6000) }; });
+      var fields = { message: message, history: JSON.stringify(history) };
       if (sentFiles.length) {
-        setStatus_("Uploading " + sentFiles.length + " file(s) and asking Gemini…");
-        chatFields.attachments = JSON.stringify(sentFiles.map(function (f) { return f.kind === "inline" ? { name: f.name, kind: "inline", mime: f.mime, data: f.data } : { name: f.name, kind: "text", text: f.text }; }));
-        data = await assistantPost_("aiAssistantChat", chatFields);
-        aiState.files = []; renderFiles_();
-      } else {
-        data = await assistantRequest_("aiAssistantChat", chatFields);
+        fields.attachments = JSON.stringify(sentFiles.map(function (f) { return f.kind === "inline" ? { name: f.name, kind: "inline", mime: f.mime, data: f.data } : { name: f.name, kind: "text", text: f.text }; }));
       }
+      var useGet = false;
+      var callOnce_ = async function () {
+        if (sentFiles.length || !useGet) {
+          try { return await assistantPost_("aiAssistantChat", fields); }
+          catch (postErr) {
+            if (sentFiles.length || !postErr.transport) throw postErr;
+            useGet = true; // POST route not available: fall back to the old GET route with a short history
+          }
+        }
+        var short = history.slice(-4).map(function (hh) { return { role: hh.role, text: hh.text.slice(0, 400) }; });
+        return await assistantRequest_("aiAssistantChat", { message: message, history: JSON.stringify(short) });
+      };
+      var data;
+      for (var attempt = 1; ; attempt++) {
+        try { data = await callOnce_(); break; }
+        catch (callErr) {
+          if (!isRetryable_(callErr) || attempt >= MAX_ATTEMPTS) throw callErr;
+          var waitMs = Math.min(15000, 3000 + attempt * 3000); // 6s, 9s, 12s, 15s, 15s
+          retryState = { until: Date.now() + waitMs, attempt: attempt };
+          await sleep_(waitMs);
+          retryState = null;
+        }
+      }
+      if (sentFiles.length) { aiState.files = []; renderFiles_(); }
       clearInterval(tick);
+      if (thinkingBubble.parentNode) thinkingBubble.parentNode.removeChild(thinkingBubble);
       var totalSec = ((Date.now() - startedAt) / 1000).toFixed(1);
       var tm = data.timing || null;
-      aiState.lastTiming = "Answered in " + totalSec + "s" + (tm ? " (server " + (tm.serverMs / 1000).toFixed(1) + "s: Gemini " + (tm.geminiMs / 1000).toFixed(1) + "s, snapshot " + (tm.snapshotMs / 1000).toFixed(1) + "s" + (tm.model ? ", " + tm.model : "") + ")" : "");
+      var timingText = "Answered in " + totalSec + "s" + (tm ? " (Gemini " + (tm.geminiMs / 1000).toFixed(1) + "s" + (tm.model ? ", " + tm.model : "") + ")" : "");
       var reply = String(data.reply || "I reviewed the available dashboard information.");
-      if (thinkingBubble && thinkingBubble.parentNode) thinkingBubble.parentNode.removeChild(thinkingBubble);
       var replyBubble = addMessage_(reply, "ai");
       if (reply.length > 300) {
         var copyBtn = textNode_("button", "gai-copy", "Copy");
@@ -5102,23 +5282,31 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       }
       aiState.history.push({ role: "user", text: message + (fileNames.length ? " [attached: " + fileNames.join(", ") + "]" : "") });
       aiState.history.push({ role: "assistant", text: reply });
-      aiState.history = aiState.history.slice(-8);
+      aiState.history = aiState.history.slice(-12);
       var proposals = Array.isArray(data.proposals) ? data.proposals : [];
-      proposals.forEach(function (proposal) {
-        messagesEl.appendChild(proposalCard_(proposal));
-      });
-      if (data.proposalsSkipped) addMessage_("I did not create " + data.proposalsSkipped + " proposed change(s) because they did not pass the dashboard's server-side validation.", "ai");
+      if (proposals.length) {
+        var note = addMessage_(aiState.canApprove
+          ? proposals.length + " change" + (proposals.length > 1 ? "s are" : " is") + " waiting for your approval."
+          : "Sent to the dashboard owner for approval.", "note");
+        if (aiState.canApprove) {
+          var review = textNode_("button", "gai-btn gai-btn-sm", "Review");
+          review.type = "button";
+          review.addEventListener("click", openApprovals_);
+          note.appendChild(review);
+        }
+        refreshPending_();
+      }
+      if (data.proposalsSkipped) addMessage_("I did not create " + data.proposalsSkipped + " proposed change(s) because they did not pass the dashboard's server-side validation.", "note");
       messagesEl.scrollTop = messagesEl.scrollHeight;
-      setBusy_(false);
-      if (proposals.length) refreshPending_(); // not awaited: the reply is already shown
-      setStatus_((aiState.lastTiming ? aiState.lastTiming + ". " : "") + (proposals.length ? (aiState.canApprove ? "Review the proposed changes below. Nothing changes until you approve." : "Proposed changes are waiting for the designated owner.") : ""));
+      setStatus_(timingText);
     } catch (err) {
       clearInterval(tick);
-      if (thinkingBubble && thinkingBubble.parentNode) thinkingBubble.parentNode.removeChild(thinkingBubble);
+      if (thinkingBubble.parentNode) thinkingBubble.parentNode.removeChild(thinkingBubble);
       addMessage_(err.message || "Gemini could not answer. Please try again.", "error");
-      setStatus_("Assistant request failed. Your dashboard data was not changed.");
+      setStatus_("Request failed. Your dashboard data was not changed.");
     } finally { setBusy_(false); }
   }
+
   function openPanel_() {
     panel.classList.add("gai-open");
     launcher.setAttribute("aria-expanded", "true");
@@ -5126,14 +5314,19 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     setTimeout(function () { inputEl.focus(); }, 80);
   }
   function closePanel_() {
+    closeApprovals_();
     panel.classList.remove("gai-open");
     launcher.setAttribute("aria-expanded", "false");
   }
   launcher.addEventListener("click", function () { panel.classList.contains("gai-open") ? closePanel_() : openPanel_(); });
   closeBtn.addEventListener("click", closePanel_);
+  approvalsBtn.addEventListener("click", openApprovals_);
+  approvalsClose.addEventListener("click", closeApprovals_);
+  approvalsEl.addEventListener("click", function (event) { if (event.target === approvalsEl) closeApprovals_(); });
   sendBtn.addEventListener("click", sendMessage_);
   attachBtn.addEventListener("click", function () { if (!aiState.reading && !aiState.sending) fileInput.click(); });
   fileInput.addEventListener("change", function () { addFiles_(fileInput.files); });
+  inputEl.addEventListener("input", autoGrow_);
   inputEl.addEventListener("keydown", function (event) {
     if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendMessage_(); }
   });
