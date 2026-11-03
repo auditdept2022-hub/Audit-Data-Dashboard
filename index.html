@@ -4742,6 +4742,14 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   .gai-reject{background:#e2e8f0;color:#334155}
   #geminiAssistantComposer{display:flex;align-items:flex-end;gap:8px;padding:10px 12px;background:#fff;border-top:1px solid #e2e8f0}
   #geminiAssistantInput{resize:none;min-height:42px;max-height:105px;flex:1;border:1px solid #cbd5e1;border-radius:11px;padding:10px 11px;background:#fff;color:#0f172a;font:12px/1.4 system-ui,-apple-system,Segoe UI,sans-serif;outline:0}
+  #geminiAssistantAttach{border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#334155;padding:0 11px;font-size:17px;cursor:pointer;min-height:42px}
+  #geminiAssistantAttach:disabled{opacity:.5;cursor:default}
+  #geminiAssistantFiles{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px 0;background:#fff}
+  #geminiAssistantFiles[hidden]{display:none}
+  .gai-chip{display:inline-flex;align-items:center;gap:6px;max-width:100%;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;border-radius:999px;padding:3px 6px 3px 10px;font-size:11px}
+  .gai-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px}
+  .gai-chip button{border:0;background:transparent;color:#1e3a8a;font-size:14px;line-height:1;cursor:pointer;padding:0 2px}
+  .gai-copy{display:block;margin-top:8px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:8px;padding:3px 9px;font-size:10px;font-weight:700;cursor:pointer}
   #geminiAssistantSend{border:0;border-radius:10px;background:#1d4ed8;color:#fff;padding:11px 13px;font-size:11px;font-weight:800;cursor:pointer;min-height:42px}
   #geminiAssistantPrivacy{padding:0 13px 10px;background:#fff;color:#64748b;font-size:9px;line-height:1.4}
   @media(max-width:560px){#geminiAssistantLauncher{right:12px;bottom:14px;padding:11px 14px}#geminiAssistantPanel{right:8px;bottom:65px;width:calc(100vw - 16px);height:calc(100dvh - 82px);border-radius:15px}}
@@ -4768,11 +4776,14 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     <div id="geminiAssistantQueueTitle"><span>Pending approval</span><span id="geminiAssistantQueueCount"></span></div>
     <div id="geminiAssistantQueueItems"></div>
   </div>
+  <div id="geminiAssistantFiles" hidden></div>
   <div id="geminiAssistantComposer">
+    <button id="geminiAssistantAttach" type="button" title="Attach files (PDF, images, Excel, CSV, Word, text)" aria-label="Attach files">&#128206;</button>
+    <input id="geminiAssistantFile" type="file" multiple hidden accept=".pdf,.png,.jpg,.jpeg,.webp,.heic,.heif,.xlsx,.xls,.csv,.txt,.md,.json,.docx">
     <textarea id="geminiAssistantInput" rows="2" maxlength="2400" placeholder="Ask me anything, or about branches, audits and schedules…"></textarea>
     <button id="geminiAssistantSend" type="button">Send</button>
   </div>
-  <div id="geminiAssistantPrivacy">Your messages and a compact dashboard summary are sent to Google Gemini to answer your request. Detailed audit remarks, customer contacts and account identifiers are excluded. Changes require a separate owner approval.</div>
+  <div id="geminiAssistantPrivacy">Your messages, any files you attach and a compact dashboard summary are sent to Google Gemini to answer your request. Only attach files you are allowed to share. Detailed audit remarks, customer contacts and account identifiers are excluded. Changes require a separate owner approval.</div>
 </section>
 
 <script id="geminiAssistantClient">
@@ -4791,7 +4802,11 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   var queueCountEl = document.getElementById("geminiAssistantQueueCount");
   var inputEl = document.getElementById("geminiAssistantInput");
   var sendBtn = document.getElementById("geminiAssistantSend");
-  var aiState = { checked: false, canPropose: false, canApprove: false, apiConfigured: false, sending: false, history: [] };
+  var aiState = { checked: false, canPropose: false, canApprove: false, apiConfigured: false, sending: false, reading: false, files: [], history: [] };
+  var attachBtn = document.getElementById("geminiAssistantAttach");
+  var fileInput = document.getElementById("geminiAssistantFile");
+  var filesEl = document.getElementById("geminiAssistantFiles");
+  var MAX_FILES = 5, MAX_INLINE_TOTAL = 9 * 1024 * 1024, MAX_TEXT_CHARS = 120000;
 
   function assistantApiBase_() {
     try { if (typeof defaultAppsScriptUrl !== "undefined" && defaultAppsScriptUrl) return String(defaultAppsScriptUrl); } catch (e) {}
@@ -4820,6 +4835,116 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     if (result.error) throw new Error(String(result.error));
     return result;
   }
+  async function assistantPost_(action, fields) {
+    var base = assistantApiBase_();
+    if (!base) throw new Error("The dashboard API endpoint is not available on this page.");
+    if (typeof window.getCurrentIdToken !== "function") throw new Error("The dashboard sign-in token is unavailable. Sign in again and retry.");
+    var token = await window.getCurrentIdToken();
+    if (!token) throw new Error("Your dashboard session has expired. Sign in again and retry.");
+    var params = new URLSearchParams();
+    params.set("action", action);
+    params.set("secret", assistantSecret_());
+    params.set("idToken", token);
+    Object.keys(fields || {}).forEach(function (key) { params.set(key, String(fields[key])); });
+    var ctl = new AbortController();
+    var timer = setTimeout(function () { ctl.abort(); }, 150000);
+    var resp;
+    try {
+      resp = await fetch(base, { method: "POST", body: params, signal: ctl.signal, redirect: "follow" });
+    } catch (err) {
+      throw new Error(err && err.name === "AbortError" ? "The assistant took too long. Try fewer or smaller files." : "Could not upload the files. Check your connection and try again.");
+    } finally { clearTimeout(timer); }
+    var raw = await resp.text();
+    var json;
+    try { json = JSON.parse(raw); } catch (err) { throw new Error("The server returned an unexpected response to the upload. Make sure the latest Code.gs (with doPost) is deployed as a new version."); }
+    if (!json || typeof json !== "object") throw new Error("The dashboard server returned an invalid response.");
+    if (json.error) throw new Error(String(json.error));
+    return json;
+  }
+  function readB64_(file) {
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () { resolve(String(r.result).split(",")[1] || ""); };
+      r.onerror = function () { reject(new Error("Could not read " + file.name)); };
+      r.readAsDataURL(file);
+    });
+  }
+  async function ensureScript_(globalName, url) {
+    if (window[globalName]) return window[globalName];
+    if (typeof loadScriptOnce !== "function") throw new Error("The file reader library could not be loaded.");
+    await loadScriptOnce(url);
+    if (!window[globalName]) throw new Error("The file reader library could not be loaded.");
+    return window[globalName];
+  }
+  function clipText_(text) {
+    text = String(text || "");
+    return text.length > MAX_TEXT_CHARS ? text.slice(0, MAX_TEXT_CHARS) + "\n[...file truncated...]" : text;
+  }
+  async function extractFile_(file) {
+    var lower = file.name.toLowerCase();
+    var imgMime = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", heic: "image/heic", heif: "image/heif" };
+    var ext = (lower.split(".").pop() || "");
+    if (ext === "pdf") return { name: file.name, kind: "inline", mime: "application/pdf", data: await readB64_(file), size: file.size };
+    if (imgMime[ext]) return { name: file.name, kind: "inline", mime: imgMime[ext], data: await readB64_(file), size: file.size };
+    if (ext === "xlsx" || ext === "xls") {
+      var X = window.XLSX || await ensureScript_("XLSX", (window.__EXPORT_LIB_URLS && window.__EXPORT_LIB_URLS.xlsx && window.__EXPORT_LIB_URLS.xlsx[0]) || "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js");
+      var wb = X.read(new Uint8Array(await file.arrayBuffer()), { type: "array" });
+      var txt = wb.SheetNames.map(function (n) { return "=== SHEET: " + n + " ===\n" + X.utils.sheet_to_csv(wb.Sheets[n]); }).join("\n\n");
+      return { name: file.name, kind: "text", text: clipText_(txt), size: 0 };
+    }
+    if (ext === "docx") {
+      var Z = await ensureScript_("JSZip", "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js");
+      var zip = await Z.loadAsync(await file.arrayBuffer());
+      var part = zip.file("word/document.xml");
+      if (!part) throw new Error(file.name + " does not look like a valid Word file.");
+      var xml = await part.async("string");
+      var plain = xml.replace(/<\/w:p>/g, "\n").replace(/<w:tab\/>/g, "\t").replace(/<w:br\/>/g, "\n").replace(/<[^>]+>/g, "")
+        .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
+      return { name: file.name, kind: "text", text: clipText_(plain), size: 0 };
+    }
+    if (ext === "csv" || ext === "txt" || ext === "md" || ext === "json") {
+      return { name: file.name, kind: "text", text: clipText_(await file.text()), size: 0 };
+    }
+    throw new Error(file.name + ": this file type is not supported. Use PDF, image, Excel, CSV, Word (.docx) or text.");
+  }
+  function renderFiles_() {
+    filesEl.textContent = "";
+    filesEl.hidden = !aiState.files.length;
+    aiState.files.forEach(function (f, i) {
+      var chip = document.createElement("div");
+      chip.className = "gai-chip";
+      chip.appendChild(textNode_("span", "", f.name));
+      var x = textNode_("button", "", "\u00d7");
+      x.type = "button"; x.setAttribute("aria-label", "Remove " + f.name);
+      x.addEventListener("click", function () { aiState.files.splice(i, 1); renderFiles_(); });
+      chip.appendChild(x);
+      filesEl.appendChild(chip);
+    });
+  }
+  async function addFiles_(fileList) {
+    var picked = Array.prototype.slice.call(fileList || []);
+    if (!picked.length) return;
+    aiState.reading = true; sendBtn.disabled = true; attachBtn.disabled = true;
+    try {
+      for (var i = 0; i < picked.length; i++) {
+        if (aiState.files.length >= MAX_FILES) { addMessage_("You can attach up to " + MAX_FILES + " files per message.", "error"); break; }
+        var file = picked[i];
+        setStatus_("Reading " + file.name + "…");
+        try {
+          var inlineUsed = aiState.files.reduce(function (n, f) { return n + (f.size || 0); }, 0);
+          var item = await extractFile_(file);
+          if (item.kind === "inline" && inlineUsed + item.size > MAX_INLINE_TOTAL) { addMessage_(file.name + " is too large. Keep PDFs and images under about 9 MB in total per message.", "error"); continue; }
+          if (item.kind === "text" && !String(item.text || "").trim()) { addMessage_(file.name + " has no readable text.", "error"); continue; }
+          aiState.files.push(item);
+        } catch (err) { addMessage_(err.message || ("Could not read " + file.name), "error"); }
+      }
+    } finally {
+      aiState.reading = false; attachBtn.disabled = false; sendBtn.disabled = !!aiState.sending;
+      fileInput.value = "";
+      renderFiles_();
+      setStatus_(aiState.files.length ? aiState.files.length + " file(s) attached. Tell me what to do with them." : "Gemini is ready.");
+    }
+  }
   function textNode_(tag, cls, value) {
     var el = document.createElement(tag);
     if (cls) el.className = cls;
@@ -4843,6 +4968,8 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     if (type === "saveHighlight") return "Branch highlight";
     if (type === "saveAuditorRemark") return "Add audit remark";
     if (type === "updateOverallData") return "Update Overall Data";
+    if (type === "saveEmergencyAuditor") return "Emergency auditor";
+    if (type === "saveEmergencyRotation") return "Emergency rotation";
     return "Dashboard action";
   }
   function proposalCard_(proposal) {
@@ -4930,18 +5057,41 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   }
   async function sendMessage_() {
     var message = String(inputEl.value || "").trim();
-    if (!message || aiState.sending) return;
+    if (aiState.sending || aiState.reading) return;
+    if (!message && !aiState.files.length) return;
+    if (!message) message = "Please review the attached file(s) and summarize the key points.";
+    var sentFiles = aiState.files.slice();
+    var fileNames = sentFiles.map(function (f) { return f.name; });
     if (!aiState.apiConfigured) { addMessage_("Gemini is not configured. Add GEMINI_API_KEY under Apps Script Project Settings > Script properties, then reload the dashboard.", "error"); return; }
     inputEl.value = "";
-    addMessage_(message, "user");
+    addMessage_(message + (fileNames.length ? "\n\ud83d\udcce " + fileNames.join(", ") : ""), "user");
     setBusy_(true);
-    setStatus_("Gemini is reviewing the latest available dashboard snapshot…");
+    setStatus_("Gemini is thinking…");
+    var thinkingBubble = addMessage_("Thinking…", "ai");
     try {
       var history = aiState.history.slice(-6).map(function (item) { return { role: item.role, text: item.text.slice(0, 500) }; });
-      var data = await assistantRequest_("aiAssistantChat", { message: message, history: JSON.stringify(history) });
+      var chatFields = { message: message, history: JSON.stringify(history) };
+      var data;
+      if (sentFiles.length) {
+        setStatus_("Uploading " + sentFiles.length + " file(s) and asking Gemini…");
+        chatFields.attachments = JSON.stringify(sentFiles.map(function (f) { return f.kind === "inline" ? { name: f.name, kind: "inline", mime: f.mime, data: f.data } : { name: f.name, kind: "text", text: f.text }; }));
+        data = await assistantPost_("aiAssistantChat", chatFields);
+        aiState.files = []; renderFiles_();
+      } else {
+        data = await assistantRequest_("aiAssistantChat", chatFields);
+      }
       var reply = String(data.reply || "I reviewed the available dashboard information.");
-      addMessage_(reply, "ai");
-      aiState.history.push({ role: "user", text: message });
+      if (thinkingBubble && thinkingBubble.parentNode) thinkingBubble.parentNode.removeChild(thinkingBubble);
+      var replyBubble = addMessage_(reply, "ai");
+      if (reply.length > 300) {
+        var copyBtn = textNode_("button", "gai-copy", "Copy");
+        copyBtn.type = "button";
+        copyBtn.addEventListener("click", function () {
+          try { navigator.clipboard.writeText(reply).then(function () { copyBtn.textContent = "Copied"; setTimeout(function () { copyBtn.textContent = "Copy"; }, 1500); }); } catch (e) {}
+        });
+        replyBubble.appendChild(copyBtn);
+      }
+      aiState.history.push({ role: "user", text: message + (fileNames.length ? " [attached: " + fileNames.join(", ") + "]" : "") });
       aiState.history.push({ role: "assistant", text: reply });
       aiState.history = aiState.history.slice(-8);
       var proposals = Array.isArray(data.proposals) ? data.proposals : [];
@@ -4950,9 +5100,11 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       });
       if (data.proposalsSkipped) addMessage_("I did not create " + data.proposalsSkipped + " proposed change(s) because they did not pass the dashboard's server-side validation.", "ai");
       messagesEl.scrollTop = messagesEl.scrollHeight;
-      await refreshPending_();
+      setBusy_(false);
+      if (proposals.length) refreshPending_(); // not awaited: the reply is already shown
       setStatus_(aiState.canApprove ? "Review proposed changes below or in Pending approval. Nothing changes until you approve." : "Analysis complete. Proposed changes, if any, are waiting for the designated owner.");
     } catch (err) {
+      if (thinkingBubble && thinkingBubble.parentNode) thinkingBubble.parentNode.removeChild(thinkingBubble);
       addMessage_(err.message || "Gemini could not answer. Please try again.", "error");
       setStatus_("Assistant request failed. Your dashboard data was not changed.");
     } finally { setBusy_(false); }
@@ -4970,6 +5122,8 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   launcher.addEventListener("click", function () { panel.classList.contains("gai-open") ? closePanel_() : openPanel_(); });
   closeBtn.addEventListener("click", closePanel_);
   sendBtn.addEventListener("click", sendMessage_);
+  attachBtn.addEventListener("click", function () { if (!aiState.reading && !aiState.sending) fileInput.click(); });
+  fileInput.addEventListener("change", function () { addFiles_(fileInput.files); });
   inputEl.addEventListener("keydown", function (event) {
     if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendMessage_(); }
   });
