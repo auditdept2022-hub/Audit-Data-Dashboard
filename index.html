@@ -4711,7 +4711,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
 }
 </style>
 
-<!-- GEMINI DASHBOARD ASSISTANT — v129: persistent Drive settings, folder search, compact chat and DOCX workspace. -->
+<!-- GEMINI DASHBOARD ASSISTANT — v130: quota-aware retry and approvals header icon cleanup; retains persistent Drive workspace. -->
 <style id="geminiAssistantStyles">
   #geminiAssistantLauncher{position:fixed;right:20px;bottom:20px;z-index:140;background:#173b72;color:#fff;border:1px solid rgba(255,255,255,.24);border-radius:999px;padding:12px 17px;box-shadow:0 12px 32px rgba(2,12,30,.28);font:700 13px/1.2 system-ui,-apple-system,Segoe UI,sans-serif;display:flex;align-items:center;gap:9px;cursor:pointer;touch-action:manipulation}
   #geminiAssistantLauncher:hover{filter:brightness(1.08)}
@@ -4814,7 +4814,6 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     <div id="geminiAssistantHeaderBtns">
       <button id="geminiAssistantDriveBtn" type="button" aria-label="Google Drive settings" title="Connect Google Drive">Drive</button>
       <button id="geminiAssistantApprovalsBtn" type="button" hidden aria-label="Open approvals">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
         Approvals<span id="geminiAssistantApprovalsBadge" hidden>0</span>
       </button>
       <button id="geminiAssistantClose" type="button" aria-label="Close assistant">×</button>
@@ -5507,7 +5506,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
         try { data = await callOnce_(); break; }
         catch (callErr) {
           if (!isRetryable_(callErr) || attempt >= MAX_ATTEMPTS) throw callErr;
-          var waitMs = Math.max(1100, Math.min(5000, Number(callErr.retryAfterMs) || 1800)); // one short, server-guided retry
+          var waitMs = Math.max(1200, Math.min(60000, Number(callErr.retryAfterMs) || Math.min(5000, 1400 * attempt))); // honor Gemini RetryInfo up to 60 s
           retryState = { until: Date.now() + waitMs, attempt: attempt };
           setGemini_("busy", "retrying");
           await sleep_(waitMs);
