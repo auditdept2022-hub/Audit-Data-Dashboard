@@ -1,7 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
 // v106: app header stays pinned (dimmed behind the overlay) while ANY popup is open.
-const CACHE_VERSION = 'audit-dashboard-v128'
+const CACHE_VERSION = 'audit-dashboard-v128c'
 // v122: adaptive AI response budgets, compact chat payloads, no redundant health probes, and shorter bounded retries.
 // v123: dashboard AI grounding reads compound audit headers, structured Overall Data aggregates/rankings, exact remark/emergency layouts, branch-specific contexts, and whole-record truncation.
 // v124: full-dashboard review requests include all six dashboard source sheets plus structured OVERALL DATA.

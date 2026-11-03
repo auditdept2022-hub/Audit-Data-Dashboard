@@ -5139,13 +5139,29 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   }
 
   /* ---------- Google Drive / DOCX workspace ---------- */
+  var DRIVE_LOCAL_KEY_ = "auditAI.driveSettings.v1";
+  function driveLocalGet_() {
+    try { var v = JSON.parse(localStorage.getItem(DRIVE_LOCAL_KEY_) || "{}"); return { folder: String(v.folder || ""), template: String(v.template || "") }; }
+    catch (err) { return { folder: "", template: "" }; }
+  }
+  function driveLocalSet_(folder, template) {
+    try { localStorage.setItem(DRIVE_LOCAL_KEY_, JSON.stringify({ folder: folder || "", template: template || "" })); } catch (err) {}
+  }
   async function loadDriveSettings_() {
     driveStatusEl.textContent = "Checking Google Drive access…";
     driveSaveBtn.disabled = true;
     try {
       var data = await assistantRequest_("aiDriveStatus", {});
-      driveFolderInput.value = data.folderUrl || data.folderId || "";
-      driveTemplateInput.value = data.templateUrl || data.templateId || "";
+      var saved = driveLocalGet_();
+      driveFolderInput.value = data.folderUrl || data.folderId || saved.folder || "";
+      driveTemplateInput.value = data.templateUrl || data.templateId || saved.template || "";
+      if (!data.connected && data.canConfigure && (saved.folder || saved.template)) {
+        // Server lost the setting (or it was never stored): silently reconnect using the remembered links.
+        try {
+          var re = await assistantRequest_("aiDriveConfigure", { folder: saved.folder || "", template: saved.template || "" });
+          if (re && re.success) { data = re; data.canConfigure = true; driveFolderInput.value = re.folderUrl || saved.folder || ""; driveTemplateInput.value = re.templateUrl || saved.template || ""; }
+        } catch (reErr) { /* fall through to normal status text */ }
+      }
       if (data.connected) {
         driveStatusEl.textContent = "Connected to: " + data.folderName + (data.templateName ? "\nTemplate: " + data.templateName : "\nNo report template selected; standard report formatting will be used.");
       } else {
@@ -5154,6 +5170,9 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       driveSaveBtn.disabled = !data.canConfigure;
       if (!data.canConfigure) driveStatusEl.textContent += "\nOnly the designated dashboard owner can change these settings.";
     } catch (err) {
+      var sv = driveLocalGet_();
+      if (!driveFolderInput.value) driveFolderInput.value = sv.folder;
+      if (!driveTemplateInput.value) driveTemplateInput.value = sv.template;
       driveStatusEl.textContent = "Could not check Drive: " + (err.message || err);
       driveSaveBtn.disabled = false;
     }
@@ -5164,12 +5183,15 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   }
   function closeDriveSettings_() { driveSettings.classList.remove("gai-open"); }
   async function saveDriveSettings_() {
-    if (!driveFolderInput.value.trim()) { driveStatusEl.textContent = "Paste your destination folder URL or ID first."; return; }
+    if (!driveFolderInput.value.trim() && !driveTemplateInput.value.trim()) { driveStatusEl.textContent = "Paste your Google Drive folder link or Google Docs link first."; return; }
     driveSaveBtn.disabled = true;
     driveStatusEl.textContent = "Verifying folder and template access…";
     try {
       var data = await assistantRequest_("aiDriveConfigure", { folder: driveFolderInput.value.trim(), template: driveTemplateInput.value.trim() });
       if (!data.success) throw new Error(data.error || "Drive settings were not saved.");
+      driveLocalSet_(data.folderUrl || driveFolderInput.value.trim(), data.templateUrl || driveTemplateInput.value.trim());
+      driveFolderInput.value = data.folderUrl || driveFolderInput.value;
+      driveTemplateInput.value = data.templateUrl || driveTemplateInput.value;
       driveStatusEl.textContent = "Connected successfully: " + data.folderName + (data.templateName ? "\nTemplate: " + data.templateName : "\nNo template selected.");
       setStatus_("Google Drive connected. Completed DOCX reports will be saved in " + data.folderName + ".");
     } catch (err) {
