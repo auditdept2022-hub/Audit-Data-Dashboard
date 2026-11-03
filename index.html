@@ -5067,7 +5067,12 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     addMessage_(message + (fileNames.length ? "\n\ud83d\udcce " + fileNames.join(", ") : ""), "user");
     setBusy_(true);
     setStatus_("Gemini is thinking…");
-    var thinkingBubble = addMessage_("Thinking…", "ai");
+    var thinkingBubble = addMessage_("Thinking… 0s", "ai");
+    var startedAt = Date.now();
+    var tick = setInterval(function () {
+      var sec = Math.round((Date.now() - startedAt) / 1000);
+      thinkingBubble.textContent = "Thinking… " + sec + "s" + (sec >= 15 ? "\n(Apps Script may be waking up or Gemini is busy. Still waiting…)" : "");
+    }, 1000);
     try {
       var history = aiState.history.slice(-6).map(function (item) { return { role: item.role, text: item.text.slice(0, 500) }; });
       var chatFields = { message: message, history: JSON.stringify(history) };
@@ -5080,6 +5085,10 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       } else {
         data = await assistantRequest_("aiAssistantChat", chatFields);
       }
+      clearInterval(tick);
+      var totalSec = ((Date.now() - startedAt) / 1000).toFixed(1);
+      var tm = data.timing || null;
+      aiState.lastTiming = "Answered in " + totalSec + "s" + (tm ? " (server " + (tm.serverMs / 1000).toFixed(1) + "s: Gemini " + (tm.geminiMs / 1000).toFixed(1) + "s, snapshot " + (tm.snapshotMs / 1000).toFixed(1) + "s" + (tm.model ? ", " + tm.model : "") + ")" : "");
       var reply = String(data.reply || "I reviewed the available dashboard information.");
       if (thinkingBubble && thinkingBubble.parentNode) thinkingBubble.parentNode.removeChild(thinkingBubble);
       var replyBubble = addMessage_(reply, "ai");
@@ -5102,8 +5111,9 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       messagesEl.scrollTop = messagesEl.scrollHeight;
       setBusy_(false);
       if (proposals.length) refreshPending_(); // not awaited: the reply is already shown
-      setStatus_(aiState.canApprove ? "Review proposed changes below or in Pending approval. Nothing changes until you approve." : "Analysis complete. Proposed changes, if any, are waiting for the designated owner.");
+      setStatus_((aiState.lastTiming ? aiState.lastTiming + ". " : "") + (proposals.length ? (aiState.canApprove ? "Review the proposed changes below. Nothing changes until you approve." : "Proposed changes are waiting for the designated owner.") : ""));
     } catch (err) {
+      clearInterval(tick);
       if (thinkingBubble && thinkingBubble.parentNode) thinkingBubble.parentNode.removeChild(thinkingBubble);
       addMessage_(err.message || "Gemini could not answer. Please try again.", "error");
       setStatus_("Assistant request failed. Your dashboard data was not changed.");
