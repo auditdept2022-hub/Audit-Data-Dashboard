@@ -4710,4 +4710,270 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   #dataModal #modalDialog { height: 100dvh !important; max-height: 100dvh !important; }
 }
 </style>
+
+<!-- GEMINI DASHBOARD ASSISTANT — inject this block near the end of index.html -->
+<style id="geminiAssistantStyles">
+  #geminiAssistantLauncher{position:fixed;right:20px;bottom:20px;z-index:140;background:#173b72;color:#fff;border:1px solid rgba(255,255,255,.24);border-radius:999px;padding:12px 17px;box-shadow:0 12px 32px rgba(2,12,30,.28);font:700 13px/1.2 system-ui,-apple-system,Segoe UI,sans-serif;display:flex;align-items:center;gap:9px;cursor:pointer;touch-action:manipulation}
+  #geminiAssistantLauncher:hover{filter:brightness(1.08)}
+  #geminiAssistantLauncher:focus-visible,#geminiAssistantPanel button:focus-visible,#geminiAssistantPanel textarea:focus-visible{outline:3px solid #38bdf8;outline-offset:2px}
+  #geminiAssistantPanel{position:fixed;right:20px;bottom:78px;z-index:140;width:min(440px,calc(100vw - 24px));height:min(690px,calc(100dvh - 110px));display:none;flex-direction:column;background:#f8fafc;color:#0f172a;border:1px solid #cbd5e1;border-radius:18px;box-shadow:0 24px 70px rgba(2,12,30,.3);overflow:hidden;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+  #geminiAssistantPanel.gai-open{display:flex}
+  #geminiAssistantHeader{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;background:linear-gradient(115deg,#102d56,#1e4c83);color:#fff}
+  #geminiAssistantHeaderTitle{font-size:14px;font-weight:800;letter-spacing:.01em}
+  #geminiAssistantHeaderSub{font-size:10px;color:#cbd5e1;margin-top:3px}
+  #geminiAssistantClose{border:0;background:rgba(255,255,255,.12);color:#fff;border-radius:9px;width:32px;height:32px;font-size:18px;cursor:pointer}
+  #geminiAssistantStatus{padding:8px 13px;background:#eff6ff;border-bottom:1px solid #dbeafe;color:#1e40af;font-size:11px;line-height:1.4}
+  #geminiAssistantMessages{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:11px;overscroll-behavior:contain}
+  .gai-message{max-width:92%;padding:10px 12px;border-radius:13px;font-size:12px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+  .gai-message.gai-ai{align-self:flex-start;background:#fff;border:1px solid #e2e8f0;color:#1e293b;border-top-left-radius:4px}
+  .gai-message.gai-user{align-self:flex-end;background:#dbeafe;border:1px solid #bfdbfe;color:#1e3a8a;border-top-right-radius:4px}
+  .gai-message.gai-error{align-self:flex-start;background:#fff1f2;border:1px solid #fecdd3;color:#9f1239}
+  #geminiAssistantQueue{border-top:1px solid #e2e8f0;background:#fff;max-height:38%;overflow:auto;padding:10px 12px}
+  #geminiAssistantQueueTitle{font-size:11px;font-weight:800;color:#334155;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center}
+  .gai-proposal{border:1px solid #cbd5e1;background:#fff;border-radius:12px;padding:10px;margin:7px 0}
+  .gai-proposal-title{font-size:12px;font-weight:800;color:#0f172a;margin-bottom:4px}
+  .gai-proposal-meta{font-size:10px;color:#64748b;margin-bottom:7px}
+  .gai-proposal-reason{font-size:11px;line-height:1.45;color:#334155;white-space:pre-wrap}
+  .gai-proposal-diff{margin-top:7px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;padding:8px;max-height:150px;overflow:auto;font:10px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;color:#334155}
+  .gai-proposal-actions{display:flex;gap:7px;margin-top:9px}
+  .gai-btn{border:0;border-radius:8px;padding:8px 11px;font-size:11px;font-weight:800;cursor:pointer;touch-action:manipulation}
+  .gai-btn:disabled{opacity:.5;cursor:not-allowed}
+  .gai-approve{background:#166534;color:white}
+  .gai-reject{background:#e2e8f0;color:#334155}
+  #geminiAssistantComposer{display:flex;align-items:flex-end;gap:8px;padding:10px 12px;background:#fff;border-top:1px solid #e2e8f0}
+  #geminiAssistantInput{resize:none;min-height:42px;max-height:105px;flex:1;border:1px solid #cbd5e1;border-radius:11px;padding:10px 11px;background:#fff;color:#0f172a;font:12px/1.4 system-ui,-apple-system,Segoe UI,sans-serif;outline:0}
+  #geminiAssistantSend{border:0;border-radius:10px;background:#1d4ed8;color:#fff;padding:11px 13px;font-size:11px;font-weight:800;cursor:pointer;min-height:42px}
+  #geminiAssistantPrivacy{padding:0 13px 10px;background:#fff;color:#64748b;font-size:9px;line-height:1.4}
+  @media(max-width:560px){#geminiAssistantLauncher{right:12px;bottom:14px;padding:11px 14px}#geminiAssistantPanel{right:8px;bottom:65px;width:calc(100vw - 16px);height:calc(100dvh - 82px);border-radius:15px}}
+</style>
+
+<button id="geminiAssistantLauncher" type="button" aria-controls="geminiAssistantPanel" aria-expanded="false">
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-2-5.8L4 11l6-2.2L12 3Z"/><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16Z"/></svg>
+  AI Assistant
+</button>
+
+<section id="geminiAssistantPanel" aria-label="Gemini dashboard assistant" role="dialog" aria-modal="false">
+  <header id="geminiAssistantHeader">
+    <div>
+      <div id="geminiAssistantHeaderTitle">Audit Dashboard Assistant</div>
+      <div id="geminiAssistantHeaderSub">Gemini · approval required for changes</div>
+    </div>
+    <button id="geminiAssistantClose" type="button" aria-label="Close assistant">×</button>
+  </header>
+  <div id="geminiAssistantStatus" role="status">Checking assistant access…</div>
+  <div id="geminiAssistantMessages" aria-live="polite">
+    <div class="gai-message gai-ai">Hello! I can review the available dashboard data, identify audit risks and prepare proposed changes. I will not change anything until the designated owner approves it.</div>
+  </div>
+  <div id="geminiAssistantQueue" hidden>
+    <div id="geminiAssistantQueueTitle"><span>Pending approval</span><span id="geminiAssistantQueueCount"></span></div>
+    <div id="geminiAssistantQueueItems"></div>
+  </div>
+  <div id="geminiAssistantComposer">
+    <textarea id="geminiAssistantInput" rows="2" maxlength="2400" placeholder="Ask about branches, audits, schedules or performance…"></textarea>
+    <button id="geminiAssistantSend" type="button">Send</button>
+  </div>
+  <div id="geminiAssistantPrivacy">Dashboard branch and auditor summaries are sent to Google Gemini to answer your request. Detailed audit remarks, customer contacts and account identifiers are excluded. Changes require a separate owner approval.</div>
+</section>
+
+<script id="geminiAssistantClient">
+(function () {
+  "use strict";
+  var launcher = document.getElementById("geminiAssistantLauncher");
+  var panel = document.getElementById("geminiAssistantPanel");
+  if (!launcher || !panel || panel.__geminiBound) return;
+  panel.__geminiBound = true;
+
+  var closeBtn = document.getElementById("geminiAssistantClose");
+  var statusEl = document.getElementById("geminiAssistantStatus");
+  var messagesEl = document.getElementById("geminiAssistantMessages");
+  var queueEl = document.getElementById("geminiAssistantQueue");
+  var queueItemsEl = document.getElementById("geminiAssistantQueueItems");
+  var queueCountEl = document.getElementById("geminiAssistantQueueCount");
+  var inputEl = document.getElementById("geminiAssistantInput");
+  var sendBtn = document.getElementById("geminiAssistantSend");
+  var aiState = { checked: false, canPropose: false, canApprove: false, apiConfigured: false, sending: false, history: [] };
+
+  function assistantApiBase_() {
+    try { if (typeof defaultAppsScriptUrl !== "undefined" && defaultAppsScriptUrl) return String(defaultAppsScriptUrl); } catch (e) {}
+    return String(window.defaultAppsScriptUrl || "");
+  }
+  function assistantSecret_() {
+    try { if (typeof appsScriptSecret !== "undefined" && appsScriptSecret) return String(appsScriptSecret); } catch (e) {}
+    return String(window.appsScriptSecret || "");
+  }
+  async function assistantRequest_(action, fields) {
+    var base = assistantApiBase_();
+    if (!base) throw new Error("The dashboard API endpoint is not available on this page.");
+    if (typeof window.getCurrentIdToken !== "function") throw new Error("The dashboard sign-in token is unavailable. Sign in again and retry.");
+    var token = await window.getCurrentIdToken();
+    if (!token) throw new Error("Your dashboard session has expired. Sign in again and retry.");
+    var params = new URLSearchParams();
+    params.set("action", action);
+    params.set("secret", assistantSecret_());
+    params.set("idToken", token);
+    Object.keys(fields || {}).forEach(function (key) { params.set(key, String(fields[key])); });
+    var url = base + (base.indexOf("?") >= 0 ? "&" : "?") + params.toString();
+    var result;
+    if (typeof fetchSheetOnce === "function") result = await fetchSheetOnce(url);
+    else throw new Error("The dashboard's secure request helper is unavailable. Please reload the latest dashboard version.");
+    if (!result || typeof result !== "object") throw new Error("The dashboard server returned an invalid response.");
+    if (result.error) throw new Error(String(result.error));
+    return result;
+  }
+  function textNode_(tag, cls, value) {
+    var el = document.createElement(tag);
+    if (cls) el.className = cls;
+    el.textContent = value == null ? "" : String(value);
+    return el;
+  }
+  function addMessage_(text, kind) {
+    var bubble = textNode_("div", "gai-message " + (kind === "user" ? "gai-user" : kind === "error" ? "gai-error" : "gai-ai"), text);
+    messagesEl.appendChild(bubble);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return bubble;
+  }
+  function setStatus_(text) { statusEl.textContent = text; }
+  function setBusy_(busy) {
+    aiState.sending = !!busy;
+    sendBtn.disabled = !!busy;
+    sendBtn.textContent = busy ? "…" : "Send";
+  }
+  function formatAction_(type) {
+    if (type === "saveAssignment") return "Audit assignment / schedule";
+    if (type === "saveHighlight") return "Branch highlight";
+    if (type === "saveAuditorRemark") return "Add audit remark";
+    if (type === "updateOverallData") return "Update Overall Data";
+    return "Dashboard action";
+  }
+  function proposalCard_(proposal) {
+    var card = document.createElement("div");
+    card.className = "gai-proposal";
+    card.appendChild(textNode_("div", "gai-proposal-title", proposal.title || formatAction_(proposal.actionType)));
+    card.appendChild(textNode_("div", "gai-proposal-meta", formatAction_(proposal.actionType) + " · " + (proposal.status || "pending")));
+    card.appendChild(textNode_("div", "gai-proposal-reason", proposal.reason || "Review the proposed change below."));
+    var diff = document.createElement("pre");
+    diff.className = "gai-proposal-diff";
+    diff.textContent = "CURRENT VALUES\n" + JSON.stringify(proposal.before || {}, null, 2) + "\n\nPROPOSED VALUES\n" + JSON.stringify(proposal.after || {}, null, 2);
+    card.appendChild(diff);
+    if (aiState.canApprove && proposal.status === "pending") {
+      var actions = document.createElement("div");
+      actions.className = "gai-proposal-actions";
+      var approve = textNode_("button", "gai-btn gai-approve", "Approve change");
+      approve.type = "button";
+      approve.addEventListener("click", function () { decideProposal_(proposal.proposalId, true, approve, reject); });
+      var reject = textNode_("button", "gai-btn gai-reject", "Reject");
+      reject.type = "button";
+      reject.addEventListener("click", function () { decideProposal_(proposal.proposalId, false, approve, reject); });
+      actions.appendChild(approve);
+      actions.appendChild(reject);
+      card.appendChild(actions);
+    }
+    return card;
+  }
+  function renderQueue_(proposals) {
+    queueItemsEl.textContent = "";
+    var list = Array.isArray(proposals) ? proposals : [];
+    queueCountEl.textContent = String(list.length);
+    queueEl.hidden = !aiState.canApprove || !list.length;
+    if (!aiState.canApprove || !list.length) return;
+    list.forEach(function (proposal) { queueItemsEl.appendChild(proposalCard_(proposal)); });
+  }
+  async function refreshPending_() {
+    if (!aiState.canApprove) { renderQueue_([]); return; }
+    try {
+      var data = await assistantRequest_("aiAssistantPending", {});
+      renderQueue_(data.proposals || []);
+    } catch (err) {
+      setStatus_("Pending approval queue could not be refreshed: " + (err.message || err));
+    }
+  }
+  async function loadStatus_() {
+    try {
+      var data = await assistantRequest_("aiAssistantStatus", {});
+      aiState.checked = true;
+      aiState.canPropose = !!data.canPropose;
+      aiState.canApprove = !!data.canApprove;
+      aiState.apiConfigured = !!data.apiConfigured;
+      if (!data.allowed) {
+        setStatus_("Your account does not have permission to use the dashboard assistant.");
+        inputEl.disabled = true; sendBtn.disabled = true; return;
+      }
+      if (!aiState.apiConfigured) {
+        setStatus_("Gemini is not configured yet. Add GEMINI_API_KEY in Apps Script Script Properties.");
+      } else {
+        setStatus_(aiState.canApprove ? "Gemini is ready · you are the designated approver. No change runs without your approval." : aiState.canPropose ? "Gemini is ready · you can request proposals, but only the designated owner can approve them." : "Gemini is ready · read-only analysis. You cannot create change proposals.");
+      }
+      inputEl.disabled = false; sendBtn.disabled = false;
+      await refreshPending_();
+    } catch (err) {
+      setStatus_(err.message || "Could not connect to the assistant.");
+      inputEl.disabled = true; sendBtn.disabled = true;
+    }
+  }
+  async function decideProposal_(proposalId, approve, approveBtn, rejectBtn) {
+    if (!proposalId) return;
+    var verb = approve ? "approve" : "reject";
+    if (!window.confirm(approve ? "Approve this exact dashboard change? The server will recheck the current branch values before applying it." : "Reject this AI proposal? No dashboard data will be changed.")) return;
+    approveBtn.disabled = true; rejectBtn.disabled = true;
+    try {
+      var data = await assistantRequest_(approve ? "aiAssistantApprove" : "aiAssistantReject", { proposalId: proposalId });
+      addMessage_(approve ? "Approved. The dashboard server confirmed the action." : "Proposal rejected. No dashboard change was made.", "ai");
+      if (approve && data.actionType === "updateOverallData" && typeof window.refreshOverallData === "function") {
+        try { window.refreshOverallData(); } catch (e) {}
+      }
+      await refreshPending_();
+    } catch (err) {
+      addMessage_("Could not " + verb + " this proposal: " + (err.message || err), "error");
+      approveBtn.disabled = false; rejectBtn.disabled = false;
+      await refreshPending_();
+    }
+  }
+  async function sendMessage_() {
+    var message = String(inputEl.value || "").trim();
+    if (!message || aiState.sending) return;
+    if (!aiState.apiConfigured) { addMessage_("Gemini is not configured. Add GEMINI_API_KEY under Apps Script Project Settings > Script properties, then reload the dashboard.", "error"); return; }
+    inputEl.value = "";
+    addMessage_(message, "user");
+    setBusy_(true);
+    setStatus_("Gemini is reviewing the latest available dashboard snapshot…");
+    try {
+      var history = aiState.history.slice(-6).map(function (item) { return { role: item.role, text: item.text.slice(0, 500) }; });
+      var data = await assistantRequest_("aiAssistantChat", { message: message, history: JSON.stringify(history) });
+      var reply = String(data.reply || "I reviewed the available dashboard information.");
+      addMessage_(reply, "ai");
+      aiState.history.push({ role: "user", text: message });
+      aiState.history.push({ role: "assistant", text: reply });
+      aiState.history = aiState.history.slice(-8);
+      var proposals = Array.isArray(data.proposals) ? data.proposals : [];
+      proposals.forEach(function (proposal) {
+        messagesEl.appendChild(proposalCard_(proposal));
+      });
+      if (data.proposalsSkipped) addMessage_("I did not create " + data.proposalsSkipped + " proposed change(s) because they did not pass the dashboard's server-side validation.", "ai");
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      await refreshPending_();
+      setStatus_(aiState.canApprove ? "Review proposed changes below or in Pending approval. Nothing changes until you approve." : "Analysis complete. Proposed changes, if any, are waiting for the designated owner.");
+    } catch (err) {
+      addMessage_(err.message || "Gemini could not answer. Please try again.", "error");
+      setStatus_("Assistant request failed. Your dashboard data was not changed.");
+    } finally { setBusy_(false); }
+  }
+  function openPanel_() {
+    panel.classList.add("gai-open");
+    launcher.setAttribute("aria-expanded", "true");
+    if (!aiState.checked) loadStatus_(); else refreshPending_();
+    setTimeout(function () { inputEl.focus(); }, 80);
+  }
+  function closePanel_() {
+    panel.classList.remove("gai-open");
+    launcher.setAttribute("aria-expanded", "false");
+  }
+  launcher.addEventListener("click", function () { panel.classList.contains("gai-open") ? closePanel_() : openPanel_(); });
+  closeBtn.addEventListener("click", closePanel_);
+  sendBtn.addEventListener("click", sendMessage_);
+  inputEl.addEventListener("keydown", function (event) {
+    if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendMessage_(); }
+  });
+})();
+</script>
+
 </body></html>
