@@ -4724,7 +4724,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   #geminiAssistantHeaderTitle{font-size:14px;font-weight:800;letter-spacing:.01em}
   #geminiAssistantHeaderSub{font-size:11px;color:#e2e8f0;margin-top:3px;display:flex;align-items:center;gap:6px;font-weight:600}
   .gai-dot{width:8px;height:8px;border-radius:50%;background:#94a3b8;flex:none;box-shadow:0 0 0 2px rgba(255,255,255,.18)}
-  .gai-dot.gai-online{background:#22c55e}.gai-dot.gai-offline{background:#ef4444}.gai-dot.gai-busy{background:#f59e0b}
+  .gai-dot.gai-online,.gai-dot.gai-ready{background:#22c55e}.gai-dot.gai-offline{background:#ef4444}.gai-dot.gai-busy{background:#f59e0b}
   #geminiAssistantHeaderBtns{display:flex;align-items:center;gap:8px}
   #geminiAssistantApprovalsBtn{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.12);color:#fff;border-radius:9px;height:32px;padding:0 10px;font-size:11px;font-weight:800;cursor:pointer}
   #geminiAssistantApprovalsBtn[hidden]{display:none}
@@ -4852,7 +4852,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   var attachBtn = document.getElementById("geminiAssistantAttach");
   var fileInput = document.getElementById("geminiAssistantFile");
   var filesEl = document.getElementById("geminiAssistantFiles");
-  var aiState = { gemini: "checking", healthBusy: false, healthTimer: null, checked: false, canPropose: false, canApprove: false, apiConfigured: false, sending: false, reading: false, files: [], history: [], pendingCount: 0 };
+  var aiState = { gemini: "checking", checked: false, canPropose: false, canApprove: false, apiConfigured: false, sending: false, reading: false, lastReplyAt: 0, files: [], history: [], pendingCount: 0 };
   var MAX_FILES = 5, MAX_INLINE_TOTAL = 9 * 1024 * 1024, MAX_TEXT_CHARS = 120000;
 
   function assistantApiBase_() {
@@ -4883,7 +4883,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     if (typeof fetchSheetOnce === "function") result = await fetchSheetOnce(url, { directMs: 55000, jsonpMs: 60000 });
     else throw new Error("The dashboard's secure request helper is unavailable. Please reload the latest dashboard version.");
     if (!result || typeof result !== "object") throw new Error("The dashboard server returned an invalid response.");
-    if (result.error) { var re = new Error(String(result.error)); re.retryable = !!result.retryable; throw re; }
+    if (result.error) { var re = new Error(String(result.error)); re.retryable = !!result.retryable; re.retryAfterMs = Number(result.retryAfterMs) || 0; throw re; }
     return result;
   }
   // POST: no URL size limit and a long timeout, so long answers and file uploads work.
@@ -4907,7 +4907,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       throw e2;
     }
     if (!json || typeof json !== "object") throw new Error("The dashboard server returned an invalid response.");
-    if (json.error) { var je = new Error(String(json.error)); je.retryable = !!json.retryable; throw je; }
+    if (json.error) { var je = new Error(String(json.error)); je.retryable = !!json.retryable; je.retryAfterMs = Number(json.retryAfterMs) || 0; throw je; }
     return json;
   }
   function isRetryable_(err) {
@@ -5005,21 +5005,9 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   function setGemini_(state, reason) {
     aiState.gemini = state;
     dotEl.className = "gai-dot gai-" + state;
-    var label = state === "online" ? "Online" : state === "offline" ? "Offline" : state === "busy" ? "Busy" : "Checking\u2026";
+    var label = state === "online" ? "Online" : state === "ready" ? "Ready" : state === "offline" ? "Offline" : state === "busy" ? "Busy" : "Checking\u2026";
     stateEl.textContent = label + (reason && state !== "online" && state !== "checking" ? " \u00b7 " + reason : "");
     subEl.title = reason || label;
-  }
-  async function checkHealth_() {
-    if (aiState.healthBusy || aiState.sending) return;
-    aiState.healthBusy = true;
-    try {
-      var d = await assistantRequest_("aiAssistantStatus", { probe: "1" });
-      var g = d.gemini || { state: d.apiConfigured ? "online" : "offline", reason: d.apiConfigured ? "" : "API key not set" };
-      if (!d.allowed) g = { state: "offline", reason: "No permission" };
-      if (!aiState.sending) setGemini_(g.state, g.reason);
-    } catch (err) {
-      if (!aiState.sending) setGemini_("offline", "Cannot reach the server");
-    } finally { aiState.healthBusy = false; }
   }
   function setStatus_(text) { statusEl.textContent = text || ""; }
   function setBusy_(busy) {
@@ -5227,14 +5215,19 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
         inputEl.disabled = true; sendBtn.disabled = true; attachBtn.disabled = true; return;
       }
       setStatus_(aiState.apiConfigured ? "" : "Gemini is not configured yet. Add GEMINI_API_KEY in Apps Script Script Properties.");
-      if (aiState.apiConfigured) { setGemini_("checking"); checkHealth_(); } else setGemini_("offline", "API key not set");
-      inputEl.disabled = false; sendBtn.disabled = false; attachBtn.disabled = false;
+      if (!aiState.sending && !aiState.lastReplyAt) {
+        if (aiState.apiConfigured) setGemini_("ready", "API key configured");
+        else setGemini_("offline", "API key not set");
+      }
+      inputEl.disabled = false; sendBtn.disabled = !!aiState.sending; attachBtn.disabled = !!aiState.sending;
       approvalsBtn.hidden = !aiState.canApprove;
-      await refreshPending_();
+      // Do not hold the assistant's ready state open while the optional approval
+      // queue loads. Chat can be used immediately after this status response.
+      if (aiState.canApprove) refreshPending_();
     } catch (err) {
-      setStatus_(err.message || "Could not connect to the assistant.");
-      setGemini_("offline", "Cannot reach the server");
-      inputEl.disabled = true; sendBtn.disabled = true;
+      setStatus_((err.message || "Could not connect to the assistant.") + " You can still try a message; the server will verify access.");
+      if (!aiState.sending && !aiState.lastReplyAt) setGemini_("offline", "Cannot reach the server");
+      inputEl.disabled = false; attachBtn.disabled = false; sendBtn.disabled = !!aiState.sending;
     }
   }
 
@@ -5243,7 +5236,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     if (aiState.sending || aiState.reading) return;
     if (!message && !aiState.files.length) return;
     if (!message) message = "Please review the attached file(s) and summarize the key points.";
-    if (!aiState.apiConfigured) { addMessage_("Gemini is not configured. Add GEMINI_API_KEY under Apps Script Project Settings > Script properties, then reload the dashboard.", "error"); return; }
+    if (aiState.checked && !aiState.apiConfigured) { addMessage_("Gemini is not configured. Add GEMINI_API_KEY under Apps Script Project Settings > Script properties, then reload the dashboard.", "error"); return; }
     var sentFiles = aiState.files.slice();
     var fileNames = sentFiles.map(function (f) { return f.name; });
     inputEl.value = ""; autoGrow_();
@@ -5253,7 +5246,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     var thinkingBubble = addMessage_("Thinking\u2026 0s", "thinking");
     var startedAt = Date.now();
     var retryState = null; // { until: ms timestamp, attempt: n }
-    var MAX_ATTEMPTS = 6;
+    var MAX_ATTEMPTS = 2; // one bounded retry; never leave the user waiting through a long retry chain
     var tick = setInterval(function () {
       var sec = Math.round((Date.now() - startedAt) / 1000);
       if (retryState && Date.now() < retryState.until) {
@@ -5263,29 +5256,30 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       }
     }, 1000);
     try {
-      var history = aiState.history.slice(-10).map(function (item) { return { role: item.role, text: item.text.slice(0, 6000) }; });
-      var fields = { message: message, history: JSON.stringify(history) };
+      // Keep the payload small for normal chat. The established GET/JSONP
+      // transport is more reliable for short requests; use POST only when a
+      // file or a genuinely large prompt requires it.
+      var history = aiState.history.slice(-6).map(function (item) { return { role: item.role, text: String(item.text || "").slice(0, 1200) }; });
+      var historyJson = JSON.stringify(history);
+      var fields = { message: message, history: historyJson };
       if (sentFiles.length) {
         fields.attachments = JSON.stringify(sentFiles.map(function (f) { return f.kind === "inline" ? { name: f.name, kind: "inline", mime: f.mime, data: f.data } : { name: f.name, kind: "text", text: f.text }; }));
       }
-      var useGet = false;
+      var needsPost = sentFiles.length > 0 || message.length > 1500 || historyJson.length + message.length > 6000;
       var callOnce_ = async function () {
-        if (sentFiles.length || !useGet) {
-          try { return await assistantPost_("aiAssistantChat", fields); }
-          catch (postErr) {
-            if (sentFiles.length || !postErr.transport) throw postErr;
-            useGet = true; // POST route not available: fall back to the old GET route with a short history
-          }
+        if (needsPost) {
+          // Never auto-fallback after a POST transport error: the server may
+          // already have completed the request and created an approval proposal.
+          return await assistantPost_("aiAssistantChat", fields);
         }
-        var short = history.slice(-4).map(function (hh) { return { role: hh.role, text: hh.text.slice(0, 400) }; });
-        return await assistantRequest_("aiAssistantChat", { message: message, history: JSON.stringify(short) });
+        return await assistantRequest_("aiAssistantChat", fields);
       };
       var data;
       for (var attempt = 1; ; attempt++) {
         try { data = await callOnce_(); break; }
         catch (callErr) {
           if (!isRetryable_(callErr) || attempt >= MAX_ATTEMPTS) throw callErr;
-          var waitMs = Math.min(15000, 3000 + attempt * 3000); // 6s, 9s, 12s, 15s, 15s
+          var waitMs = Math.max(1100, Math.min(5000, Number(callErr.retryAfterMs) || 1800)); // one short, server-guided retry
           retryState = { until: Date.now() + waitMs, attempt: attempt };
           setGemini_("busy", "retrying");
           await sleep_(waitMs);
@@ -5294,11 +5288,13 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       }
       if (sentFiles.length) { aiState.files = []; renderFiles_(); }
       clearInterval(tick);
+      aiState.lastReplyAt = Date.now();
       setGemini_("online");
       if (thinkingBubble.parentNode) thinkingBubble.parentNode.removeChild(thinkingBubble);
       var totalSec = ((Date.now() - startedAt) / 1000).toFixed(1);
       var tm = data.timing || null;
-      var timingText = "Answered in " + totalSec + "s" + (tm ? " (Gemini " + (tm.geminiMs / 1000).toFixed(1) + "s" + (tm.model ? ", " + tm.model : "") + ")" : "");
+      var modeLabel = data.mode === "quick" ? "Quick reply" : data.mode === "comprehensive" ? "Detailed reply" : "Standard reply";
+      var timingText = modeLabel + " · answered in " + totalSec + "s" + (tm ? " (Gemini " + (tm.geminiMs / 1000).toFixed(1) + "s" + (tm.model ? ", " + tm.model : "") + ")" : "");
       var reply = String(data.reply || "I reviewed the available dashboard information.");
       var replyBubble = addMessage_(reply, "ai");
       if (reply.length > 300) {
@@ -5343,13 +5339,11 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   function openPanel_() {
     panel.classList.add("gai-open");
     launcher.setAttribute("aria-expanded", "true");
-    if (!aiState.checked) loadStatus_(); else { refreshPending_(); checkHealth_(); }
-    if (!aiState.healthTimer) aiState.healthTimer = setInterval(function () { if (!document.hidden) checkHealth_(); }, 60000);
+    if (!aiState.checked) loadStatus_(); else if (aiState.canApprove) refreshPending_();
     setTimeout(function () { inputEl.focus(); }, 80);
   }
   function closePanel_() {
     closeApprovals_();
-    if (aiState.healthTimer) { clearInterval(aiState.healthTimer); aiState.healthTimer = null; }
     panel.classList.remove("gai-open");
     launcher.setAttribute("aria-expanded", "false");
   }
