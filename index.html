@@ -4711,7 +4711,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
 }
 </style>
 
-<!-- GEMINI DASHBOARD ASSISTANT — v126: passes the same itemized finding rows used by the HTML branch profile. -->
+<!-- GEMINI DASHBOARD ASSISTANT — v128: authenticated Google Drive workspace, Google Docs template support and DOCX report creation. -->
 <style id="geminiAssistantStyles">
   #geminiAssistantLauncher{position:fixed;right:20px;bottom:20px;z-index:140;background:#173b72;color:#fff;border:1px solid rgba(255,255,255,.24);border-radius:999px;padding:12px 17px;box-shadow:0 12px 32px rgba(2,12,30,.28);font:700 13px/1.2 system-ui,-apple-system,Segoe UI,sans-serif;display:flex;align-items:center;gap:9px;cursor:pointer;touch-action:manipulation}
   #geminiAssistantLauncher:hover{filter:brightness(1.08)}
@@ -4762,6 +4762,20 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   #geminiAssistantInput{resize:none;min-height:36px;max-height:140px;flex:1;border:1px solid #cbd5e1;border-radius:18px;padding:8px 13px;background:#fff;color:#0f172a;font:13px/1.45 system-ui,-apple-system,Segoe UI,sans-serif;outline:0;overflow-y:auto}
   #geminiAssistantSend{flex:none;border:0;border-radius:18px;background:#1d4ed8;color:#fff;padding:0 15px;font-size:12px;font-weight:800;cursor:pointer;height:36px}
   #geminiAssistantSend:disabled{opacity:.55;cursor:default}
+  #geminiAssistantDriveBtn{display:inline-flex;align-items:center;gap:5px;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.12);color:#fff;border-radius:9px;height:32px;padding:0 9px;font-size:11px;font-weight:800;cursor:pointer}
+  #geminiAssistantDriveSettings{position:absolute;inset:0;background:rgba(15,23,42,.58);display:none;align-items:center;justify-content:center;padding:14px;z-index:6}
+  #geminiAssistantDriveSettings.gai-open{display:flex}
+  .gai-drive-card{width:100%;max-width:420px;background:#fff;border-radius:14px;padding:16px;box-shadow:0 18px 50px rgba(2,12,30,.35);color:#0f172a}
+  .gai-drive-card h3{font-size:15px;font-weight:800;margin:0 0 5px}
+  .gai-drive-card p{font-size:11px;line-height:1.5;color:#64748b;margin:0 0 12px}
+  .gai-drive-card label{display:block;font-size:11px;font-weight:800;margin:10px 0 5px}
+  .gai-drive-card input{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px 10px;font-size:12px;color:#0f172a;background:#fff;box-sizing:border-box}
+  .gai-drive-card .gai-drive-status{font-size:11px;line-height:1.5;margin:10px 0;padding:8px 10px;border-radius:8px;background:#f1f5f9;color:#334155;white-space:pre-wrap}
+  .gai-drive-actions{display:flex;gap:8px;margin-top:12px}
+  .gai-drive-actions button{border:0;border-radius:8px;padding:9px 12px;font-size:11px;font-weight:800;cursor:pointer}
+  .gai-drive-save{background:#1d4ed8;color:#fff;flex:1}.gai-drive-close{background:#e2e8f0;color:#334155}
+  .gai-drive-links{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
+  .gai-drive-links a{display:inline-flex;align-items:center;gap:5px;padding:6px 9px;border:1px solid #bfdbfe;border-radius:8px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:800;text-decoration:none}
   #geminiAssistantApprovals{position:absolute;inset:0;background:rgba(15,23,42,.55);display:none;align-items:stretch;justify-content:center;padding:12px;z-index:5}
   #geminiAssistantApprovals.gai-open{display:flex}
   .gai-sheet{flex:1;display:flex;flex-direction:column;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 18px 50px rgba(2,12,30,.35)}
@@ -4798,6 +4812,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       <div id="geminiAssistantHeaderSub" title=""><span id="geminiAssistantDot" class="gai-dot"></span><span id="geminiAssistantState">Checking…</span></div>
     </div>
     <div id="geminiAssistantHeaderBtns">
+      <button id="geminiAssistantDriveBtn" type="button" aria-label="Google Drive settings" title="Connect Google Drive">Drive</button>
       <button id="geminiAssistantApprovalsBtn" type="button" hidden aria-label="Open approvals">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
         Approvals<span id="geminiAssistantApprovalsBadge" hidden>0</span>
@@ -4817,6 +4832,19 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     <input id="geminiAssistantFile" type="file" multiple hidden accept=".pdf,.png,.jpg,.jpeg,.webp,.heic,.heif,.xlsx,.xls,.csv,.txt,.md,.json,.docx">
     <textarea id="geminiAssistantInput" rows="1" maxlength="12000" placeholder="Message Gemini…"></textarea>
     <button id="geminiAssistantSend" type="button">Send</button>
+  </div>
+  <div id="geminiAssistantDriveSettings" role="dialog" aria-label="Google Drive settings" aria-modal="true">
+    <div class="gai-drive-card">
+      <h3>Connect Google Drive</h3>
+      <p>Choose the folder where the assistant will save reports. The folder must be accessible to the Google account that executes this Apps Script web app.</p>
+      <label for="geminiAssistantDriveFolder">Destination folder URL or ID</label>
+      <input id="geminiAssistantDriveFolder" type="text" placeholder="https://drive.google.com/drive/folders/…" autocomplete="off">
+      <label for="geminiAssistantDriveTemplate">Optional Google Docs template URL or ID</label>
+      <input id="geminiAssistantDriveTemplate" type="text" placeholder="https://docs.google.com/document/d/…/edit" autocomplete="off">
+      <div class="gai-drive-status" id="geminiAssistantDriveStatus">Loading Drive connection…</div>
+      <p>For the closest template match, upload your sample DOCX to Drive, open it with Google Docs, save the converted Google Docs copy, and use that copy as the template. Keep the original DOCX unchanged.</p>
+      <div class="gai-drive-actions"><button class="gai-drive-save" id="geminiAssistantDriveSave" type="button">Save Drive settings</button><button class="gai-drive-close" id="geminiAssistantDriveClose" type="button">Close</button></div>
+    </div>
   </div>
   <div id="geminiAssistantApprovals" role="dialog" aria-label="Pending approvals">
     <div class="gai-sheet">
@@ -4841,6 +4869,13 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   var approvalsBtn = document.getElementById("geminiAssistantApprovalsBtn");
   var approvalsBadge = document.getElementById("geminiAssistantApprovalsBadge");
   var approvalsClose = document.getElementById("geminiAssistantApprovalsClose");
+  var driveBtn = document.getElementById("geminiAssistantDriveBtn");
+  var driveSettings = document.getElementById("geminiAssistantDriveSettings");
+  var driveFolderInput = document.getElementById("geminiAssistantDriveFolder");
+  var driveTemplateInput = document.getElementById("geminiAssistantDriveTemplate");
+  var driveStatusEl = document.getElementById("geminiAssistantDriveStatus");
+  var driveSaveBtn = document.getElementById("geminiAssistantDriveSave");
+  var driveCloseBtn = document.getElementById("geminiAssistantDriveClose");
   var launcherDot = document.getElementById("geminiAssistantLauncherDot");
   var subEl = document.getElementById("geminiAssistantHeaderSub");
   var dotEl = document.getElementById("geminiAssistantDot");
@@ -5103,6 +5138,54 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     }
   }
 
+  /* ---------- Google Drive / DOCX workspace ---------- */
+  async function loadDriveSettings_() {
+    driveStatusEl.textContent = "Checking Google Drive access…";
+    driveSaveBtn.disabled = true;
+    try {
+      var data = await assistantRequest_("aiDriveStatus", {});
+      driveFolderInput.value = data.folderUrl || data.folderId || "";
+      driveTemplateInput.value = data.templateUrl || data.templateId || "";
+      if (data.connected) {
+        driveStatusEl.textContent = "Connected to: " + data.folderName + (data.templateName ? "\nTemplate: " + data.templateName : "\nNo report template selected; standard report formatting will be used.");
+      } else {
+        driveStatusEl.textContent = "No destination folder is configured yet. Paste a Drive folder link above and save it.";
+      }
+      driveSaveBtn.disabled = !data.canConfigure;
+      if (!data.canConfigure) driveStatusEl.textContent += "\nOnly the designated dashboard owner can change these settings.";
+    } catch (err) {
+      driveStatusEl.textContent = "Could not check Drive: " + (err.message || err);
+      driveSaveBtn.disabled = false;
+    }
+  }
+  function openDriveSettings_() {
+    driveSettings.classList.add("gai-open");
+    loadDriveSettings_();
+  }
+  function closeDriveSettings_() { driveSettings.classList.remove("gai-open"); }
+  async function saveDriveSettings_() {
+    if (!driveFolderInput.value.trim()) { driveStatusEl.textContent = "Paste your destination folder URL or ID first."; return; }
+    driveSaveBtn.disabled = true;
+    driveStatusEl.textContent = "Verifying folder and template access…";
+    try {
+      var data = await assistantRequest_("aiDriveConfigure", { folder: driveFolderInput.value.trim(), template: driveTemplateInput.value.trim() });
+      if (!data.success) throw new Error(data.error || "Drive settings were not saved.");
+      driveStatusEl.textContent = "Connected successfully: " + data.folderName + (data.templateName ? "\nTemplate: " + data.templateName : "\nNo template selected.");
+      setStatus_("Google Drive connected. Completed DOCX reports will be saved in " + data.folderName + ".");
+    } catch (err) {
+      driveStatusEl.textContent = err.message || String(err);
+    } finally { driveSaveBtn.disabled = false; }
+  }
+  function appendDriveLinks_(bubble, doc) {
+    if (!doc) return;
+    var wrap = document.createElement("div"); wrap.className = "gai-drive-links";
+    if (doc.googleDocUrl) { var g = document.createElement("a"); g.href = doc.googleDocUrl; g.target = "_blank"; g.rel = "noopener noreferrer"; g.textContent = "Open Google Doc"; wrap.appendChild(g); }
+    if (doc.docxUrl) { var w = document.createElement("a"); w.href = doc.docxUrl; w.target = "_blank"; w.rel = "noopener noreferrer"; w.textContent = "Open DOCX in Drive"; wrap.appendChild(w); }
+    if (doc.folderUrl) { var f = document.createElement("a"); f.href = doc.folderUrl; f.target = "_blank"; f.rel = "noopener noreferrer"; f.textContent = "Open report folder"; wrap.appendChild(f); }
+    if (doc.warning) { var note = textNode_("div", "gai-note", doc.warning); bubble.appendChild(note); }
+    if (wrap.childNodes.length) bubble.appendChild(wrap);
+  }
+
   /* ---------- approvals popup ---------- */
   function formatAction_(type) {
     if (type === "saveAssignment") return "Audit assignment / schedule";
@@ -5333,7 +5416,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       // file or a genuinely large prompt requires it.
       var history = aiState.history.slice(-20).map(function (item) { return { role: item.role === "ai" || item.role === "assistant" ? "assistant" : item.role, text: String(item.text || "").slice(0, 8000) }; });
       var historyJson = JSON.stringify(history);
-      var fields = { message: message, history: historyJson };
+      var fields = { message: message, history: historyJson, requestId: "ai-" + Date.now() + "-" + Math.random().toString(36).slice(2, 10) };
       var dashboardFindingsJson = "";
       if (assistantNeedsFindingDetails_(message, aiState.history)) {
         try {
@@ -5404,6 +5487,16 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       }
       var reply = String(data.reply || "I reviewed the available dashboard information.");
       var replyBubble = addMessage_(reply, "ai");
+      if (data.driveDocument) {
+        addMessage_(data.driveDocument.docxUrl
+          ? "Google Doc and DOCX saved successfully in Google Drive: " + data.driveDocument.title + " (" + data.driveDocument.folderName + ")."
+          : "The editable Google Doc was saved in " + data.driveDocument.folderName + ", but the DOCX export needs attention.", "note");
+        appendDriveLinks_(replyBubble, data.driveDocument);
+      } else if (data.driveSetupRequired) {
+        addMessage_("Your report draft is ready, but Google Drive is not connected yet. Open the Drive button in the assistant, paste your destination folder link, and save the settings. Then ask me to create the DOCX again.", "note");
+      } else if (data.driveError) {
+        addMessage_("The report draft is ready, but the Drive file could not be created: " + data.driveError, "error");
+      }
       if (reply.length > 300) {
         var copyBtn = textNode_("button", "gai-copy", "Copy");
         copyBtn.type = "button";
@@ -5459,6 +5552,10 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   approvalsBtn.addEventListener("click", openApprovals_);
   approvalsClose.addEventListener("click", closeApprovals_);
   approvalsEl.addEventListener("click", function (event) { if (event.target === approvalsEl) closeApprovals_(); });
+  driveBtn.addEventListener("click", openDriveSettings_);
+  driveCloseBtn.addEventListener("click", closeDriveSettings_);
+  driveSettings.addEventListener("click", function (event) { if (event.target === driveSettings) closeDriveSettings_(); });
+  driveSaveBtn.addEventListener("click", saveDriveSettings_);
   sendBtn.addEventListener("click", sendMessage_);
   attachBtn.addEventListener("click", function () { if (!aiState.reading && !aiState.sending) fileInput.click(); });
   fileInput.addEventListener("change", function () { addFiles_(fileInput.files); });

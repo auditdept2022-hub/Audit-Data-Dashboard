@@ -1,11 +1,11 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
 // v106: app header stays pinned (dimmed behind the overlay) while ANY popup is open.
-const CACHE_VERSION = 'audit-dashboard-v127'
+const CACHE_VERSION = 'audit-dashboard-v128'
 // v122: adaptive AI response budgets, compact chat payloads, no redundant health probes, and shorter bounded retries.
 // v123: dashboard AI grounding reads compound audit headers, structured Overall Data aggregates/rankings, exact remark/emergency layouts, branch-specific contexts, and whole-record truncation.
 // v124: full-dashboard review requests include all six dashboard source sheets plus structured OVERALL DATA.
-// v127: expands the assistant output/context and file/history budgets; prepares the assistant for staged Workspace capabilities.
+// v128: connects Audit AI to Google Drive, creates editable Google Docs and DOCX report copies, and supports a configured Google Docs template.
 // v126: finding questions pass the exact HTML itemized rows, report each finding separately, and avoid substituting other branches when a requested branch has no matching HTML detail.
 // v121: maps dashboard Audit Status to the NEXT ENGAGEMENT header, with legacy-header fallback.
 // v120: repairs auditor assignment header resolution when merged rotation headers export blank cells; prefers explicit auditor headers and safely falls back to the paired date column.
