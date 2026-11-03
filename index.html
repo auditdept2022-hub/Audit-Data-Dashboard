@@ -4722,7 +4722,9 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   #geminiAssistantPanel.gai-open{display:flex}
   #geminiAssistantHeader{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;background:linear-gradient(115deg,#102d56,#1e4c83);color:#fff}
   #geminiAssistantHeaderTitle{font-size:14px;font-weight:800;letter-spacing:.01em}
-  #geminiAssistantHeaderSub{font-size:10px;color:#cbd5e1;margin-top:2px}
+  #geminiAssistantHeaderSub{font-size:11px;color:#e2e8f0;margin-top:3px;display:flex;align-items:center;gap:6px;font-weight:600}
+  .gai-dot{width:8px;height:8px;border-radius:50%;background:#94a3b8;flex:none;box-shadow:0 0 0 2px rgba(255,255,255,.18)}
+  .gai-dot.gai-online{background:#22c55e}.gai-dot.gai-offline{background:#ef4444}.gai-dot.gai-busy{background:#f59e0b}
   #geminiAssistantHeaderBtns{display:flex;align-items:center;gap:8px}
   #geminiAssistantApprovalsBtn{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.12);color:#fff;border-radius:9px;height:32px;padding:0 10px;font-size:11px;font-weight:800;cursor:pointer}
   #geminiAssistantApprovalsBtn[hidden]{display:none}
@@ -4793,7 +4795,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   <header id="geminiAssistantHeader">
     <div>
       <div id="geminiAssistantHeaderTitle">Audit Dashboard Assistant</div>
-      <div id="geminiAssistantHeaderSub">Gemini · changes need approval</div>
+      <div id="geminiAssistantHeaderSub" title=""><span id="geminiAssistantDot" class="gai-dot"></span><span id="geminiAssistantState">Checking…</span></div>
     </div>
     <div id="geminiAssistantHeaderBtns">
       <button id="geminiAssistantApprovalsBtn" type="button" hidden aria-label="Open approvals">
@@ -4840,6 +4842,9 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   var approvalsBadge = document.getElementById("geminiAssistantApprovalsBadge");
   var approvalsClose = document.getElementById("geminiAssistantApprovalsClose");
   var launcherDot = document.getElementById("geminiAssistantLauncherDot");
+  var subEl = document.getElementById("geminiAssistantHeaderSub");
+  var dotEl = document.getElementById("geminiAssistantDot");
+  var stateEl = document.getElementById("geminiAssistantState");
   var queueItemsEl = document.getElementById("geminiAssistantQueueItems");
   var queueCountEl = document.getElementById("geminiAssistantQueueCount");
   var inputEl = document.getElementById("geminiAssistantInput");
@@ -4847,7 +4852,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   var attachBtn = document.getElementById("geminiAssistantAttach");
   var fileInput = document.getElementById("geminiAssistantFile");
   var filesEl = document.getElementById("geminiAssistantFiles");
-  var aiState = { checked: false, canPropose: false, canApprove: false, apiConfigured: false, sending: false, reading: false, files: [], history: [], pendingCount: 0 };
+  var aiState = { gemini: "checking", healthBusy: false, healthTimer: null, checked: false, canPropose: false, canApprove: false, apiConfigured: false, sending: false, reading: false, files: [], history: [], pendingCount: 0 };
   var MAX_FILES = 5, MAX_INLINE_TOTAL = 9 * 1024 * 1024, MAX_TEXT_CHARS = 120000;
 
   function assistantApiBase_() {
@@ -4996,6 +5001,25 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     messagesEl.appendChild(bubble);
     messagesEl.scrollTop = messagesEl.scrollHeight;
     return bubble;
+  }
+  function setGemini_(state, reason) {
+    aiState.gemini = state;
+    dotEl.className = "gai-dot gai-" + state;
+    var label = state === "online" ? "Online" : state === "offline" ? "Offline" : state === "busy" ? "Busy" : "Checking\u2026";
+    stateEl.textContent = label + (reason && state !== "online" && state !== "checking" ? " \u00b7 " + reason : "");
+    subEl.title = reason || label;
+  }
+  async function checkHealth_() {
+    if (aiState.healthBusy || aiState.sending) return;
+    aiState.healthBusy = true;
+    try {
+      var d = await assistantRequest_("aiAssistantStatus", { probe: "1" });
+      var g = d.gemini || { state: d.apiConfigured ? "online" : "offline", reason: d.apiConfigured ? "" : "API key not set" };
+      if (!d.allowed) g = { state: "offline", reason: "No permission" };
+      if (!aiState.sending) setGemini_(g.state, g.reason);
+    } catch (err) {
+      if (!aiState.sending) setGemini_("offline", "Cannot reach the server");
+    } finally { aiState.healthBusy = false; }
   }
   function setStatus_(text) { statusEl.textContent = text || ""; }
   function setBusy_(busy) {
@@ -5199,14 +5223,17 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       aiState.apiConfigured = !!data.apiConfigured;
       if (!data.allowed) {
         setStatus_("Your account does not have permission to use the dashboard assistant.");
+        setGemini_("offline", "No permission");
         inputEl.disabled = true; sendBtn.disabled = true; attachBtn.disabled = true; return;
       }
       setStatus_(aiState.apiConfigured ? "" : "Gemini is not configured yet. Add GEMINI_API_KEY in Apps Script Script Properties.");
+      if (aiState.apiConfigured) { setGemini_("checking"); checkHealth_(); } else setGemini_("offline", "API key not set");
       inputEl.disabled = false; sendBtn.disabled = false; attachBtn.disabled = false;
       approvalsBtn.hidden = !aiState.canApprove;
       await refreshPending_();
     } catch (err) {
       setStatus_(err.message || "Could not connect to the assistant.");
+      setGemini_("offline", "Cannot reach the server");
       inputEl.disabled = true; sendBtn.disabled = true;
     }
   }
@@ -5260,12 +5287,14 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
           if (!isRetryable_(callErr) || attempt >= MAX_ATTEMPTS) throw callErr;
           var waitMs = Math.min(15000, 3000 + attempt * 3000); // 6s, 9s, 12s, 15s, 15s
           retryState = { until: Date.now() + waitMs, attempt: attempt };
+          setGemini_("busy", "retrying");
           await sleep_(waitMs);
           retryState = null;
         }
       }
       if (sentFiles.length) { aiState.files = []; renderFiles_(); }
       clearInterval(tick);
+      setGemini_("online");
       if (thinkingBubble.parentNode) thinkingBubble.parentNode.removeChild(thinkingBubble);
       var totalSec = ((Date.now() - startedAt) / 1000).toFixed(1);
       var tm = data.timing || null;
@@ -5304,17 +5333,23 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       if (thinkingBubble.parentNode) thinkingBubble.parentNode.removeChild(thinkingBubble);
       addMessage_(err.message || "Gemini could not answer. Please try again.", "error");
       setStatus_("Request failed. Your dashboard data was not changed.");
+      var em = String(err && err.message || "");
+      if (isRetryable_(err)) setGemini_("busy", "request limit");
+      else if (err && err.transport) setGemini_("offline", "Cannot reach the server");
+      else if (/rejected the request|not configured|not found for this API key/i.test(em)) setGemini_("offline", "Gemini setup problem");
     } finally { setBusy_(false); }
   }
 
   function openPanel_() {
     panel.classList.add("gai-open");
     launcher.setAttribute("aria-expanded", "true");
-    if (!aiState.checked) loadStatus_(); else refreshPending_();
+    if (!aiState.checked) loadStatus_(); else { refreshPending_(); checkHealth_(); }
+    if (!aiState.healthTimer) aiState.healthTimer = setInterval(function () { if (!document.hidden) checkHealth_(); }, 60000);
     setTimeout(function () { inputEl.focus(); }, 80);
   }
   function closePanel_() {
     closeApprovals_();
+    if (aiState.healthTimer) { clearInterval(aiState.healthTimer); aiState.healthTimer = null; }
     panel.classList.remove("gai-open");
     launcher.setAttribute("aria-expanded", "false");
   }
