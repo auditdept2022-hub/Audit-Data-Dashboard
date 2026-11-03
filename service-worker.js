@@ -1,12 +1,14 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
 // v106: app header stays pinned (dimmed behind the overlay) while ANY popup is open.
-const CACHE_VERSION = 'audit-dashboard-v128c'
+const CACHE_VERSION = 'audit-dashboard-v129'
+// v129: permanently saved Drive workspace, bounded folder/file search, editor-only Drive access and assistant responsiveness fixes.
+// v128: authenticated Google Drive workspace, Google Docs template support and DOCX report creation.
+// v127: additional AI assistant integration and folder persistence hardening.
+// v126: finding questions pass the exact HTML itemized rows, report each finding separately, and avoid substituting other branches when a requested branch has no matching HTML detail.
 // v122: adaptive AI response budgets, compact chat payloads, no redundant health probes, and shorter bounded retries.
 // v123: dashboard AI grounding reads compound audit headers, structured Overall Data aggregates/rankings, exact remark/emergency layouts, branch-specific contexts, and whole-record truncation.
 // v124: full-dashboard review requests include all six dashboard source sheets plus structured OVERALL DATA.
-// v128: connects Audit AI to Google Drive, creates editable Google Docs and DOCX report copies, and supports a configured Google Docs template.
-// v126: finding questions pass the exact HTML itemized rows, report each finding separately, and avoid substituting other branches when a requested branch has no matching HTML detail.
 // v121: maps dashboard Audit Status to the NEXT ENGAGEMENT header, with legacy-header fallback.
 // v120: repairs auditor assignment header resolution when merged rotation headers export blank cells; prefers explicit auditor headers and safely falls back to the paired date column.
 // v118: one consolidated print stylesheet (no grey body band, icons no longer balloon, ID-scoped popup styling kept), Ctrl+P no longer prints a blank page, and print buttons added to the branch risk popup, Top Findings popups and score-factor popup.
