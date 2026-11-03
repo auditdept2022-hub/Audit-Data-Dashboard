@@ -4838,10 +4838,10 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       <p>Choose the folder where the assistant will save reports. The folder must be accessible to the Google account that executes this Apps Script web app.</p>
       <label for="geminiAssistantDriveFolder">Destination folder URL or ID</label>
       <input id="geminiAssistantDriveFolder" type="text" placeholder="https://drive.google.com/drive/folders/…" autocomplete="off">
-      <label for="geminiAssistantDriveTemplate">Optional Google Docs template URL or ID</label>
-      <input id="geminiAssistantDriveTemplate" type="text" placeholder="https://docs.google.com/document/d/…/edit" autocomplete="off">
+      <label for="geminiAssistantDriveTemplate">Optional Google Docs or Word (.docx) template URL or ID</label>
+      <input id="geminiAssistantDriveTemplate" type="text" placeholder="https://docs.google.com/document/d/…/edit or a Drive .docx link" autocomplete="off">
       <div class="gai-drive-status" id="geminiAssistantDriveStatus">Loading Drive connection…</div>
-      <p>For the closest template match, upload your sample DOCX to Drive, open it with Google Docs, save the converted Google Docs copy, and use that copy as the template. Keep the original DOCX unchanged.</p>
+      <p>Paste a Google Docs template link or a Word .docx file link/ID. Word templates are converted once to a permanent Google Docs master; the original stays unchanged. Each report is created from a copy. Add {{REPORT_CONTENT}} on its own line wherever the generated report should be inserted. Without that marker, the template is preserved and report content is appended after a page break.</p>
       <div class="gai-drive-actions"><button class="gai-drive-save" id="geminiAssistantDriveSave" type="button">Save Drive settings</button><button class="gai-drive-close" id="geminiAssistantDriveClose" type="button">Close</button></div>
     </div>
   </div>
@@ -5159,7 +5159,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       driveFolderInput.value = data.folderUrl || data.folderId || (!data.configured ? saved.folder : "") || "";
       driveTemplateInput.value = data.templateUrl || data.templateId || (!data.configured ? saved.template : "") || "";
       if (data.connected) {
-        driveStatusEl.textContent = "Permanently saved on the server: " + data.folderName + (data.templateName ? "\nTemplate: " + data.templateName : "\nNo report template selected; standard report formatting will be used.");
+        driveStatusEl.textContent = "Permanently saved on the server: " + data.folderName + (data.templateName ? "\nPermanent template: " + data.templateName : "\nNo report template selected; standard report formatting will be used.");
         if (data.configUpdatedAt) driveStatusEl.textContent += "\nSaved: " + new Date(data.configUpdatedAt).toLocaleString();
         if (data.templateError) driveStatusEl.textContent += "\nTemplate warning: " + data.templateError;
       } else if (data.configured) {
@@ -5200,7 +5200,9 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       driveLocalSet_(confirmed.folderUrl || data.folderUrl || driveFolderInput.value.trim(), confirmed.templateUrl || data.templateUrl || driveTemplateInput.value.trim());
       driveFolderInput.value = confirmed.folderUrl || data.folderUrl || driveFolderInput.value;
       driveTemplateInput.value = confirmed.templateUrl || data.templateUrl || driveTemplateInput.value;
-      driveStatusEl.textContent = "Permanently saved and verified on the server: " + confirmed.folderName + (confirmed.templateName ? "\nTemplate: " + confirmed.templateName : "\nNo template selected.");
+      driveStatusEl.textContent = "Permanently saved and verified on the server: " + confirmed.folderName + (confirmed.templateName ? "\nPermanent report template: " + confirmed.templateName : "\nNo template selected.");
+      if (data.warning) driveStatusEl.textContent += "\n" + data.warning;
+      (data.shareWarnings || []).forEach(function (warning) { driveStatusEl.textContent += "\n" + warning; });
       if (confirmed.configUpdatedAt) driveStatusEl.textContent += "\nSaved: " + new Date(confirmed.configUpdatedAt).toLocaleString();
       setStatus_("Google Drive connected. Completed DOCX reports will be saved in " + confirmed.folderName + ".");
     } catch (err) {

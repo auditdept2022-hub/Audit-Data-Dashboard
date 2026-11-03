@@ -1,7 +1,12 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
 // v106: app header stays pinned (dimmed behind the overlay) while ANY popup is open.
-const CACHE_VERSION = 'audit-dashboard-v130'
+const CACHE_VERSION = 'audit-dashboard-v136'
+// v136: persistent daily-quota cooldown, stable-model preference over preview overrides, and precise template edits.
+// v135: per-model daily quota circuit-breaker, Flash fallback, and targeted section edits in permanent report templates.
+// v134: shared AI approval queue allows the primary owner and auditdept2022@gmail.com to approve/reject.
+// v133: discovers API-key-available Gemini text models and routes quick, standard and complex work by model capability.
+// v131: parses nested Drive folder paths, searches inside the final folder, and creates named DOCX files in that exact folder.
 // v130: respects Gemini RetryInfo up to 60 seconds, falls back on model-scoped 429 quotas, clarifies daily quota errors and removes the Approvals checkmark icon.
 // v129: permanently saved Drive workspace, bounded folder/file search, editor-only Drive access and assistant responsiveness fixes.
 // v128: authenticated Google Drive workspace, Google Docs template support and DOCX report creation.
