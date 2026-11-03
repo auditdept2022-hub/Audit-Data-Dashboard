@@ -5295,6 +5295,18 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       var tm = data.timing || null;
       var modeLabel = data.mode === "quick" ? "Quick reply" : data.mode === "comprehensive" ? "Detailed reply" : "Standard reply";
       var timingText = modeLabel + " · answered in " + totalSec + "s" + (tm ? " (Gemini " + (tm.geminiMs / 1000).toFixed(1) + "s" + (tm.model ? ", " + tm.model : "") + ")" : "");
+      // Be transparent about the actual dashboard sources supplied to Gemini.
+      // Omitted rows are called out so a partial extract is never presented as exhaustive.
+      var contextInfo = data.dashboardContext || null;
+      if (contextInfo && Array.isArray(contextInfo.sources) && contextInfo.sources.length) {
+        var omittedRows = 0;
+        Object.keys(contextInfo.coverage || {}).forEach(function (key) {
+          var item = contextInfo.coverage[key] || {};
+          omittedRows += Number(item.rowsOmitted || item.branchesOmitted) || 0;
+        });
+        timingText += " · Data: " + contextInfo.sources.join(", ");
+        if (omittedRows > 0) timingText += " (" + omittedRows + " row(s)/branch(es) omitted)";
+      }
       var reply = String(data.reply || "I reviewed the available dashboard information.");
       var replyBubble = addMessage_(reply, "ai");
       if (reply.length > 300) {
