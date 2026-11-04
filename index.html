@@ -1,4 +1,4 @@
-<!-- Audit dashboard front end v137: CORS-resilient large assistant POST with authenticated result retrieval. -->
+<!-- Audit dashboard front end v141: flexible Drive destinations and native Google Sheets; v138 response profiles and v137 large assistant POST/authenticated result retrieval retained. -->
 <!DOCTYPE html>
 <html lang="en" class="page-fade-ready"><head>
   <meta charset="UTF-8">
@@ -5263,7 +5263,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       if (data.warning) driveStatusEl.textContent += "\n" + data.warning;
       (data.shareWarnings || []).forEach(function (warning) { driveStatusEl.textContent += "\n" + warning; });
       if (confirmed.configUpdatedAt) driveStatusEl.textContent += "\nSaved: " + new Date(confirmed.configUpdatedAt).toLocaleString();
-      setStatus_("Google Drive connected. Completed DOCX reports will be saved in " + confirmed.folderName + ".");
+      setStatus_("Google Drive connected. Completed Google Drive files will be saved in " + confirmed.folderName + ".");
     } catch (err) {
       driveStatusEl.textContent = err.message || String(err);
     } finally { driveSaveBtn.disabled = !driveCanConfigure_; }
@@ -5271,8 +5271,10 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   function appendDriveLinks_(bubble, doc) {
     if (!doc) return;
     var wrap = document.createElement("div"); wrap.className = "gai-drive-links";
+    if (doc.spreadsheetUrl) { var sh = document.createElement("a"); sh.href = doc.spreadsheetUrl; sh.target = "_blank"; sh.rel = "noopener noreferrer"; sh.textContent = "Open Google Sheet"; wrap.appendChild(sh); }
     if (doc.googleDocUrl) { var g = document.createElement("a"); g.href = doc.googleDocUrl; g.target = "_blank"; g.rel = "noopener noreferrer"; g.textContent = "Open Google Doc"; wrap.appendChild(g); }
     if (doc.docxUrl) { var w = document.createElement("a"); w.href = doc.docxUrl; w.target = "_blank"; w.rel = "noopener noreferrer"; w.textContent = "Open DOCX in Drive"; wrap.appendChild(w); }
+    if (doc.pdfUrl) { var pdf = document.createElement("a"); pdf.href = doc.pdfUrl; pdf.target = "_blank"; pdf.rel = "noopener noreferrer"; pdf.textContent = "Open PDF in Drive"; wrap.appendChild(pdf); }
     if (doc.folderUrl) { var f = document.createElement("a"); f.href = doc.folderUrl; f.target = "_blank"; f.rel = "noopener noreferrer"; f.textContent = "Open report folder"; wrap.appendChild(f); }
     if (doc.warning) { var note = textNode_("div", "gai-note", doc.warning); bubble.appendChild(note); }
     if (wrap.childNodes.length) bubble.appendChild(wrap);
@@ -5612,15 +5614,27 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       } else if (data.driveSearchError) {
         addMessage_("Google Drive search was not completed: " + data.driveSearchError, "error");
       }
+      if (data.driveSpreadsheet) {
+        addMessage_("Google Sheet created successfully in " + (data.driveSpreadsheet.folderPath || data.driveSpreadsheet.folderName || "Google Drive") + ": " + data.driveSpreadsheet.title + (data.driveSpreadsheet.dataRows ? " (" + data.driveSpreadsheet.dataRows + " data row(s))" : " (blank spreadsheet)" ) + ".", "note");
+        appendDriveLinks_(replyBubble, data.driveSpreadsheet);
+      } else if (data.driveSpreadsheetError) {
+        addMessage_("The assistant reply is ready, but the Google Sheet could not be created: " + data.driveSpreadsheetError, "error");
+      }
       if (data.driveDocument) {
-        addMessage_(data.driveDocument.docxUrl
-          ? "Google Doc and DOCX saved successfully in Google Drive: " + data.driveDocument.title + " (" + data.driveDocument.folderName + ")."
-          : "The editable Google Doc was saved in " + data.driveDocument.folderName + ", but the DOCX export needs attention.", "note");
+        var exportedTypes = [data.driveDocument.docxUrl ? "DOCX" : "", data.driveDocument.pdfUrl ? "PDF" : ""].filter(Boolean).join(" and ");
+        addMessage_(exportedTypes
+          ? "Google Doc" + (exportedTypes ? " and " + exportedTypes : "") + " saved successfully in Google Drive: " + data.driveDocument.title + " (" + data.driveDocument.folderName + ")."
+          : "The editable Google Doc was saved in " + data.driveDocument.folderName + ".", "note");
         appendDriveLinks_(replyBubble, data.driveDocument);
+      } else if (data.driveFolder) {
+        addMessage_((data.driveFolder.alreadyExists ? "Folder already exists: " : "Drive folder created: ") + data.driveFolder.folderPath + ".", "note");
+        var folderWrap = document.createElement("div"); folderWrap.className = "gai-drive-links";
+        if (data.driveFolder.folderUrl) { var folderAnchor = document.createElement("a"); folderAnchor.href = data.driveFolder.folderUrl; folderAnchor.target = "_blank"; folderAnchor.rel = "noopener noreferrer"; folderAnchor.textContent = "Open Google Drive folder"; folderWrap.appendChild(folderAnchor); }
+        if (folderWrap.childNodes.length) replyBubble.appendChild(folderWrap);
       } else if (data.driveSetupRequired) {
-        addMessage_("Your report draft is ready, but Google Drive is not connected yet. Open the Drive button in the assistant, paste your destination folder link, and save the settings. Then ask me to create the DOCX again.", "note");
+        addMessage_("Your draft is ready, but Google Drive is not connected yet. Open the Drive button in the assistant, paste your destination folder link, and save the settings. Then ask me to create the file again.", "note");
       } else if (data.driveError) {
-        addMessage_("The report draft is ready, but the Drive file could not be created: " + data.driveError, "error");
+        addMessage_("The assistant reply is ready, but the Drive file could not be created: " + data.driveError, "error");
       }
       if (reply.length > 300) {
         var copyBtn = textNode_("button", "gai-copy", "Copy");
