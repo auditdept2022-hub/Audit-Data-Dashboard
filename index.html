@@ -1,4 +1,4 @@
-<!-- Audit dashboard front end v154: "pp" suffix hidden in replies; v153: status line under header removed, fitted/organized assistant tables and headings; v141: flexible Drive destinations and native Google Sheets; v138 response profiles and v137 large assistant POST/authenticated result retrieval retained. -->
+<!-- Audit dashboard front end v155: assistant replies open at their first line; v154: "pp" suffix hidden in replies; v153: status line under header removed, fitted/organized assistant tables and headings; v141: flexible Drive destinations and native Google Sheets; v138 response profiles and v137 large assistant POST/authenticated result retrieval retained. -->
 <!DOCTYPE html>
 <html lang="en" class="page-fade-ready"><head>
   <meta charset="UTF-8">
@@ -5161,8 +5161,18 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     var bubble = textNode_("div", "gai-message " + cls, "");
     if (kind === "ai") renderMarkdown_(bubble, text); else bubble.textContent = text;
     messagesEl.appendChild(bubble);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+    // v155: a new answer is shown from its FIRST line (no scrolling up to find the start).
+    // Notes/errors that follow the answer do not pull the view down to the bottom.
+    if (kind === "ai") { aiState.keepReplyTop = true; scrollToReplyTop_(bubble); }
+    else if (kind === "note" || kind === "error") { if (!aiState.keepReplyTop) messagesEl.scrollTop = messagesEl.scrollHeight; }
+    else { aiState.keepReplyTop = false; messagesEl.scrollTop = messagesEl.scrollHeight; }
     return bubble;
+  }
+  function scrollToReplyTop_(bubble) {
+    try {
+      var top = bubble.getBoundingClientRect().top - messagesEl.getBoundingClientRect().top + messagesEl.scrollTop - 8;
+      messagesEl.scrollTop = Math.max(0, top);
+    } catch (e) { messagesEl.scrollTop = messagesEl.scrollHeight; }
   }
   function setGemini_(state, reason) {
     aiState.gemini = state;
@@ -5739,7 +5749,6 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       aiState.history.push({ role: "assistant", text: localReply });
       aiState.history = aiState.history.slice(-40);
       aiState.lastReplyAt = Date.now();
-      messagesEl.scrollTop = messagesEl.scrollHeight;
       setStatus_("");
       return;
     }
@@ -5890,7 +5899,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
         refreshPending_();
       }
       if (data.proposalsSkipped) addMessage_("I did not create " + data.proposalsSkipped + " proposed change(s) because they did not pass the dashboard's server-side validation.", "note");
-      messagesEl.scrollTop = messagesEl.scrollHeight;
+      scrollToReplyTop_(replyBubble);
       setStatus_(attachmentWarnings.length ? "Attachment notes: " + attachmentWarnings.join("; ") : "");
     } catch (err) {
       clearInterval(tick);
