@@ -1,3 +1,4 @@
+<!-- Audit dashboard front end v137: CORS-resilient large assistant POST with authenticated result retrieval. -->
 <!DOCTYPE html>
 <html lang="en" class="page-fade-ready"><head>
   <meta charset="UTF-8">
@@ -4898,21 +4899,22 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     try { if (typeof appsScriptSecret !== "undefined" && appsScriptSecret) return String(appsScriptSecret); } catch (e) {}
     return String(window.appsScriptSecret || "");
   }
-  async function baseParams_(action, fields) {
+  async function baseParams_(action, fields, tokenOverride) {
     var base = assistantApiBase_();
     if (!base) throw new Error("The dashboard API endpoint is not available on this page.");
     if (typeof window.getCurrentIdToken !== "function") throw new Error("The dashboard sign-in token is unavailable. Sign in again and retry.");
-    var token = await window.getCurrentIdToken();
+    var token = String(tokenOverride || "");
+    if (!token) token = await window.getCurrentIdToken();
     if (!token) throw new Error("Your dashboard session has expired. Sign in again and retry.");
     var params = new URLSearchParams();
     params.set("action", action);
     params.set("secret", assistantSecret_());
     params.set("idToken", token);
     Object.keys(fields || {}).forEach(function (key) { params.set(key, String(fields[key])); });
-    return { base: base, params: params };
+    return { base: base, params: params, token: token };
   }
-  async function assistantRequest_(action, fields) {
-    var b = await baseParams_(action, fields);
+  async function assistantRequest_(action, fields, tokenOverride) {
+    var b = await baseParams_(action, fields, tokenOverride);
     var url = b.base + (b.base.indexOf("?") >= 0 ? "&" : "?") + b.params.toString();
     var result;
     if (typeof fetchSheetOnce === "function") result = await fetchSheetOnce(url, { directMs: 55000, jsonpMs: 60000 });
@@ -4921,29 +4923,86 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     if (result.error) { var re = new Error(String(result.error)); re.retryable = !!result.retryable; re.retryAfterMs = Number(result.retryAfterMs) || 0; throw re; }
     return result;
   }
-  // POST: no URL size limit and a long timeout, so long answers and file uploads work.
+  function waitForAssistantFrameLoad_(frame, timeoutMs) {
+    return new Promise(function (resolve, reject) {
+      var settled = false;
+      var timer = setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        reject(new Error("The file upload did not return from the dashboard server before the timeout."));
+      }, timeoutMs);
+      frame.addEventListener("load", function () {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(true);
+      }, { once: true });
+    });
+  }
+  // Large POST: use a real HTML form submission (not cross-origin fetch), then
+  // retrieve the actual server JSON over the authenticated GET/JSONP transport.
+  // This keeps uploads working even when the browser blocks reading Apps Script
+  // ContentService's cross-origin POST response.
   async function assistantPost_(action, fields) {
     var b = await baseParams_(action, fields);
-    var ctl = new AbortController();
-    var timer = setTimeout(function () { ctl.abort(); }, 300000);
-    var resp;
+    var requestId = String((fields || {}).requestId || "");
+    if (!requestId) throw new Error("The assistant request is missing its unique request ID.");
+    var frameName = "gai_post_" + requestId.replace(/[^A-Za-z0-9_-]/g, "");
+    var iframe = document.createElement("iframe");
+    iframe.name = frameName;
+    iframe.title = "Assistant request transport";
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.tabIndex = -1;
+    iframe.style.cssText = "position:fixed;width:1px;height:1px;right:0;bottom:0;opacity:0;pointer-events:none;border:0;";
+    var form = document.createElement("form");
+    form.method = "POST";
+    form.action = b.base;
+    form.target = frameName;
+    form.enctype = "application/x-www-form-urlencoded";
+    form.acceptCharset = "UTF-8";
+    form.style.display = "none";
+    b.params.forEach(function (value, key) {
+      var input = document.createElement("input");
+      input.type = "hidden";
+      input.name = key;
+      input.value = value;
+      form.appendChild(input);
+    });
     try {
-      resp = await fetch(b.base, { method: "POST", body: b.params, signal: ctl.signal, redirect: "follow" });
+      // Explicitly settle the iframe's initial about:blank navigation first,
+      // so its load event cannot be mistaken for the later POST response.
+      var frameReady = waitForAssistantFrameLoad_(iframe, 5000);
+      iframe.src = "about:blank";
+      document.body.appendChild(iframe);
+      await frameReady;
+      document.body.appendChild(form);
+      var postFinished = waitForAssistantFrameLoad_(iframe, 300000);
+      try { HTMLFormElement.prototype.submit.call(form); }
+      catch (submitErr) { throw new Error("The browser could not submit the assistant file request: " + String(submitErr && submitErr.message || submitErr)); }
+      await postFinished;
+      // doPost caches the parsed result before returning its ContentService
+      // response, so a short retry handles only cache propagation/temporary read delay.
+      var envelope = null;
+      for (var attempt = 0; attempt < 3; attempt++) {
+        envelope = await assistantRequest_("aiAssistantResult", { requestId: requestId }, b.token);
+        if (envelope && envelope.ready && envelope.result) break;
+        if (attempt < 2) await sleep_(250 * (attempt + 1));
+      }
+      if (!envelope || !envelope.ready || !envelope.result) {
+        var missing = new Error("The upload request returned, but its result could not be retrieved. Check Apps Script > Executions before resending to avoid duplicating a completed action.");
+        missing.transport = true;
+        throw missing;
+      }
+      var json = envelope.result;
+      if (json.error) { var je = new Error(String(json.error)); je.retryable = !!json.retryable; je.retryAfterMs = Number(json.retryAfterMs) || 0; throw je; }
+      return json;
     } catch (err) {
-      var e1 = new Error(err && err.name === "AbortError" ? "The assistant took too long to answer. Please try again." : "Could not reach the dashboard server. Check your connection and try again.");
-      e1.transport = !(err && err.name === "AbortError");
-      throw e1;
-    } finally { clearTimeout(timer); }
-    var raw = await resp.text();
-    var json;
-    try { json = JSON.parse(raw); } catch (err) {
-      var e2 = new Error("The server returned an unexpected response. Make sure the latest Code.gs (with doPost) is deployed as a new version.");
-      e2.transport = true;
-      throw e2;
+      if (err && !err.retryable && !err.transport) err.transport = true;
+      throw err;
+    } finally {
+      try { form.remove(); } catch (removeFormErr) {}
+      try { iframe.remove(); } catch (removeFrameErr) {}
     }
-    if (!json || typeof json !== "object") throw new Error("The dashboard server returned an invalid response.");
-    if (json.error) { var je = new Error(String(json.error)); je.retryable = !!json.retryable; je.retryAfterMs = Number(json.retryAfterMs) || 0; throw je; }
-    return json;
   }
   function isRetryable_(err) {
     if (!err) return false;

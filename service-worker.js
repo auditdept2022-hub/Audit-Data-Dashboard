@@ -1,7 +1,8 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
 // v106: app header stays pinned (dimmed behind the overlay) while ANY popup is open.
-const CACHE_VERSION = 'audit-dashboard-v136'
+const CACHE_VERSION = 'audit-dashboard-v137'
+// v137: CORS-resilient assistant file POST/result retrieval, API-key-scoped quota cooldowns, and guarded DOCX section saves.
 // v136: persistent daily-quota cooldown, stable-model preference over preview overrides, and precise template edits.
 // v135: per-model daily quota circuit-breaker, Flash fallback, and targeted section edits in permanent report templates.
 // v134: shared AI approval queue allows the primary owner and auditdept2022@gmail.com to approve/reject.
