@@ -4732,9 +4732,9 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
 
 <!-- GEMINI DASHBOARD ASSISTANT — v130: quota-aware retry and approvals header icon cleanup; retains persistent Drive workspace. -->
 <style id="geminiAssistantStyles">
-  #geminiAssistantLauncher{position:fixed;right:20px;bottom:20px;z-index:140;background:#173b72;color:#fff;border:1px solid rgba(255,255,255,.24);border-radius:999px;padding:12px 17px;box-shadow:0 12px 32px rgba(2,12,30,.28);font:700 13px/1.2 system-ui,-apple-system,Segoe UI,sans-serif;display:flex;align-items:center;gap:9px;cursor:pointer;touch-action:manipulation}
+  #geminiAssistantLauncher{position:fixed;right:20px;bottom:20px;z-index:140;background:#173b72;color:#fff;border:1px solid rgba(255,255,255,.24);border-radius:50%;width:44px;height:44px;padding:0;box-shadow:0 8px 22px rgba(2,12,30,.28);font:700 13px/1.2 system-ui,-apple-system,Segoe UI,sans-serif;display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation}
   #geminiAssistantLauncher:hover{filter:brightness(1.08)}
-  #geminiAssistantLauncherDot{display:none;min-width:17px;height:17px;border-radius:9px;background:#ef4444;color:#fff;font-size:10px;font-weight:800;align-items:center;justify-content:center;padding:0 4px}
+  #geminiAssistantLauncherDot{position:absolute;top:-4px;right:-4px;display:none;min-width:17px;height:17px;border-radius:9px;background:#ef4444;color:#fff;font-size:10px;font-weight:800;align-items:center;justify-content:center;padding:0 4px}
   #geminiAssistantLauncherDot.gai-on{display:inline-flex}
   #geminiAssistantLauncher:focus-visible,#geminiAssistantPanel button:focus-visible,#geminiAssistantPanel textarea:focus-visible{outline:3px solid #38bdf8;outline-offset:2px}
   #geminiAssistantPanel{position:fixed;right:20px;bottom:78px;z-index:140;width:min(540px,calc(100vw - 24px));height:min(760px,calc(100dvh - 110px));display:none;flex-direction:column;background:#f8fafc;color:#0f172a;border:1px solid #cbd5e1;border-radius:18px;box-shadow:0 24px 70px rgba(2,12,30,.3);overflow:hidden;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
@@ -4835,12 +4835,12 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   .gai-approve{background:#166534;color:white;flex:1}
   .gai-reject{background:#e2e8f0;color:#334155;flex:1}
   .gai-btn-sm{padding:5px 10px;font-size:11px;background:#92400e;color:#fff;border-radius:8px}
-  @media(max-width:560px){#geminiAssistantLauncher{right:12px;bottom:14px;padding:11px 14px}#geminiAssistantPanel{right:8px;bottom:65px;width:calc(100vw - 16px);height:calc(100dvh - 82px);border-radius:15px}}
+  @media(max-width:560px){#geminiAssistantLauncher{right:12px;bottom:14px}#geminiAssistantPanel{right:8px;bottom:65px;width:calc(100vw - 16px);height:calc(100dvh - 82px);border-radius:15px}}
 </style>
 
-<button id="geminiAssistantLauncher" type="button" aria-controls="geminiAssistantPanel" aria-expanded="false">
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-2-5.8L4 11l6-2.2L12 3Z"/><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16Z"/></svg>
-  AI Assistant<span id="geminiAssistantLauncherDot"></span>
+<button id="geminiAssistantLauncher" type="button" aria-controls="geminiAssistantPanel" aria-expanded="false" aria-label="AI Assistant" title="AI Assistant">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-2-5.8L4 11l6-2.2L12 3Z"/><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16Z"/></svg>
+  <span id="geminiAssistantLauncherDot"></span>
 </button>
 
 <section id="geminiAssistantPanel" aria-label="Gemini dashboard assistant" role="dialog" aria-modal="false">
