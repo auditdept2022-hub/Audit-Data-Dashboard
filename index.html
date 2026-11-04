@@ -1,4 +1,4 @@
-<!-- Audit dashboard front end v141: flexible Drive destinations and native Google Sheets; v138 response profiles and v137 large assistant POST/authenticated result retrieval retained. -->
+<!-- Audit dashboard front end v153: status line under header removed, fitted/organized assistant tables and headings; v141: flexible Drive destinations and native Google Sheets; v138 response profiles and v137 large assistant POST/authenticated result retrieval retained. -->
 <!DOCTYPE html>
 <html lang="en" class="page-fade-ready"><head>
   <meta charset="UTF-8">
@@ -4753,22 +4753,27 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   .gai-message hr{border:0;border-top:1px solid #e2e8f0;margin:10px 0}
   .gai-message .gai-quote{border-left:3px solid #93c5fd;background:#f8fafc;color:#334155;padding:6px 10px;margin:0 0 9px;border-radius:0 8px 8px 0;font-size:12px}
   .gai-message .gai-more{margin-top:10px;padding:7px 10px;background:#eff6ff;border:1px solid #dbeafe;border-radius:9px;color:#1e40af;font-size:12px}
-  .gai-message .gai-h{font-weight:800;font-size:14px;margin:14px 0 6px;color:#0f172a}.gai-message .gai-h:first-child{margin-top:0}
-  .gai-message .gai-h1{font-size:15px;padding-bottom:5px;border-bottom:2px solid #dbeafe}.gai-message .gai-h3,.gai-message .gai-h4{font-size:13px;color:#334155;margin-top:10px}
+  .gai-message .gai-h{font-weight:800;font-size:14px;margin:16px 0 7px;color:#0f172a;line-height:1.3}.gai-message .gai-h:first-child{margin-top:0}
+  .gai-message .gai-h1{font-size:16px;padding-bottom:6px;border-bottom:2px solid #1e3a8a}.gai-message .gai-h2{font-size:14px;padding:6px 10px;background:#eff6ff;border-left:4px solid #1e3a8a;border-radius:0 8px 8px 0;margin-top:18px}.gai-message .gai-h3,.gai-message .gai-h4{font-size:12.5px;color:#1e3a8a;text-transform:none;margin-top:12px;margin-bottom:5px}
   .gai-message code{background:#f1f5f9;border-radius:5px;padding:1px 5px;font:12px ui-monospace,SFMono-Regular,Consolas,monospace}
   .gai-message pre{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:10px 12px;overflow:auto;margin:0 0 9px;font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
   .gai-message pre code{background:transparent;color:inherit;padding:0}
   .gai-message a{color:#1d4ed8;text-decoration:underline}
-  .gai-tablewrap{overflow:auto;margin:2px 0 10px;border:1px solid #e2e8f0;border-radius:9px;-webkit-overflow-scrolling:touch;max-width:100%}.gai-table{border-collapse:separate;border-spacing:0;font-size:12px;min-width:100%;width:max-content;max-width:none}
-  .gai-table th,.gai-table td{border-bottom:1px solid #eef2f7;border-right:1px solid #eef2f7;padding:6px 10px;text-align:left;vertical-align:top;line-height:1.4}
-  .gai-table th:last-child,.gai-table td:last-child{border-right:0}.gai-table tr:last-child td{border-bottom:0}
-  .gai-table th{background:#f1f5f9;font-weight:800;color:#334155;white-space:nowrap;position:sticky;top:0;z-index:1}
-  .gai-table tr:nth-child(even) td{background:#f8fafc}
+  .gai-tablewrap{margin:4px 0 14px;border:1px solid #dbe3ee;border-radius:10px;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.04);overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;max-width:100%}
+  .gai-table{border-collapse:collapse;width:100%;table-layout:auto;font-size:12px;line-height:1.35}
+  .gai-table th,.gai-table td{padding:7px 8px;text-align:left;vertical-align:middle;border-bottom:1px solid #eef2f7;word-break:normal;overflow-wrap:break-word}
+  .gai-table th{background:#1e3a8a;color:#fff;font-weight:700;font-size:11px;letter-spacing:.2px;border-bottom:0;white-space:normal}
+  .gai-table th:first-child{border-top-left-radius:9px}.gai-table th:last-child{border-top-right-radius:9px}
+  .gai-table tbody tr:nth-child(even) td{background:#f8fafc}
+  .gai-table tbody tr:last-child td{border-bottom:0}
+  .gai-table td:first-child,.gai-table th:first-child{font-weight:700;color:#0f172a;min-width:84px;max-width:150px}
+  .gai-table th:first-child{color:#fff}
+  .gai-table td.gai-num,.gai-table th.gai-num{text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap}
   .gai-table td.gai-nw,.gai-table th.gai-nw{white-space:nowrap}
-  .gai-table td.gai-txt{min-width:200px;max-width:340px;white-space:normal}
-  .gai-table td.gai-num,.gai-table th.gai-num{text-align:right;font-variant-numeric:tabular-nums}
-  .gai-table td:first-child,.gai-table th:first-child{position:sticky;left:0;font-weight:700;background:#fff;z-index:2;box-shadow:1px 0 0 #e2e8f0}
-  .gai-table th:first-child{background:#f1f5f9;z-index:3}.gai-table tr:nth-child(even) td:first-child{background:#f8fafc}
+  .gai-table td.gai-txt{min-width:130px;white-space:normal}
+  .gai-table td.gai-na{color:#94a3b8}
+  .gai-table td.gai-last,.gai-table th.gai-last{border-left:1px solid #e2e8f0}
+  .gai-table tr.gai-total td{font-weight:800;background:#eff6ff!important;border-top:1px solid #bfdbfe;color:#0f172a}
   .gai-copy{display:block;margin-top:9px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:8px;padding:3px 9px;font-size:10px;font-weight:700;cursor:pointer}
   #geminiAssistantFiles{display:flex;flex-wrap:wrap;gap:5px;padding:7px 12px 0;background:#fff;border-top:1px solid #e2e8f0}
   #geminiAssistantFiles[hidden]{display:none}
@@ -5091,23 +5096,50 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
         var rows = [];
         while (i < lines.length && /^\s*\|/.test(lines[i])) { rows.push(lines[i]); i++; }
         var table = document.createElement("table"); table.className = "gai-table";
-        var headDone = false;
+        var NUM = /^[-+\u2212]?[\u20b1$]?\s?[\d,]+(?:\.\d+)?\s?(?:%|pts?|pp|x|d|days?)?$/i, NA = /^(?:--+|\u2014|\u2013|n\/a|na|none|-)$/i;
+        var grid = [];
         rows.forEach(function (r) {
-          if (/^\s*\|?\s*:?-{2,}/.test(r.replace(/\|/g, "|").replace(/\s/g, "")) && /^[\s|:\-]+$/.test(r)) return;
-          var cells = r.trim().replace(/^\|/, "").replace(/\|$/, "").split("|");
-          var tr = document.createElement("tr");
-          cells.forEach(function (c, ci) {
-            var td = document.createElement(headDone ? "td" : "th"), ct = c.trim();
-            mdInline_(td, ct);
-            var plain = ct.replace(/\*\*/g, "");
-            if (headDone && ci > 0 && /^[-+\u2212]?[\u20b1$]?\s?[\d,]+(?:\.\d+)?\s?(?:%|pts?|pp)?$/.test(plain)) td.className = "gai-num gai-nw";
-            else if (plain.length > 36) td.className = "gai-txt";
-            else td.className = "gai-nw";
-            tr.appendChild(td);
-          });
-          headDone = true;
-          table.appendChild(tr);
+          if (/^[\s|:\-]+$/.test(r)) return;
+          grid.push(r.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map(function (c) { return c.trim(); }));
         });
+        var colCount = grid.reduce(function (m, g) { return Math.max(m, g.length); }, 0);
+        var numCol = [];
+        for (var cc = 0; cc < colCount; cc++) {
+          var tot = 0, nums = 0;
+          for (var rr = 1; rr < grid.length; rr++) {
+            var pv = String(grid[rr][cc] || "").replace(/\*\*/g, "").trim();
+            if (!pv) continue; tot++;
+            if (cc > 0 && (NUM.test(pv) || NA.test(pv))) nums++;
+          }
+          numCol[cc] = cc > 0 && tot > 0 && nums / tot >= 0.6;
+        }
+        var lastHead = String((grid[0] || [])[colCount - 1] || "").replace(/\*\*/g, "").trim();
+        var changeCol = /^(?:change|chg|diff|variance|\u0394|trend)/i.test(lastHead) ? colCount - 1 : -1;
+        var thead = document.createElement("thead"), tbody = document.createElement("tbody");
+        grid.forEach(function (cells, ri) {
+          var tr = document.createElement("tr");
+          var firstPlain = String(cells[0] || "").replace(/\*\*/g, "").trim();
+          if (ri > 0 && /^\*\*[^*]+\*\*$/.test(String(cells[0] || "")) && /^(?:total|overall|grand total|efficiency rate|average|avg)/i.test(firstPlain)) tr.className = "gai-total";
+          for (var ci = 0; ci < colCount; ci++) {
+            var ct = String(cells[ci] == null ? "" : cells[ci]);
+            var plain = ct.replace(/\*\*/g, "").trim();
+            var cell = document.createElement(ri === 0 ? "th" : "td");
+            if (ri > 0 && NA.test(plain)) { cell.textContent = "\u2014"; }
+            else { mdInline_(cell, ct); }
+            var cls = [];
+            if (numCol[ci]) cls.push("gai-num");
+            else if (ri > 0 && ci > 0 && plain.length > 28) cls.push("gai-txt");
+            else if (ci === 0 || plain.length <= 28) cls.push("gai-nw");
+            if (ri > 0 && NA.test(plain)) cls.push("gai-na");
+            if (ci === changeCol) {
+              cls.push("gai-last");
+            }
+            cell.className = cls.join(" ");
+            tr.appendChild(cell);
+          }
+          (ri === 0 ? thead : tbody).appendChild(tr);
+        });
+        table.appendChild(thead); table.appendChild(tbody);
         var wrap = document.createElement("div"); wrap.className = "gai-tablewrap"; wrap.appendChild(table); el.appendChild(wrap);
         if (el.classList) el.classList.add("gai-wide");
         continue;
@@ -5707,7 +5739,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       aiState.history = aiState.history.slice(-40);
       aiState.lastReplyAt = Date.now();
       messagesEl.scrollTop = messagesEl.scrollHeight;
-      setStatus_("Quick reply · answered instantly");
+      setStatus_("");
       return;
     }
     if (aiState.checked && !aiState.apiConfigured) { addMessage_("Gemini is not configured. Add GEMINI_API_KEY under Apps Script Project Settings > Script properties, then reload the dashboard.", "error"); return; }
@@ -5858,7 +5890,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       }
       if (data.proposalsSkipped) addMessage_("I did not create " + data.proposalsSkipped + " proposed change(s) because they did not pass the dashboard's server-side validation.", "note");
       messagesEl.scrollTop = messagesEl.scrollHeight;
-      setStatus_(timingText);
+      setStatus_(attachmentWarnings.length ? "Attachment notes: " + attachmentWarnings.join("; ") : "");
     } catch (err) {
       clearInterval(tick);
       if (thinkingBubble.parentNode) thinkingBubble.parentNode.removeChild(thinkingBubble);
