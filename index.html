@@ -5447,6 +5447,102 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   // Read the same normalized detail structure that the HTML branch profile,
   // findings popups and report exports use. This keeps AI answers aligned with
   // what the user actually sees on the dashboard.
+  function assistantBuildDashboardView_(message, history) {
+    var ad = null;
+    try { ad = (typeof activeData !== "undefined") ? activeData : null; } catch (e) { ad = null; }
+    if (!ad || !Array.isArray(ad.branches) || !ad.branches.length) return null;
+    var recent = (history || []).slice(-4).map(function (h) { return h && h.role === "user" ? String(h.text || "") : ""; }).join(" ");
+    var combined = (String(message || "") + " " + recent).toLowerCase();
+    var matched = ad.branches.filter(function (b) {
+      var n = String(b && b.name || "").toLowerCase().trim();
+      if (!n) return false;
+      if (combined.indexOf(n) >= 0) return true;
+      return n.split(/[^a-z0-9]+/).filter(function (t) { return t.length >= 4 && t !== "branch"; }).some(function (t) { return combined.indexOf(t) >= 0; });
+    });
+    var wantsAll = /\b(?:all|every|each|any|which|list|rank\w*|top|bottom|highest|lowest|best|worst|compare|most|least|overall|portfolio|total|average|dashboard|everything)\b/i.test(String(message || ""));
+    var dashboardish = /branch|auditor|audit|dashboard|finding|risk|collection|sales|service|efficien|repo|schedule|rotation|remark|highlight|overdue|performance|status|report|overview|summary|data|\b(?:SE|BR)\s*\d{2,}/i.test(combined);
+    if (!matched.length && !dashboardish) return null;
+    var selected = (matched.length && matched.length <= 12 && !wantsAll) ? matched : ad.branches;
+
+    function num(v) { var n = Number(v); return isFinite(n) ? Math.round(n * 100) / 100 : null; }
+    function nm(x) { return x && typeof x === "object" ? String(x.name || x.branch || x.branchName || "").slice(0, 120) : String(x == null ? "" : x).slice(0, 120); }
+    var sm = ad.summary || {};
+    var years = window.FINDING_YEARS || [2024, 2025, 2026];
+    var riskMap = null;
+    try { riskMap = (typeof getAuditPortfolioRiskMap === "function") ? getAuditPortfolioRiskMap() : null; } catch (e) { riskMap = null; }
+    var scoreList = [];
+    if (riskMap) { ad.branches.forEach(function (b) { var r = riskMap.get(b); if (r && isFinite(Number(r.score))) scoreList.push({ name: b.name, score: Number(r.score) }); }); scoreList.sort(function (a, b) { return b.score - a.score; }); }
+
+    var rows = selected.map(function (b) {
+      var o = {
+        name: b.name, highlight: b.highlightColor || "", auditStatus: b.auditStatus || "", upNextAuditor: b.assignedAuditorRaw || b.auditor || "",
+        expectedAuditDate: b.expectedAuditDateInput || "",
+        collectionStatus: b.collectionKnown === false ? "" : b.collection, salesStatus: b.salesKnown === false ? "" : b.sales, serviceStatus: b.serviceKnown === false ? "" : b.service,
+        accounts: [num(b.accountsMar), num(b.accountsApr), num(b.accountsMay)],
+        noOfRepo: [num(b.noOfRepoMar), num(b.noOfRepoApr), num(b.noOfRepoLatest)],
+        repoRatePct: [num(b.repoRateMar), num(b.repoRateApr), num(b.repoRateLatest)],
+        efficiencyPct: [num(b.effMar), num(b.effApr), num(b.effLatest)],
+        salesIns: [num(b.salesMar && b.salesMar.ins), num(b.salesApr && b.salesApr.ins), num(b.salesMay && b.salesMay.ins)],
+        salesCod: [num(b.salesMar && b.salesMar.cod), num(b.salesApr && b.salesApr.cod), num(b.salesMay && b.salesMay.cod)],
+        salesCa: [num(b.salesMar && b.salesMar.ca), num(b.salesApr && b.salesApr.ca), num(b.salesMay && b.salesMay.ca)],
+        expectedSales: { ins: num(b.expectedIns), cod: num(b.expectedCod) },
+        serviceTarget: num(b.serviceTarget), serviceCount: [num(b.serviceMar), num(b.serviceApr), num(b.serviceMay)],
+        findingsByYear: {}, lastAuditDate: b.lastAuditDate || "", lastAuditor: b.lastAuditDate ? (b.auditor || "") : "", rotationRounds: []
+      };
+      [b.findings2024, b.findings2025, b.findings2026].forEach(function (v, i) { o.findingsByYear[String(years[i])] = num(v) || 0; });
+      try {
+        var rounds = b.assignmentRounds || {};
+        [1, 2, 3, 4].forEach(function (n) { var r = rounds[n]; if (r && (r.auditor || r.dateInput)) o.rotationRounds.push({ round: n, auditor: r.auditor || "", date: r.dateInput || "" }); });
+      } catch (e) {}
+      try {
+        var info = (typeof getBranchAuditRoundInfo === "function") ? getBranchAuditRoundInfo(b) : null;
+        if (info) {
+          o.audits = {
+            recentDate: info.recentDate || "", recentAuditor: info.recentAuditor || "", previousDate: info.lastDate || "", previousAuditor: info.lastAuditor || "",
+            daysSinceLastAudit: info.intervalDays == null ? null : info.intervalDays, auditsCompleted: info.roundsCount || 0,
+            planned: (info.plannedRounds || []).slice(0, 4).map(function (p) { return { date: p.dateRaw ? new Date(p.dateRaw).toISOString().slice(0, 10) : "", auditor: p.auditor || "" }; })
+          };
+        }
+      } catch (e) {}
+      try {
+        var sched = ad.branchAuditSchedule && ad.branchAuditSchedule[b.name];
+        if (sched && Array.isArray(sched.rounds)) o.rotationSchedule = sched.rounds.slice(0, 8).map(function (r) { return { round: r.round, auditor: r.auditor, date: r.date, daysSincePreviousRound: r.intervalDays == null ? null : r.intervalDays }; });
+      } catch (e) {}
+      try {
+        var risk = riskMap ? riskMap.get(b) : null;
+        if (risk && isFinite(Number(risk.score))) {
+          var rank = 0; for (var i = 0; i < scoreList.length; i++) { if (scoreList[i].name === b.name) { rank = i + 1; break; } }
+          o.riskScore = Math.round(Number(risk.score) * 10) / 10;
+          o.riskTier = risk.tier && risk.tier.label ? risk.tier.label : "";
+          o.riskBaseTier = risk.baseTier && risk.baseTier.label ? risk.baseTier.label : "";
+          o.riskEscalated = !!risk.escalated;
+          o.riskRank = rank ? rank + " of " + scoreList.length : "";
+          o.riskEvidenceCoverage = num(risk.evCoverage != null ? risk.evCoverage * 100 : null);
+          o.riskDrivers = (risk.drivers || []).slice(0, 3).map(function (d) { return { factor: String(d.label || d.key || "").slice(0, 80), points: num(d.points), detail: String(d.short || d.detail || "").slice(0, 200) }; });
+          if (Array.isArray(risk.redFlags) && risk.redFlags.length) o.riskRedFlags = risk.redFlags.slice(0, 5).map(function (f) { return String(f && (f.label || f.text || f.key) || f).slice(0, 160); });
+        }
+      } catch (e) {}
+      return o;
+    });
+
+    var portfolio = {};
+    try {
+      portfolio.nextUp = nm(sm.nextUpBranch); portfolio.nextUpBranches = (sm.nextUpBranches || []).slice(0, 10).map(nm);
+      portfolio.lastAuditedBranch = nm(sm.lastAuditedBranch); portfolio.recentlyAuditedBranches = (sm.recentlyAuditedBranches || []).slice(0, 10).map(nm);
+      portfolio.forAuditBreakdown = sm.forAuditBreakdown || null; portfolio.emergencyAuditor = sm.emergencyAuditor || "";
+      portfolio.auditors = (ad.auditors || []).map(function (a) { return { name: a.name, assignedBranchCount: a.count, branches: (a.branches || []).slice(0, 80) }; });
+      portfolio.highestRisk = scoreList.slice(0, 10).map(function (x) { return { branch: x.name, score: Math.round(x.score * 10) / 10 }; });
+      [["topFindings", ad.topFindings], ["topDecliningCollection", ad.topDecliningCollection], ["topDecliningSales", ad.topDecliningSales], ["topDecliningService", ad.topDecliningService], ["lowestEfficiency", ad.lowestEfficiency], ["highestRepoRate", ad.highestRepo], ["highestNoOfRepo", ad.highestNoRepo]].forEach(function (p) {
+        if (Array.isArray(p[1]) && p[1].length) portfolio[p[0]] = p[1].slice(0, 10).map(nm);
+      });
+    } catch (e) {}
+    return {
+      source: "dashboard screen", generatedAt: new Date().toISOString(),
+      periods: { accountsRepoEfficiency: (sm.trendLabels || []).slice(-3), sales: (sm.salesTrendLabels || []).slice(-3), service: (sm.serviceTrendLabels || []).slice(-3), findingYears: years },
+      branchCount: ad.branches.length, branches: rows, portfolio: portfolio
+    };
+  }
+
   function assistantBuildHtmlFindingPayload_(message, history) {
     var detail = null;
     var branches = [];
@@ -5582,10 +5678,18 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
           console.warn("Could not attach HTML dashboard finding details:", findingPayloadError);
         }
       }
+      var dashboardViewJson = "";
+      try {
+        var dashboardView = assistantBuildDashboardView_(message, aiState.history);
+        if (dashboardView) {
+          dashboardViewJson = JSON.stringify(dashboardView);
+          if (dashboardViewJson.length <= 2500000) fields.dashboardView = dashboardViewJson; else dashboardViewJson = "";
+        }
+      } catch (viewError) { console.warn("Could not attach dashboard screen figures:", viewError); dashboardViewJson = ""; }
       if (sentFiles.length) {
         fields.attachments = JSON.stringify(sentFiles.map(function (f) { return f.kind === "inline" ? { name: f.name, kind: "inline", mime: f.mime, data: f.data } : { name: f.name, kind: "text", text: f.text }; }));
       }
-      var needsPost = sentFiles.length > 0 || !!dashboardFindingsJson || message.length > 1500 || historyJson.length + message.length > 6000 || /\b(comprehensive|deep dive|review|analyse|analyze|evaluate|report|compare|troubleshoot|debug|code|spreadsheet|dashboard|all data|everything|findings|full analysis|step by step)\b/i.test(message);
+      var needsPost = sentFiles.length > 0 || !!dashboardFindingsJson || !!dashboardViewJson || message.length > 1500 || historyJson.length + message.length > 6000 || /\b(comprehensive|deep dive|review|analyse|analyze|evaluate|report|compare|troubleshoot|debug|code|spreadsheet|dashboard|all data|everything|findings|full analysis|step by step)\b/i.test(message);
       var callOnce_ = async function () {
         if (needsPost) {
           // Never auto-fallback after a POST transport error: the server may
