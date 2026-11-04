@@ -4719,7 +4719,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   #geminiAssistantLauncherDot{display:none;min-width:17px;height:17px;border-radius:9px;background:#ef4444;color:#fff;font-size:10px;font-weight:800;align-items:center;justify-content:center;padding:0 4px}
   #geminiAssistantLauncherDot.gai-on{display:inline-flex}
   #geminiAssistantLauncher:focus-visible,#geminiAssistantPanel button:focus-visible,#geminiAssistantPanel textarea:focus-visible{outline:3px solid #38bdf8;outline-offset:2px}
-  #geminiAssistantPanel{position:fixed;right:20px;bottom:78px;z-index:140;width:min(460px,calc(100vw - 24px));height:min(740px,calc(100dvh - 110px));display:none;flex-direction:column;background:#f8fafc;color:#0f172a;border:1px solid #cbd5e1;border-radius:18px;box-shadow:0 24px 70px rgba(2,12,30,.3);overflow:hidden;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+  #geminiAssistantPanel{position:fixed;right:20px;bottom:78px;z-index:140;width:min(540px,calc(100vw - 24px));height:min(760px,calc(100dvh - 110px));display:none;flex-direction:column;background:#f8fafc;color:#0f172a;border:1px solid #cbd5e1;border-radius:18px;box-shadow:0 24px 70px rgba(2,12,30,.3);overflow:hidden;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
   #geminiAssistantPanel.gai-open{display:flex}
   #geminiAssistantHeader{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;background:linear-gradient(115deg,#102d56,#1e4c83);color:#fff}
   #geminiAssistantHeaderTitle{font-size:14px;font-weight:800;letter-spacing:.01em}
@@ -4735,21 +4735,35 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   #geminiAssistantStatus{padding:5px 13px;background:#eff6ff;border-bottom:1px solid #dbeafe;color:#1e40af;font-size:10px;line-height:1.4}
   #geminiAssistantStatus:empty{display:none}
   #geminiAssistantMessages{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:12px;overscroll-behavior:contain}
-  .gai-message{max-width:94%;padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+  .gai-message{max-width:94%;padding:11px 14px;border-radius:14px;font-size:13px;line-height:1.55;overflow-wrap:anywhere;min-width:0}
+  .gai-message.gai-ai.gai-wide{max-width:100%;width:100%;box-sizing:border-box}
   .gai-message.gai-ai{align-self:flex-start;background:#fff;border:1px solid #e2e8f0;color:#1e293b;border-top-left-radius:4px}
   .gai-message.gai-user{align-self:flex-end;background:#dbeafe;border:1px solid #bfdbfe;color:#1e3a8a;border-top-right-radius:4px;white-space:pre-wrap}
   .gai-message.gai-error{align-self:flex-start;background:#fff1f2;border:1px solid #fecdd3;color:#9f1239;white-space:pre-wrap}
   .gai-message.gai-note{align-self:flex-start;background:#fffbeb;border:1px solid #fde68a;color:#92400e;font-size:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .gai-message.gai-thinking{white-space:pre-wrap;color:#64748b}
-  .gai-message p{margin:0 0 9px}.gai-message p:last-child,.gai-message ul:last-child,.gai-message ol:last-child{margin-bottom:0}
-  .gai-message ul,.gai-message ol{margin:0 0 9px;padding-left:20px}.gai-message li{margin:2px 0}
-  .gai-message .gai-h{font-weight:800;font-size:14px;margin:12px 0 6px;color:#0f172a}.gai-message .gai-h:first-child{margin-top:0}
+  .gai-message p{margin:0 0 8px}.gai-message p:last-child,.gai-message ul:last-child,.gai-message ol:last-child{margin-bottom:0}
+  .gai-message ul,.gai-message ol{margin:0 0 9px;padding-left:20px}.gai-message li{margin:3px 0}
+  .gai-message strong{color:#0f172a}
+  .gai-message hr{border:0;border-top:1px solid #e2e8f0;margin:10px 0}
+  .gai-message .gai-quote{border-left:3px solid #93c5fd;background:#f8fafc;color:#334155;padding:6px 10px;margin:0 0 9px;border-radius:0 8px 8px 0;font-size:12px}
+  .gai-message .gai-more{margin-top:10px;padding:7px 10px;background:#eff6ff;border:1px solid #dbeafe;border-radius:9px;color:#1e40af;font-size:12px}
+  .gai-message .gai-h{font-weight:800;font-size:14px;margin:14px 0 6px;color:#0f172a}.gai-message .gai-h:first-child{margin-top:0}
+  .gai-message .gai-h1{font-size:15px;padding-bottom:5px;border-bottom:2px solid #dbeafe}.gai-message .gai-h3,.gai-message .gai-h4{font-size:13px;color:#334155;margin-top:10px}
   .gai-message code{background:#f1f5f9;border-radius:5px;padding:1px 5px;font:12px ui-monospace,SFMono-Regular,Consolas,monospace}
   .gai-message pre{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:10px 12px;overflow:auto;margin:0 0 9px;font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
   .gai-message pre code{background:transparent;color:inherit;padding:0}
   .gai-message a{color:#1d4ed8;text-decoration:underline}
-  .gai-tablewrap{overflow:auto;margin:0 0 9px}.gai-table{border-collapse:collapse;font-size:12px;min-width:100%}
-  .gai-table th,.gai-table td{border:1px solid #e2e8f0;padding:5px 8px;text-align:left;vertical-align:top}.gai-table th{background:#f1f5f9;font-weight:800}
+  .gai-tablewrap{overflow:auto;margin:2px 0 10px;border:1px solid #e2e8f0;border-radius:9px;-webkit-overflow-scrolling:touch;max-width:100%}.gai-table{border-collapse:separate;border-spacing:0;font-size:12px;min-width:100%;width:max-content;max-width:none}
+  .gai-table th,.gai-table td{border-bottom:1px solid #eef2f7;border-right:1px solid #eef2f7;padding:6px 10px;text-align:left;vertical-align:top;line-height:1.4}
+  .gai-table th:last-child,.gai-table td:last-child{border-right:0}.gai-table tr:last-child td{border-bottom:0}
+  .gai-table th{background:#f1f5f9;font-weight:800;color:#334155;white-space:nowrap;position:sticky;top:0;z-index:1}
+  .gai-table tr:nth-child(even) td{background:#f8fafc}
+  .gai-table td.gai-nw,.gai-table th.gai-nw{white-space:nowrap}
+  .gai-table td.gai-txt{min-width:200px;max-width:340px;white-space:normal}
+  .gai-table td.gai-num,.gai-table th.gai-num{text-align:right;font-variant-numeric:tabular-nums}
+  .gai-table td:first-child,.gai-table th:first-child{position:sticky;left:0;font-weight:700;background:#fff;z-index:2;box-shadow:1px 0 0 #e2e8f0}
+  .gai-table th:first-child{background:#f1f5f9;z-index:3}.gai-table tr:nth-child(even) td:first-child{background:#f8fafc}
   .gai-copy{display:block;margin-top:9px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:8px;padding:3px 9px;font-size:10px;font-weight:700;cursor:pointer}
   #geminiAssistantFiles{display:flex;flex-wrap:wrap;gap:5px;padding:7px 12px 0;background:#fff;border-top:1px solid #e2e8f0}
   #geminiAssistantFiles[hidden]{display:none}
@@ -5021,12 +5035,13 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
 
   /* ---------- safe markdown (DOM only, never innerHTML) ---------- */
   function mdInline_(parent, str) {
-    var re = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^\s)]+\))/g;
+    var re = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*\s][^*]*\*|\[[^\]]+\]\(https?:\/\/[^\s)]+\))/g;
     var last = 0, m;
     while ((m = re.exec(str))) {
       if (m.index > last) parent.appendChild(document.createTextNode(str.slice(last, m.index)));
       var t = m[0];
-      if (t.charAt(0) === "*") { parent.appendChild(textNode_("strong", "", t.slice(2, -2))); }
+      if (t.charAt(0) === "*" && t.charAt(1) === "*") { parent.appendChild(textNode_("strong", "", t.slice(2, -2))); }
+      else if (t.charAt(0) === "*") { parent.appendChild(textNode_("em", "", t.slice(1, -1))); }
       else if (t.charAt(0) === "`") { parent.appendChild(textNode_("code", "", t.slice(1, -1))); }
       else {
         var mm = /^\[([^\]]+)\]\((.+)\)$/.exec(t);
@@ -5041,7 +5056,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     el.textContent = "";
     var lines = String(text || "").replace(/\r/g, "").split("\n");
     var i = 0;
-    var UL = /^\s*[-*\u2022]\s+/, OL = /^\s*\d+[.)]\s+/, SPECIAL = /^```|^#{1,4}\s|^\s*[-*\u2022]\s+|^\s*\d+[.)]\s+|^\s*\|/;
+    var UL = /^\s*[-*\u2022]\s+/, OL = /^\s*\d+[.)]\s+/, SPECIAL = /^```|^#{1,4}\s|^\s*[-*\u2022]\s+|^\s*\d+[.)]\s+|^\s*\||^>|^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/;
     while (i < lines.length) {
       var line = lines[i];
       if (/^```/.test(line)) {
@@ -5051,8 +5066,13 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
         var pre = document.createElement("pre"); pre.appendChild(textNode_("code", "", buf.join("\n"))); el.appendChild(pre);
         continue;
       }
-      var h = /^#{1,4}\s+(.*)$/.exec(line);
-      if (h) { var hh = document.createElement("div"); hh.className = "gai-h"; mdInline_(hh, h[1]); el.appendChild(hh); i++; continue; }
+      var h = /^(#{1,4})\s+(.*)$/.exec(line);
+      if (h) { var hh = document.createElement("div"); hh.className = "gai-h gai-h" + (h[1].length === 1 ? "1" : h[1].length === 2 ? "2" : h[1].length === 3 ? "3" : "4"); mdInline_(hh, h[2]); el.appendChild(hh); i++; continue; }
+      if (/^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/.test(line)) { el.appendChild(document.createElement("hr")); i++; continue; }
+      if (/^>\s?/.test(line)) {
+        var qb = []; while (i < lines.length && /^>\s?/.test(lines[i])) { qb.push(lines[i].replace(/^>\s?/, "")); i++; }
+        var qd = document.createElement("div"); qd.className = "gai-quote"; mdInline_(qd, qb.join(" ")); el.appendChild(qd); continue;
+      }
       if (UL.test(line) || OL.test(line)) {
         var ordered = OL.test(line);
         var list = document.createElement(ordered ? "ol" : "ul");
@@ -5071,11 +5091,20 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
           if (/^\s*\|?\s*:?-{2,}/.test(r.replace(/\|/g, "|").replace(/\s/g, "")) && /^[\s|:\-]+$/.test(r)) return;
           var cells = r.trim().replace(/^\|/, "").replace(/\|$/, "").split("|");
           var tr = document.createElement("tr");
-          cells.forEach(function (c) { var td = document.createElement(headDone ? "td" : "th"); mdInline_(td, c.trim()); tr.appendChild(td); });
+          cells.forEach(function (c, ci) {
+            var td = document.createElement(headDone ? "td" : "th"), ct = c.trim();
+            mdInline_(td, ct);
+            var plain = ct.replace(/\*\*/g, "");
+            if (headDone && ci > 0 && /^[-+\u2212]?[\u20b1$]?\s?[\d,]+(?:\.\d+)?\s?(?:%|pts?|pp)?$/.test(plain)) td.className = "gai-num gai-nw";
+            else if (plain.length > 36) td.className = "gai-txt";
+            else td.className = "gai-nw";
+            tr.appendChild(td);
+          });
           headDone = true;
           table.appendChild(tr);
         });
         var wrap = document.createElement("div"); wrap.className = "gai-tablewrap"; wrap.appendChild(table); el.appendChild(wrap);
+        if (el.classList) el.classList.add("gai-wide");
         continue;
       }
       if (!line.trim()) { i++; continue; }
@@ -5084,6 +5113,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
         if (!first) p.appendChild(document.createElement("br"));
         mdInline_(p, lines[i]); first = false; i++;
       }
+      if (/^\s*(?:\*\*)?More detail(?:\*\*)?\s*:/i.test(lines[i - 1] || "") || /^\s*(?:\*\*)?More detail/i.test(p.textContent || "")) p.className = "gai-more";
       el.appendChild(p);
     }
   }

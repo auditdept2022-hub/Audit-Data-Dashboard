@@ -1,7 +1,7 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
 // v106: app header stays pinned (dimmed behind the overlay) while ANY popup is open.
-const CACHE_VERSION = 'audit-dashboard-v141'
+const CACHE_VERSION = 'audit-dashboard-v142'
 // v141: native Google Sheets creation, flexible natural-language Drive destinations, explicit My Drive root handling and Docs/DOCX/PDF creation; v138 response profiles and v137 transport/template safeguards retained.
 // v137: CORS-resilient assistant file POST/result retrieval, API-key-scoped quota cooldowns, and guarded DOCX section saves.
 // v136: persistent daily-quota cooldown, stable-model preference over preview overrides, and precise template edits.
