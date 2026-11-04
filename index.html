@@ -1,4 +1,4 @@
-<!-- Audit dashboard front end v153: status line under header removed, fitted/organized assistant tables and headings; v141: flexible Drive destinations and native Google Sheets; v138 response profiles and v137 large assistant POST/authenticated result retrieval retained. -->
+<!-- Audit dashboard front end v154: "pp" suffix hidden in replies; v153: status line under header removed, fitted/organized assistant tables and headings; v141: flexible Drive destinations and native Google Sheets; v138 response profiles and v137 large assistant POST/authenticated result retrieval retained. -->
 <!DOCTYPE html>
 <html lang="en" class="page-fade-ready"><head>
   <meta charset="UTF-8">
@@ -5045,6 +5045,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
 
   /* ---------- safe markdown (DOM only, never innerHTML) ---------- */
   function mdInline_(parent, str) {
+    str = String(str == null ? "" : str).replace(/(\d)\s*pp\b/gi, "$1");
     var re = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*\s][^*]*\*|\[[^\]]+\]\(https?:\/\/[^\s)]+\))/g;
     var last = 0, m;
     while ((m = re.exec(str))) {
@@ -5121,7 +5122,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
           var firstPlain = String(cells[0] || "").replace(/\*\*/g, "").trim();
           if (ri > 0 && /^\*\*[^*]+\*\*$/.test(String(cells[0] || "")) && /^(?:total|overall|grand total|efficiency rate|average|avg)/i.test(firstPlain)) tr.className = "gai-total";
           for (var ci = 0; ci < colCount; ci++) {
-            var ct = String(cells[ci] == null ? "" : cells[ci]);
+            var ct = String(cells[ci] == null ? "" : cells[ci]).replace(/(\d)\s*(?:pp|pts)\b/gi, "$1");
             var plain = ct.replace(/\*\*/g, "").trim();
             var cell = document.createElement(ri === 0 ? "th" : "td");
             if (ri > 0 && NA.test(plain)) { cell.textContent = "\u2014"; }
