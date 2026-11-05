@@ -1,4 +1,4 @@
-<!-- Audit dashboard front end v161: Gemini 503 failover/retry and chat Drive workspace removed; dashboard data sync and exports retained. -->
+<!-- Audit dashboard front end v162: assistant speed pass (instant local answers, fewer POST round-trips, early server wake-up); v161: Gemini 503 failover/retry and chat Drive workspace removed. -->
 <!DOCTYPE html>
 <html lang="en" class="page-fade-ready"><head>
   <meta charset="UTF-8">
@@ -4730,7 +4730,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
 }
 </style>
 
-<!-- GEMINI DASHBOARD ASSISTANT — v161: Gemini overload failover + Drive workspace removal. -->
+<!-- GEMINI DASHBOARD ASSISTANT — v162: speed pass; v161: Gemini overload failover + Drive workspace removal. -->
 <style id="geminiAssistantStyles">
   #geminiAssistantLauncher{position:fixed;right:20px;bottom:20px;z-index:140;background:#173b72;color:#fff;border:1px solid rgba(255,255,255,.24);border-radius:50%;width:44px;height:44px;padding:0;box-shadow:0 8px 22px rgba(2,12,30,.28);font:700 13px/1.2 system-ui,-apple-system,Segoe UI,sans-serif;display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation}
   #geminiAssistantLauncher:hover{filter:brightness(1.08)}
@@ -5434,6 +5434,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       // Do not hold the assistant's ready state open while the optional approval
       // queue loads. Chat can be used immediately after this status response.
       if (aiState.canApprove) refreshPending_();
+      warmAssistantServer_();
     } catch (err) {
       setStatus_((err.message || "Could not connect to the assistant.") + " You can still try a message; the server will verify access.");
       if (!aiState.sending && !aiState.lastReplyAt) setGemini_("offline", "Cannot reach the server");
@@ -5676,18 +5677,82 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     };
   }
 
+  // v162: tiny safe arithmetic parser (no eval). Returns a number or null.
+  function instantCalc_(expr) {
+    var src = String(expr || "").replace(/[x\u00d7]/gi, "*").replace(/\u00f7/g, "/").replace(/,/g, "").replace(/\^/g, "**").replace(/\s+/g, "");
+    if (!src || src.length > 80 || !/^[0-9+\-*/().%*]+$/.test(src)) return null;
+    var pos = 0;
+    function peek() { return src.charAt(pos); }
+    function number() {
+      var m = /^\d+(?:\.\d+)?|^\.\d+/.exec(src.slice(pos));
+      if (!m) throw new Error("num");
+      pos += m[0].length;
+      var v = parseFloat(m[0]);
+      if (peek() === "%") { pos++; v = v / 100; }
+      return v;
+    }
+    function factor() {
+      if (peek() === "+") { pos++; return factor(); }
+      if (peek() === "-") { pos++; return -factor(); }
+      if (peek() === "(") { pos++; var v = expr_(); if (peek() !== ")") throw new Error("paren"); pos++; return v; }
+      return number();
+    }
+    function power() {
+      var base = factor();
+      if (src.substr(pos, 2) === "**") { pos += 2; return Math.pow(base, power()); }
+      return base;
+    }
+    function term() {
+      var v = power();
+      while (peek() === "*" && src.substr(pos, 2) !== "**" || peek() === "/") {
+        var op = src.charAt(pos++);
+        var r = power();
+        v = op === "*" ? v * r : v / r;
+      }
+      return v;
+    }
+    function expr_() {
+      var v = term();
+      while (peek() === "+" || peek() === "-") { var op = src.charAt(pos++); var r = term(); v = op === "+" ? v + r : v - r; }
+      return v;
+    }
+    try {
+      var result = expr_();
+      if (pos !== src.length || !isFinite(result)) return null;
+      return result;
+    } catch (e) { return null; }
+  }
+
   function instantSmallTalkReply_(message) {
     var s = String(message || "").trim().toLowerCase().replace(/[.!?\s]+$/g, "");
-    if (/^(?:hi|hello|hey|hiya|hello there|hey there|hi there|good morning|good afternoon|good evening)$/.test(s)) {
+    if (/^(?:hi|hello|hey|hiya|hello there|hey there|hi there|good morning|good afternoon|good evening|kumusta|kumusta ka|musta)$/.test(s)) {
       if (s.indexOf("morning") >= 0) return "Good morning! What can I help you with today?";
       if (s.indexOf("afternoon") >= 0) return "Good afternoon! What can I help you with today?";
       if (s.indexOf("evening") >= 0) return "Good evening! What can I help you with today?";
       return "Hi! What can I help you with today?";
     }
     if (/^(?:how are you|how's it going|whats up|what's up)$/.test(s)) return "I'm doing well and ready to help. What would you like to work on?";
-    if (/^(?:thanks|thank you|thank you so much)$/.test(s)) return "You're welcome!";
-    if (/^(?:ok|okay|got it)$/.test(s)) return "Got it.";
-    if (/^(?:good night|bye|goodbye)$/.test(s)) return "Goodbye! Take care.";
+    if (/^(?:thanks|thank you|thank you so much|thanks a lot|salamat|maraming salamat|ty)$/.test(s)) return "You're welcome!";
+    if (/^(?:ok|okay|got it|sige|noted|alright|cool)$/.test(s)) return "Got it.";
+    if (/^(?:good night|bye|goodbye|see you|see ya)$/.test(s)) return "Goodbye! Take care.";
+    var now = new Date();
+    if (/^(?:what(?:'s| is)? (?:the )?time(?: is it)?(?: now| right now)?|what time is it(?: now| right now)?|time now|current time)$/.test(s)) {
+      return "It's " + now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + " on your device.";
+    }
+    if (/^(?:what(?:'s| is)? (?:the |today'?s )?date(?: today)?|what day is it(?: today)?|what(?:'s| is) today(?:'s date)?|today'?s date|current date)$/.test(s)) {
+      return "Today is " + now.toLocaleDateString([], { weekday: "long", year: "numeric", month: "long", day: "numeric" }) + ".";
+    }
+    var mathMatch = /^(?:(?:what(?:'s| is)|calculate|compute|solve|how much is|magkano ang)\s+)?([0-9+\-*/().%^x\u00d7\u00f7,\s]+?)\s*=?\s*\??$/.exec(s);
+    // Dates, IDs and phone numbers (e.g. 2026-05-01, 10/5/2026) must never be "calculated":
+    // require a clear maths cue: a leading word, a + * ^ x \u00d7 \u00f7 operator, or a spaced - or /.
+    var mathCue = mathMatch && (/^(?:what|calculate|compute|solve|how much|magkano)/.test(s) || /[+*^x\u00d7\u00f7]/.test(mathMatch[1]) || /\s[-/]\s/.test(mathMatch[1]));
+    if (mathMatch && mathCue && /[0-9]/.test(mathMatch[1]) && /[+\-*/^x\u00d7\u00f7]/.test(mathMatch[1].replace(/^\s*-/, ""))) {
+      var value = instantCalc_(mathMatch[1]);
+      if (value !== null) {
+        var shown = Math.abs(value) >= 1e15 || (value !== 0 && Math.abs(value) < 1e-9) ? String(value) : String(Math.round(value * 1e10) / 1e10);
+        return mathMatch[1].replace(/\s+/g, " ").trim() + " = " + Number(shown).toLocaleString("en-US", { maximumFractionDigits: 10 });
+      }
+    }
     return "";
   }
 
@@ -5736,8 +5801,6 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       var fields = { message: message, history: historyJson, requestId: "ai-" + Date.now() + "-" + Math.random().toString(36).slice(2, 10) };
       // Small client/server handshake only. The canonical rows stay in Code.gs
       // and are read from the shared six-sheet cache; never POST the same rows twice.
-      try { fields.dashboardSourceManifest = JSON.stringify(assistantBuildSourceManifest_()); }
-      catch (manifestError) { console.warn("Could not build dashboard source manifest:", manifestError); }
       var dashboardViewJson = "";
       try {
         var dashboardView = assistantBuildDashboardView_(message, aiState.history);
@@ -5746,10 +5809,25 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
           if (dashboardViewJson.length <= 2500000) fields.dashboardView = dashboardViewJson; else dashboardViewJson = "";
         }
       } catch (viewError) { console.warn("Could not attach dashboard screen figures:", viewError); dashboardViewJson = ""; }
+      // v162: the manifest only matters when dashboard figures are attached; skip it for plain chat.
+      if (dashboardViewJson) {
+        try { fields.dashboardSourceManifest = JSON.stringify(assistantBuildSourceManifest_()); }
+        catch (manifestError) { console.warn("Could not build dashboard source manifest:", manifestError); }
+      }
       if (sentFiles.length) {
         fields.attachments = JSON.stringify(sentFiles.map(function (f) { return f.kind === "inline" ? { name: f.name, kind: "inline", mime: f.mime, data: f.data } : { name: f.name, kind: "text", text: f.text }; }));
       }
-      var needsPost = sentFiles.length > 0 || !!dashboardViewJson || message.length > 1500 || historyJson.length + message.length > 6000 || /\b(comprehensive|deep dive|review|analyse|analyze|evaluate|report|compare|troubleshoot|debug|code|spreadsheet|dashboard|all data|everything|findings|full analysis|step by step)\b/i.test(message);
+      // v162: POST goes through a hidden iframe plus a second "fetch the result" request, which
+      // roughly doubles the wait. Only use it when the payload genuinely cannot fit in a GET URL
+      // (files, dashboard figures, very long prompts). Keyword-based POST switching was removed.
+      var getUrlBudget = 5200; // characters of encoded fields; the token/secret add ~1.5 KB on top
+      var encodedSize = function () { var n = 0; Object.keys(fields).forEach(function (k) { n += encodeURIComponent(k).length + encodeURIComponent(String(fields[k])).length + 2; }); return n; };
+      if (!sentFiles.length && !dashboardViewJson && encodedSize() > getUrlBudget) {
+        // Try a slimmer history first (recent turns, trimmed) before falling back to POST.
+        var slim = history.slice(-8).map(function (item) { return { role: item.role, text: String(item.text || "").slice(0, 1200) }; });
+        fields.history = JSON.stringify(slim);
+      }
+      var needsPost = sentFiles.length > 0 || !!dashboardViewJson || (!sentFiles.length && encodedSize() > getUrlBudget);
       var callOnce_ = async function () {
         if (needsPost) {
           // Never auto-fallback after a POST transport error: the server may
@@ -5842,7 +5920,19 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     } finally { setBusy_(false); }
   }
 
+  var lastWakeAt_ = 0;
+  function wakeServerEarly_() {
+    // v162: wake the Apps Script backend while the user is still typing, so the first
+    // message does not wait for a cold start (the idle ping used to run in series with it).
+    if (Date.now() - lastWakeAt_ < 60000) return;
+    lastWakeAt_ = Date.now();
+    try { if (typeof window.wakeBackendNow === "function") window.wakeBackendNow(); } catch (e) {}
+  }
+  function warmAssistantServer_() {
+    try { assistantRequest_("aiAssistantStatus", { warm: "1" }).catch(function () {}); } catch (e) {}
+  }
   function openPanel_() {
+    wakeServerEarly_();
     panel.classList.add("gai-open");
     launcher.setAttribute("aria-expanded", "true");
     if (!aiState.checked) loadStatus_(); else if (aiState.canApprove) refreshPending_();
@@ -5862,6 +5952,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   attachBtn.addEventListener("click", function () { if (!aiState.reading && !aiState.sending) fileInput.click(); });
   fileInput.addEventListener("change", function () { addFiles_(fileInput.files); });
   inputEl.addEventListener("input", autoGrow_);
+  inputEl.addEventListener("input", wakeServerEarly_);
   inputEl.addEventListener("keydown", function (event) {
     if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendMessage_(); }
   });
