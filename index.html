@@ -503,6 +503,13 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
 .drive-context-item.is-danger .drive-context-icon{color:inherit}
 .drive-context-separator{height:1px;margin:4px 6px;background:var(--d-line-soft)}
 .drive-context-empty{padding:10px;color:var(--d-faint);font-size:12px}
+.drive-context-item[data-drive-menu-action="create"]:after{content:"›";margin-left:auto;font-size:18px;color:#8b97ac}
+.drive-create-submenu{position:fixed;z-index:10051;width:220px;max-height:min(78vh,520px);overflow:auto;padding:5px;background:#fff;border:1px solid var(--d-line);border-radius:11px;box-shadow:0 14px 40px rgba(18,30,65,.2);font-family:Inter,'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif;animation:drive-submenu-in .14s ease-out}
+.drive-create-submenu.hidden{display:none!important}
+.drive-create-submenu button{width:100%;min-height:36px;display:flex;align-items:center;gap:10px;padding:5px 9px;border:0;border-radius:7px;background:transparent;color:#34415e;font-size:13px;font-weight:600;text-align:left;cursor:pointer}
+.drive-create-submenu button:hover,.drive-create-submenu button:focus-visible{background:var(--d-accent-soft);color:var(--d-accent-2);outline:none}
+.drive-submenu-icon{width:23px;flex:none;text-align:center}
+@keyframes drive-submenu-in{from{opacity:0;transform:translateX(7px)}to{opacity:1;transform:translateX(0)}}
 
 /* preview */
 .drive-preview{position:fixed;inset:0;z-index:10040;display:flex;align-items:center;justify-content:center;padding:clamp(8px,2vw,22px);font-family:Inter,'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif}
@@ -519,8 +526,11 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
 .drive-preview-download:hover{background:#e0e5ff}
 .drive-preview-download.hidden{display:none}
 .drive-preview-body{flex:1;min-height:0;background:#e9edf4}
-.drive-preview-body iframe{display:block;width:100%;height:100%;border:0;background:#fff}
+.drive-preview-body iframe{display:block;width:100%;height:100%;border:0;background:#fff;opacity:1;filter:none;color-scheme:light}
 .drive-preview-footer{flex:none;padding:6px 12px;background:#fff;border-top:1px solid #e6eaf2;color:#98a3b7;font-size:11px}
+.drive-preview.is-fullscreen{padding:0}
+.drive-preview.is-fullscreen .drive-preview-panel,.drive-preview-panel:fullscreen{width:100vw;height:100dvh;max-width:none;max-height:none;border-radius:0}
+.drive-preview-panel:fullscreen{box-shadow:none}
 
 /* dialog */
 .drive-dialog{position:fixed;inset:0;z-index:10060;display:flex;align-items:center;justify-content:center;padding:16px;font-family:Inter,'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif}
@@ -566,7 +576,8 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
   .drive-toolbar-right .drive-view-switch{order:1}
   .drive-toolbar-right .drive-create-wrap,.drive-toolbar-right>.drive-btn{order:2;flex:1 1 40%;min-width:0}
   .drive-create-wrap>.drive-btn{width:100%}
-  .drive-create-menu{left:0;right:auto}
+  .drive-create-menu{left:0;right:auto;max-height:65dvh;overflow:auto}
+  .drive-create-submenu{width:min(220px,calc(100vw - 24px));max-height:65dvh}
   .drive-toolbar-right>.drive-btn{height:34px}
   .drive-create-wrap>.drive-btn{height:34px}
   .drive-table th:nth-child(2),.drive-table td:nth-child(2),.drive-table th:nth-child(3),.drive-table td:nth-child(3),.drive-table th:nth-child(4),.drive-table td:nth-child(4){display:none}
@@ -1421,7 +1432,7 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
           <div class="drive-sidebar-title">Browse</div>
           <button type="button" class="drive-nav-btn is-current" onclick="driveGoRoot()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg><span>All files</span><span class="drive-nav-count" id="driveNavCount">—</span></button>
           <div class="drive-sidebar-title">Create</div>
-          <button type="button" class="drive-nav-btn" onclick="driveOpenDialog('folder')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 10v6M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg><span>New folder</span></button>
+          <button type="button" class="drive-nav-btn" onclick="driveOpenCreateMode('folder')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 10v6M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg><span>New folder</span></button>
           <button type="button" class="drive-nav-btn" onclick="driveChooseUpload()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 17v3h16v-3"/></svg><span>Upload files</span></button>
           <div class="drive-sidebar-hint">Right-click a file or press and hold on mobile for more actions. <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>X</kbd>/<kbd>V</kbd> to copy, cut and paste.</div>
         </aside>
@@ -1435,7 +1446,19 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
                 <button type="button" class="is-active" data-drive-view="list" aria-label="List view" aria-pressed="true" title="List view"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
                 <button type="button" data-drive-view="grid" aria-label="Grid view" aria-pressed="false" title="Grid view"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
               </div>
-              <button type="button" id="driveNewButton" class="drive-btn" onclick="driveOpenDialog('folder')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 10v6M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg><span>New folder</span></button>
+              <div class="drive-create-wrap">
+                <button type="button" id="driveNewButton" class="drive-btn" onclick="driveToggleCreateMenu()" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>New</span><svg class="drive-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+                <div id="driveCreateMenu" class="drive-create-menu hidden" role="menu" aria-label="Create a file">
+                  <button type="button" role="menuitem" onclick="driveOpenCreateMode('folder')">📁 <span>New folder</span></button>
+                  <button type="button" role="menuitem" onclick="driveOpenCreateMode('google-doc')">📝 <span>Google Docs</span></button>
+                  <button type="button" role="menuitem" onclick="driveOpenCreateMode('google-sheet')">📊 <span>Google Sheets</span></button>
+                  <button type="button" role="menuitem" onclick="driveOpenCreateMode('google-slides')">📽️ <span>Google Slides</span></button>
+                  <button type="button" role="menuitem" onclick="driveOpenCreateMode('pdf')">📕 <span>PDF document</span></button>
+                  <button type="button" role="menuitem" onclick="driveOpenCreateMode('docx')">📘 <span>Word (.docx)</span></button>
+                  <button type="button" role="menuitem" onclick="driveOpenCreateMode('powerpoint')">📙 <span>PowerPoint (.pptx)</span></button>
+                  <button type="button" role="menuitem" onclick="driveOpenCreateMode('text')">📄 <span>Text / HTML / CSV</span></button>
+                </div>
+              </div>
               <button type="button" id="driveUploadButton" class="drive-btn primary" onclick="driveChooseUpload()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 17v3h16v-3"/></svg><span>Upload</span></button>
             </div>
           </div>
@@ -1456,14 +1479,15 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
     </div>
     <input id="driveUploadInput" type="file" multiple hidden>
     <div id="driveContextMenu" class="drive-context-menu hidden" role="menu" aria-label="File actions"></div>
+    <div id="driveCreateSubmenu" class="drive-create-submenu hidden" role="menu" aria-label="Create in selected folder"></div>
     <section id="drivePreview" class="drive-preview hidden" role="dialog" aria-modal="true" aria-label="File preview">
       <div class="drive-preview-backdrop" data-drive-preview-close></div>
       <div class="drive-preview-panel">
         <div class="drive-preview-header">
           <div class="drive-preview-heading"><span id="drivePreviewIcon" class="drive-preview-file-icon">FILE</span><div><strong id="drivePreviewName">Preview</strong><span id="drivePreviewMeta">File preview</span></div></div>
-          <div class="drive-preview-tools"><a id="drivePreviewDownload" class="drive-preview-download hidden" href="#" rel="noopener">Download</a><button type="button" class="drive-icon-btn" data-drive-preview-close aria-label="Close preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+          <div class="drive-preview-tools"><a id="drivePreviewDownload" class="drive-preview-download hidden" href="#" target="_blank" rel="noopener">Download</a><button type="button" id="drivePreviewFullscreen" class="drive-icon-btn" onclick="driveTogglePreviewFullscreen()" aria-label="Full screen preview" title="Full screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg></button><button type="button" class="drive-icon-btn" data-drive-preview-close aria-label="Close preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
         </div>
-        <div class="drive-preview-body"><iframe id="drivePreviewFrame" title="File preview" referrerpolicy="no-referrer" allow="autoplay; clipboard-read; clipboard-write; fullscreen" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe></div>
+        <div class="drive-preview-body"><iframe id="drivePreviewFrame" title="File preview" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; clipboard-read; clipboard-write; fullscreen" allowfullscreen></iframe></div>
         <footer class="drive-preview-footer">Some Google Workspace documents may require Google's editor for full editing.</footer>
       </div>
     </section>
@@ -6314,8 +6338,8 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
 <script>
 (function(){
   "use strict";
-  var state={open:false,loading:false,canManage:false,folderId:"",items:[],path:[{id:"",name:"All files"}],rootId:"",moveItem:null,dialogMode:"",dialogItem:null,activeFilter:"",typeFilter:"all",sortBy:"name",view:"list",folderCache:Object.create(null),loadSeq:0,selectedId:"",clipboard:null,contextItem:null,pressTimer:0,suppressNextOpenUntil:0,previewItem:null,selectedItem:null,contextTargetIsBlank:false};
-  var DRIVE_CACHE_TTL=25000;
+  var state={open:false,loading:false,canManage:false,folderId:"",items:[],path:[{id:"",name:"All files"}],rootId:"",moveItem:null,dialogMode:"",dialogItem:null,activeFilter:"",typeFilter:"all",sortBy:"name",view:"list",folderCache:Object.create(null),loadSeq:0,selectedId:"",clipboard:null,contextItem:null,pressTimer:0,suppressNextOpenUntil:0,previewItem:null,selectedItem:null,contextTargetIsBlank:false,createParentId:"",createParentName:"All files",createParentItem:null};
+  var DRIVE_CACHE_TTL=45000;
   try{state.view=sessionStorage.getItem("auditFilesView")==="grid"?"grid":"list"}catch(e){}
   function el(id){return document.getElementById(id)}
   function esc(value){return String(value==null?"":value).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
@@ -6354,7 +6378,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     el("driveTableSubtitle").textContent=visible.length+" item"+(visible.length===1?"":"s")+" · "+folders+" folder"+(folders===1?"":"s");
     el("driveFooterInfo").textContent=visible.length+" item"+(visible.length===1?"":"s")+" shown"+(state.activeFilter?" for “"+state.activeFilter+"”":"");
     if(S.mode)el("driveFooterInfo").textContent=(S.loading?"Searching all of Drive… ":"")+visible.length+" result"+(visible.length===1?"":"s")+" in all files for \u201c"+S.q+"\u201d";
-    el("driveTruncatedNotice").textContent=S.mode?"Showing the first 100 matches. Type more of the name to narrow the results.":"Showing the first 600 items. Open a subfolder or search to find a specific item.";
+    el("driveTruncatedNotice").textContent=S.mode?"Showing the first 250 matches. Type more of the name to narrow the results.":"Showing the first 600 items. Open a subfolder or search to find a specific item.";
     el("driveTruncatedNotice").classList.toggle("hidden",!(S.mode?S.truncated:state.truncated));
     renderBreadcrumbs();
     var body=el("driveTableBody"),empty=el("driveEmptyState"),grid=el("driveGrid"),tableScroll=body&&body.closest(".drive-table-scroll");
@@ -6386,30 +6410,60 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   function invalidateDriveCache(){if(S.mode&&S.q)setTimeout(function(){runSearch(S.q)},0);state.folderCache=Object.create(null)}
   async function loadFolder(folderId,folderName,pushPath,force){hideError();var targetId=folderId||"";var seq=++state.loadSeq;if(pushPath){if(state.path[state.path.length-1].id!==targetId)state.path.push({id:targetId,name:folderName||"Folder"})}else if(!state.path.length){state.path=[{id:targetId,name:folderName||"All files"}]}else if(state.path[state.path.length-1].id!==targetId){state.path=[{id:targetId,name:folderName||"All files"}]}state.folderId=targetId;state.activeFilter=(el("driveSearchInput").value||"").trim().toLowerCase();var key=targetId||"__root__",cached=state.folderCache[key],age=cached?Date.now()-cached.time:Infinity;var hadCache=!!cached;if(cached){applyFolderResult(targetId,folderName,cached.result,false);if(!force&&age<DRIVE_CACHE_TTL){setLoading(false);return}}else{state.items=[];render()}setLoading(true,"Loading files…",hadCache);try{var result=await request("driveList",{folderId:targetId,q:""});if(seq!==state.loadSeq||!state.open)return;state.folderCache[key]={result:result,time:Date.now()};applyFolderResult(targetId,folderName,result,false)}catch(err){if(seq!==state.loadSeq)return;if(!hadCache){state.items=[];render();showError(err&&err.message?err.message:"Unable to connect to your audit files.");el("driveFooterInfo").textContent="Connection unavailable"}else{showError("Showing the last loaded copy. Refresh to retry the connection.");}}finally{if(seq===state.loadSeq)setLoading(false)}}
   function driveItemById(id){return state.items.find(function(x){return x.id===id})||S.items.find(function(x){return x.id===id})||null}
-  function hideContextMenu(){var menu=el("driveContextMenu");if(menu)menu.classList.add("hidden");state.contextItem=null;state.contextTargetIsBlank=false}
+  function hideContextMenu(){var menu=el("driveContextMenu");if(menu)menu.classList.add("hidden");hideCreateSubmenu();state.contextItem=null;state.contextTargetIsBlank=false}
   function contextButton(action,label,icon,disabled,danger){return '<button type="button" role="menuitem" data-drive-menu-action="'+action+'" '+(disabled?'disabled':'')+' class="drive-context-item '+(danger?'is-danger':'')+'"><span class="drive-context-icon">'+icon+'</span><span>'+label+'</span></button>'}
   function showContextMenu(event,item){
     var menu=el("driveContextMenu");if(!menu||!state.open)return;
     state.contextItem=item||null;state.contextTargetIsBlank=!item;
     if(item){state.selectedId=item.id;state.selectedItem=item;}
+    state.createParentItem=item&&item.kind==="folder"?item:null;
+    state.createParentId=item&&item.kind==="folder"?item.id:(item&&item.parentId||state.folderId);
+    state.createParentName=item&&item.kind==="folder"?item.name:(item&&item.parentName||state.path[state.path.length-1].name);
     var can=state.canManage,clip=!!(state.clipboard&&can),html='';
     if(item){
       html+=contextButton("open",item.kind==="folder"?"Open folder":"Preview",item.kind==="folder"?IC.folder:IC.eye,false,false);
       if(S.mode&&item.parentId)html+=contextButton("reveal","Show in folder",IC.open,false,false);
       if(item.kind!=="folder")html+=contextButton("download","Download",IC.download,!item.downloadUrl,false);
       html+='<div class="drive-context-separator"></div>';
+      if(can)html+=contextButton("create","New",IC.newfolder,false,false)+'<div class="drive-context-separator"></div>';
       html+=contextButton("copy-name","Copy name",IC.link,false,false);
       if(can){html+=contextButton("copy","Copy",IC.copy,false,false)+contextButton("cut","Cut",IC.cut,false,false);if(clip)html+=contextButton("paste",item.kind==="folder"?"Paste into this folder":"Paste here",IC.paste,false,false);html+='<div class="drive-context-separator"></div>'+contextButton("rename","Rename",IC.rename,false,false)+contextButton("move","Move",IC.move,false,false)+contextButton("trash","Move to trash",IC.trash,false,true)}
     }else{
-      if(can){html+=contextButton("paste","Paste here",IC.paste,!clip,false)+contextButton("upload","Upload files",IC.upload,false,false)+contextButton("folder","New folder",IC.newfolder,false,false)}
+      if(can){html+=contextButton("create","New",IC.newfolder,false,false)+contextButton("paste","Paste here",IC.paste,!clip,false)+contextButton("upload","Upload files",IC.upload,false,false)+contextButton("folder","New folder",IC.newfolder,false,false)}
       else html+='<div class="drive-context-empty">No file selected</div>';
     }
     menu.innerHTML=html;
     menu.classList.remove("hidden");
+    el("driveCreateSubmenu").classList.add("hidden");
     var x=Number(event.clientX)||16,y=Number(event.clientY)||16;
     var width=menu.offsetWidth||240,height=menu.offsetHeight||240;
     menu.style.left=Math.max(8,Math.min(x,window.innerWidth-width-8))+"px";
     menu.style.top=Math.max(8,Math.min(y,window.innerHeight-height-8))+"px";
+  }
+  function hideCreateSubmenu(){var submenu=el("driveCreateSubmenu");if(submenu)submenu.classList.add("hidden")}
+  function showCreateSubmenu(anchor){
+    if(!state.canManage||!anchor)return;
+    var submenu=el("driveCreateSubmenu");if(!submenu)return;
+    var options=[
+      ["folder","New folder","📁"],
+      ["google-doc","Google Docs","📝"],
+      ["google-sheet","Google Sheets","📊"],
+      ["google-slides","Google Slides","📽️"],
+      ["pdf","PDF document","📕"],
+      ["docx","Word (.docx)","📘"],
+      ["powerpoint","PowerPoint (.pptx)","📙"],
+      ["text","Text / HTML / CSV","📄"]
+    ];
+    submenu.innerHTML=options.map(function(option){return '<button type="button" role="menuitem" data-drive-create-mode="'+option[0]+'"><span class="drive-submenu-icon">'+option[2]+'</span><span>'+option[1]+'</span></button>'}).join("");
+    submenu.classList.remove("hidden");
+    var menuRect=el("driveContextMenu").getBoundingClientRect();
+    var anchorRect=anchor.getBoundingClientRect();
+    var width=220,height=submenu.offsetHeight||300;
+    var left=menuRect.right-1;
+    if(left+width>window.innerWidth-8)left=menuRect.left-width+1;
+    var top=Math.max(8,Math.min(anchorRect.top,window.innerHeight-height-8));
+    submenu.style.left=Math.max(8,left)+"px";
+    submenu.style.top=top+"px";
   }
   function copyTextToClipboard(text){
     text=String(text||"");
@@ -6434,25 +6488,37 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       await loadFolder(state.folderId,state.path[state.path.length-1].name,false,true);
     }catch(err){showToast(err&&err.message||"Paste failed. Check your edit access and try again.","error")}
   }
+  function drivePreviewUrl(item){
+    var id=encodeURIComponent(item.id),mime=String(item.mimeType||"").toLowerCase(),name=String(item.name||"").toLowerCase();
+    if(mime.indexOf("application/vnd.google-apps.document")===0)return "https://docs.google.com/document/d/"+id+"/preview";
+    if(mime.indexOf("application/vnd.google-apps.spreadsheet")===0)return "https://docs.google.com/spreadsheets/d/"+id+"/preview";
+    if(mime.indexOf("application/vnd.google-apps.presentation")===0)return "https://docs.google.com/presentation/d/"+id+"/preview";
+    if(mime==="application/pdf"||name.endsWith(".pdf")||mime.indexOf("image/")===0)return "https://drive.google.com/uc?export=view&id="+id;
+    if(mime.indexOf("text/")===0||/\.(txt|csv|md|html)$/i.test(name))return "https://drive.google.com/uc?export=view&id="+id;
+    return "https://drive.google.com/file/d/"+id+"/preview";
+  }
   function openPreview(item){
     if(!item||item.kind==="folder")return;
-    hideContextMenu();state.previewItem=item;
+    hideContextMenu();hideCreateSubmenu();state.previewItem=item;
     el("drivePreviewName").textContent=item.name;
     el("drivePreviewMeta").textContent=typeLabel(item)+" · "+fmtSize(item.size);
     el("drivePreviewIcon").textContent=typeLabel(item).slice(0,5).toUpperCase();
     var dl=el("drivePreviewDownload");
-    if(item.downloadUrl){dl.href=item.downloadUrl;dl.classList.remove("hidden")}else{dl.removeAttribute("href");dl.classList.add("hidden")}
+    if(item.downloadUrl){dl.href=item.downloadUrl;dl.textContent="Download";dl.classList.remove("hidden")}else if(item.url){dl.href=item.url;dl.textContent="Open in Drive";dl.classList.remove("hidden")}else{dl.removeAttribute("href");dl.classList.add("hidden")}
     var frame=el("drivePreviewFrame");
-    frame.src="https://drive.google.com/file/d/"+encodeURIComponent(item.id)+"/preview";
+    frame.src=drivePreviewUrl(item);
     el("drivePreview").classList.remove("hidden");
     document.body.style.overflow="hidden";
   }
-  function closePreview(){var wrap=el("drivePreview");if(!wrap)return;wrap.classList.add("hidden");var frame=el("drivePreviewFrame");if(frame)frame.src="about:blank";state.previewItem=null;if(state.open)document.body.style.overflow="hidden";else document.body.style.overflow=""}
+  function closePreview(){var wrap=el("drivePreview");if(!wrap)return;var panel=wrap.querySelector(".drive-preview-panel");if(document.fullscreenElement&&panel&&document.exitFullscreen){try{document.exitFullscreen()}catch(e){}}wrap.classList.remove("is-fullscreen");wrap.classList.add("hidden");var frame=el("drivePreviewFrame");if(frame)frame.src="about:blank";state.previewItem=null;if(state.open)document.body.style.overflow="hidden";else document.body.style.overflow=""}
+  window.driveTogglePreviewFullscreen=function(){var wrap=el("drivePreview"),panel=wrap&&wrap.querySelector(".drive-preview-panel"),button=el("drivePreviewFullscreen");if(!wrap||!panel)return;if(document.fullscreenElement===panel){if(document.exitFullscreen)document.exitFullscreen().catch(function(){});wrap.classList.remove("is-fullscreen");if(button){button.title="Full screen";button.setAttribute("aria-label","Full screen preview")}return}if(panel.requestFullscreen){panel.requestFullscreen().then(function(){wrap.classList.add("is-fullscreen")}).catch(function(){wrap.classList.toggle("is-fullscreen")})}else wrap.classList.toggle("is-fullscreen");if(button){button.title="Exit full screen";button.setAttribute("aria-label","Exit full screen preview")}};
+  document.addEventListener("fullscreenchange",function(){var wrap=el("drivePreview"),panel=wrap&&wrap.querySelector(".drive-preview-panel"),button=el("drivePreviewFullscreen"),active=!!(panel&&document.fullscreenElement===panel);if(wrap)wrap.classList.toggle("is-fullscreen",active);if(button){button.title=active?"Exit full screen":"Full screen";button.setAttribute("aria-label",active?"Exit full screen preview":"Full screen preview")}});
   async function contextAction(action){
     var item=state.contextTargetIsBlank?null:(state.contextItem||driveItemById(state.selectedId));
     var targetFolder=item&&item.kind==="folder"?item.id:state.folderId;
+    if(action==="create"){var trigger=el("driveContextMenu").querySelector('[data-drive-menu-action="create"]');if(trigger)showCreateSubmenu(trigger);return}
     hideContextMenu();
-    if(action==="reveal"){if(item&&item.parentId){state.path=[{id:"",name:"All files"}];if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();resetSearch();state.activeFilter="";state.selectedId=item.id;loadFolder(item.parentId,item.parentName||"Folder",item.parentId!==state.rootId)}return}
+    if(action==="reveal"){if(item&&item.parentId){state.path=[{id:"",name:"All files"}];if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();state.activeFilter="";state.selectedId=item.id;loadFolder(item.parentId,item.parentName||"Folder",item.parentId!==state.rootId)}return}
     if(action==="open"){if(item){if(item.kind==="folder"){if(S.mode)state.path=[{id:"",name:"All files"}];if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();loadFolder(item.id,item.name,true)}else openPreview(item)}return}
     if(action==="download"){if(item&&item.downloadUrl){var a=document.createElement("a");a.href=item.downloadUrl;a.target="_blank";a.rel="noopener";a.download=item.name;document.body.appendChild(a);a.click();a.remove()}else showToast("This Google Workspace file does not have a direct download link.");return}
     if(action==="copy-name"){if(item)copyTextToClipboard(item.name);return}
@@ -6463,16 +6529,83 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     if(action==="upload"){driveChooseUpload();return}
     if(action==="folder"||action==="docx"||action==="text"){driveOpenDialog(action);return}
   }
-  window.openDriveManager=function(){var screen=el("driveManagerScreen");if(!screen)return;if(typeof window.closeSideMenu==="function")window.closeSideMenu();var activeEmail=window.getCurrentUserEmail?String(window.getCurrentUserEmail()||"").toLowerCase():"";if(state.cacheUser&&state.cacheUser!==activeEmail){invalidateDriveCache();state.clipboard=null;state.selectedItem=null;state.selectedId=""}state.cacheUser=activeEmail;state.selectedItem=null;state.selectedId="";hideContextMenu();state.open=true;screen.classList.remove("hidden");document.body.style.overflow="hidden";if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();state.path=[{id:"",name:"All files"}];loadFolder("", "All files", false)};
+  window.openDriveManager=function(){var screen=el("driveManagerScreen");if(!screen)return;if(typeof window.closeSideMenu==="function")window.closeSideMenu();var activeEmail=window.getCurrentUserEmail?String(window.getCurrentUserEmail()||"").toLowerCase():"";if(state.cacheUser&&state.cacheUser!==activeEmail){invalidateDriveCache();state.clipboard=null;state.selectedItem=null;state.selectedId=""}state.cacheUser=activeEmail;state.selectedItem=null;state.selectedId="";state.createParentId="";state.createParentName="All files";state.createParentItem=null;hideContextMenu();state.open=true;screen.classList.remove("hidden");document.body.style.overflow="hidden";if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();state.path=[{id:"",name:"All files"}];loadFolder("", "All files", false)};
   window.closeDriveManager=function(){var screen=el("driveManagerScreen");if(screen)screen.classList.add("hidden");state.open=false;driveCloseDialog();closePreview();hideContextMenu();document.body.style.overflow=""};
   window.driveRefresh=function(){if(state.open&&S.mode&&S.q){S.loading=true;render();runSearch(S.q);return}if(state.open)loadFolder(state.folderId,state.path[state.path.length-1].name,false,true)};
   window.driveGoRoot=function(){state.path=[{id:"",name:"All files"}];if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();loadFolder("","All files",false)};
-  window.driveToggleCreateMenu=function(){var menu=el("driveCreateMenu"),button=el("driveNewButton");if(!menu||!button)return;var opening=menu.classList.contains("hidden");menu.classList.toggle("hidden",!opening);button.setAttribute("aria-expanded",opening?"true":"false")};
-  window.driveOpenCreateMode=function(mode){var menu=el("driveCreateMenu"),button=el("driveNewButton");if(menu)menu.classList.add("hidden");if(button)button.setAttribute("aria-expanded","false");driveOpenDialog(mode)};
-  window.driveChooseUpload=function(){if(!state.canManage){showToast("Only dashboard editors can upload files.");return}el("driveUploadInput").click()};
-  window.driveOpenDialog=function(mode,item){var createMenu=el("driveCreateMenu");if(createMenu)createMenu.classList.add("hidden");var createButton=el("driveNewButton");if(createButton)createButton.setAttribute("aria-expanded","false");if(!state.canManage){showToast("Only dashboard editors can make Drive changes.");return}state.dialogMode=mode;state.dialogItem=item||null;var title=el("driveDialogTitle"),desc=el("driveDialogDescription"),nameWrap=el("driveDialogNameWrap"),contentWrap=el("driveDialogContentWrap"),moveWrap=el("driveDialogMoveWrap"),name=el("driveDialogName"),submit=el("driveDialogSubmit"),error=el("driveDialogError");error.classList.add("hidden");nameWrap.classList.toggle("hidden",mode==="move");contentWrap.classList.toggle("hidden",mode!=="docx"&&mode!=="text");moveWrap.classList.toggle("hidden",mode!=="move");if(mode==="folder"){title.textContent="Create a folder";desc.textContent="Add a folder inside "+state.path[state.path.length-1].name+".";el("driveDialogNameLabel").textContent="Folder name";name.value="";name.placeholder="e.g. Monthly Reports";submit.textContent="Create folder"}else if(mode==="docx"){title.textContent="New Word document";desc.textContent="Create a .docx file and save it directly in this folder.";el("driveDialogNameLabel").textContent="Document name";name.value="Untitled document.docx";name.placeholder="Document name.docx";el("driveDialogContentLabel").textContent="Document content";el("driveDialogContent").value="";submit.textContent="Create DOCX"}else if(mode==="text"){title.textContent="New text / HTML file";desc.textContent="Create a simple text, Markdown, CSV, or HTML file.";el("driveDialogNameLabel").textContent="File name";name.value="Untitled.txt";name.placeholder="filename.txt";el("driveDialogContentLabel").textContent="File content";el("driveDialogContent").value="";submit.textContent="Create file"}else if(mode==="rename"){title.textContent="Rename item";desc.textContent="The new name will be saved to Google Drive.";el("driveDialogNameLabel").textContent="New name";name.value=item&&item.name||"";name.placeholder="Enter a new name";submit.textContent="Save name"}else if(mode==="move"){title.textContent="Move item";desc.textContent="Choose the destination folder.";submit.textContent="Move item";var select=el("driveDialogMoveTarget");var opts="";state.path.slice(0,-1).forEach(function(part){opts+='<option value="'+esc(part.id)+'">Parent level — '+esc(part.name)+'</option>'});opts+='<option value="'+esc(state.folderId)+'">Current folder — '+esc(state.path[state.path.length-1].name)+'</option>';state.items.filter(function(x){return x.kind==="folder"&&(!item||x.id!==item.id)}).forEach(function(x){opts+='<option value="'+esc(x.id)+'">Inside — '+esc(x.name)+'</option>'});select.innerHTML=opts}el("driveDialog").classList.remove("hidden");setTimeout(function(){if(mode!=="move")name.focus()},30)};
+  window.driveToggleCreateMenu=function(){var menu=el("driveCreateMenu"),button=el("driveNewButton");if(!menu||!button)return;var opening=menu.classList.contains("hidden");menu.classList.toggle("hidden",!opening);button.setAttribute("aria-expanded",opening?"true":"false");state.createParentId=S.mode?(state.rootId||""):state.folderId;state.createParentName=S.mode?"All files":state.path[state.path.length-1].name;state.createParentItem=null};
+  window.driveOpenCreateMode=function(mode){var menu=el("driveCreateMenu"),button=el("driveNewButton");if(menu)menu.classList.add("hidden");if(button)button.setAttribute("aria-expanded","false");state.createParentId=S.mode?(state.rootId||""):state.folderId;state.createParentName=S.mode?"All files":state.path[state.path.length-1].name;state.createParentItem=null;driveOpenDialog(mode)};
+  window.driveChooseUpload=function(){var input=el("driveUploadInput");if(input)input.click()};
+  window.driveOpenDialog=function(mode,item){
+    var createMenu=el("driveCreateMenu");if(createMenu)createMenu.classList.add("hidden");var createButton=el("driveNewButton");if(createButton)createButton.setAttribute("aria-expanded","false");hideCreateSubmenu();
+    if(!state.canManage){showToast("Only dashboard editors can make Drive changes.");return}
+    if(mode==="rename"||mode==="move"){state.createParentId=state.folderId;state.createParentName=state.path[state.path.length-1].name}
+    if(state.createParentId===undefined||state.createParentId===null){state.createParentId=state.folderId;state.createParentName=state.path[state.path.length-1].name}
+    state.dialogMode=mode;state.dialogItem=item||null;
+    var title=el("driveDialogTitle"),desc=el("driveDialogDescription"),nameWrap=el("driveDialogNameWrap"),contentWrap=el("driveDialogContentWrap"),moveWrap=el("driveDialogMoveWrap"),name=el("driveDialogName"),submit=el("driveDialogSubmit"),error=el("driveDialogError"),content=el("driveDialogContent");
+    error.classList.add("hidden");nameWrap.classList.toggle("hidden",mode==="move");
+    var contentModes=["google-doc","google-sheet","google-slides","pdf","docx","powerpoint","text"];
+    contentWrap.classList.toggle("hidden",contentModes.indexOf(mode)===-1);moveWrap.classList.toggle("hidden",mode!=="move");
+    var parentName=state.createParentName||state.path[state.path.length-1].name;
+    if(mode==="folder"){
+      title.textContent="Create a folder";desc.textContent="Add a folder inside "+parentName+".";el("driveDialogNameLabel").textContent="Folder name";name.value="";name.placeholder="e.g. Monthly Reports";submit.textContent="Create folder";
+    }else if(mode==="google-doc"){
+      title.textContent="New Google Docs document";desc.textContent="Create a Google document directly inside "+parentName+".";el("driveDialogNameLabel").textContent="Document name";name.value="Untitled document";name.placeholder="Document name";el("driveDialogContentLabel").textContent="Starting content (optional)";content.value="";submit.textContent="Create Google Doc";
+    }else if(mode==="google-sheet"){
+      title.textContent="New Google Sheets spreadsheet";desc.textContent="Create a spreadsheet directly inside "+parentName+". Use tabs for columns and new lines for rows.";el("driveDialogNameLabel").textContent="Spreadsheet name";name.value="Untitled spreadsheet";name.placeholder="Spreadsheet name";el("driveDialogContentLabel").textContent="Starting cells (optional)";content.value="";submit.textContent="Create Google Sheet";
+    }else if(mode==="google-slides"){
+      title.textContent="New Google Slides presentation";desc.textContent="Create a presentation directly inside "+parentName+".";el("driveDialogNameLabel").textContent="Presentation name";name.value="Untitled presentation";name.placeholder="Presentation name";el("driveDialogContentLabel").textContent="Slide text (optional)";content.value="";submit.textContent="Create Google Slides";
+    }else if(mode==="pdf"){
+      title.textContent="New PDF document";desc.textContent="Create a PDF file directly inside "+parentName+".";el("driveDialogNameLabel").textContent="PDF file name";name.value="Untitled.pdf";name.placeholder="Document.pdf";el("driveDialogContentLabel").textContent="Document text";content.value="";submit.textContent="Create PDF";
+    }else if(mode==="docx"){
+      title.textContent="New Word document";desc.textContent="Create a .docx file directly inside "+parentName+".";el("driveDialogNameLabel").textContent="Document name";name.value="Untitled document.docx";name.placeholder="Document name.docx";el("driveDialogContentLabel").textContent="Document text";content.value="";submit.textContent="Create DOCX";
+    }else if(mode==="powerpoint"){
+      title.textContent="New PowerPoint presentation";desc.textContent="Build a PowerPoint (.pptx) file and save it directly inside "+parentName+".";el("driveDialogNameLabel").textContent="Presentation name";name.value="Untitled presentation.pptx";name.placeholder="Presentation.pptx";el("driveDialogContentLabel").textContent="Slide text (optional)";content.value="";submit.textContent="Create PowerPoint";
+    }else if(mode==="text"){
+      title.textContent="New text / HTML file";desc.textContent="Create a text, Markdown, CSV, or HTML file inside "+parentName+".";el("driveDialogNameLabel").textContent="File name";name.value="Untitled.txt";name.placeholder="filename.txt";el("driveDialogContentLabel").textContent="File content";content.value="";submit.textContent="Create file";
+    }else if(mode==="rename"){
+      title.textContent="Rename item";desc.textContent="The new name will be saved to Google Drive.";el("driveDialogNameLabel").textContent="New name";name.value=item&&item.name||"";name.placeholder="Enter a new name";submit.textContent="Save name";
+    }else if(mode==="move"){
+      title.textContent="Move item";desc.textContent="Choose the destination folder.";submit.textContent="Move item";var select=el("driveDialogMoveTarget"),opts="";state.path.slice(0,-1).forEach(function(part){opts+='<option value="'+esc(part.id)+'">Parent level — '+esc(part.name)+'</option>'});opts+='<option value="'+esc(state.folderId)+'">Current folder — '+esc(state.path[state.path.length-1].name)+'</option>';state.items.filter(function(x){return x.kind==="folder"&&(!item||x.id!==item.id)}).forEach(function(x){opts+='<option value="'+esc(x.id)+'">Inside — '+esc(x.name)+'</option>'});select.innerHTML=opts;
+    }
+    el("driveDialog").classList.remove("hidden");setTimeout(function(){if(mode!=="move")name.focus()},30);
+  };
   window.driveCloseDialog=function(){el("driveDialog").classList.add("hidden");state.dialogMode="";state.dialogItem=null};
-  window.driveSubmitDialog=async function(event){event.preventDefault();var mode=state.dialogMode;var name=(el("driveDialogName").value||"").trim();var button=el("driveDialogSubmit");var error=el("driveDialogError");error.classList.add("hidden");button.disabled=true;button.textContent="Saving…";try{if(mode==="folder"){if(!name)throw new Error("Enter a folder name.");await request("driveCreateFolder",{parentId:state.folderId,name:name})}else if(mode==="rename"){if(!name)throw new Error("Enter a new name.");await request("driveRename",{id:state.dialogItem.id,name:name})}else if(mode==="move"){var target=el("driveDialogMoveTarget").value;await request("driveMove",{id:state.dialogItem.id,parentId:target})}else if(mode==="docx"||mode==="text"){if(!name)throw new Error("Enter a file name.");var content=el("driveDialogContent").value||"";await post(mode==="docx"?"driveCreateDocx":"driveCreateTextFile",{parentId:state.folderId,name:name,content:content})}driveCloseDialog();invalidateDriveCache();showToast(mode==="rename"?"Drive item renamed.":mode==="move"?"Drive item moved.":mode==="folder"?"Folder created.":"File created in Google Drive.");await loadFolder(state.folderId,state.path[state.path.length-1].name,false)}catch(err){error.textContent=err&&err.message?err.message:"The Drive change could not be completed.";error.classList.remove("hidden")}finally{button.disabled=false;button.textContent=mode==="folder"?"Create folder":mode==="rename"?"Save name":mode==="move"?"Move item":mode==="docx"?"Create DOCX":"Create file"}};
+  async function refreshAfterDriveCreate(parentId,parentName){
+    state.folderCache=Object.create(null);
+    if(parentId&&parentId===state.rootId){parentId="";parentName="All files";state.path=[{id:"",name:"All files"}]}
+    var index=state.path.findIndex(function(part){return part.id===parentId});
+    if(index>=0)state.path=state.path.slice(0,index+1);
+    else if(state.createParentItem&&state.createParentItem.id===parentId){if(S.mode)resetSearch();state.path=state.path.concat([{id:parentId,name:parentName||state.createParentName||"Folder"}])}
+    else{if(S.mode)resetSearch();state.path=[{id:"",name:"All files"},{id:parentId,name:parentName||"Folder"}]}
+    if(el("driveSearchInput"))el("driveSearchInput").value="";
+    state.activeFilter="";
+    await loadFolder(parentId,parentName||"Folder",false,true);
+  }
+  window.driveSubmitDialog=async function(event){
+    event.preventDefault();var mode=state.dialogMode,name=(el("driveDialogName").value||"").trim(),button=el("driveDialogSubmit"),error=el("driveDialogError");
+    var parentId=state.createParentId||state.folderId,parentName=state.createParentName||state.path[state.path.length-1].name;
+    error.classList.add("hidden");button.disabled=true;button.textContent="Creating…";
+    try{
+      if(mode==="folder"){
+        if(!name)throw new Error("Enter a folder name.");await request("driveCreateFolder",{parentId:parentId,name:name});
+      }else if(mode==="rename"){
+        if(!name)throw new Error("Enter a new name.");await request("driveRename",{id:state.dialogItem.id,name:name});
+      }else if(mode==="move"){
+        var target=el("driveDialogMoveTarget").value;await request("driveMove",{id:state.dialogItem.id,parentId:target});
+      }else if(["google-doc","google-sheet","google-slides","pdf","docx","powerpoint","text"].indexOf(mode)>=0){
+        if(!name)throw new Error("Enter a file name.");var content=el("driveDialogContent").value||"";
+        await post("driveCreateNative",{parentId:parentId,name:name,content:content,format:mode});
+      }
+      driveCloseDialog();hideContextMenu();hideCreateSubmenu();
+      if(mode==="folder"||["google-doc","google-sheet","google-slides","pdf","docx","powerpoint","text"].indexOf(mode)>=0){
+        showToast("Created successfully in "+parentName+".","success");await refreshAfterDriveCreate(parentId,parentName);
+      }else{
+        invalidateDriveCache();showToast(mode==="rename"?"Drive item renamed.":"Drive item moved.","success");await loadFolder(state.folderId,state.path[state.path.length-1].name,false,true);
+      }
+    }catch(err){error.textContent=err&&err.message?err.message:"The Drive change could not be completed.";error.classList.remove("hidden")}
+    finally{button.disabled=false;button.textContent=mode==="folder"?"Create folder":mode==="rename"?"Save name":mode==="move"?"Move item":"Create"}
+  };
   async function uploadFile(file){if(file.size>8*1024*1024)throw new Error(file.name+" is larger than the 8 MB per-file upload limit.");var base64=await bytesToBase64(file);return post("driveUpload",{parentId:state.folderId,name:file.name,mimeType:file.type||"application/octet-stream",base64:base64})}
   async function onUploadChange(){var input=el("driveUploadInput"),files=Array.from(input.files||[]);if(!files.length)return;input.value="";setLoading(true,"Uploading files to Google Drive…");var done=0,failures=[];for(var i=0;i<files.length;i++){try{await uploadFile(files[i]);done++}catch(err){failures.push(files[i].name+": "+(err&&err.message||"upload failed"))}}invalidateDriveCache();await loadFolder(state.folderId,state.path[state.path.length-1].name,false);if(failures.length)showToast(done+" file(s) uploaded. "+failures.length+" failed: "+failures.slice(0,2).join("; "),"error");else showToast(done+" file(s) uploaded to Google Drive.","success")}
   async function handleRowAction(action,item){
@@ -6489,6 +6622,9 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     }
   }
   var driveScreen=el("driveManagerScreen");
+  el("driveContextMenu").addEventListener("pointerover",function(event){var trigger=event.target.closest('[data-drive-menu-action="create"]');if(trigger)showCreateSubmenu(trigger);else hideCreateSubmenu()});
+  el("driveContextMenu").addEventListener("pointerleave",function(event){if(event.pointerType==="touch")return;var related=event.relatedTarget;if(related&&related.closest&&related.closest("#driveCreateSubmenu"))return;hideCreateSubmenu()});
+  el("driveCreateSubmenu").addEventListener("pointerleave",function(event){if(event.pointerType==="touch")return;var related=event.relatedTarget;if(related&&related.closest&&related.closest("#driveContextMenu"))return;hideCreateSubmenu()});
   driveScreen.addEventListener("contextmenu",function(event){
     var itemNode=event.target.closest("[data-drive-open]");
     if(itemNode){event.preventDefault();var item=driveItemById(itemNode.getAttribute("data-drive-open"));if(item)showContextMenu(event,item);return}
@@ -6507,14 +6643,16 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   document.addEventListener("click",function(event){
     var moreBtn=event.target.closest("[data-drive-more]");
     if(moreBtn&&state.open){event.preventDefault();event.stopPropagation();var moreItem=driveItemById(moreBtn.getAttribute("data-drive-more"));if(moreItem){var r=moreBtn.getBoundingClientRect();state.suppressNextOpenUntil=0;showContextMenu({clientX:r.right-4,clientY:r.bottom+4},moreItem);var m=el("driveContextMenu");if(m){var w=m.offsetWidth||224;m.style.left=Math.max(8,Math.min(r.right-w,window.innerWidth-w-8))+"px"}}return}
+    var createMode=event.target.closest("[data-drive-create-mode]");
+    if(createMode){event.preventDefault();event.stopPropagation();var createModeValue=createMode.getAttribute("data-drive-create-mode");hideCreateSubmenu();hideContextMenu();driveOpenDialog(createModeValue);return}
     var menuAction=event.target.closest("[data-drive-menu-action]");
-    if(menuAction){event.preventDefault();event.stopPropagation();var action=menuAction.getAttribute("data-drive-menu-action");contextAction(action);return}
+    if(menuAction){event.preventDefault();event.stopPropagation();var action=menuAction.getAttribute("data-drive-menu-action");if(action==="create"){showCreateSubmenu(menuAction);return}contextAction(action);return}
     var closePreviewTarget=event.target.closest("[data-drive-preview-close]");if(closePreviewTarget){closePreview();return}
     var open=event.target.closest("[data-drive-open]");
     if(open){if(Date.now()<state.suppressNextOpenUntil){event.preventDefault();return}var item=driveItemById(open.getAttribute("data-drive-open"));if(item){state.selectedId=item.id;state.selectedItem=item;render();handleRowAction("open",item)}return}
     var crumb=event.target.closest("[data-drive-crumb]");
     if(crumb){var index=Number(crumb.getAttribute("data-drive-crumb"));if(index>=0&&index<state.path.length-1){state.path=state.path.slice(0,index+1);if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();var part=state.path[index];loadFolder(part.id,part.name,false)}return}
-    if(!event.target.closest("#driveContextMenu"))hideContextMenu();
+    if(!event.target.closest("#driveContextMenu")&&!event.target.closest("#driveCreateSubmenu")){hideContextMenu();hideCreateSubmenu()}
     if(!event.target.closest(".drive-create-wrap")){var menu=el("driveCreateMenu"),btn=el("driveNewButton");if(menu)menu.classList.add("hidden");if(btn)btn.setAttribute("aria-expanded","false")}
   });
   document.addEventListener("keydown",function(event){
@@ -6523,6 +6661,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     var editing=tag==="input"||tag==="textarea"||tag==="select"||target&&target.isContentEditable;
     if(event.key==="Escape"){
       if(!el("drivePreview").classList.contains("hidden")){closePreview();return}
+      if(!el("driveCreateSubmenu").classList.contains("hidden")){hideCreateSubmenu();return}
       if(!el("driveContextMenu").classList.contains("hidden")){hideContextMenu();return}
       if(!el("driveDialog").classList.contains("hidden")){driveCloseDialog();return}
     }
@@ -6538,7 +6677,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   document.querySelectorAll("[data-drive-view]").forEach(function(btn){btn.addEventListener("click",function(){state.view=btn.getAttribute("data-drive-view")==="grid"?"grid":"list";try{sessionStorage.setItem("auditFilesView",state.view)}catch(e){}render()})});
   if(el("driveSortSelect"))el("driveSortSelect").addEventListener("change",function(){state.sortBy=this.value||"name";render()});
   if(el("driveTypeFilter"))el("driveTypeFilter").addEventListener("change",function(){state.typeFilter=this.value||"all";render()});
-  el("driveSearchInput").addEventListener("input",function(){var q=(this.value||"").trim();state.activeFilter=q.toLowerCase();clearTimeout(S.timer);if(q.length<2){resetSearch();render();return}S.mode=true;S.q=q;S.loading=true;S.truncated=false;S.items=state.items.filter(function(x){return String(x.name||"").toLowerCase().indexOf(state.activeFilter)>=0});render();S.timer=setTimeout(function(){runSearch(q)},300)});
+  el("driveSearchInput").addEventListener("input",function(){var q=(this.value||"").trim();clearTimeout(S.timer);S.seq++;if(q.length<2){resetSearch();state.activeFilter="";render();return}state.activeFilter="";S.mode=true;S.q=q;S.loading=true;S.truncated=false;S.items=[];render();S.timer=setTimeout(function(){runSearch(q)},220)});
   el("driveUploadInput").addEventListener("change",onUploadChange);
   el("driveDialog").addEventListener("keydown",function(e){if(e.key==="Escape")driveCloseDialog()});
   document.addEventListener("keydown",function(e){if(e.key==="Escape"&&state.open&&el("driveDialog")&&!el("driveDialog").classList.contains("hidden"))driveCloseDialog()});
