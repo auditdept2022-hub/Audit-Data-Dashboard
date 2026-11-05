@@ -1,4 +1,4 @@
-<!-- Audit dashboard front end v163: Gemini + ChatGPT provider selection; Audit dashboard front end v162: assistant speed pass (instant local answers, fewer POST round-trips, early server wake-up); v161: Gemini 503 failover/retry and chat Drive workspace removed. -->
+<!-- Audit dashboard front end v163: Gemini + Groq provider selection; Audit dashboard front end v162: assistant speed pass (instant local answers, fewer POST round-trips, early server wake-up); v161: Gemini 503 failover/retry and chat Drive workspace removed. -->
 <!DOCTYPE html>
 <html lang="en" class="page-fade-ready"><head>
   <meta charset="UTF-8">
@@ -615,7 +615,7 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
 #driveManagerScreen .drive-header .drive-search:focus-within{background:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.28);color:#2f3fb8}
 </style>
 
-<style id="driveHideNewUpload">.drive-create-wrap,#driveNewButton,#driveUploadButton{display:none!important}</style></head>
+</head>
 <body class="bg-coolDark text-slate-800 min-h-screen selection:bg-accentCyan/30 selection:text-slate-900 relative">
   <script>(function(){try{if(new URLSearchParams(window.location.search).get("skipLoading")==="1")document.documentElement.style.visibility="hidden"}catch(e){}})();</script>
   
@@ -1361,7 +1361,7 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
         </div>
         <div role="button" tabindex="0" onclick="openDriveManager()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDriveManager();}" class="menu-tile cursor-pointer select-none drive-menu-tile">
           <span class="menu-tile-icon" style="background:rgba(79,91,190,0.11);"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:#4d5bbf"><path d="M22 12H2"></path><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path><path d="M6 16h.01M10 16h.01"></path></svg></span>
-          <span class="menu-tile-label">Drive folder</span>
+          <span class="menu-tile-label">Drive</span>
         </div>
       </div>
       </details>
@@ -5124,7 +5124,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   .gai-dot{width:8px;height:8px;border-radius:50%;background:#94a3b8;flex:none;box-shadow:0 0 0 2px rgba(255,255,255,.18)}
   .gai-dot.gai-online,.gai-dot.gai-ready{background:#22c55e}.gai-dot.gai-offline{background:#ef4444}.gai-dot.gai-busy{background:#f59e0b}
   #geminiAssistantHeaderBtns{display:flex;align-items:center;gap:8px}
-  #geminiAssistantProvider{height:32px;max-width:145px;border:1px solid rgba(255,255,255,.32);border-radius:9px;background:#fff;color:#0f172a;padding:0 7px;font-size:11px;font-weight:800;outline:none;cursor:pointer}
+  #geminiAssistantProvider{height:32px;max-width:104px;border:1px solid rgba(255,255,255,.32);border-radius:9px;background:#fff;color:#0f172a;padding:0 7px;font-size:11px;font-weight:800;outline:none;cursor:pointer}
   #geminiAssistantProvider:disabled{opacity:.6;cursor:default}
   #geminiAssistantApprovalsBtn{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.12);color:#fff;border-radius:9px;height:32px;padding:0 10px;font-size:11px;font-weight:800;cursor:pointer}
   #geminiAssistantApprovalsBtn[hidden]{display:none}
@@ -5217,10 +5217,9 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       <div id="geminiAssistantHeaderSub" title=""><span id="geminiAssistantDot" class="gai-dot"></span><span id="geminiAssistantState">Checking…</span></div>
     </div>
     <div id="geminiAssistantHeaderBtns">
-      <select id="geminiAssistantProvider" aria-label="Choose AI provider" title="Auto tries ChatGPT when its API is configured, then automatically falls back to Gemini">
-        <option value="auto" selected>Auto · ChatGPT / Gemini</option>
-        <option value="gemini">Gemini only</option>
-        <option value="openai">ChatGPT only</option>
+      <select id="geminiAssistantProvider" aria-label="Choose AI provider" title="Choose which AI provider answers your messages">
+        <option value="gemini">Gemini</option>
+        <option value="groq">Groq (free)</option>
       </select>
       <button id="geminiAssistantApprovalsBtn" type="button" hidden aria-label="Open approvals">
         Approvals<span id="geminiAssistantApprovalsBadge" hidden>0</span>
@@ -5230,7 +5229,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   </header>
   <div id="geminiAssistantStatus" role="status">Checking assistant access…</div>
   <div id="geminiAssistantMessages" aria-live="polite">
-    <div class="gai-message gai-ai">Hello! Auto mode tries ChatGPT when its API is available and switches to Gemini if it is not. You can also select either provider directly. I can chat, review the live audit dashboard, analyze attached files, and prepare changes for approval.</div>
+    <div class="gai-message gai-ai">Hello! Choose Gemini or Groq above. I can chat normally, review the live audit dashboard, analyze attached files, and prepare dashboard changes for approval before anything is changed.</div>
   </div>
   <div id="geminiAssistantFiles" hidden></div>
   <div id="geminiAssistantComposer">
@@ -5276,7 +5275,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   var attachBtn = document.getElementById("geminiAssistantAttach");
   var fileInput = document.getElementById("geminiAssistantFile");
   var filesEl = document.getElementById("geminiAssistantFiles");
-  var aiState = { gemini: "checking", provider: "auto", checked: false, canPropose: false, canApprove: false, apiConfigured: false, geminiConfigured: false, openaiConfigured: false, sending: false, reading: false, lastReplyAt: 0, files: [], history: [], pendingCount: 0 };
+  var aiState = { gemini: "checking", provider: "gemini", checked: false, canPropose: false, canApprove: false, apiConfigured: false, geminiConfigured: false, groqConfigured: false, sending: false, reading: false, lastReplyAt: 0, files: [], history: [], pendingCount: 0 };
   var MAX_FILES = 10, MAX_INLINE_TOTAL = 12 * 1024 * 1024, MAX_TEXT_CHARS = 1000000;
 
   function assistantApiBase_() {
@@ -5546,38 +5545,26 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     subEl.title = reason || label;
   }
   function setStatus_(text) { statusEl.textContent = text || ""; }
-  function providerName_() {
-    return aiState.provider === "openai" ? "ChatGPT" : (aiState.provider === "gemini" ? "Gemini" : "Auto (ChatGPT → Gemini)");
-  }
-  function providerConfigured_() {
-    if (aiState.provider === "openai") return aiState.openaiConfigured;
-    if (aiState.provider === "gemini") return aiState.geminiConfigured;
-    return aiState.openaiConfigured || aiState.geminiConfigured;
-  }
+  function providerName_() { return aiState.provider === "groq" ? "Groq" : "Gemini"; }
+  function providerConfigured_() { return aiState.provider === "groq" ? aiState.groqConfigured : aiState.geminiConfigured; }
   function providerSetupMessage_() {
-    if (aiState.provider === "openai") return "ChatGPT API is not configured. Add OPENAI_API_KEY under Apps Script Project Settings > Script properties. Your ChatGPT Free subscription does not include API access.";
-    if (aiState.provider === "gemini") return "Gemini is not configured. Add GEMINI_API_KEY under Apps Script Project Settings > Script properties, then reload the dashboard.";
-    return "No AI provider is configured. Add GEMINI_API_KEY for Gemini. OPENAI_API_KEY is optional; Auto mode will use ChatGPT when available and otherwise Gemini.";
+    if (aiState.provider === "groq") return "Groq is not configured yet. Create a free key at console.groq.com, add it as GROQ_API_KEY under Apps Script Project Settings > Script properties, deploy a new version, then reload the dashboard.";
+    return "Gemini is not configured yet. Add GEMINI_API_KEY under Apps Script Project Settings > Script properties, then reload the dashboard.";
   }
   function updateProviderUi_() {
     aiState.apiConfigured = providerConfigured_();
-    inputEl.placeholder = aiState.provider === "auto" ? "Message your Audit Assistant…" : "Message " + providerName_() + "…";
+    inputEl.placeholder = "Message " + providerName_() + "…";
     if (aiState.checked && !aiState.apiConfigured) {
       setStatus_(providerSetupMessage_());
-      if (!aiState.sending) setGemini_("offline", "No AI provider configured");
+      if (!aiState.sending) setGemini_("offline", "API key not set");
     } else if (aiState.checked && aiState.apiConfigured) {
-      if (aiState.provider === "auto") {
-        setStatus_(aiState.openaiConfigured ? "Auto mode: ChatGPT first, Gemini automatic fallback." : "Auto mode: Gemini is ready. Add OPENAI_API_KEY only if you also want ChatGPT API.");
-      } else {
-        setStatus_("");
-      }
-      if (!aiState.sending && !aiState.lastReplyAt) setGemini_("ready", aiState.provider === "auto" ? "automatic provider selection" : "API key configured");
+      setStatus_("");
+      if (!aiState.sending && !aiState.lastReplyAt) setGemini_("ready", "API key configured");
     }
   }
   function changeProvider_() {
     if (aiState.sending) { providerSelect.value = aiState.provider; return; }
-    var selected = providerSelect.value;
-    aiState.provider = selected === "openai" || selected === "gemini" ? selected : "auto";
+    aiState.provider = providerSelect.value === "groq" ? "groq" : "gemini";
     updateProviderUi_();
   }
   providerSelect.addEventListener("change", changeProvider_);
@@ -5842,8 +5829,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       aiState.canPropose = !!data.canPropose;
       aiState.canApprove = !!data.canApprove;
       aiState.geminiConfigured = !!(data.geminiConfigured || data.apiConfigured);
-      aiState.openaiConfigured = !!data.openaiConfigured;
-      providerSelect.value = aiState.provider;
+      aiState.groqConfigured = !!data.groqConfigured;
       aiState.apiConfigured = providerConfigured_();
       if (!data.allowed) {
         setStatus_("Your account does not have permission to use the dashboard assistant.");
@@ -6278,10 +6264,9 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       var totalSec = ((Date.now() - startedAt) / 1000).toFixed(1);
       var tm = data.timing || null;
       var modeLabel = data.mode === "quick" ? "Quick reply" : data.mode === "comprehensive" ? "Detailed reply" : "Standard reply";
-      var actualProvider = data.provider === "openai" ? "ChatGPT" : (data.provider === "gemini" ? "Gemini" : (data.provider === "local" ? "Assistant" : providerName_()));
+      var actualProvider = data.provider === "groq" ? "Groq" : (data.provider === "gemini" ? "Gemini" : providerName_());
       var providerMs = tm ? Number(tm.providerMs || tm.geminiMs) || 0 : 0;
       var timingText = modeLabel + " · answered in " + totalSec + "s" + (tm ? " (" + actualProvider + " " + (providerMs / 1000).toFixed(1) + "s" + (tm.model ? ", " + tm.model : "") + ")" : "");
-      if (data.providerFallbackMessage) timingText += " · " + String(data.providerFallbackMessage);
       var attachmentWarnings = Array.isArray(data.attachmentWarnings) ? data.attachmentWarnings : [];
       if (attachmentWarnings.length) timingText += " · Attachment notes: " + attachmentWarnings.join("; ");
       // Be transparent about the actual dashboard sources supplied to the selected provider.
@@ -6331,9 +6316,8 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
         refreshPending_();
       }
       if (data.proposalsSkipped) addMessage_("I did not create " + data.proposalsSkipped + " proposed change(s) because they did not pass the dashboard's server-side validation.", "note");
-      if (data.providerFallbackMessage) addMessage_(String(data.providerFallbackMessage), "note");
       scrollToReplyTop_(replyBubble);
-      setStatus_(data.providerFallbackMessage ? String(data.providerFallbackMessage) : (attachmentWarnings.length ? "Attachment notes: " + attachmentWarnings.join("; ") : ""));
+      setStatus_(attachmentWarnings.length ? "Attachment notes: " + attachmentWarnings.join("; ") : "");
     } catch (err) {
       clearInterval(tick);
       if (thinkingBubble.parentNode) thinkingBubble.parentNode.removeChild(thinkingBubble);
