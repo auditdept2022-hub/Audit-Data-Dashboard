@@ -5217,7 +5217,8 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       <div id="geminiAssistantHeaderSub" title=""><span id="geminiAssistantDot" class="gai-dot"></span><span id="geminiAssistantState">Checking…</span></div>
     </div>
     <div id="geminiAssistantHeaderBtns">
-      <select id="geminiAssistantProvider" aria-label="Choose AI provider" title="Choose which AI provider answers your messages">
+      <select id="geminiAssistantProvider" aria-label="Choose AI provider" title="Auto picks the best AI for each question (Groq for quick chat, Gemini for dashboard data, files and detailed work). Or choose one manually.">
+        <option value="auto">Auto</option>
         <option value="gemini">Gemini</option>
         <option value="groq">Groq (free)</option>
       </select>
@@ -5275,7 +5276,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   var attachBtn = document.getElementById("geminiAssistantAttach");
   var fileInput = document.getElementById("geminiAssistantFile");
   var filesEl = document.getElementById("geminiAssistantFiles");
-  var aiState = { gemini: "checking", provider: "gemini", checked: false, canPropose: false, canApprove: false, apiConfigured: false, geminiConfigured: false, groqConfigured: false, sending: false, reading: false, lastReplyAt: 0, files: [], history: [], pendingCount: 0 };
+  var aiState = { gemini: "checking", provider: "auto", checked: false, canPropose: false, canApprove: false, apiConfigured: false, geminiConfigured: false, groqConfigured: false, sending: false, reading: false, lastReplyAt: 0, files: [], history: [], pendingCount: 0 };
   var MAX_FILES = 10, MAX_INLINE_TOTAL = 12 * 1024 * 1024, MAX_TEXT_CHARS = 1000000;
 
   function assistantApiBase_() {
@@ -5545,8 +5546,8 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     subEl.title = reason || label;
   }
   function setStatus_(text) { statusEl.textContent = text || ""; }
-  function providerName_() { return aiState.provider === "groq" ? "Groq" : "Gemini"; }
-  function providerConfigured_() { return aiState.provider === "groq" ? aiState.groqConfigured : aiState.geminiConfigured; }
+  function providerName_() { return aiState.provider === "groq" ? "Groq" : (aiState.provider === "auto" ? "Auto" : "Gemini"); }
+  function providerConfigured_() { return aiState.provider === "groq" ? aiState.groqConfigured : (aiState.provider === "auto" ? (aiState.geminiConfigured || aiState.groqConfigured) : aiState.geminiConfigured); }
   function providerSetupMessage_() {
     if (aiState.provider === "groq") return "Groq is not configured yet. Create a free key at console.groq.com, add it as GROQ_API_KEY under Apps Script Project Settings > Script properties, deploy a new version, then reload the dashboard.";
     return "Gemini is not configured yet. Add GEMINI_API_KEY under Apps Script Project Settings > Script properties, then reload the dashboard.";
@@ -5564,7 +5565,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   }
   function changeProvider_() {
     if (aiState.sending) { providerSelect.value = aiState.provider; return; }
-    aiState.provider = providerSelect.value === "groq" ? "groq" : "gemini";
+    aiState.provider = providerSelect.value === "groq" ? "groq" : (providerSelect.value === "auto" ? "auto" : "gemini");
     updateProviderUi_();
   }
   providerSelect.addEventListener("change", changeProvider_);
@@ -6188,7 +6189,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     addMessage_(message + (fileNames.length ? "\n\ud83d\udcce " + fileNames.join(", ") : ""), "user");
     setBusy_(true);
     setStatus_("");
-    var thinkingBubble = addMessage_("Thinking with " + providerName_() + "\u2026 0s", "thinking");
+    var thinkingBubble = addMessage_((aiState.provider === "auto" ? "Choosing the best AI and thinking" : "Thinking with " + providerName_()) + "\u2026 0s", "thinking");
     var startedAt = Date.now();
     var retryState = null; // { until: ms timestamp, attempt: n }
     var MAX_ATTEMPTS = 2; // one bounded retry for server-declared retryable failures
@@ -6197,7 +6198,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       if (retryState && Date.now() < retryState.until) {
         thinkingBubble.textContent = providerName_() + " is busy right now. Retrying automatically in " + Math.ceil((retryState.until - Date.now()) / 1000) + "s\u2026 (attempt " + (retryState.attempt + 1) + " of " + MAX_ATTEMPTS + ")";
       } else {
-        thinkingBubble.textContent = "Thinking with " + providerName_() + "\u2026 " + sec + "s" + (sec >= 15 ? "\n(Still waiting \u2014 the server may be waking up or the provider is busy.)" : "");
+        thinkingBubble.textContent = (aiState.provider === "auto" ? "Choosing the best AI and thinking\u2026 " : "Thinking with " + providerName_() + "\u2026 ") + sec + "s" + (sec >= 15 ? "\n(Still waiting \u2014 the server may be waking up or the provider is busy.)" : "");
       }
     }, 1000);
     try {
@@ -6265,8 +6266,9 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       var tm = data.timing || null;
       var modeLabel = data.mode === "quick" ? "Quick reply" : data.mode === "comprehensive" ? "Detailed reply" : "Standard reply";
       var actualProvider = data.provider === "groq" ? "Groq" : (data.provider === "gemini" ? "Gemini" : providerName_());
+      var autoNote = data.autoRouted && data.routeReason ? " · Auto \u2192 " + actualProvider + " (" + data.routeReason + ")" : "";
       var providerMs = tm ? Number(tm.providerMs || tm.geminiMs) || 0 : 0;
-      var timingText = modeLabel + " · answered in " + totalSec + "s" + (tm ? " (" + actualProvider + " " + (providerMs / 1000).toFixed(1) + "s" + (tm.model ? ", " + tm.model : "") + ")" : "");
+      var timingText = modeLabel + " · answered in " + totalSec + "s" + (tm ? " (" + actualProvider + " " + (providerMs / 1000).toFixed(1) + "s" + (tm.model ? ", " + tm.model : "") + ")" : "") + autoNote;
       var attachmentWarnings = Array.isArray(data.attachmentWarnings) ? data.attachmentWarnings : [];
       if (attachmentWarnings.length) timingText += " · Attachment notes: " + attachmentWarnings.join("; ");
       // Be transparent about the actual dashboard sources supplied to the selected provider.
