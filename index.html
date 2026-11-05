@@ -344,6 +344,10 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
 #driveManagerScreen .d-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 #driveManagerScreen .drive-app-shell{display:flex;flex-direction:column;flex:1;min-height:0}
 
+#driveManagerScreen.is-search .drive-file-sub{display:block}
+#driveManagerScreen.is-search .drive-table tbody td{height:48px}
+#driveManagerScreen.is-search .drive-nav-btn.is-current{background:transparent;color:#44536f}
+
 /* header */
 .drive-header{height:52px;flex:none;display:flex;align-items:center;gap:12px;padding:0 12px;background:var(--d-surface);border-bottom:1px solid var(--d-line)}
 .drive-header-left{display:flex;align-items:center;gap:8px;min-width:0}
@@ -581,6 +585,9 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
   .drive-dialog-card{width:100%;border-radius:14px 14px 0 0}
 }
 @media(prefers-reduced-motion:reduce){#driveManagerScreen *{transition:none!important;animation-duration:1.5s!important}}
+
+.drive-home{margin-left:2px}
+@media(max-width:640px){.drive-home span{display:none}.drive-home{width:34px;padding:0}.drive-header-left{display:none}.drive-search{margin:0}}
 </style>
 
 </head>
@@ -1390,23 +1397,15 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
   <!-- Google Drive file manager: opened from the Shortcuts / Quick actions menu. -->
   <section id="driveManagerScreen" class="drive-screen hidden" aria-label="Drive file manager">
     <div class="drive-app-shell">
-      <header class="drive-header">
-        <div class="drive-header-left">
-          <button type="button" class="drive-icon-btn" onclick="closeDriveManager()" aria-label="Back to dashboard" title="Back to dashboard">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
-          </button>
-          <div class="drive-brand">
-            <div class="drive-brand-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><path d="M6 16h.01M10 16h.01"/></svg></div>
-            <strong>Drive</strong>
-          </div>
-        </div>
-        <label class="drive-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="driveSearchInput" type="search" placeholder="Search in this folder" autocomplete="off" aria-label="Search files and folders"></label>
+      <div class="drive-header">
+        <div class="drive-header-left"><div class="drive-brand"><strong>Drive</strong></div></div>
+        <label class="drive-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="driveSearchInput" type="search" placeholder="Search all files" autocomplete="off" aria-label="Search all files and folders"></label>
         <div class="drive-header-right">
-          <span id="driveSignedInAs" class="drive-user"></span>
+          <span id="driveSignedInAs" hidden></span>
           <button type="button" class="drive-icon-btn" onclick="driveRefresh()" aria-label="Refresh" title="Refresh"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 0-15-6.7L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"/><path d="M16 16h5v5"/></svg></button>
-          <button type="button" class="drive-icon-btn" onclick="closeDriveManager()" aria-label="Close Drive" title="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+          <button type="button" class="drive-btn drive-home" onclick="closeDriveManager()" aria-label="Home, back to dashboard" title="Home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg><span>Home</span></button>
         </div>
-      </header>
+      </div>
       <div class="drive-workspace">
         <aside class="drive-sidebar" aria-label="Drive navigation">
           <div class="drive-sidebar-title">Browse</div>
@@ -1414,8 +1413,6 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
           <div class="drive-sidebar-title">Create</div>
           <button type="button" class="drive-nav-btn" onclick="driveOpenDialog('folder')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 10v6M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg><span>New folder</span></button>
           <button type="button" class="drive-nav-btn" onclick="driveChooseUpload()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 17v3h16v-3"/></svg><span>Upload files</span></button>
-          <button type="button" class="drive-nav-btn" onclick="driveOpenDialog('docx')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg><span>Word document</span></button>
-          <button type="button" class="drive-nav-btn" onclick="driveOpenDialog('text')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg><span>Text / HTML file</span></button>
           <div class="drive-sidebar-hint">Right-click a file or press and hold on mobile for more actions. <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>X</kbd>/<kbd>V</kbd> to copy, cut and paste.</div>
         </aside>
         <main class="drive-main">
@@ -1428,14 +1425,7 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
                 <button type="button" class="is-active" data-drive-view="list" aria-label="List view" aria-pressed="true" title="List view"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
                 <button type="button" data-drive-view="grid" aria-label="Grid view" aria-pressed="false" title="Grid view"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
               </div>
-              <div class="drive-create-wrap">
-                <button type="button" id="driveNewButton" class="drive-btn" onclick="driveToggleCreateMenu()" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>New</span><svg class="drive-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
-                <div id="driveCreateMenu" class="drive-create-menu hidden" role="menu" aria-label="Create new item">
-                  <button type="button" role="menuitem" onclick="driveOpenCreateMode('folder')"><span class="create-menu-icon folder"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg></span>Folder</button>
-                  <button type="button" role="menuitem" onclick="driveOpenCreateMode('docx')"><span class="create-menu-icon word"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></span>Word document</button>
-                  <button type="button" role="menuitem" onclick="driveOpenCreateMode('text')"><span class="create-menu-icon text"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 7-5 5 5 5M16 7l5 5-5 5"/></svg></span>Text / HTML file</button>
-                </div>
-              </div>
+              <button type="button" id="driveNewButton" class="drive-btn" onclick="driveOpenDialog('folder')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 10v6M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg><span>New folder</span></button>
               <button type="button" id="driveUploadButton" class="drive-btn primary" onclick="driveChooseUpload()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 17v3h16v-3"/></svg><span>Upload</span></button>
             </div>
           </div>
@@ -1459,10 +1449,10 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
     <section id="drivePreview" class="drive-preview hidden" role="dialog" aria-modal="true" aria-label="File preview">
       <div class="drive-preview-backdrop" data-drive-preview-close></div>
       <div class="drive-preview-panel">
-        <header class="drive-preview-header">
+        <div class="drive-preview-header">
           <div class="drive-preview-heading"><span id="drivePreviewIcon" class="drive-preview-file-icon">FILE</span><div><strong id="drivePreviewName">Preview</strong><span id="drivePreviewMeta">File preview</span></div></div>
           <div class="drive-preview-tools"><a id="drivePreviewDownload" class="drive-preview-download hidden" href="#" rel="noopener">Download</a><button type="button" class="drive-icon-btn" data-drive-preview-close aria-label="Close preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
-        </header>
+        </div>
         <div class="drive-preview-body"><iframe id="drivePreviewFrame" title="File preview" referrerpolicy="no-referrer" allow="autoplay; clipboard-read; clipboard-write; fullscreen" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe></div>
         <footer class="drive-preview-footer">Some Google Workspace documents may require Google's editor for full editing.</footer>
       </div>
@@ -6331,15 +6321,19 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   function setLoading(isLoading,message,quiet){state.loading=!!isLoading;var hasRows=state.items&&state.items.length>0;var body=el("driveTableBody"),grid=el("driveGrid"),empty=el("driveEmptyState"),tableScroll=body&&body.closest(".drive-table-scroll");if(isLoading&&!quiet&&!hasRows){if(empty)empty.classList.add("hidden");if(state.view==="grid"&&grid){if(tableScroll)tableScroll.classList.add("hidden");grid.classList.remove("hidden");grid.innerHTML='<div class="drive-grid-loading"><span class="drive-spinner"></span>'+esc(message||"Loading files…")+'</div>'}else if(body){if(tableScroll)tableScroll.classList.remove("hidden");body.innerHTML='<tr><td colspan="5"><div class="drive-loading"><span class="drive-spinner"></span>'+esc(message||"Loading files…")+'</div></td></tr>'}}var upload=el("driveUploadButton");var fresh=el("driveNewButton");if(upload)upload.disabled=state.loading&&!quiet;if(fresh)fresh.disabled=state.loading&&!quiet}
   function showError(message){var box=el("driveErrorState");if(!box)return;box.textContent=message;box.classList.remove("hidden")}
   function hideError(){var box=el("driveErrorState");if(box){box.textContent="";box.classList.add("hidden")}}
+  var S={mode:false,items:[],seq:0,timer:0,q:"",loading:false,truncated:false};
+  function resetSearch(){S.mode=false;S.items=[];S.loading=false;S.truncated=false;S.seq++;clearTimeout(S.timer)}
+  async function runSearch(q){var seq=++S.seq;try{var result=await request("driveSearch",{q:q});if(seq!==S.seq||!S.mode)return;S.items=Array.isArray(result.items)?result.items:[];S.truncated=!!result.truncated;S.loading=false;if(typeof result.canManage==="boolean")state.canManage=result.canManage;hideError();render()}catch(err){if(seq!==S.seq)return;S.loading=false;showError(err&&err.message?err.message:"Search failed. Please try again.");render()}}
   var SVG=function(d){return'<svg viewBox="0 0 24 24" aria-hidden="true">'+d+'</svg>'};var IC={open:SVG('<path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>'),folder:SVG('<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>'),eye:SVG('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>'),download:SVG('<path d="M12 4v12m0 0 5-5m-5 5-5-5M4 20h16"/>'),link:SVG('<path d="M17 22h-1a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4h1M7 22h1a4 4 0 0 0 4-4v-1M7 2h1a4 4 0 0 1 4 4v1"/>'),copy:SVG('<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M4 16V5a1 1 0 0 1 1-1h11"/>'),cut:SVG('<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/>'),paste:SVG('<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>'),rename:SVG('<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>'),move:SVG('<path d="M5 12h14m-6-6 6 6-6 6"/>'),trash:SVG('<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6"/>'),upload:SVG('<path d="M12 16V4M7 9l5-5 5 5M4 17v3h16v-3"/>'),newfolder:SVG('<path d="M12 10v6M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>'),doc:SVG('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>'),code:SVG('<path d="m8 7-5 5 5 5M16 7l5 5-5 5"/>'),more:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>'};function moreButton(item){return'<button type="button" class="drive-more" data-drive-more="'+esc(item.id)+'" aria-label="More actions for '+esc(item.name)+'" title="More actions">'+IC.more+'</button>'}function driveKindIcon(item){if(item.kind==="folder")return'<span class="drive-file-icon folder">'+IC.folder+'</span>';var mime=String(item.mimeType||"").toLowerCase(),name=String(item.name||"").toLowerCase();if(mime.indexOf("pdf")>=0||name.endsWith(".pdf"))return'<span class="drive-file-icon pdf">PDF</span>';if(mime.indexOf("image/")===0)return'<span class="drive-file-icon image">IMG</span>';if(mime.indexOf("spreadsheet")>=0||/\.(xlsx?|csv)$/.test(name))return'<span class="drive-file-icon sheet">XLS</span>';if(mime.indexOf("document")>=0||/\.(docx?|rtf)$/.test(name))return'<span class="drive-file-icon doc">DOC</span>';if(mime.indexOf("presentation")>=0||/\.(pptx?)$/.test(name))return'<span class="drive-file-icon doc">PPT</span>';if(/\.(zip|rar|7z)$/.test(name))return'<span class="drive-file-icon">ZIP</span>';return'<span class="drive-file-icon">FILE</span>'}
   function typeLabel(item){if(item.kind==="folder")return"Folder";var mime=String(item.mimeType||"");var name=String(item.name||"");var ext=name.indexOf(".")>=0?name.split(".").pop().toUpperCase():"FILE";if(mime.indexOf("application/vnd.google-apps.document")===0)return"Google Doc";if(mime.indexOf("application/vnd.google-apps.spreadsheet")===0)return"Google Sheet";if(mime.indexOf("application/vnd.google-apps.presentation")===0)return"Google Slides";return ext.slice(0,10)}
-  function renderBreadcrumbs(){var wrap=el("driveBreadcrumbs");if(!wrap)return;wrap.innerHTML=state.path.map(function(part,i){return(i?'<span class="drive-crumb-sep">›</span>':"")+'<button type="button" class="drive-crumb '+(i===state.path.length-1?"current":"")+'" data-drive-crumb="'+i+'" '+(i===state.path.length-1?"disabled":"")+'>'+esc(part.name)+'</button>'}).join("")}
+  function renderBreadcrumbs(){var wrap=el("driveBreadcrumbs");if(!wrap)return;if(S.mode){wrap.innerHTML='<button type="button" class="drive-crumb" onclick="driveGoRoot()">All files</button><span class="drive-crumb-sep">›</span><span class="drive-crumb current">Search results for \u201c'+esc(S.q)+'\u201d</span>';return}wrap.innerHTML=state.path.map(function(part,i){return(i?'<span class="drive-crumb-sep">›</span>':"")+'<button type="button" class="drive-crumb '+(i===state.path.length-1?"current":"")+'" data-drive-crumb="'+i+'" '+(i===state.path.length-1?"disabled":"")+'>'+esc(part.name)+'</button>'}).join("")}
   function matchesType(item){if(state.typeFilter==="all")return true;var name=String(item.name||"").toLowerCase(),mime=String(item.mimeType||"").toLowerCase();if(state.typeFilter==="folders")return item.kind==="folder";if(item.kind==="folder")return false;if(state.typeFilter==="pdf")return mime.indexOf("pdf")>=0||name.endsWith(".pdf");if(state.typeFilter==="images")return mime.indexOf("image/")===0||/\.(png|jpe?g|gif|webp|svg)$/.test(name);if(state.typeFilter==="docs")return mime.indexOf("document")>=0||/\.(docx?|rtf|odt|txt|md)$/.test(name);if(state.typeFilter==="sheets")return mime.indexOf("spreadsheet")>=0||/\.(xlsx?|csv|ods)$/.test(name);return true}
-  function getVisibleItems(){var visible=state.items.filter(function(item){return(!state.activeFilter||String(item.name||"").toLowerCase().indexOf(state.activeFilter)>=0)&&matchesType(item)});visible.sort(function(a,b){if(a.kind!==b.kind)return a.kind==="folder"?-1:1;var an=String(a.name||"").toLocaleLowerCase(),bn=String(b.name||"").toLocaleLowerCase();if(state.sortBy==="modified"||state.sortBy==="oldest"){var at=new Date(a.modifiedTime||0).getTime()||0,bt=new Date(b.modifiedTime||0).getTime()||0;return state.sortBy==="oldest"?at-bt:bt-at}if(state.sortBy==="type"){var typeA=typeLabel(a).toLowerCase(),typeB=typeLabel(b).toLowerCase();return typeA.localeCompare(typeB)||an.localeCompare(bn)}return an.localeCompare(bn)});return visible}
+  function getVisibleItems(){var visible=(S.mode?S.items:state.items).filter(function(item){return(!state.activeFilter||String(item.name||"").toLowerCase().indexOf(state.activeFilter)>=0)&&matchesType(item)});visible.sort(function(a,b){if(a.kind!==b.kind)return a.kind==="folder"?-1:1;var an=String(a.name||"").toLocaleLowerCase(),bn=String(b.name||"").toLocaleLowerCase();if(state.sortBy==="modified"||state.sortBy==="oldest"){var at=new Date(a.modifiedTime||0).getTime()||0,bt=new Date(b.modifiedTime||0).getTime()||0;return state.sortBy==="oldest"?at-bt:bt-at}if(state.sortBy==="type"){var typeA=typeLabel(a).toLowerCase(),typeB=typeLabel(b).toLowerCase();return typeA.localeCompare(typeB)||an.localeCompare(bn)}return an.localeCompare(bn)});return visible}
   function buildActions(item,compact){return ""}
 
   function render(){
     var visible=getVisibleItems();
+    el("driveManagerScreen").classList.toggle("is-search",S.mode);
     var folders=visible.filter(function(x){return x.kind==="folder"}).length;
     var files=visible.length-folders;
     el("driveStatItems").textContent=String(visible.length);
@@ -6349,35 +6343,39 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     el("driveCurrentFolderTitle").textContent=state.path[state.path.length-1].name;
     el("driveTableSubtitle").textContent=visible.length+" item"+(visible.length===1?"":"s")+" · "+folders+" folder"+(folders===1?"":"s");
     el("driveFooterInfo").textContent=visible.length+" item"+(visible.length===1?"":"s")+" shown"+(state.activeFilter?" for “"+state.activeFilter+"”":"");
-    el("driveTruncatedNotice").classList.toggle("hidden",!state.truncated);
+    if(S.mode)el("driveFooterInfo").textContent=(S.loading?"Searching all of Drive… ":"")+visible.length+" result"+(visible.length===1?"":"s")+" in all files for \u201c"+S.q+"\u201d";
+    el("driveTruncatedNotice").textContent=S.mode?"Showing the first 100 matches. Type more of the name to narrow the results.":"Showing the first 600 items. Open a subfolder or search to find a specific item.";
+    el("driveTruncatedNotice").classList.toggle("hidden",!(S.mode?S.truncated:state.truncated));
     renderBreadcrumbs();
     var body=el("driveTableBody"),empty=el("driveEmptyState"),grid=el("driveGrid"),tableScroll=body&&body.closest(".drive-table-scroll");
-    var noMatches=visible.length===0&&state.items.length>0;
-    empty.classList.toggle("hidden",visible.length!==0);
+    var pendingSearch=S.mode&&S.loading&&visible.length===0;var noMatches=visible.length===0&&(S.mode||state.items.length>0);
+    empty.classList.toggle("hidden",visible.length!==0||pendingSearch);
     var emptyTitle=empty.querySelector("strong"),emptyCopy=empty.querySelector("span");
     if(emptyTitle)emptyTitle.textContent=noMatches?"No matching files":"This folder is empty";
-    if(emptyCopy)emptyCopy.textContent=noMatches?"Try another search or file type filter.":"Upload a file or create a folder to get started.";
+    if(emptyCopy)emptyCopy.textContent=noMatches?(S.mode?"Nothing in your Drive matches \u201c"+S.q+"\u201d.":"Try another search or file type filter."):"Upload a file or create a folder to get started.";
     el("driveEmptyUpload").classList.toggle("hidden",!state.canManage||noMatches);
-    if(tableScroll)tableScroll.classList.toggle("hidden",state.view!=="list"||visible.length===0);
+    if(tableScroll)tableScroll.classList.toggle("hidden",(state.view!=="list"&&!pendingSearch)||(visible.length===0&&!pendingSearch));
     grid.classList.toggle("hidden",state.view!=="grid"||visible.length===0);
     if(visible.length)empty.classList.add("hidden");
     document.querySelectorAll("[data-drive-view]").forEach(function(btn){var active=btn.getAttribute("data-drive-view")===state.view;btn.classList.toggle("is-active",active);btn.setAttribute("aria-pressed",active?"true":"false")});
-    if(!visible.length){body.innerHTML="";grid.innerHTML="";return}
+    if(!visible.length){body.innerHTML=pendingSearch?'<tr><td colspan="5"><div class="drive-loading"><span class="drive-spinner"></span>Searching all of Drive…</div></td></tr>':"";grid.innerHTML="";return}
     body.innerHTML=visible.map(function(item){
       var description=item.kind==="folder"?"Folder · "+fmtDate(item.modifiedTime):(fmtSize(item.size)+" · "+fmtDate(item.modifiedTime));
+      if(S.mode&&item.parentName)description="in "+item.parentName+" · "+description;
       var selected=state.selectedId===item.id;
       return '<tr class="drive-item-row '+(selected?"is-selected":"")+'" tabindex="0" role="button" aria-selected="'+(selected?"true":"false")+'" aria-label="Open '+esc(item.name)+'; right-click for actions" data-drive-open="'+esc(item.id)+'"><td><div class="drive-file-cell">'+driveKindIcon(item)+'<div class="drive-file-copy"><span class="drive-file-name" title="'+esc(item.name)+'">'+esc(item.name)+'</span><span class="drive-file-sub">'+esc(description)+'</span></div></div></td><td><span class="drive-type-pill">'+esc(typeLabel(item))+'</span></td><td>'+(item.kind==="folder"?"—":esc(fmtSize(item.size)))+'</td><td>'+esc(fmtDate(item.modifiedTime))+'</td><td>'+moreButton(item)+'</td></tr>'
     }).join("");
     grid.innerHTML=visible.map(function(item){
       var details=item.kind==="folder"?"Folder · "+fmtDate(item.modifiedTime):fmtSize(item.size)+" · "+fmtDate(item.modifiedTime);
+      if(S.mode&&item.parentName)details="in "+item.parentName+" · "+details;
       var selected=state.selectedId===item.id;
       return '<article class="drive-grid-card '+(selected?"is-selected":"")+'" tabindex="0" role="button" aria-selected="'+(selected?"true":"false")+'" aria-label="Open '+esc(item.name)+'; long-press or right-click for actions" data-drive-open="'+esc(item.id)+'"><div class="drive-grid-card-top">'+driveKindIcon(item)+'<span class="drive-type-pill">'+esc(typeLabel(item))+'</span></div><div class="drive-grid-card-name" title="'+esc(item.name)+'">'+esc(item.name)+'</div><div class="drive-grid-card-meta">'+esc(details)+'</div>'+moreButton(item)+'</article>'
     }).join("");
   }
   function applyFolderResult(folderId,folderName,result,pushPath){state.items=Array.isArray(result.items)?result.items:[];state.canManage=!!result.canManage;state.rootId=result.rootId||state.rootId;state.folderId=folderId||"";state.truncated=!!result.truncated;if(pushPath){if(!state.path.length||state.path[state.path.length-1].id!==state.folderId)state.path.push({id:state.folderId,name:folderName||result.folder&&result.folder.name||"Folder"})}else if(!state.path.length){state.path=[{id:"",name:"All files"}]}el("driveReadOnlyNotice").classList.toggle("hidden",state.canManage);el("driveSignedInAs").textContent=window.getCurrentUserEmail?window.getCurrentUserEmail():"Signed in";el("driveUploadButton").classList.toggle("hidden",!state.canManage);el("driveNewButton").classList.toggle("hidden",!state.canManage);render()}
-  function invalidateDriveCache(){state.folderCache=Object.create(null)}
+  function invalidateDriveCache(){if(S.mode&&S.q)setTimeout(function(){runSearch(S.q)},0);state.folderCache=Object.create(null)}
   async function loadFolder(folderId,folderName,pushPath,force){hideError();var targetId=folderId||"";var seq=++state.loadSeq;if(pushPath){if(state.path[state.path.length-1].id!==targetId)state.path.push({id:targetId,name:folderName||"Folder"})}else if(!state.path.length){state.path=[{id:targetId,name:folderName||"All files"}]}else if(state.path[state.path.length-1].id!==targetId){state.path=[{id:targetId,name:folderName||"All files"}]}state.folderId=targetId;state.activeFilter=(el("driveSearchInput").value||"").trim().toLowerCase();var key=targetId||"__root__",cached=state.folderCache[key],age=cached?Date.now()-cached.time:Infinity;var hadCache=!!cached;if(cached){applyFolderResult(targetId,folderName,cached.result,false);if(!force&&age<DRIVE_CACHE_TTL){setLoading(false);return}}else{state.items=[];render()}setLoading(true,"Loading files…",hadCache);try{var result=await request("driveList",{folderId:targetId,q:""});if(seq!==state.loadSeq||!state.open)return;state.folderCache[key]={result:result,time:Date.now()};applyFolderResult(targetId,folderName,result,false)}catch(err){if(seq!==state.loadSeq)return;if(!hadCache){state.items=[];render();showError(err&&err.message?err.message:"Unable to connect to your audit files.");el("driveFooterInfo").textContent="Connection unavailable"}else{showError("Showing the last loaded copy. Refresh to retry the connection.");}}finally{if(seq===state.loadSeq)setLoading(false)}}
-  function driveItemById(id){return state.items.find(function(x){return x.id===id})||null}
+  function driveItemById(id){return state.items.find(function(x){return x.id===id})||S.items.find(function(x){return x.id===id})||null}
   function hideContextMenu(){var menu=el("driveContextMenu");if(menu)menu.classList.add("hidden");state.contextItem=null;state.contextTargetIsBlank=false}
   function contextButton(action,label,icon,disabled,danger){return '<button type="button" role="menuitem" data-drive-menu-action="'+action+'" '+(disabled?'disabled':'')+' class="drive-context-item '+(danger?'is-danger':'')+'"><span class="drive-context-icon">'+icon+'</span><span>'+label+'</span></button>'}
   function showContextMenu(event,item){
@@ -6387,12 +6385,13 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     var can=state.canManage,clip=!!(state.clipboard&&can),html='';
     if(item){
       html+=contextButton("open",item.kind==="folder"?"Open folder":"Preview",item.kind==="folder"?IC.folder:IC.eye,false,false);
+      if(S.mode&&item.parentId)html+=contextButton("reveal","Show in folder",IC.open,false,false);
       if(item.kind!=="folder")html+=contextButton("download","Download",IC.download,!item.downloadUrl,false);
       html+='<div class="drive-context-separator"></div>';
       html+=contextButton("copy-name","Copy name",IC.link,false,false);
       if(can){html+=contextButton("copy","Copy",IC.copy,false,false)+contextButton("cut","Cut",IC.cut,false,false);if(clip)html+=contextButton("paste",item.kind==="folder"?"Paste into this folder":"Paste here",IC.paste,false,false);html+='<div class="drive-context-separator"></div>'+contextButton("rename","Rename",IC.rename,false,false)+contextButton("move","Move",IC.move,false,false)+contextButton("trash","Move to trash",IC.trash,false,true)}
     }else{
-      if(can){html+=contextButton("paste","Paste here",IC.paste,!clip,false)+contextButton("upload","Upload files",IC.upload,false,false)+contextButton("folder","New folder",IC.newfolder,false,false)+contextButton("docx","New Word document",IC.doc,false,false)+contextButton("text","New text / HTML file",IC.code,false,false)}
+      if(can){html+=contextButton("paste","Paste here",IC.paste,!clip,false)+contextButton("upload","Upload files",IC.upload,false,false)+contextButton("folder","New folder",IC.newfolder,false,false)}
       else html+='<div class="drive-context-empty">No file selected</div>';
     }
     menu.innerHTML=html;
@@ -6443,7 +6442,8 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     var item=state.contextTargetIsBlank?null:(state.contextItem||driveItemById(state.selectedId));
     var targetFolder=item&&item.kind==="folder"?item.id:state.folderId;
     hideContextMenu();
-    if(action==="open"){if(item){if(item.kind==="folder"){if(el("driveSearchInput"))el("driveSearchInput").value="";loadFolder(item.id,item.name,true)}else openPreview(item)}return}
+    if(action==="reveal"){if(item&&item.parentId){state.path=[{id:"",name:"All files"}];if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();resetSearch();state.activeFilter="";state.selectedId=item.id;loadFolder(item.parentId,item.parentName||"Folder",item.parentId!==state.rootId)}return}
+    if(action==="open"){if(item){if(item.kind==="folder"){if(S.mode)state.path=[{id:"",name:"All files"}];if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();loadFolder(item.id,item.name,true)}else openPreview(item)}return}
     if(action==="download"){if(item&&item.downloadUrl){var a=document.createElement("a");a.href=item.downloadUrl;a.target="_blank";a.rel="noopener";a.download=item.name;document.body.appendChild(a);a.click();a.remove()}else showToast("This Google Workspace file does not have a direct download link.");return}
     if(action==="copy-name"){if(item)copyTextToClipboard(item.name);return}
     if(action==="copy"||action==="cut"){if(item)setFileClipboard(action,item);return}
@@ -6453,10 +6453,10 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     if(action==="upload"){driveChooseUpload();return}
     if(action==="folder"||action==="docx"||action==="text"){driveOpenDialog(action);return}
   }
-  window.openDriveManager=function(){var screen=el("driveManagerScreen");if(!screen)return;if(typeof window.closeSideMenu==="function")window.closeSideMenu();var activeEmail=window.getCurrentUserEmail?String(window.getCurrentUserEmail()||"").toLowerCase():"";if(state.cacheUser&&state.cacheUser!==activeEmail){invalidateDriveCache();state.clipboard=null;state.selectedItem=null;state.selectedId=""}state.cacheUser=activeEmail;state.selectedItem=null;state.selectedId="";hideContextMenu();state.open=true;screen.classList.remove("hidden");document.body.style.overflow="hidden";if(el("driveSearchInput"))el("driveSearchInput").value="";state.path=[{id:"",name:"All files"}];loadFolder("", "All files", false)};
+  window.openDriveManager=function(){var screen=el("driveManagerScreen");if(!screen)return;if(typeof window.closeSideMenu==="function")window.closeSideMenu();var activeEmail=window.getCurrentUserEmail?String(window.getCurrentUserEmail()||"").toLowerCase():"";if(state.cacheUser&&state.cacheUser!==activeEmail){invalidateDriveCache();state.clipboard=null;state.selectedItem=null;state.selectedId=""}state.cacheUser=activeEmail;state.selectedItem=null;state.selectedId="";hideContextMenu();state.open=true;screen.classList.remove("hidden");document.body.style.overflow="hidden";if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();state.path=[{id:"",name:"All files"}];loadFolder("", "All files", false)};
   window.closeDriveManager=function(){var screen=el("driveManagerScreen");if(screen)screen.classList.add("hidden");state.open=false;driveCloseDialog();closePreview();hideContextMenu();document.body.style.overflow=""};
-  window.driveRefresh=function(){if(state.open)loadFolder(state.folderId,state.path[state.path.length-1].name,false,true)};
-  window.driveGoRoot=function(){state.path=[{id:"",name:"All files"}];if(el("driveSearchInput"))el("driveSearchInput").value="";loadFolder("","All files",false)};
+  window.driveRefresh=function(){if(state.open&&S.mode&&S.q){S.loading=true;render();runSearch(S.q);return}if(state.open)loadFolder(state.folderId,state.path[state.path.length-1].name,false,true)};
+  window.driveGoRoot=function(){state.path=[{id:"",name:"All files"}];if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();loadFolder("","All files",false)};
   window.driveToggleCreateMenu=function(){var menu=el("driveCreateMenu"),button=el("driveNewButton");if(!menu||!button)return;var opening=menu.classList.contains("hidden");menu.classList.toggle("hidden",!opening);button.setAttribute("aria-expanded",opening?"true":"false")};
   window.driveOpenCreateMode=function(mode){var menu=el("driveCreateMenu"),button=el("driveNewButton");if(menu)menu.classList.add("hidden");if(button)button.setAttribute("aria-expanded","false");driveOpenDialog(mode)};
   window.driveChooseUpload=function(){if(!state.canManage){showToast("Only dashboard editors can upload files.");return}el("driveUploadInput").click()};
@@ -6470,7 +6470,8 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     state.selectedId=item.id;state.selectedItem=item;
     if(action==="open"){
       if(item.kind==="folder"){
-        if(el("driveSearchInput"))el("driveSearchInput").value="";
+        if(S.mode)state.path=[{id:"",name:"All files"}];
+        if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();
         state.activeFilter="";
         loadFolder(item.id,item.name,true);
       }else openPreview(item);
@@ -6502,7 +6503,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     var open=event.target.closest("[data-drive-open]");
     if(open){if(Date.now()<state.suppressNextOpenUntil){event.preventDefault();return}var item=driveItemById(open.getAttribute("data-drive-open"));if(item){state.selectedId=item.id;state.selectedItem=item;render();handleRowAction("open",item)}return}
     var crumb=event.target.closest("[data-drive-crumb]");
-    if(crumb){var index=Number(crumb.getAttribute("data-drive-crumb"));if(index>=0&&index<state.path.length-1){state.path=state.path.slice(0,index+1);if(el("driveSearchInput"))el("driveSearchInput").value="";var part=state.path[index];loadFolder(part.id,part.name,false)}return}
+    if(crumb){var index=Number(crumb.getAttribute("data-drive-crumb"));if(index>=0&&index<state.path.length-1){state.path=state.path.slice(0,index+1);if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();var part=state.path[index];loadFolder(part.id,part.name,false)}return}
     if(!event.target.closest("#driveContextMenu"))hideContextMenu();
     if(!event.target.closest(".drive-create-wrap")){var menu=el("driveCreateMenu"),btn=el("driveNewButton");if(menu)menu.classList.add("hidden");if(btn)btn.setAttribute("aria-expanded","false")}
   });
@@ -6527,7 +6528,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   document.querySelectorAll("[data-drive-view]").forEach(function(btn){btn.addEventListener("click",function(){state.view=btn.getAttribute("data-drive-view")==="grid"?"grid":"list";try{sessionStorage.setItem("auditFilesView",state.view)}catch(e){}render()})});
   if(el("driveSortSelect"))el("driveSortSelect").addEventListener("change",function(){state.sortBy=this.value||"name";render()});
   if(el("driveTypeFilter"))el("driveTypeFilter").addEventListener("change",function(){state.typeFilter=this.value||"all";render()});
-  el("driveSearchInput").addEventListener("input",function(){state.activeFilter=(this.value||"").trim().toLowerCase();render()});
+  el("driveSearchInput").addEventListener("input",function(){var q=(this.value||"").trim();state.activeFilter=q.toLowerCase();clearTimeout(S.timer);if(q.length<2){resetSearch();render();return}S.mode=true;S.q=q;S.loading=true;S.truncated=false;S.items=state.items.filter(function(x){return String(x.name||"").toLowerCase().indexOf(state.activeFilter)>=0});render();S.timer=setTimeout(function(){runSearch(q)},300)});
   el("driveUploadInput").addEventListener("change",onUploadChange);
   el("driveDialog").addEventListener("keydown",function(e){if(e.key==="Escape")driveCloseDialog()});
   document.addEventListener("keydown",function(e){if(e.key==="Escape"&&state.open&&el("driveDialog")&&!el("driveDialog").classList.contains("hidden"))driveCloseDialog()});
