@@ -5,9 +5,10 @@
 // v153: assistant status line under the header removed; assistant tables and headings restyled to fit the panel without sideways scrolling.
 // v152: links the HTML assistant to Code.gs six-source snapshots, removes duplicate browser findings uploads, and selects full detail by query.
 // v106: app header stays pinned (dimmed behind the overlay) while ANY popup is open.
+// v165: integrated Google Drive file manager (My Drive browsing, uploads, folders, DOCX/text creation, rename/move/trash).
 // v162: assistant speed pass (instant local answers, fewer POST round-trips, early wake-up, compact prompt for general chat).
 // v161: bounded Gemini overload failover/retry and removal of the chat Drive workspace.
-const CACHE_VERSION = 'audit-dashboard-v164'
+const CACHE_VERSION = 'audit-dashboard-v165'
 // v141: native Google Sheets creation, flexible natural-language Drive destinations, explicit My Drive root handling and Docs/DOCX/PDF creation; v138 response profiles and v137 transport/template safeguards retained.
 // v137: CORS-resilient assistant file POST/result retrieval, API-key-scoped quota cooldowns, and guarded DOCX section saves.
 // v136: persistent daily-quota cooldown, stable-model preference over preview overrides, and precise template edits.
