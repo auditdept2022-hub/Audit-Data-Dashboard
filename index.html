@@ -1,4 +1,4 @@
-<!-- Audit dashboard front end v162: assistant speed pass (instant local answers, fewer POST round-trips, early server wake-up); v161: Gemini 503 failover/retry and chat Drive workspace removed. -->
+<!-- Audit dashboard front end v163: Gemini + ChatGPT provider selection; Audit dashboard front end v162: assistant speed pass (instant local answers, fewer POST round-trips, early server wake-up); v161: Gemini 503 failover/retry and chat Drive workspace removed. -->
 <!DOCTYPE html>
 <html lang="en" class="page-fade-ready"><head>
   <meta charset="UTF-8">
@@ -615,7 +615,7 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
 #driveManagerScreen .drive-header .drive-search:focus-within{background:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.28);color:#2f3fb8}
 </style>
 
-</head>
+<style id="driveHideNewUpload">.drive-create-wrap,#driveNewButton,#driveUploadButton{display:none!important}</style></head>
 <body class="bg-coolDark text-slate-800 min-h-screen selection:bg-accentCyan/30 selection:text-slate-900 relative">
   <script>(function(){try{if(new URLSearchParams(window.location.search).get("skipLoading")==="1")document.documentElement.style.visibility="hidden"}catch(e){}})();</script>
   
@@ -1361,7 +1361,7 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
         </div>
         <div role="button" tabindex="0" onclick="openDriveManager()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDriveManager();}" class="menu-tile cursor-pointer select-none drive-menu-tile">
           <span class="menu-tile-icon" style="background:rgba(79,91,190,0.11);"><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:#4d5bbf"><path d="M22 12H2"></path><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path><path d="M6 16h.01M10 16h.01"></path></svg></span>
-          <span class="menu-tile-label">Drive</span>
+          <span class="menu-tile-label">Drive folder</span>
         </div>
       </div>
       </details>
@@ -5124,6 +5124,8 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   .gai-dot{width:8px;height:8px;border-radius:50%;background:#94a3b8;flex:none;box-shadow:0 0 0 2px rgba(255,255,255,.18)}
   .gai-dot.gai-online,.gai-dot.gai-ready{background:#22c55e}.gai-dot.gai-offline{background:#ef4444}.gai-dot.gai-busy{background:#f59e0b}
   #geminiAssistantHeaderBtns{display:flex;align-items:center;gap:8px}
+  #geminiAssistantProvider{height:32px;max-width:145px;border:1px solid rgba(255,255,255,.32);border-radius:9px;background:#fff;color:#0f172a;padding:0 7px;font-size:11px;font-weight:800;outline:none;cursor:pointer}
+  #geminiAssistantProvider:disabled{opacity:.6;cursor:default}
   #geminiAssistantApprovalsBtn{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.12);color:#fff;border-radius:9px;height:32px;padding:0 10px;font-size:11px;font-weight:800;cursor:pointer}
   #geminiAssistantApprovalsBtn[hidden]{display:none}
   #geminiAssistantApprovalsBadge{min-width:18px;height:18px;border-radius:9px;background:#ef4444;color:#fff;font-size:10px;line-height:18px;text-align:center;padding:0 5px}
@@ -5208,13 +5210,18 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   <span id="geminiAssistantLauncherDot"></span>
 </button>
 
-<section id="geminiAssistantPanel" aria-label="Gemini dashboard assistant" role="dialog" aria-modal="false">
+<section id="geminiAssistantPanel" aria-label="Audit dashboard AI assistant" role="dialog" aria-modal="false">
   <header id="geminiAssistantHeader">
     <div>
       <div id="geminiAssistantHeaderTitle">Audit Dashboard Assistant</div>
       <div id="geminiAssistantHeaderSub" title=""><span id="geminiAssistantDot" class="gai-dot"></span><span id="geminiAssistantState">Checking…</span></div>
     </div>
     <div id="geminiAssistantHeaderBtns">
+      <select id="geminiAssistantProvider" aria-label="Choose AI provider" title="Auto tries ChatGPT when its API is configured, then automatically falls back to Gemini">
+        <option value="auto" selected>Auto · ChatGPT / Gemini</option>
+        <option value="gemini">Gemini only</option>
+        <option value="openai">ChatGPT only</option>
+      </select>
       <button id="geminiAssistantApprovalsBtn" type="button" hidden aria-label="Open approvals">
         Approvals<span id="geminiAssistantApprovalsBadge" hidden>0</span>
       </button>
@@ -5223,7 +5230,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   </header>
   <div id="geminiAssistantStatus" role="status">Checking assistant access…</div>
   <div id="geminiAssistantMessages" aria-live="polite">
-    <div class="gai-message gai-ai">Hello! Ask me anything, like a normal Gemini chat. I can also review the dashboard, check for new data, and prepare dashboard changes with a detailed approval preview before anything is changed.</div>
+    <div class="gai-message gai-ai">Hello! Auto mode tries ChatGPT when its API is available and switches to Gemini if it is not. You can also select either provider directly. I can chat, review the live audit dashboard, analyze attached files, and prepare changes for approval.</div>
   </div>
   <div id="geminiAssistantFiles" hidden></div>
   <div id="geminiAssistantComposer">
@@ -5251,6 +5258,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   panel.__geminiBound = true;
 
   var closeBtn = document.getElementById("geminiAssistantClose");
+  var providerSelect = document.getElementById("geminiAssistantProvider");
   var statusEl = document.getElementById("geminiAssistantStatus");
   var messagesEl = document.getElementById("geminiAssistantMessages");
   var approvalsEl = document.getElementById("geminiAssistantApprovals");
@@ -5268,7 +5276,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   var attachBtn = document.getElementById("geminiAssistantAttach");
   var fileInput = document.getElementById("geminiAssistantFile");
   var filesEl = document.getElementById("geminiAssistantFiles");
-  var aiState = { gemini: "checking", checked: false, canPropose: false, canApprove: false, apiConfigured: false, sending: false, reading: false, lastReplyAt: 0, files: [], history: [], pendingCount: 0 };
+  var aiState = { gemini: "checking", provider: "auto", checked: false, canPropose: false, canApprove: false, apiConfigured: false, geminiConfigured: false, openaiConfigured: false, sending: false, reading: false, lastReplyAt: 0, files: [], history: [], pendingCount: 0 };
   var MAX_FILES = 10, MAX_INLINE_TOTAL = 12 * 1024 * 1024, MAX_TEXT_CHARS = 1000000;
 
   function assistantApiBase_() {
@@ -5538,9 +5546,45 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     subEl.title = reason || label;
   }
   function setStatus_(text) { statusEl.textContent = text || ""; }
+  function providerName_() {
+    return aiState.provider === "openai" ? "ChatGPT" : (aiState.provider === "gemini" ? "Gemini" : "Auto (ChatGPT → Gemini)");
+  }
+  function providerConfigured_() {
+    if (aiState.provider === "openai") return aiState.openaiConfigured;
+    if (aiState.provider === "gemini") return aiState.geminiConfigured;
+    return aiState.openaiConfigured || aiState.geminiConfigured;
+  }
+  function providerSetupMessage_() {
+    if (aiState.provider === "openai") return "ChatGPT API is not configured. Add OPENAI_API_KEY under Apps Script Project Settings > Script properties. Your ChatGPT Free subscription does not include API access.";
+    if (aiState.provider === "gemini") return "Gemini is not configured. Add GEMINI_API_KEY under Apps Script Project Settings > Script properties, then reload the dashboard.";
+    return "No AI provider is configured. Add GEMINI_API_KEY for Gemini. OPENAI_API_KEY is optional; Auto mode will use ChatGPT when available and otherwise Gemini.";
+  }
+  function updateProviderUi_() {
+    aiState.apiConfigured = providerConfigured_();
+    inputEl.placeholder = aiState.provider === "auto" ? "Message your Audit Assistant…" : "Message " + providerName_() + "…";
+    if (aiState.checked && !aiState.apiConfigured) {
+      setStatus_(providerSetupMessage_());
+      if (!aiState.sending) setGemini_("offline", "No AI provider configured");
+    } else if (aiState.checked && aiState.apiConfigured) {
+      if (aiState.provider === "auto") {
+        setStatus_(aiState.openaiConfigured ? "Auto mode: ChatGPT first, Gemini automatic fallback." : "Auto mode: Gemini is ready. Add OPENAI_API_KEY only if you also want ChatGPT API.");
+      } else {
+        setStatus_("");
+      }
+      if (!aiState.sending && !aiState.lastReplyAt) setGemini_("ready", aiState.provider === "auto" ? "automatic provider selection" : "API key configured");
+    }
+  }
+  function changeProvider_() {
+    if (aiState.sending) { providerSelect.value = aiState.provider; return; }
+    var selected = providerSelect.value;
+    aiState.provider = selected === "openai" || selected === "gemini" ? selected : "auto";
+    updateProviderUi_();
+  }
+  providerSelect.addEventListener("change", changeProvider_);
   function setBusy_(busy) {
     aiState.sending = !!busy;
     sendBtn.disabled = !!busy;
+    providerSelect.disabled = !!busy;
     sendBtn.textContent = busy ? "…" : "Send";
   }
   function autoGrow_() { inputEl.style.height = "auto"; inputEl.style.height = Math.min(140, inputEl.scrollHeight) + "px"; }
@@ -5797,17 +5841,16 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       aiState.checked = true;
       aiState.canPropose = !!data.canPropose;
       aiState.canApprove = !!data.canApprove;
-      aiState.apiConfigured = !!data.apiConfigured;
+      aiState.geminiConfigured = !!(data.geminiConfigured || data.apiConfigured);
+      aiState.openaiConfigured = !!data.openaiConfigured;
+      providerSelect.value = aiState.provider;
+      aiState.apiConfigured = providerConfigured_();
       if (!data.allowed) {
         setStatus_("Your account does not have permission to use the dashboard assistant.");
         setGemini_("offline", "No permission");
         inputEl.disabled = true; sendBtn.disabled = true; attachBtn.disabled = true; return;
       }
-      setStatus_(aiState.apiConfigured ? "" : "Gemini is not configured yet. Add GEMINI_API_KEY in Apps Script Script Properties.");
-      if (!aiState.sending && !aiState.lastReplyAt) {
-        if (aiState.apiConfigured) setGemini_("ready", "API key configured");
-        else setGemini_("offline", "API key not set");
-      }
+      updateProviderUi_();
       inputEl.disabled = false; sendBtn.disabled = !!aiState.sending; attachBtn.disabled = !!aiState.sending;
       approvalsBtn.hidden = !aiState.canApprove;
       // Do not hold the assistant's ready state open while the optional approval
@@ -6152,23 +6195,23 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       setStatus_("");
       return;
     }
-    if (aiState.checked && !aiState.apiConfigured) { addMessage_("Gemini is not configured. Add GEMINI_API_KEY under Apps Script Project Settings > Script properties, then reload the dashboard.", "error"); return; }
+    if (aiState.checked && !aiState.apiConfigured) { addMessage_(providerSetupMessage_(), "error"); setStatus_(providerSetupMessage_()); return; }
     var sentFiles = aiState.files.slice();
     var fileNames = sentFiles.map(function (f) { return f.name; });
     inputEl.value = ""; autoGrow_();
     addMessage_(message + (fileNames.length ? "\n\ud83d\udcce " + fileNames.join(", ") : ""), "user");
     setBusy_(true);
     setStatus_("");
-    var thinkingBubble = addMessage_("Thinking\u2026 0s", "thinking");
+    var thinkingBubble = addMessage_("Thinking with " + providerName_() + "\u2026 0s", "thinking");
     var startedAt = Date.now();
     var retryState = null; // { until: ms timestamp, attempt: n }
     var MAX_ATTEMPTS = 2; // one bounded retry for server-declared retryable failures
     var tick = setInterval(function () {
       var sec = Math.round((Date.now() - startedAt) / 1000);
       if (retryState && Date.now() < retryState.until) {
-        thinkingBubble.textContent = "Gemini is busy right now. Retrying automatically in " + Math.ceil((retryState.until - Date.now()) / 1000) + "s\u2026 (attempt " + (retryState.attempt + 1) + " of " + MAX_ATTEMPTS + ")";
+        thinkingBubble.textContent = providerName_() + " is busy right now. Retrying automatically in " + Math.ceil((retryState.until - Date.now()) / 1000) + "s\u2026 (attempt " + (retryState.attempt + 1) + " of " + MAX_ATTEMPTS + ")";
       } else {
-        thinkingBubble.textContent = "Thinking\u2026 " + sec + "s" + (sec >= 15 ? "\n(Still waiting \u2014 the server may be waking up or Gemini is busy.)" : "");
+        thinkingBubble.textContent = "Thinking with " + providerName_() + "\u2026 " + sec + "s" + (sec >= 15 ? "\n(Still waiting \u2014 the server may be waking up or the provider is busy.)" : "");
       }
     }, 1000);
     try {
@@ -6177,7 +6220,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       // file or a genuinely large prompt requires it.
       var history = aiState.history.slice(-20).map(function (item) { return { role: item.role === "ai" || item.role === "assistant" ? "assistant" : item.role, text: String(item.text || "").slice(0, 8000) }; });
       var historyJson = JSON.stringify(history);
-      var fields = { message: message, history: historyJson, requestId: "ai-" + Date.now() + "-" + Math.random().toString(36).slice(2, 10) };
+      var fields = { message: message, history: historyJson, provider: aiState.provider, requestId: "ai-" + Date.now() + "-" + Math.random().toString(36).slice(2, 10) };
       // Small client/server handshake only. The canonical rows stay in Code.gs
       // and are read from the shared six-sheet cache; never POST the same rows twice.
       var dashboardViewJson = "";
@@ -6235,10 +6278,13 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       var totalSec = ((Date.now() - startedAt) / 1000).toFixed(1);
       var tm = data.timing || null;
       var modeLabel = data.mode === "quick" ? "Quick reply" : data.mode === "comprehensive" ? "Detailed reply" : "Standard reply";
-      var timingText = modeLabel + " · answered in " + totalSec + "s" + (tm ? " (Gemini " + (tm.geminiMs / 1000).toFixed(1) + "s" + (tm.model ? ", " + tm.model : "") + ")" : "");
+      var actualProvider = data.provider === "openai" ? "ChatGPT" : (data.provider === "gemini" ? "Gemini" : (data.provider === "local" ? "Assistant" : providerName_()));
+      var providerMs = tm ? Number(tm.providerMs || tm.geminiMs) || 0 : 0;
+      var timingText = modeLabel + " · answered in " + totalSec + "s" + (tm ? " (" + actualProvider + " " + (providerMs / 1000).toFixed(1) + "s" + (tm.model ? ", " + tm.model : "") + ")" : "");
+      if (data.providerFallbackMessage) timingText += " · " + String(data.providerFallbackMessage);
       var attachmentWarnings = Array.isArray(data.attachmentWarnings) ? data.attachmentWarnings : [];
       if (attachmentWarnings.length) timingText += " · Attachment notes: " + attachmentWarnings.join("; ");
-      // Be transparent about the actual dashboard sources supplied to Gemini.
+      // Be transparent about the actual dashboard sources supplied to the selected provider.
       // Omitted rows are called out so a partial extract is never presented as exhaustive.
       var contextInfo = data.dashboardContext || null;
       if (contextInfo && Array.isArray(contextInfo.sources) && contextInfo.sources.length) {
@@ -6285,17 +6331,18 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
         refreshPending_();
       }
       if (data.proposalsSkipped) addMessage_("I did not create " + data.proposalsSkipped + " proposed change(s) because they did not pass the dashboard's server-side validation.", "note");
+      if (data.providerFallbackMessage) addMessage_(String(data.providerFallbackMessage), "note");
       scrollToReplyTop_(replyBubble);
-      setStatus_(attachmentWarnings.length ? "Attachment notes: " + attachmentWarnings.join("; ") : "");
+      setStatus_(data.providerFallbackMessage ? String(data.providerFallbackMessage) : (attachmentWarnings.length ? "Attachment notes: " + attachmentWarnings.join("; ") : ""));
     } catch (err) {
       clearInterval(tick);
       if (thinkingBubble.parentNode) thinkingBubble.parentNode.removeChild(thinkingBubble);
-      addMessage_(err.message || "Gemini could not answer. Please try again.", "error");
+      addMessage_(err.message || (providerName_() + " could not answer. Please try again."), "error");
       setStatus_("Request failed. Your dashboard data was not changed.");
       var em = String(err && err.message || "");
       if (isRetryable_(err)) setGemini_("busy", "request limit");
       else if (err && err.transport) setGemini_("offline", "Cannot reach the server");
-      else if (/rejected the request|not configured|not found for this API key/i.test(em)) setGemini_("offline", "Gemini setup problem");
+      else if (/rejected the request|not configured|not found for this API key|rejected the API key/i.test(em)) setGemini_("offline", providerName_() + " setup problem");
     } finally { setBusy_(false); }
   }
 
