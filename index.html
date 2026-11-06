@@ -1,4 +1,4 @@
-<!-- Audit dashboard front end v179: Drive preview pop-out opens source files in their matching Google editor or Drive viewer; v178 responsive scorecard and mobile performance fixes retained; previous: v163: Gemini + Groq provider selection; Audit dashboard front end v162: assistant speed pass (instant local answers, fewer POST round-trips, early server wake-up); v161: Gemini 503 failover/retry and chat Drive workspace removed. -->
+<!-- Audit dashboard front end v181: Drive shortcut/resource-key preview repairs, faster file-list rendering, and fresh-on-open listing; v180 Drive preview actions retained; previous: v163: Gemini + Groq provider selection; Audit dashboard front end v162: assistant speed pass (instant local answers, fewer POST round-trips, early server wake-up); v161: Gemini 503 failover/retry and chat Drive workspace removed. -->
 <!DOCTYPE html>
 <html lang="en" class="page-fade-ready"><head>
   <meta charset="UTF-8">
@@ -537,8 +537,8 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
 .drive-preview-body iframe{display:block;width:100%;height:100%;border:0;background:#fff;opacity:1;filter:none;color-scheme:light}
 .drive-preview-footer{flex:none;padding:6px 12px;background:#fff;border-top:1px solid #e6eaf2;color:#98a3b7;font-size:11px}
 .drive-preview.is-fullscreen{padding:0}
-.drive-preview.is-fullscreen .drive-preview-panel,.drive-preview-panel:fullscreen{width:100vw;height:100dvh;max-width:none;max-height:none;border-radius:0}
-.drive-preview-panel:fullscreen{box-shadow:none}
+/* Expand only within the Chrome page viewport; never invoke the browser/device fullscreen API. */
+.drive-preview.is-fullscreen .drive-preview-panel{width:100%;height:100%;max-width:none;max-height:none;border-radius:0;box-shadow:none}
 
 /* dialog */
 .drive-dialog{position:fixed;inset:0;z-index:10060;display:flex;align-items:center;justify-content:center;padding:16px;font-family:Inter,'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif}
@@ -1483,10 +1483,10 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
       <div class="drive-preview-panel">
         <div class="drive-preview-header">
           <div class="drive-preview-heading"><span id="drivePreviewIcon" class="drive-preview-file-icon">FILE</span><div><strong id="drivePreviewName">Preview</strong><span id="drivePreviewMeta">File preview</span></div></div>
-          <div class="drive-preview-tools"><a id="drivePreviewOpen" class="drive-preview-open hidden" href="#" target="_blank" rel="noopener noreferrer" title="Open file in Chrome" aria-label="Open file in Chrome"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6"/></svg><span class="drive-preview-open-label">Open in Chrome</span></a><a id="drivePreviewDownload" class="drive-preview-download hidden" href="#" target="_blank" rel="noopener">Download</a><button type="button" id="drivePreviewFullscreen" class="drive-icon-btn" onclick="driveTogglePreviewFullscreen()" aria-label="Full screen preview" title="Full screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg></button><button type="button" class="drive-icon-btn" data-drive-preview-close aria-label="Close preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+          <div class="drive-preview-tools"><a id="drivePreviewOpen" class="drive-preview-open hidden" href="#" target="_blank" rel="noopener noreferrer" title="Open file in Chrome" aria-label="Open file in Chrome"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6"/></svg><span class="drive-preview-open-label">Open in Chrome</span></a><a id="drivePreviewDownload" class="drive-preview-download hidden" href="#" target="_blank" rel="noopener">Download</a><button type="button" id="drivePreviewFullscreen" class="drive-icon-btn" onclick="driveTogglePreviewFullscreen()" aria-label="Expand preview" title="Expand preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg></button><button type="button" class="drive-icon-btn" data-drive-preview-close aria-label="Close preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
         </div>
         <div class="drive-preview-body"><iframe id="drivePreviewFrame" title="File preview" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; clipboard-read; clipboard-write; fullscreen" allowfullscreen></iframe></div>
-        <footer class="drive-preview-footer">Some Google Workspace documents may require Google's editor for full editing.</footer>
+        <footer class="drive-preview-footer">If Google shows 404, check that Chrome is signed into a Google account with access to this file. Dashboard sign-in does not automatically grant Google Drive permissions.</footer>
       </div>
     </section>
     <div id="driveDialog" class="drive-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="driveDialogTitle">
@@ -6429,7 +6429,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
 (function(){
   "use strict";
   var state={open:false,loading:false,loadingMore:false,canManage:false,folderId:"",items:[],nextPageToken:"",path:[{id:"",name:"All files"}],rootId:"",moveItem:null,dialogMode:"",dialogItem:null,activeFilter:"",typeFilter:"all",sortBy:"name",view:"list",folderCache:Object.create(null),loadSeq:0,selectedId:"",clipboard:null,contextItem:null,pressTimer:0,suppressNextOpenUntil:0,previewItem:null,selectedItem:null,contextTargetIsBlank:false,createParentId:"",createParentName:"All files",createParentItem:null};
-  var DRIVE_CACHE_TTL=120000;
+  var DRIVE_CACHE_TTL=45000;
   try{state.view=sessionStorage.getItem("auditFilesView")==="grid"?"grid":"list"}catch(e){}
   function el(id){return document.getElementById(id)}
   function esc(value){return String(value==null?"":value).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
@@ -6489,22 +6489,28 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     if(visible.length)empty.classList.add("hidden");
     document.querySelectorAll("[data-drive-view]").forEach(function(btn){var active=btn.getAttribute("data-drive-view")===state.view;btn.classList.toggle("is-active",active);btn.setAttribute("aria-pressed",active?"true":"false")});
     if(!visible.length){body.innerHTML=pendingSearch?'<tr><td colspan="5"><div class="drive-loading"><span class="drive-spinner"></span>Searching Google Drive…</div></td></tr>':"";grid.innerHTML="";setTimeout(maybeAutoLoadDriveItems,0);return}
-    body.innerHTML=visible.map(function(item){
-      var description=item.kind==="folder"?"Folder · "+fmtDate(item.modifiedTime):(fmtSize(item.size)+" · "+fmtDate(item.modifiedTime));
-      if(S.mode&&item.parentName&&item.parentName!=="Folder")description="in "+item.parentName+" · "+description;
-      var selected=state.selectedId===item.id;
-      return '<tr class="drive-item-row '+(selected?"is-selected":"")+'" tabindex="0" role="button" aria-selected="'+(selected?"true":"false")+'" aria-label="Open '+esc(item.name)+'; right-click for actions" data-drive-open="'+esc(item.id)+'"><td><div class="drive-file-cell">'+driveKindIcon(item)+'<div class="drive-file-copy"><span class="drive-file-name" title="'+esc(item.name)+'">'+esc(item.name)+'</span><span class="drive-file-sub">'+esc(description)+'</span></div></div></td><td><span class="drive-type-pill">'+esc(typeLabel(item))+'</span></td><td>'+(item.kind==="folder"?"—":esc(fmtSize(item.size)))+'</td><td>'+esc(fmtDate(item.modifiedTime))+'</td><td>'+moreButton(item)+'</td></tr>'
-    }).join("");
-    grid.innerHTML=visible.map(function(item){
-      var details=item.kind==="folder"?"Folder · "+fmtDate(item.modifiedTime):fmtSize(item.size)+" · "+fmtDate(item.modifiedTime);
-      if(S.mode&&item.parentName&&item.parentName!=="Folder")details="in "+item.parentName+" · "+details;
-      var selected=state.selectedId===item.id;
-      return '<article class="drive-grid-card '+(selected?"is-selected":"")+'" tabindex="0" role="button" aria-selected="'+(selected?"true":"false")+'" aria-label="Open '+esc(item.name)+'; long-press or right-click for actions" data-drive-open="'+esc(item.id)+'"><div class="drive-grid-card-top">'+driveKindIcon(item)+'<span class="drive-type-pill">'+esc(typeLabel(item))+'</span></div><div class="drive-grid-card-name" title="'+esc(item.name)+'">'+esc(item.name)+'</div><div class="drive-grid-card-meta">'+esc(details)+'</div>'+moreButton(item)+'</article>'
-    }).join("");setTimeout(maybeAutoLoadDriveItems,0);
+    if(state.view==="list"){
+      grid.innerHTML="";
+      body.innerHTML=visible.map(function(item){
+        var description=item.kind==="folder"?"Folder · "+fmtDate(item.modifiedTime):(fmtSize(item.size)+" · "+fmtDate(item.modifiedTime));
+        if(S.mode&&item.parentName&&item.parentName!=="Folder")description="in "+item.parentName+" · "+description;
+        var selected=state.selectedId===item.id;
+        return '<tr class="drive-item-row '+(selected?"is-selected":"")+'" tabindex="0" role="button" aria-selected="'+(selected?"true":"false")+'" aria-label="Open '+esc(item.name)+'; right-click for actions" data-drive-open="'+esc(item.id)+'"><td><div class="drive-file-cell">'+driveKindIcon(item)+'<div class="drive-file-copy"><span class="drive-file-name" title="'+esc(item.name)+'">'+esc(item.name)+'</span><span class="drive-file-sub">'+esc(description)+'</span></div></div></td><td><span class="drive-type-pill">'+esc(typeLabel(item))+'</span></td><td>'+(item.kind==="folder"?"—":esc(fmtSize(item.size)))+'</td><td>'+esc(fmtDate(item.modifiedTime))+'</td><td>'+moreButton(item)+'</td></tr>'
+      }).join("");
+    }else{
+      body.innerHTML="";
+      grid.innerHTML=visible.map(function(item){
+        var details=item.kind==="folder"?"Folder · "+fmtDate(item.modifiedTime):fmtSize(item.size)+" · "+fmtDate(item.modifiedTime);
+        if(S.mode&&item.parentName&&item.parentName!=="Folder")details="in "+item.parentName+" · "+details;
+        var selected=state.selectedId===item.id;
+        return '<article class="drive-grid-card '+(selected?"is-selected":"")+'" tabindex="0" role="button" aria-selected="'+(selected?"true":"false")+'" aria-label="Open '+esc(item.name)+'; long-press or right-click for actions" data-drive-open="'+esc(item.id)+'"><div class="drive-grid-card-top">'+driveKindIcon(item)+'<span class="drive-type-pill">'+esc(typeLabel(item))+'</span></div><div class="drive-grid-card-name" title="'+esc(item.name)+'">'+esc(item.name)+'</div><div class="drive-grid-card-meta">'+esc(details)+'</div>'+moreButton(item)+'</article>'
+      }).join("");
+    }
+    setTimeout(maybeAutoLoadDriveItems,0);
   }
   function applyFolderResult(folderId,folderName,result,pushPath){state.items=Array.isArray(result.items)?result.items:[];state.nextPageToken=String(result.nextPageToken||"");state.canManage=!!result.canManage;state.rootId=result.rootId||state.rootId;state.folderId=folderId||"";state.truncated=!!state.nextPageToken||!!result.incompleteSearch;if(pushPath){if(!state.path.length||state.path[state.path.length-1].id!==state.folderId)state.path.push({id:state.folderId,name:folderName||result.folder&&result.folder.name||"Folder"})}else if(!state.path.length){state.path=[{id:"",name:"All files"}]}el("driveReadOnlyNotice").classList.toggle("hidden",state.canManage);el("driveSignedInAs").textContent=window.getCurrentUserEmail?window.getCurrentUserEmail():"Signed in";var _u=el("driveUploadButton"),_n=el("driveNewButton");if(_u)_u.classList.toggle("hidden",!state.canManage);if(_n)_n.classList.toggle("hidden",!state.canManage);render()}
   function invalidateDriveCache(){S.cache=Object.create(null);if(S.mode&&S.q)setTimeout(function(){runSearch(S.q)},0);state.folderCache=Object.create(null)}
-  async function loadFolder(folderId,folderName,pushPath,force){hideError();var targetId=folderId||"";var seq=++state.loadSeq;if(pushPath){if(state.path[state.path.length-1].id!==targetId)state.path.push({id:targetId,name:folderName||"Folder"})}else if(!state.path.length){state.path=[{id:targetId,name:folderName||"All files"}]}else if(state.path[state.path.length-1].id!==targetId){state.path=[{id:targetId,name:folderName||"All files"}]}state.folderId=targetId;state.nextPageToken="";state.loadingMore=false;state.activeFilter=(el("driveSearchInput").value||"").trim().toLowerCase();var key=targetId||"__root__",cached=state.folderCache[key],age=cached?Date.now()-cached.time:Infinity;var hadCache=!!cached;if(cached){applyFolderResult(targetId,folderName,cached.result,false);if(!force&&age<DRIVE_CACHE_TTL){setLoading(false);return}}else{state.items=[];render()}setLoading(true,"Loading files…",hadCache);try{var result=await request("driveList",{folderId:targetId,q:"",pageToken:""});if(seq!==state.loadSeq||!state.open)return;state.folderCache[key]={result:result,time:Date.now()};applyFolderResult(targetId,folderName,result,false)}catch(err){if(seq!==state.loadSeq)return;if(!hadCache){state.items=[];render();showError(err&&err.message?err.message:"Unable to connect to your audit files.");el("driveFooterInfo").textContent="Connection unavailable"}else{showError("Showing the last loaded copy. Refresh to retry the connection.");}}finally{if(seq===state.loadSeq)setLoading(false)}}
+  async function loadFolder(folderId,folderName,pushPath,force){hideError();var targetId=folderId||"";var seq=++state.loadSeq;if(pushPath){if(state.path[state.path.length-1].id!==targetId)state.path.push({id:targetId,name:folderName||"Folder"})}else if(!state.path.length){state.path=[{id:targetId,name:folderName||"All files"}]}else if(state.path[state.path.length-1].id!==targetId){state.path=[{id:targetId,name:folderName||"All files"}]}state.folderId=targetId;state.nextPageToken="";state.loadingMore=false;state.activeFilter=(el("driveSearchInput").value||"").trim().toLowerCase();var key=targetId||"__root__",cached=state.folderCache[key],age=cached?Date.now()-cached.time:Infinity;var hadCache=!!cached;if(cached){applyFolderResult(targetId,folderName,cached.result,false);if(!force&&age<DRIVE_CACHE_TTL){setLoading(false);return}}else{state.items=[];render()}setLoading(true,"Loading files…",hadCache);try{var result=await request("driveList",{folderId:targetId,q:"",pageToken:"",fresh:force?"1":"0"});if(seq!==state.loadSeq||!state.open)return;state.folderCache[key]={result:result,time:Date.now()};applyFolderResult(targetId,folderName,result,false)}catch(err){if(seq!==state.loadSeq)return;if(!hadCache){state.items=[];render();showError(err&&err.message?err.message:"Unable to connect to your audit files.");el("driveFooterInfo").textContent="Connection unavailable"}else{showError("Showing the last loaded copy. Refresh to retry the connection.");}}finally{if(seq===state.loadSeq)setLoading(false)}}
   function driveItemById(id){return state.items.find(function(x){return x.id===id})||S.items.find(function(x){return x.id===id})||null}
   function hideContextMenu(){var menu=el("driveContextMenu");if(menu)menu.classList.add("hidden");hideCreateSubmenu();state.contextItem=null;state.contextTargetIsBlank=false}
   function contextButton(action,label,icon,disabled,danger){return '<button type="button" role="menuitem" data-drive-menu-action="'+action+'" '+(disabled?'disabled':'')+' class="drive-context-item '+(danger?'is-danger':'')+'"><span class="drive-context-icon">'+icon+'</span><span>'+label+'</span></button>'}
@@ -6585,26 +6591,35 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       await loadFolder(state.folderId,state.path[state.path.length-1].name,false,true);
     }catch(err){showToast(err&&err.message||"Paste failed. Check your edit access and try again.","error")}
   }
+  function driveResolvedFile(item){
+    item=item||{};
+    return {id:String(item.effectiveId||item.targetId||item.id||""),mimeType:String(item.effectiveMimeType||item.targetMimeType||item.mimeType||""),resourceKey:String(item.effectiveResourceKey||item.targetResourceKey||item.resourceKey||"")};
+  }
+  function driveWithResourceKey(url,key){
+    if(!url||!key)return url;
+    return url+(url.indexOf("?")>=0?"&":"?")+"resourcekey="+encodeURIComponent(key);
+  }
   function driveEditorTarget(item){
-    var mime=String(item&&item.mimeType||"").toLowerCase(),name=String(item&&item.name||"").toLowerCase();
-    var id=String(item&&item.id||"").trim();
+    var resolved=driveResolvedFile(item),mime=String(resolved.mimeType||"").toLowerCase(),name=String(item&&item.name||"").toLowerCase();
+    var id=String(resolved.id||"").trim();
     if(!id)return {url:"",label:"Open in Chrome",kind:"file"};
+    if(item&&item.targetIsFolder)return {url:"https://drive.google.com/drive/folders/"+encodeURIComponent(id),label:"Open folder in Google Drive",kind:"folder"};
     var target="file",label="Open in Chrome";
     if(mime.indexOf("application/vnd.google-apps.document")===0||/\.(docx?|odt|rtf)$/i.test(name)||["application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/msword","application/vnd.oasis.opendocument.text","application/rtf","text/rtf"].indexOf(mime)>=0){target="document";label="Open in Google Docs"}
     else if(mime.indexOf("application/vnd.google-apps.spreadsheet")===0||/\.(xlsx?|xlsm|xlsb|ods|csv|tsv)$/i.test(name)||["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","application/vnd.ms-excel","application/vnd.oasis.opendocument.spreadsheet","text/csv","text/tab-separated-values"].indexOf(mime)>=0){target="spreadsheet";label="Open in Google Sheets"}
     else if(mime.indexOf("application/vnd.google-apps.presentation")===0||/\.(pptx?|odp)$/i.test(name)||["application/vnd.openxmlformats-officedocument.presentationml.presentation","application/vnd.ms-powerpoint","application/vnd.oasis.opendocument.presentation"].indexOf(mime)>=0){target="presentation";label="Open in Google Slides"}
     var base=target==="document"?"https://docs.google.com/document/d/":target==="spreadsheet"?"https://docs.google.com/spreadsheets/d/":target==="presentation"?"https://docs.google.com/presentation/d/":"https://drive.google.com/file/d/";
     var suffix=target==="file"?"/view":"/edit";
-    return {url:base+encodeURIComponent(id)+suffix,label:label,kind:target};
+    return {url:driveWithResourceKey(base+encodeURIComponent(id)+suffix,resolved.resourceKey),label:label,kind:target};
   }
   function drivePreviewUrl(item){
-    var id=encodeURIComponent(item.id),mime=String(item.mimeType||"").toLowerCase(),name=String(item.name||"").toLowerCase();
-    if(mime.indexOf("application/vnd.google-apps.document")===0)return "https://docs.google.com/document/d/"+id+"/preview";
-    if(mime.indexOf("application/vnd.google-apps.spreadsheet")===0)return "https://docs.google.com/spreadsheets/d/"+id+"/preview";
-    if(mime.indexOf("application/vnd.google-apps.presentation")===0)return "https://docs.google.com/presentation/d/"+id+"/preview";
-    if(mime==="application/pdf"||name.endsWith(".pdf")||mime.indexOf("image/")===0)return "https://drive.google.com/uc?export=view&id="+id;
-    if(mime.indexOf("text/")===0||/\.(txt|csv|md|html)$/i.test(name))return "https://drive.google.com/uc?export=view&id="+id;
-    return "https://drive.google.com/file/d/"+id+"/preview";
+    var resolved=driveResolvedFile(item),id=encodeURIComponent(resolved.id),mime=String(resolved.mimeType||"").toLowerCase();
+    if(mime.indexOf("application/vnd.google-apps.document")===0)return driveWithResourceKey("https://docs.google.com/document/d/"+id+"/preview",resolved.resourceKey);
+    if(mime.indexOf("application/vnd.google-apps.spreadsheet")===0)return driveWithResourceKey("https://docs.google.com/spreadsheets/d/"+id+"/preview",resolved.resourceKey);
+    if(mime.indexOf("application/vnd.google-apps.presentation")===0)return driveWithResourceKey("https://docs.google.com/presentation/d/"+id+"/preview",resolved.resourceKey);
+    // The Drive file preview endpoint is more reliable than /uc?export=view
+    // for link-shared PDFs, images, and files that require a resource key.
+    return driveWithResourceKey("https://drive.google.com/file/d/"+id+"/preview",resolved.resourceKey);
   }
   function openPreview(item){
     if(!item||item.kind==="folder")return;
@@ -6616,22 +6631,22 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     if(nativeOpen&&editor.url){nativeOpen.href=editor.url;nativeOpen.title=editor.label;nativeOpen.setAttribute("aria-label",editor.label);var openLabel=nativeOpen.querySelector(".drive-preview-open-label");if(openLabel)openLabel.textContent=editor.label;nativeOpen.classList.remove("hidden")}
     else if(nativeOpen){nativeOpen.removeAttribute("href");nativeOpen.classList.add("hidden")}
     var dl=el("drivePreviewDownload");
-    if(item.downloadUrl){dl.href=item.downloadUrl;dl.textContent="Download";dl.classList.remove("hidden")}else if(item.url){dl.href=item.url;dl.textContent="Open in Drive";dl.classList.remove("hidden")}else{dl.removeAttribute("href");dl.classList.add("hidden")}
+    if(item.downloadUrl){dl.href=item.downloadUrl;dl.textContent="Download";dl.classList.remove("hidden")}else{dl.removeAttribute("href");dl.classList.add("hidden")}
     var frame=el("drivePreviewFrame");
+    frame.src="about:blank";
     frame.src=drivePreviewUrl(item);
     el("drivePreview").classList.remove("hidden");
     document.body.style.overflow="hidden";
   }
-  function closePreview(){var wrap=el("drivePreview");if(!wrap)return;var panel=wrap.querySelector(".drive-preview-panel");if(document.fullscreenElement&&panel&&document.exitFullscreen){try{document.exitFullscreen()}catch(e){}}wrap.classList.remove("is-fullscreen");wrap.classList.add("hidden");var frame=el("drivePreviewFrame");if(frame)frame.src="about:blank";state.previewItem=null;if(state.open)document.body.style.overflow="hidden";else document.body.style.overflow=""}
-  window.driveTogglePreviewFullscreen=function(){var wrap=el("drivePreview"),panel=wrap&&wrap.querySelector(".drive-preview-panel"),button=el("drivePreviewFullscreen");if(!wrap||!panel)return;if(document.fullscreenElement===panel){if(document.exitFullscreen)document.exitFullscreen().catch(function(){});wrap.classList.remove("is-fullscreen");if(button){button.title="Full screen";button.setAttribute("aria-label","Full screen preview")}return}if(panel.requestFullscreen){panel.requestFullscreen().then(function(){wrap.classList.add("is-fullscreen")}).catch(function(){wrap.classList.toggle("is-fullscreen")})}else wrap.classList.toggle("is-fullscreen");if(button){button.title="Exit full screen";button.setAttribute("aria-label","Exit full screen preview")}};
-  document.addEventListener("fullscreenchange",function(){var wrap=el("drivePreview"),panel=wrap&&wrap.querySelector(".drive-preview-panel"),button=el("drivePreviewFullscreen"),active=!!(panel&&document.fullscreenElement===panel);if(wrap)wrap.classList.toggle("is-fullscreen",active);if(button){button.title=active?"Exit full screen":"Full screen";button.setAttribute("aria-label",active?"Exit full screen preview":"Full screen preview")}});
+  function closePreview(){var wrap=el("drivePreview");if(!wrap)return;wrap.classList.remove("is-fullscreen");wrap.classList.add("hidden");var frame=el("drivePreviewFrame");if(frame)frame.src="about:blank";state.previewItem=null;if(state.open)document.body.style.overflow="hidden";else document.body.style.overflow=""}
+  window.driveTogglePreviewFullscreen=function(){var wrap=el("drivePreview"),button=el("drivePreviewFullscreen");if(!wrap)return;var expanded=wrap.classList.toggle("is-fullscreen");if(button){button.title=expanded?"Restore preview":"Expand preview";button.setAttribute("aria-label",expanded?"Restore preview":"Expand preview");button.setAttribute("aria-pressed",expanded?"true":"false")}};
   async function contextAction(action){
     var item=state.contextTargetIsBlank?null:(state.contextItem||driveItemById(state.selectedId));
     var targetFolder=item&&item.kind==="folder"?item.id:state.folderId;
     if(action==="create"){var trigger=el("driveContextMenu").querySelector('[data-drive-menu-action="create"]');if(trigger)showCreateSubmenu(trigger);return}
     hideContextMenu();
     if(action==="reveal"){if(item&&item.parentId){if(item.isSharedItem||item.driveId||item.sharedWithMeTime){window.open("https://drive.google.com/drive/folders/"+encodeURIComponent(item.parentId),"_blank","noopener");return}state.path=[{id:"",name:"All files"}];if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();state.activeFilter="";state.selectedId=item.id;loadFolder(item.parentId,item.parentName||"Folder",item.parentId!==state.rootId)}return}
-    if(action==="open"){if(item){if(item.kind==="folder"){if(item.isSharedItem||item.driveId||item.sharedWithMeTime){if(item.url)window.open(item.url,"_blank","noopener");else showToast("Open this shared folder from Google Drive.")}else{if(S.mode)state.path=[{id:"",name:"All files"}];if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();loadFolder(item.id,item.name,true)}}else openPreview(item)}return}
+    if(action==="open"){if(item){if(item.targetIsFolder){window.open("https://drive.google.com/drive/folders/"+encodeURIComponent(item.targetId),"_blank","noopener");return}if(item.kind==="folder"){if(item.isSharedItem||item.driveId||item.sharedWithMeTime){if(item.url)window.open(item.url,"_blank","noopener");else showToast("Open this shared folder from Google Drive.")}else{if(S.mode)state.path=[{id:"",name:"All files"}];if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();loadFolder(item.id,item.name,true)}}else openPreview(item)}return}
     if(action==="download"){if(item&&item.downloadUrl){var a=document.createElement("a");a.href=item.downloadUrl;a.target="_blank";a.rel="noopener";a.download=item.name;document.body.appendChild(a);a.click();a.remove()}else showToast("This Google Workspace file does not have a direct download link.");return}
     if(action==="copy-name"){if(item)copyTextToClipboard(item.name);return}
     if(action==="copy"||action==="cut"){if(item)setFileClipboard(action,item);return}
@@ -6641,7 +6656,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     if(action==="upload"){driveChooseUpload();return}
     if(action==="folder"||action==="docx"||action==="text"){driveOpenDialog(action);return}
   }
-  window.openDriveManager=function(){var screen=el("driveManagerScreen");if(!screen)return;if(typeof window.closeSideMenu==="function")window.closeSideMenu();var activeEmail=window.getCurrentUserEmail?String(window.getCurrentUserEmail()||"").toLowerCase():"";if(state.cacheUser&&state.cacheUser!==activeEmail){invalidateDriveCache();S.cache=Object.create(null);state.clipboard=null;state.selectedItem=null;state.selectedId=""}state.cacheUser=activeEmail;state.selectedItem=null;state.selectedId="";state.createParentId="";state.createParentName="All files";state.createParentItem=null;hideContextMenu();state.open=true;screen.classList.remove("hidden");document.body.style.overflow="hidden";if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();state.path=[{id:"",name:"All files"}];loadFolder("", "All files", false)};
+  window.openDriveManager=function(){var screen=el("driveManagerScreen");if(!screen)return;if(typeof window.closeSideMenu==="function")window.closeSideMenu();var activeEmail=window.getCurrentUserEmail?String(window.getCurrentUserEmail()||"").toLowerCase():"";if(state.cacheUser&&state.cacheUser!==activeEmail){invalidateDriveCache();S.cache=Object.create(null);state.clipboard=null;state.selectedItem=null;state.selectedId=""}state.cacheUser=activeEmail;state.selectedItem=null;state.selectedId="";state.createParentId="";state.createParentName="All files";state.createParentItem=null;hideContextMenu();state.open=true;screen.classList.remove("hidden");document.body.style.overflow="hidden";if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();state.path=[{id:"",name:"All files"}];loadFolder("", "All files", false,true)};
   window.closeDriveManager=function(){var screen=el("driveManagerScreen");if(screen)screen.classList.add("hidden");state.open=false;driveCloseDialog();closePreview();hideContextMenu();document.body.style.overflow=""};
   window.driveRefresh=function(){if(state.open&&S.mode&&S.q){S.loading=true;render();runSearch(S.q);return}if(state.open)loadFolder(state.folderId,state.path[state.path.length-1].name,false,true)};
   window.driveGoRoot=function(){state.path=[{id:"",name:"All files"}];if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();loadFolder("","All files",false)};
@@ -6724,6 +6739,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     if(!item)return;
     state.selectedId=item.id;state.selectedItem=item;
     if(action==="open"){
+      if(item.targetIsFolder){window.open("https://drive.google.com/drive/folders/"+encodeURIComponent(item.targetId),"_blank","noopener");return}
       if(item.kind==="folder"){
         if(item.isSharedItem||item.driveId||item.sharedWithMeTime){if(item.url)window.open(item.url,"_blank","noopener");else showToast("Open this shared folder from Google Drive.");return}
         if(S.mode)state.path=[{id:"",name:"All files"}];
@@ -6794,7 +6810,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   el("driveUploadInput").addEventListener("change",onUploadChange);
   if(el("driveLoadMore"))el("driveLoadMore").addEventListener("click",loadMoreDriveItems);
   var driveAutoLoadQueued=false;
-  function maybeAutoLoadDriveItems(){if(driveAutoLoadQueued)return;driveAutoLoadQueued=true;requestAnimationFrame(function(){driveAutoLoadQueued=false;if(!state.open||state.loading||state.loadingMore||(state.autoLoadPauseUntil&&Date.now()<state.autoLoadPauseUntil))return;var token=S.mode?S.nextPageToken:state.nextPageToken;if(!token)return;var scroller=state.view==="grid"?el("driveGrid"):document.querySelector("#driveManagerScreen .drive-table-scroll");if(!scroller||scroller.classList.contains("hidden"))return;var remaining=scroller.scrollHeight-scroller.scrollTop-scroller.clientHeight;if(remaining<Math.max(260,scroller.clientHeight*.55))loadMoreDriveItems()})}
+  function maybeAutoLoadDriveItems(){if(driveAutoLoadQueued)return;driveAutoLoadQueued=true;requestAnimationFrame(function(){driveAutoLoadQueued=false;if(!state.open||state.loading||state.loadingMore||(state.autoLoadPauseUntil&&Date.now()<state.autoLoadPauseUntil))return;var token=S.mode?S.nextPageToken:state.nextPageToken;if(!token)return;var scroller=state.view==="grid"?el("driveGrid"):document.querySelector("#driveManagerScreen .drive-table-scroll");if(!scroller||scroller.classList.contains("hidden"))return;var remaining=scroller.scrollHeight-scroller.scrollTop-scroller.clientHeight;if(remaining<Math.max(160,scroller.clientHeight*.25))loadMoreDriveItems()})}
   var driveTableScroller=document.querySelector("#driveManagerScreen .drive-table-scroll");if(driveTableScroller)driveTableScroller.addEventListener("scroll",maybeAutoLoadDriveItems,{passive:true});
   if(el("driveGrid"))el("driveGrid").addEventListener("scroll",maybeAutoLoadDriveItems,{passive:true});
   el("driveDialog").addEventListener("keydown",function(e){if(e.key==="Escape")driveCloseDialog()});
