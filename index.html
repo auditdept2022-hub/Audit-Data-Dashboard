@@ -1,4 +1,4 @@
-<!-- Audit dashboard front end v186: native Google-Drive-style behaviour on desktop and mobile (New menu, selection bar, keyboard, drag-drop upload, bottom sheets, FAB, one-tap open, system Back) and accidental pull-to-refresh blocked in Drive; v183: fresh per-click Drive download resolution, capability-aware download actions, precise unsupported-file feedback; v182: Drive native-file exports, official webContentLink downloads, paginated-cache invalidation, and Drive action audit; previous v182: Drive shortcut/resource-key preview repairs, faster file-list rendering, and fresh-on-open listing; v180 Drive preview actions retained; previous: v163: Gemini + Groq provider selection; Audit dashboard front end v162: assistant speed pass (instant local answers, fewer POST round-trips, early server wake-up); v161: Gemini 503 failover/retry and chat Drive workspace removed. -->
+<!-- Audit dashboard front end v187: native Google-Drive-style behaviour on desktop and mobile (New menu, selection bar, keyboard, drag-drop upload, bottom sheets, FAB, one-tap open, system Back) and accidental pull-to-refresh blocked in Drive; v183: fresh per-click Drive download resolution, capability-aware download actions, precise unsupported-file feedback; v182: Drive native-file exports, official webContentLink downloads, paginated-cache invalidation, and Drive action audit; previous v182: Drive shortcut/resource-key preview repairs, faster file-list rendering, and fresh-on-open listing; v180 Drive preview actions retained; previous: v163: Gemini + Groq provider selection; Audit dashboard front end v162: assistant speed pass (instant local answers, fewer POST round-trips, early server wake-up); v161: Gemini 503 failover/retry and chat Drive workspace removed. -->
 <!DOCTYPE html>
 <html lang="en" class="page-fade-ready"><head>
   <meta charset="UTF-8">
@@ -750,6 +750,140 @@ html.drive-open,html.drive-open body{overscroll-behavior:none!important;overscro
   html.drive-open:has(#driveManagerScreen.has-sheet) #geminiAssistantLauncher,html.drive-open:has(#drivePreview:not(.hidden)) #geminiAssistantLauncher,html.drive-open:has(#driveDialog:not(.hidden)) #geminiAssistantLauncher{display:none!important}
 }
 @media(prefers-reduced-motion:reduce){.drive-fab:active{transform:none}#driveManagerScreen .drive-context-menu,#driveManagerScreen .drive-create-submenu{animation:none}}
+</style>
+
+<style id="drive-native-v187">
+/* v187: lighter, compact, touch-safe native Drive interactions */
+#driveManagerScreen{--drive-motion-fast:140ms;--drive-motion:210ms;}
+#driveManagerScreen .drive-app-shell{transform-origin:50% 0;}
+#driveManagerScreen:not(.hidden) .drive-app-shell{animation:driveShellIn .20s cubic-bezier(.2,.75,.25,1) both;}
+@keyframes driveShellIn{from{opacity:.82}to{opacity:1}}
+#driveManagerScreen .drive-item-row{transition:background-color .13s ease,box-shadow .13s ease;}
+#driveManagerScreen .drive-grid-card{transition:background-color .14s ease,border-color .14s ease,box-shadow .14s ease,transform .14s ease;}
+#driveManagerScreen .drive-btn,#driveManagerScreen .drive-icon-btn,#driveManagerScreen .drive-chip,#driveManagerScreen .drive-nav-btn{transition:background-color .14s ease,border-color .14s ease,color .14s ease,box-shadow .14s ease,transform .14s ease;}
+#driveManagerScreen .drive-header-right{gap:5px;}
+#driveManagerScreen .drive-compact-toggle[aria-pressed="true"]{background:rgba(255,255,255,.16);color:#fff;}
+#driveManagerScreen .drive-compact-toggle[aria-pressed="false"]{color:rgba(255,255,255,.76);}
+#driveManagerScreen .drive-compact-toggle[aria-pressed="false"]:hover{background:rgba(255,255,255,.12);color:#fff;}
+#driveManagerScreen.is-loading .drive-table-card{position:relative;}
+#driveManagerScreen.is-loading .drive-table-card:before{content:"";position:absolute;z-index:5;left:0;top:0;width:34%;height:2px;background:linear-gradient(90deg,#7c8cff,#4052da);transform-origin:left center;animation:driveProgress 1.15s ease-in-out infinite alternate;pointer-events:none;}
+@keyframes driveProgress{from{transform:scaleX(.55);opacity:.55}to{transform:scaleX(1);opacity:1}}
+
+/* Compact is the default density; the header toggle restores roomy spacing. */
+#driveManagerScreen.is-compact .drive-main{gap:6px;padding:8px 10px 10px;}
+#driveManagerScreen.is-compact .drive-toolbar{min-height:32px;gap:6px;}
+#driveManagerScreen.is-compact .drive-crumb{height:26px;font-size:12px;padding:0 7px;}
+#driveManagerScreen.is-compact .drive-chips{gap:6px;}
+#driveManagerScreen.is-compact .drive-chip{height:29px;padding:0 11px;font-size:12px;border-radius:8px;}
+#driveManagerScreen.is-compact .drive-table tbody td{height:38px;padding-top:0;padding-bottom:0;}
+#driveManagerScreen.is-compact .drive-table thead th{height:28px;}
+#driveManagerScreen.is-compact .drive-file-icon{width:30px;height:30px;border-radius:8px;font-size:9px;}
+#driveManagerScreen.is-compact .drive-file-icon svg{width:16px;height:16px;}
+#driveManagerScreen.is-compact .drive-file-cell{gap:9px;}
+#driveManagerScreen.is-compact .drive-file-name{font-size:12px;line-height:1.25;}
+#driveManagerScreen.is-compact .drive-file-sub{font-size:10px;line-height:1.2;margin-top:1px;}
+#driveManagerScreen.is-compact .drive-more{width:30px;height:30px;}
+#driveManagerScreen.is-compact .drive-grid{gap:7px;padding:8px;}
+#driveManagerScreen.is-compact .drive-grid-card{gap:6px;padding:9px;border-radius:11px;}
+#driveManagerScreen.is-compact .drive-grid-card .drive-file-icon{width:34px;height:34px;}
+#driveManagerScreen.is-compact .drive-grid-card-name{font-size:12px;line-height:1.3;}
+#driveManagerScreen.is-compact .drive-grid-card-meta{font-size:10px;}
+#driveManagerScreen.is-compact .drive-new-btn{height:42px;margin-bottom:8px;padding-right:18px;}
+
+/* Preview surface: fade backdrop, lift panel, and show a non-blocking loading layer. */
+.drive-preview{opacity:1;}
+.drive-preview:not(.hidden) .drive-preview-backdrop{animation:driveBackdropIn .17s ease-out both;}
+.drive-preview:not(.hidden) .drive-preview-panel{animation:drivePreviewIn .21s cubic-bezier(.2,.75,.25,1) both;}
+.drive-preview.is-closing .drive-preview-backdrop{animation:driveBackdropOut .15s ease-in both;}
+.drive-preview.is-closing .drive-preview-panel{animation:drivePreviewOut .15s ease-in both;}
+@keyframes driveBackdropIn{from{opacity:0}to{opacity:1}}
+@keyframes driveBackdropOut{from{opacity:1}to{opacity:0}}
+@keyframes drivePreviewIn{from{opacity:.75;transform:translateY(9px) scale(.992)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes drivePreviewOut{from{opacity:1;transform:translateY(0) scale(1)}to{opacity:0;transform:translateY(6px) scale(.994)}}
+.drive-preview-panel{min-width:0;min-height:0;will-change:transform,opacity;}
+.drive-preview-header{min-width:0;}
+.drive-preview-heading{flex:1;min-width:0;}
+.drive-preview-heading>div{min-width:0;}
+.drive-preview-tools{flex:none;min-width:0;gap:5px;}
+.drive-preview-zoom{height:32px;display:inline-flex;align-items:center;gap:2px;padding:2px;border:1px solid #dfe4ef;border-radius:9px;background:#f8f9fd;flex:none;}
+.drive-preview-zoom button{height:26px;min-width:28px;padding:0 6px;border:0;border-radius:6px;background:transparent;color:#33415e;font:700 14px/1 Inter,system-ui,sans-serif;cursor:pointer;}
+.drive-preview-zoom button:hover:not(:disabled){background:#e9edff;color:#2f3fb8;}
+.drive-preview-zoom button:disabled{opacity:.35;cursor:default;}
+.drive-preview-zoom .drive-preview-zoom-value{min-width:44px;font-size:11px;font-weight:800;font-variant-numeric:tabular-nums;}
+.drive-preview-body{position:relative;min-width:0;min-height:0;overflow:hidden;}
+.drive-preview-viewport{position:absolute;inset:0;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;background:#e9edf4;touch-action:pan-x pan-y pinch-zoom;}
+.drive-preview-stage{position:relative;width:100%;height:100%;min-width:0;min-height:0;}
+.drive-preview-stage iframe{position:absolute;left:0;top:0;display:block;border:0;background:#fff;transform-origin:top left;will-change:transform;}
+.drive-preview-loading{position:absolute;z-index:3;inset:0;display:flex;align-items:center;justify-content:center;gap:10px;background:rgba(241,244,250,.92);color:#52617b;font-size:12px;font-weight:600;transition:opacity .16s ease;pointer-events:none;}
+.drive-preview-loading.hidden{display:none!important;}
+.drive-preview-loading.is-done{opacity:0;}
+.drive-preview-loading .drive-spinner{width:20px;height:20px;border-width:2px;}
+
+@media(max-width:900px){
+  #driveManagerScreen.is-compact .drive-main{padding:7px 0 0;gap:6px;}
+  #driveManagerScreen.is-compact .drive-toolbar,#driveManagerScreen.is-compact .drive-chips,#driveManagerScreen.is-compact .drive-readonly-notice,#driveManagerScreen.is-compact .drive-truncated,#driveManagerScreen.is-compact .drive-error{margin-left:10px;margin-right:10px;}
+  #driveManagerScreen.is-compact .drive-chip{height:30px;padding:0 10px;}
+  #driveManagerScreen.is-compact .drive-grid{gap:7px;padding:4px 10px 10px;}
+  #driveManagerScreen.is-compact .drive-grid-card{padding:9px;border-radius:11px;gap:7px;}
+  #driveManagerScreen.is-compact .drive-grid-card .drive-file-icon{width:36px;height:36px;}
+  #driveManagerScreen.is-compact .drive-grid-card-name{font-size:12px;}
+  #driveManagerScreen.is-compact .drive-grid-card-meta{font-size:10px;}
+}
+@media(max-width:640px){
+  #driveManagerScreen .drive-header{gap:5px;padding-left:6px;padding-right:6px;}
+  #driveManagerScreen .drive-header-right{gap:2px;}
+  #driveManagerScreen .drive-header-right .drive-icon-btn{width:32px;height:32px;}
+  #driveManagerScreen .drive-header-right .drive-home{width:32px;height:32px;min-width:32px;padding:0;justify-content:center;}
+  #driveManagerScreen .drive-header-right .drive-home span{display:none;}
+  #driveManagerScreen .drive-search{min-width:0;}
+  #driveManagerScreen .drive-search input{font-size:16px;}
+  #driveManagerScreen .drive-toolbar{min-width:0;gap:4px;}
+  #driveManagerScreen .drive-breadcrumbs{min-width:0;}
+  #driveManagerScreen .drive-toolbar-right{min-width:0;gap:5px;}
+  #driveManagerScreen .drive-toolbar-right .drive-select{min-width:0;}
+  #driveManagerScreen .drive-toolbar-right .drive-select select{min-width:0;font-size:11px;padding-right:5px;}
+  #driveManagerScreen .drive-view-switch{height:30px;}
+  #driveManagerScreen .drive-view-switch button{width:27px;}
+  #driveManagerScreen .drive-chip{max-width:none;}
+  #driveManagerScreen.is-compact .drive-table tbody td{height:50px;padding-left:10px;}
+  #driveManagerScreen.is-compact .drive-table td:nth-child(5){width:42px;padding-right:3px;}
+  #driveManagerScreen.is-compact .drive-table .drive-file-icon{width:34px;height:34px;}
+  #driveManagerScreen.is-compact .drive-file-cell{gap:9px;}
+  #driveManagerScreen.is-compact .drive-file-name{font-size:13px;line-height:1.25;}
+  #driveManagerScreen.is-compact .drive-file-sub{font-size:10.5px;}
+  #driveManagerScreen.is-compact .drive-more{width:36px;height:36px;}
+  #driveManagerScreen.is-compact .drive-grid-card .drive-file-icon{width:36px;height:36px;}
+  #driveManagerScreen.is-compact .drive-grid-card-name{font-size:12px;}
+  #driveManagerScreen .drive-preview{padding:0;}
+  #driveManagerScreen .drive-preview-panel{width:100%;height:100dvh;height:100svh;max-height:none;border-radius:0;}
+  #driveManagerScreen .drive-preview-header{height:auto;min-height:0;display:grid;grid-template-columns:minmax(0,1fr);gap:6px;padding:8px 9px calc(7px + env(safe-area-inset-top,0px));}
+  #driveManagerScreen .drive-preview-heading{width:100%;min-width:0;gap:7px;}
+  #driveManagerScreen .drive-preview-heading>div{flex-direction:row;align-items:center;gap:6px;min-width:0;}
+  #driveManagerScreen .drive-preview-heading strong{font-size:12px;max-width:55vw;}
+  #driveManagerScreen .drive-preview-heading span:not(.drive-preview-file-icon){font-size:10px;}
+  #driveManagerScreen .drive-preview-tools{width:100%;justify-content:flex-end;gap:5px;}
+  #driveManagerScreen .drive-preview-tools .drive-icon-btn{width:32px;height:32px;}
+  #driveManagerScreen .drive-preview-open{width:32px;height:32px;min-width:32px;padding:0;}
+  #driveManagerScreen .drive-preview-download{width:32px;height:32px;min-width:32px;padding:0;font-size:0;justify-content:center;}
+  #driveManagerScreen .drive-preview-download:after{content:"↓";font-size:17px;font-weight:800;line-height:1;}
+  #driveManagerScreen .drive-preview-zoom{height:32px;}
+  #driveManagerScreen .drive-preview-zoom button{height:26px;min-width:27px;}
+  #driveManagerScreen .drive-preview-zoom .drive-preview-zoom-value{min-width:42px;}
+  #driveManagerScreen .drive-preview-footer{display:none;}
+}
+@media(max-width:360px){
+  #driveManagerScreen .drive-preview-heading strong{max-width:48vw;}
+  #driveManagerScreen .drive-preview-tools{gap:3px;}
+  #driveManagerScreen .drive-preview-tools .drive-icon-btn,#driveManagerScreen .drive-preview-open,#driveManagerScreen .drive-preview-download{width:30px;min-width:30px;height:30px;}
+  #driveManagerScreen .drive-preview-zoom{height:30px;}
+  #driveManagerScreen .drive-preview-zoom button{height:24px;min-width:24px;padding:0 4px;}
+  #driveManagerScreen .drive-preview-zoom .drive-preview-zoom-value{min-width:38px;}
+}
+@media(prefers-reduced-motion:reduce){
+  #driveManagerScreen:not(.hidden) .drive-app-shell,.drive-preview:not(.hidden) .drive-preview-backdrop,.drive-preview:not(.hidden) .drive-preview-panel{animation:none!important;}
+  #driveManagerScreen *,#driveManagerScreen *:before,#driveManagerScreen *:after,.drive-preview *{transition:none!important;scroll-behavior:auto!important;}
+  #driveManagerScreen.is-loading .drive-table-card:before{animation:none!important;}
+}
 </style>
 </head>
 <body class="bg-coolDark text-slate-800 min-h-screen selection:bg-accentCyan/30 selection:text-slate-900 relative">
@@ -1565,6 +1699,7 @@ html.drive-open,html.drive-open body{overscroll-behavior:none!important;overscro
         <div class="drive-header-right">
           <span id="driveSignedInAs" hidden></span>
           <button type="button" class="drive-icon-btn" onclick="driveRefresh()" aria-label="Refresh" title="Refresh"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 0-15-6.7L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"/><path d="M16 16h5v5"/></svg></button>
+          <button type="button" id="driveCompactBtn" class="drive-icon-btn drive-compact-toggle" onclick="driveToggleCompactMode()" aria-label="Toggle compact layout" aria-pressed="true" title="Compact layout: on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 10h16M4 15h10M4 20h10"/><path d="M18 14v6m-3-3h6"/></svg></button>
           <button type="button" class="drive-btn drive-home" onclick="closeDriveManager()" aria-label="Home, back to dashboard" title="Home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg><span>Home</span></button>
         </div>
       </div>
@@ -1614,9 +1749,10 @@ html.drive-open,html.drive-open body{overscroll-behavior:none!important;overscro
       <div class="drive-preview-panel">
         <div class="drive-preview-header">
           <div class="drive-preview-heading"><span id="drivePreviewIcon" class="drive-preview-file-icon">FILE</span><div><strong id="drivePreviewName">Preview</strong><span id="drivePreviewMeta">File preview</span></div></div>
-          <div class="drive-preview-tools"><a id="drivePreviewOpen" class="drive-preview-open hidden" href="#" target="_blank" rel="noopener noreferrer" title="Open file in Chrome" aria-label="Open file in Chrome"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6"/></svg><span class="drive-preview-open-label">Open in Chrome</span></a><a id="drivePreviewDownload" class="drive-preview-download hidden" href="#" target="_blank" rel="noopener">Download</a><button type="button" id="drivePreviewFullscreen" class="drive-icon-btn" onclick="driveTogglePreviewFullscreen()" aria-label="Expand preview" title="Expand preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg></button><button type="button" class="drive-icon-btn" data-drive-preview-close aria-label="Close preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+          
+          <div class="drive-preview-tools"><a id="drivePreviewOpen" class="drive-preview-open hidden" href="#" target="_blank" rel="noopener noreferrer" title="Open file in Chrome" aria-label="Open file in Chrome"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M19 13v6a2 2 0 0 1-2 2H5V7a2 2 0 0 1 2-2h6"/></svg><span class="drive-preview-open-label">Open in Chrome</span></a><a id="drivePreviewDownload" class="drive-preview-download hidden" href="#" target="_blank" rel="noopener">Download</a><div class="drive-preview-zoom" role="group" aria-label="Preview zoom"><button type="button" id="drivePreviewZoomOut" aria-label="Zoom out" title="Zoom out" onclick="drivePreviewZoom(-0.25)">−</button><button type="button" id="drivePreviewZoomValue" class="drive-preview-zoom-value" aria-label="Reset zoom" title="Reset zoom" onclick="drivePreviewZoomReset()">100%</button><button type="button" id="drivePreviewZoomIn" aria-label="Zoom in" title="Zoom in" onclick="drivePreviewZoom(0.25)">+</button></div><button type="button" id="drivePreviewFullscreen" class="drive-icon-btn" onclick="driveTogglePreviewFullscreen()" aria-label="Expand preview" title="Expand preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg></button><button type="button" class="drive-icon-btn" data-drive-preview-close aria-label="Close preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
         </div>
-        <div class="drive-preview-body"><iframe id="drivePreviewFrame" title="File preview" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; clipboard-read; clipboard-write; fullscreen" allowfullscreen></iframe></div>
+        <div class="drive-preview-body"><div id="drivePreviewViewport" class="drive-preview-viewport"><div id="drivePreviewStage" class="drive-preview-stage"><iframe id="drivePreviewFrame" title="File preview" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; clipboard-read; clipboard-write; fullscreen" allowfullscreen></iframe></div></div><div id="drivePreviewLoading" class="drive-preview-loading" role="status"><span class="drive-spinner" aria-hidden="true"></span><span id="drivePreviewLoadingText">Loading preview…</span></div></div>
         <footer class="drive-preview-footer">If Google shows 404, check that Chrome is signed into a Google account with access to this file. Dashboard sign-in does not automatically grant Google Drive permissions.</footer>
       </div>
     </section>
@@ -6559,10 +6695,14 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
 <script>
 (function(){
   "use strict";
-  var state={open:false,loading:false,loadingMore:false,canManage:false,folderId:"",items:[],nextPageToken:"",path:[{id:"",name:"All files"}],rootId:"",moveItem:null,dialogMode:"",dialogItem:null,activeFilter:"",typeFilter:"all",sortBy:"name",sortDir:"",view:"list",folderCache:Object.create(null),loadSeq:0,selectedId:"",clipboard:null,contextItem:null,pressTimer:0,suppressNextOpenUntil:0,previewItem:null,selectedItem:null,contextTargetIsBlank:false,createParentId:"",createParentName:"All files",createParentItem:null};
+  var state={open:false,loading:false,loadingMore:false,canManage:false,folderId:"",items:[],nextPageToken:"",path:[{id:"",name:"All files"}],rootId:"",moveItem:null,dialogMode:"",dialogItem:null,activeFilter:"",typeFilter:"all",sortBy:"name",sortDir:"",view:"list",compact:true,folderCache:Object.create(null),loadSeq:0,selectedId:"",clipboard:null,contextItem:null,pressTimer:0,suppressNextOpenUntil:0,previewItem:null,selectedItem:null,contextTargetIsBlank:false,createParentId:"",createParentName:"All files",createParentItem:null};
   var DRIVE_CACHE_TTL=45000;
+  var previewZoom=1,previewLoadTimer=0,previewCloseTimer=0;
   try{state.view=sessionStorage.getItem("auditFilesView")==="grid"?"grid":"list"}catch(e){}
+  try{var compactSetting=localStorage.getItem("auditFilesCompactMode");if(compactSetting!==null)state.compact=compactSetting!=="0"}catch(e){}
   function el(id){return document.getElementById(id)}
+  function applyDriveCompactMode(){var screen=el("driveManagerScreen"),button=el("driveCompactBtn");if(screen)screen.classList.toggle("is-compact",!!state.compact);if(button){button.setAttribute("aria-pressed",state.compact?"true":"false");button.title="Compact layout: "+(state.compact?"on":"off");button.setAttribute("aria-label",state.compact?"Turn compact layout off":"Turn compact layout on")}}
+  window.driveToggleCompactMode=function(){state.compact=!state.compact;try{localStorage.setItem("auditFilesCompactMode",state.compact?"1":"0")}catch(e){}applyDriveCompactMode();};
   function esc(value){return String(value==null?"":value).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
   function fmtSize(bytes){var n=Number(bytes)||0;if(n<1024)return n+" B";if(n<1048576)return (n/1024).toFixed(1)+" KB";if(n<1073741824)return (n/1048576).toFixed(1)+" MB";return (n/1073741824).toFixed(1)+" GB"}
   function fmtDate(value){if(!value)return"—";var d=new Date(value);if(isNaN(d.getTime()))return"—";return d.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"})}
@@ -6573,7 +6713,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   async function request(action,fields,tokenOverride){var b=await makeParams(action,fields,tokenOverride);var url=b.base+(b.base.indexOf("?")>=0?"&":"?")+b.params.toString();if(typeof fetchSheetOnce!=="function")throw new Error("The dashboard's secure request helper is unavailable. Reload the latest dashboard.");var isLargeDownload=action==="driveDownloadProxy";var result=await fetchSheetOnce(url,{directMs:isLargeDownload?60000:30000,jsonpMs:isLargeDownload?60000:35000});if(!result||typeof result!=="object")throw new Error("The Drive server returned an invalid response.");if(result.error)throw new Error(String(result.error));return result}
   function waitFrame(frame,timeout){return new Promise(function(resolve,reject){var done=false;var t=setTimeout(function(){if(done)return;done=true;reject(new Error("The Drive request did not return before the timeout."))},timeout);frame.addEventListener("load",function(){if(done)return;done=true;clearTimeout(t);resolve(true)},{once:true})})}
   async function post(action,fields){var requestId="drv-"+Date.now()+"-"+Math.random().toString(36).slice(2,12);var merged=Object.assign({},fields||{},{requestId:requestId});var b=await makeParams(action,merged);var frameName="drive_post_"+requestId.replace(/[^A-Za-z0-9_-]/g,"");var frame=document.createElement("iframe");frame.name=frameName;frame.title="Drive upload transport";frame.setAttribute("aria-hidden","true");frame.tabIndex=-1;frame.style.cssText="position:fixed;width:1px;height:1px;right:0;bottom:0;opacity:0;pointer-events:none;border:0";var form=document.createElement("form");form.method="POST";form.action=b.base;form.target=frameName;form.enctype="application/x-www-form-urlencoded";form.acceptCharset="UTF-8";form.style.display="none";b.params.forEach(function(value,key){var input=document.createElement("input");input.type="hidden";input.name=key;input.value=value;form.appendChild(input)});try{var first=waitFrame(frame,5000);frame.src="about:blank";document.body.appendChild(frame);await first;document.body.appendChild(form);var submitted=waitFrame(frame,300000);HTMLFormElement.prototype.submit.call(form);await submitted;var envelope=null;for(var i=0;i<4;i++){envelope=await request("drivePostResult",{requestId:requestId},b.token);if(envelope&&envelope.ready&&envelope.result)break;if(i<3)await new Promise(function(r){setTimeout(r,300*(i+1))})}if(!envelope||!envelope.ready||!envelope.result)throw new Error("The Drive request returned, but its result could not be retrieved. Check Apps Script → Executions before retrying.");if(envelope.result.error)throw new Error(String(envelope.result.error));return envelope.result}catch(err){throw err}finally{try{form.remove()}catch(e){}try{frame.remove()}catch(e){}}}
-  function setLoading(isLoading,message,quiet){state.loading=!!isLoading;var hasRows=state.items&&state.items.length>0;var body=el("driveTableBody"),grid=el("driveGrid"),empty=el("driveEmptyState"),tableScroll=body&&body.closest(".drive-table-scroll");if(isLoading&&!quiet&&!hasRows){if(empty)empty.classList.add("hidden");if(state.view==="grid"&&grid){if(tableScroll)tableScroll.classList.add("hidden");grid.classList.remove("hidden");grid.innerHTML='<div class="drive-grid-loading"><span class="drive-spinner"></span>'+esc(message||"Loading files…")+'</div>'}else if(body){if(tableScroll)tableScroll.classList.remove("hidden");body.innerHTML='<tr><td colspan="5"><div class="drive-loading"><span class="drive-spinner"></span>'+esc(message||"Loading files…")+'</div></td></tr>'}}var upload=el("driveUploadButton");var fresh=el("driveNewButton");if(upload)upload.disabled=state.loading&&!quiet;if(fresh)fresh.disabled=state.loading&&!quiet}
+  function setLoading(isLoading,message,quiet){state.loading=!!isLoading;var screen=el("driveManagerScreen");if(screen){screen.classList.toggle("is-loading",state.loading);screen.setAttribute("aria-busy",state.loading?"true":"false")}var hasRows=state.items&&state.items.length>0;var body=el("driveTableBody"),grid=el("driveGrid"),empty=el("driveEmptyState"),tableScroll=body&&body.closest(".drive-table-scroll");if(isLoading&&!quiet&&!hasRows){if(empty)empty.classList.add("hidden");if(state.view==="grid"&&grid){if(tableScroll)tableScroll.classList.add("hidden");grid.classList.remove("hidden");grid.innerHTML='<div class="drive-grid-loading"><span class="drive-spinner"></span>'+esc(message||"Loading files…")+'</div>'}else if(body){if(tableScroll)tableScroll.classList.remove("hidden");body.innerHTML='<tr><td colspan="5"><div class="drive-loading"><span class="drive-spinner"></span>'+esc(message||"Loading files…")+'</div></td></tr>'}}var upload=el("driveUploadButton");var fresh=el("driveNewButton");if(upload)upload.disabled=state.loading&&!quiet;if(fresh)fresh.disabled=state.loading&&!quiet}
   function showError(message){var box=el("driveErrorState");if(!box)return;box.textContent=message;box.classList.remove("hidden")}
   function hideError(){var box=el("driveErrorState");if(box){box.textContent="";box.classList.add("hidden")}}
   var S={mode:false,items:[],seq:0,timer:0,q:"",type:"all",loading:false,loadingMore:false,nextPageToken:"",incompleteSearch:false,truncated:false,cache:Object.create(null)};
@@ -6614,17 +6754,17 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     el("driveTruncatedNotice").classList.toggle("hidden",!(S.mode&&S.incompleteSearch));
     renderBreadcrumbs();
     var body=el("driveTableBody"),empty=el("driveEmptyState"),grid=el("driveGrid"),tableScroll=body&&body.closest(".drive-table-scroll");
-    var pendingSearch=S.mode&&S.loading&&visible.length===0;var noMatches=visible.length===0&&(S.mode||state.items.length>0);
-    empty.classList.toggle("hidden",visible.length!==0||pendingSearch);
+    var pendingSearch=S.mode&&S.loading&&visible.length===0;var pendingFolderLoad=!S.mode&&state.loading&&state.items.length===0;var noMatches=visible.length===0&&(S.mode||state.items.length>0);
+    empty.classList.toggle("hidden",visible.length!==0||pendingSearch||pendingFolderLoad);
     var emptyTitle=empty.querySelector("strong"),emptyCopy=empty.querySelector("span");
     if(emptyTitle)emptyTitle.textContent=noMatches?"No matching files":"This folder is empty";
     if(emptyCopy)emptyCopy.textContent=noMatches?(S.mode?"Nothing in your Drive matches \u201c"+S.q+"\u201d.":"Try another search or file type filter."):"Upload a file or create a folder to get started.";
     el("driveEmptyUpload").classList.toggle("hidden",!state.canManage||noMatches);
-    if(tableScroll)tableScroll.classList.toggle("hidden",(state.view!=="list"&&!pendingSearch)||(visible.length===0&&!pendingSearch));
-    grid.classList.toggle("hidden",state.view!=="grid"||visible.length===0);
+    if(tableScroll)tableScroll.classList.toggle("hidden",state.view!=="list"||(visible.length===0&&!pendingSearch&&!pendingFolderLoad));
+    grid.classList.toggle("hidden",state.view!=="grid"||(visible.length===0&&!pendingFolderLoad));
     if(visible.length)empty.classList.add("hidden");
     document.querySelectorAll("[data-drive-view]").forEach(function(btn){var active=btn.getAttribute("data-drive-view")===state.view;btn.classList.toggle("is-active",active);btn.setAttribute("aria-pressed",active?"true":"false")});
-    if(!visible.length){body.innerHTML=pendingSearch?'<tr><td colspan="5"><div class="drive-loading"><span class="drive-spinner"></span>Searching Google Drive…</div></td></tr>':"";grid.innerHTML="";setTimeout(maybeAutoLoadDriveItems,0);return}
+    if(!visible.length){body.innerHTML=(pendingSearch||pendingFolderLoad)?'<tr><td colspan="5"><div class="drive-loading"><span class="drive-spinner"></span>'+(pendingSearch?'Searching Google Drive…':'Loading files…')+'</div></td></tr>':"";grid.innerHTML=(pendingFolderLoad&&state.view==="grid")?'<div class="drive-grid-loading"><span class="drive-spinner"></span>Loading files…</div>':"";setTimeout(maybeAutoLoadDriveItems,0);return}
     if(state.view==="list"){
       grid.innerHTML="";
       body.innerHTML=visible.map(function(item){
@@ -6659,7 +6799,25 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     }catch(err){/* keep the list as-is; a later manual refresh will retry */}
   }
   function driveRemoveLocal(id){state.items=(state.items||[]).filter(function(it){return it.id!==id});S.items=(S.items||[]).filter(function(it){return it.id!==id});if(state.selectedId===id){state.selectedId="";state.selectedItem=null}}
-  async function loadFolder(folderId,folderName,pushPath,force){hideError();var targetId=folderId||"";var seq=++state.loadSeq;if(pushPath){if(state.path[state.path.length-1].id!==targetId)state.path.push({id:targetId,name:folderName||"Folder"})}else if(!state.path.length){state.path=[{id:targetId,name:folderName||"All files"}]}else if(state.path[state.path.length-1].id!==targetId){state.path=[{id:targetId,name:folderName||"All files"}]}state.folderId=targetId;state.nextPageToken="";state.loadingMore=false;state.activeFilter=(el("driveSearchInput").value||"").trim().toLowerCase();var key=targetId||"__root__",cached=state.folderCache[key],age=cached?Date.now()-cached.time:Infinity;var hadCache=!!cached;if(cached){applyFolderResult(targetId,folderName,cached.result,false);if(!force&&age<DRIVE_CACHE_TTL){setLoading(false);return}}else{state.items=[];render()}setLoading(true,"Loading files…",hadCache);try{var result=await request("driveList",{folderId:targetId,q:"",pageToken:"",fresh:force?"1":"0"});if(seq!==state.loadSeq||!state.open)return;state.folderCache[key]={result:result,time:Date.now()};applyFolderResult(targetId,folderName,result,false)}catch(err){if(seq!==state.loadSeq)return;if(!hadCache){state.items=[];render();showError(err&&err.message?err.message:"Unable to connect to your audit files.");el("driveFooterInfo").textContent="Connection unavailable"}else{showError("Showing the last loaded copy. Refresh to retry the connection.");}}finally{if(seq===state.loadSeq)setLoading(false)}}
+  async function loadFolder(folderId,folderName,pushPath,force){
+    hideError();var targetId=folderId||"",seq=++state.loadSeq;
+    if(pushPath){if(state.path[state.path.length-1].id!==targetId)state.path.push({id:targetId,name:folderName||"Folder"})}
+    else if(!state.path.length){state.path=[{id:targetId,name:folderName||"All files"}]}
+    else if(state.path[state.path.length-1].id!==targetId){state.path=[{id:targetId,name:folderName||"All files"}]}
+    state.folderId=targetId;state.nextPageToken="";state.loadingMore=false;state.activeFilter=(el("driveSearchInput").value||"").trim().toLowerCase();
+    var key=targetId||"__root__",cached=state.folderCache[key],age=cached?Date.now()-cached.time:Infinity,hadCache=!!cached;
+    if(cached){applyFolderResult(targetId,folderName,cached.result,false);if(!force&&age<DRIVE_CACHE_TTL){setLoading(false);return}setLoading(true,"Refreshing files…",true)}
+    else{state.items=[];setLoading(true,"Loading files…",false);render()}
+    try{
+      var result=await request("driveList",{folderId:targetId,q:"",pageToken:"",fresh:force?"1":"0"});
+      if(seq!==state.loadSeq||!state.open)return;
+      state.folderCache[key]={result:result,time:Date.now()};applyFolderResult(targetId,folderName,result,false);
+    }catch(err){
+      if(seq!==state.loadSeq)return;
+      if(!hadCache){state.items=[];render();showError(err&&err.message?err.message:"Unable to connect to your audit files.");el("driveFooterInfo").textContent="Connection unavailable"}
+      else{showError("Showing the last loaded copy. Refresh to retry the connection.")}
+    }finally{if(seq===state.loadSeq){setLoading(false);if(!hadCache)render()}}
+  }
   function driveItemById(id){return state.items.find(function(x){return x.id===id})||S.items.find(function(x){return x.id===id})||null}
   function hideContextMenu(){var menu=el("driveContextMenu");if(menu)menu.classList.add("hidden");hideCreateSubmenu();state.contextItem=null;state.contextTargetIsBlank=false}
   function contextButton(action,label,icon,disabled,danger){return '<button type="button" role="menuitem" data-drive-menu-action="'+action+'" '+(disabled?'disabled':'')+' class="drive-context-item '+(danger?'is-danger':'')+'"><span class="drive-context-icon">'+icon+'</span><span>'+label+'</span></button>'}
@@ -6781,9 +6939,24 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     // for link-shared PDFs, images, and files that require a resource key.
     return driveWithResourceKey("https://drive.google.com/file/d/"+id+"/preview",resolved.resourceKey);
   }
+  function applyPreviewZoom(value,center){
+    var viewport=el("drivePreviewViewport"),stage=el("drivePreviewStage"),frame=el("drivePreviewFrame");
+    previewZoom=Math.max(.75,Math.min(2.5,Math.round((Number(value)||1)*4)/4));
+    if(stage&&frame){stage.style.width=(previewZoom*100)+"%";stage.style.height=(previewZoom*100)+"%";frame.style.width=(100/previewZoom)+"%";frame.style.height=(100/previewZoom)+"%";frame.style.transform="scale("+previewZoom+")";frame.style.pointerEvents=previewZoom>1.001?"none":"auto"}
+    var valueButton=el("drivePreviewZoomValue"),minus=el("drivePreviewZoomOut"),plus=el("drivePreviewZoomIn"),label=Math.round(previewZoom*100)+"%",isZoomed=previewZoom>1.001;
+    if(valueButton){valueButton.textContent=label;valueButton.setAttribute("aria-label","Reset zoom from "+label);valueButton.title=isZoomed?"Reset to 100% to interact; scroll or drag to pan while zoomed":"Reset zoom to 100%"}
+    if(minus)minus.disabled=previewZoom<=.75;if(plus)plus.disabled=previewZoom>=2.5;
+    if(viewport){if(center){requestAnimationFrame(function(){viewport.scrollLeft=Math.max(0,(viewport.scrollWidth-viewport.clientWidth)/2);viewport.scrollTop=Math.max(0,(viewport.scrollHeight-viewport.clientHeight)/2)})}else{viewport.scrollLeft=0;viewport.scrollTop=0}}
+  }
+  window.drivePreviewZoom=function(delta){applyPreviewZoom(previewZoom+(Number(delta)||0),true)};
+  window.drivePreviewZoomReset=function(){applyPreviewZoom(1,false)};
   function openPreview(item){
     if(!item||item.kind==="folder")return;
+    clearTimeout(previewCloseTimer);clearTimeout(previewLoadTimer);
     hideContextMenu();hideCreateSubmenu();state.previewItem=item;
+    var wrap=el("drivePreview"),frame=el("drivePreviewFrame"),loader=el("drivePreviewLoading"),loadText=el("drivePreviewLoadingText");
+    wrap.classList.remove("is-closing","is-fullscreen");
+    if(loader)loader.classList.remove("is-done","hidden");if(loadText)loadText.textContent="Loading preview…";
     el("drivePreviewName").textContent=item.name;
     el("drivePreviewMeta").textContent=typeLabel(item)+" · "+fmtSize(item.size);
     el("drivePreviewIcon").textContent=typeLabel(item).slice(0,5).toUpperCase();
@@ -6792,15 +6965,25 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     else if(nativeOpen){nativeOpen.removeAttribute("href");nativeOpen.classList.add("hidden")}
     var dl=el("drivePreviewDownload");
     if(item.kind!=="folder"&&!item.targetIsFolder&&item.canDownload!==false){dl.href="#";dl.textContent="Download";dl.title="Check the latest Google Drive download permission and prepare the file";dl.classList.remove("hidden")}else{dl.removeAttribute("href");dl.classList.add("hidden")}
-    var frame=el("drivePreviewFrame");
+    applyPreviewZoom(1,false);
     frame.src="about:blank";
-    frame.src=drivePreviewUrl(item);
-    el("drivePreview").classList.remove("hidden");
+    var previewUrl=drivePreviewUrl(item);frame.dataset.previewUrl=previewUrl;
+    wrap.classList.remove("hidden");
+    requestAnimationFrame(function(){if(state.previewItem===item)frame.src=previewUrl});
+    previewLoadTimer=setTimeout(function(){if(state.previewItem===item&&loadText)loadText.textContent="Still loading from Google Drive…"},9000);
     document.body.style.overflow="hidden";
   }
+  var previewFrameForLoad=el("drivePreviewFrame");
+  if(previewFrameForLoad)previewFrameForLoad.addEventListener("load",function(){if(!state.previewItem||this.getAttribute("src")==="about:blank"||this.dataset.previewUrl!==this.src)return;clearTimeout(previewLoadTimer);var loader=el("drivePreviewLoading");if(loader){loader.classList.add("is-done");setTimeout(function(){if(loader.classList.contains("is-done"))loader.classList.add("hidden")},150)}});
   var previewDownloadButton=el("drivePreviewDownload");
   if(previewDownloadButton)previewDownloadButton.addEventListener("click",function(event){event.preventDefault();if(state.previewItem)startDriveDownload(state.previewItem)});
-  function closePreview(){var wrap=el("drivePreview");if(!wrap)return;wrap.classList.remove("is-fullscreen");wrap.classList.add("hidden");var frame=el("drivePreviewFrame");if(frame)frame.src="about:blank";state.previewItem=null;if(state.open)document.body.style.overflow="hidden";else document.body.style.overflow=""}
+  function closePreview(){
+    var wrap=el("drivePreview");if(!wrap)return;clearTimeout(previewLoadTimer);clearTimeout(previewCloseTimer);
+    if(wrap.classList.contains("hidden")){state.previewItem=null;return}
+    wrap.classList.remove("is-fullscreen");wrap.classList.add("is-closing");state.previewItem=null;
+    previewCloseTimer=setTimeout(function(){wrap.classList.add("hidden");wrap.classList.remove("is-closing");var frame=el("drivePreviewFrame");if(frame){frame.src="about:blank";frame.style.pointerEvents="auto"}var loader=el("drivePreviewLoading");if(loader)loader.classList.remove("is-done","hidden");applyPreviewZoom(1,false)},170);
+    if(state.open)document.body.style.overflow="hidden";else document.body.style.overflow="";
+  }
   window.driveTogglePreviewFullscreen=function(){var wrap=el("drivePreview"),button=el("drivePreviewFullscreen");if(!wrap)return;var expanded=wrap.classList.toggle("is-fullscreen");if(button){button.title=expanded?"Restore preview":"Expand preview";button.setAttribute("aria-label",expanded?"Restore preview":"Expand preview");button.setAttribute("aria-pressed",expanded?"true":"false")}};
   function downloadDriveBase64_(base64, mimeType, fileName) {
     var binary = atob(String(base64 || ""));
@@ -6883,7 +7066,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     if(action==="upload"){driveChooseUpload();return}
     if(action==="folder"||action==="docx"||action==="text"){driveOpenDialog(action);return}
   }
-  window.openDriveManager=function(){var screen=el("driveManagerScreen");if(!screen)return;if(typeof window.closeSideMenu==="function")window.closeSideMenu();var activeEmail=window.getCurrentUserEmail?String(window.getCurrentUserEmail()||"").toLowerCase():"";if(state.cacheUser&&state.cacheUser!==activeEmail){invalidateDriveCache();S.cache=Object.create(null);state.clipboard=null;state.selectedItem=null;state.selectedId=""}state.cacheUser=activeEmail;state.selectedItem=null;state.selectedId="";state.createParentId="";state.createParentName="All files";state.createParentItem=null;hideContextMenu();state.open=true;screen.classList.remove("hidden");document.body.style.overflow="hidden";if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();state.path=[{id:"",name:"All files"}];loadFolder("", "All files", false,true)};
+  window.openDriveManager=function(){var screen=el("driveManagerScreen");if(!screen)return;if(typeof window.closeSideMenu==="function")window.closeSideMenu();var activeEmail=window.getCurrentUserEmail?String(window.getCurrentUserEmail()||"").toLowerCase():"";if(state.cacheUser&&state.cacheUser!==activeEmail){invalidateDriveCache();S.cache=Object.create(null);state.clipboard=null;state.selectedItem=null;state.selectedId=""}state.cacheUser=activeEmail;state.selectedItem=null;state.selectedId="";state.createParentId="";state.createParentName="All files";state.createParentItem=null;hideContextMenu();state.open=true;screen.classList.remove("hidden");document.body.style.overflow="hidden";if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();state.path=[{id:"",name:"All files"}];applyDriveCompactMode();loadFolder("", "All files", false,false)};
   window.closeDriveManager=function(){var screen=el("driveManagerScreen");if(screen)screen.classList.add("hidden");state.open=false;driveCloseDialog();closePreview();hideContextMenu();document.body.style.overflow=""};
   window.driveRefresh=function(){if(state.open&&S.mode&&S.q){S.loading=true;render();runSearch(S.q,true);return}if(state.open)loadFolder(state.folderId,state.path[state.path.length-1].name,false,true)};
   window.driveGoRoot=function(){state.path=[{id:"",name:"All files"}];if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();loadFolder("","All files",false)};
