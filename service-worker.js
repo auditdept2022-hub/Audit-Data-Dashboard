@@ -1,5 +1,6 @@
 // service-worker.js — Audit Data Dashboard
 // Bump CACHE_VERSION any time you change what gets precached.
+// v182: Uses Drive API webContentLink/exportLinks for downloads and invalidates all folder/search pages after mutations.
 // v181: Fixes shortcut and resource-key Drive previews, refreshes folder listings on open, and reduces Drive menu rendering/pagination work.
 // v176: Restores Auto AI routing and live-data verification indicator in the assistant UI.
 // v174: assistant always reads live sheet data for any data-style question (no more guessing); browser view attaches for the same questions.
@@ -13,7 +14,7 @@
 // v162: assistant speed pass (instant local answers, fewer POST round-trips, early wake-up, compact prompt for general chat).
 // v161: bounded Gemini overload failover/retry and removal of the chat Drive workspace.
 // v172: Drive-native user-corpus search with Shared Drive inclusion, exact phrases, expanded file-type filters, and faster cache refresh.
-const CACHE_VERSION = 'audit-dashboard-v181'
+const CACHE_VERSION = 'audit-dashboard-v182'
 // v141: native Google Sheets creation, flexible natural-language Drive destinations, explicit My Drive root handling and Docs/DOCX/PDF creation; v138 response profiles and v137 transport/template safeguards retained.
 // v137: CORS-resilient assistant file POST/result retrieval, API-key-scoped quota cooldowns, and guarded DOCX section saves.
 // v136: persistent daily-quota cooldown, stable-model preference over preview overrides, and precise template edits.
