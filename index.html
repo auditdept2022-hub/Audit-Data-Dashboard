@@ -5905,7 +5905,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     });
     var wantsAll = /\b(?:all|every|each|any|which|list|rank\w*|top|bottom|highest|lowest|best|worst|compare|most|least|overall|portfolio|total|average|dashboard|everything)\b/i.test(String(message || ""));
     var specificBranchIntent = assistantHasSpecificBranchIntent_(message, matched);
-    var dashboardish = /branch|auditor|audit|dashboard|finding|risk|collection|sales|service|efficien|repo|schedule|rotation|remark|highlight|overdue|performance|status|report|overview|summary|data|\b(?:SE|BR)\s*\d{2,}/i.test(combined);
+    var dashboardish = /branch|auditor|audit|dashboard|finding|risk|collection|sales|service|efficien|repo|schedule|rotation|remark|highlight|overdue|performance|status|report|overview|summary|data|customer|client|account|how\s+many|how\s+much|total|latest|current|last\s+(?:month|week)|this\s+(?:month|week)|rank|compare|\b(?:SE|BR)\s*\d{2,}/i.test(combined);
     if (!matched.length && !dashboardish) return null;
     var selected = (specificBranchIntent && !wantsAll) ? matched : ((matched.length && matched.length <= 12 && !wantsAll) ? matched : ad.branches);
 
