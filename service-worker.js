@@ -1,4 +1,5 @@
 // service-worker.js — Audit Data Dashboard
+// v196: native mobile scorecard scrolling, capability-aware motion, cheaper filter refreshes, referrer hardening, and complete Android PWA assets.
 // v195: faster Overall Data snapshot (leaner table cells, contained layout, coalesced filter taps), no overlay blur on phones.
 // v194: scorecard is a fixed box showing 14 branches; only the branch rows scroll vertically (header stays pinned), columns scroll sideways, nothing frozen.
 // v193: phone scorecard is no longer a nested vertical scroller (page scrolls smoothly, table scrolls sideways only); uniform row shading; 3-digit row numbers fit; height refit ignores URL-bar resizes.
@@ -21,7 +22,7 @@
 // v162: assistant speed pass (instant local answers, fewer POST round-trips, early wake-up, compact prompt for general chat).
 // v161: bounded Gemini overload failover/retry and removal of the chat Drive workspace.
 // v172: Drive-native user-corpus search with Shared Drive inclusion, exact phrases, expanded file-type filters, and faster cache refresh.
-const CACHE_VERSION = 'audit-dashboard-v195'
+const CACHE_VERSION = 'audit-dashboard-v196'
 // v141: native Google Sheets creation, flexible natural-language Drive destinations, explicit My Drive root handling and Docs/DOCX/PDF creation; v138 response profiles and v137 transport/template safeguards retained.
 // v137: CORS-resilient assistant file POST/result retrieval, API-key-scoped quota cooldowns, and guarded DOCX section saves.
 // v136: persistent daily-quota cooldown, stable-model preference over preview overrides, and precise template edits.
