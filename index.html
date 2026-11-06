@@ -1,4 +1,4 @@
-<!-- Audit dashboard front end v183: fresh per-click Drive download resolution, capability-aware download actions, precise unsupported-file feedback; v182: Drive native-file exports, official webContentLink downloads, paginated-cache invalidation, and Drive action audit; previous v182: Drive shortcut/resource-key preview repairs, faster file-list rendering, and fresh-on-open listing; v180 Drive preview actions retained; previous: v163: Gemini + Groq provider selection; Audit dashboard front end v162: assistant speed pass (instant local answers, fewer POST round-trips, early server wake-up); v161: Gemini 503 failover/retry and chat Drive workspace removed. -->
+<!-- Audit dashboard front end v186: native Google-Drive-style behaviour on desktop and mobile (New menu, selection bar, keyboard, drag-drop upload, bottom sheets, FAB, one-tap open, system Back) and accidental pull-to-refresh blocked in Drive; v183: fresh per-click Drive download resolution, capability-aware download actions, precise unsupported-file feedback; v182: Drive native-file exports, official webContentLink downloads, paginated-cache invalidation, and Drive action audit; previous v182: Drive shortcut/resource-key preview repairs, faster file-list rendering, and fresh-on-open listing; v180 Drive preview actions retained; previous: v163: Gemini + Groq provider selection; Audit dashboard front end v162: assistant speed pass (instant local answers, fewer POST round-trips, early server wake-up); v161: Gemini 503 failover/retry and chat Drive workspace removed. -->
 <!DOCTYPE html>
 <html lang="en" class="page-fade-ready"><head>
   <meta charset="UTF-8">
@@ -629,6 +629,128 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
 </style>
 
 
+
+<style id="drive-native-v186">
+/* ===== Drive v186: native Google-Drive-like behaviour (desktop + mobile) ===== */
+/* No pull-to-refresh / overscroll bounce while the Drive screen is open */
+html.drive-open,html.drive-open body{overscroll-behavior:none!important;overscroll-behavior-y:none!important}
+#driveManagerScreen{overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
+#driveManagerScreen .drive-main,#driveManagerScreen .drive-header,#driveManagerScreen .drive-sidebar{overscroll-behavior:none}
+#driveManagerScreen .drive-item-row,#driveManagerScreen .drive-grid-card{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+
+/* back button: phones/tablets only */
+.drive-back{display:none}
+@media(max-width:900px){#driveManagerScreen.can-go-up .drive-back{display:grid}}
+
+/* Sidebar "New" pill like Drive */
+.drive-new-btn{display:flex;align-items:center;gap:12px;height:48px;margin:2px 4px 12px;padding:0 22px 0 14px;border:0;border-radius:16px;background:#fff;color:var(--d-text);font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 1px 2px rgba(60,64,67,.3),0 1px 3px 1px rgba(60,64,67,.15);transition:box-shadow .15s,background .15s;align-self:flex-start}
+.drive-new-btn:hover{background:#f6f8ff;box-shadow:0 1px 3px rgba(60,64,67,.3),0 4px 8px 3px rgba(60,64,67,.15)}
+.drive-new-btn:focus-visible{outline:2px solid #9aa7ef;outline-offset:2px}
+.drive-new-btn svg{width:22px;height:22px;stroke-width:2.2;color:var(--d-accent)}
+.drive-nav-btn{height:38px;border-radius:19px}
+
+/* Type chips (replace the Type dropdown) */
+.drive-type-select{display:none!important}
+.drive-chips{flex:none;display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain;padding:1px 0 2px;-webkit-overflow-scrolling:touch}
+.drive-chips::-webkit-scrollbar{display:none}
+.drive-chip{flex:none;height:32px;padding:0 14px;display:inline-flex;align-items:center;gap:6px;border:1px solid #d3d9e6;border-radius:9px;background:#fff;color:#44536f;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s}
+.drive-chip:hover{background:var(--d-bg)}
+.drive-chip.is-active{background:#dfe6ff;border-color:#dfe6ff;color:#1e2c8a}
+.drive-chip.is-active::before{content:"\2713";font-size:12px;font-weight:800}
+.drive-chip:focus-visible{outline:2px solid #9aa7ef;outline-offset:1px}
+
+/* Selection action bar (desktop) */
+.drive-selbar{display:none;flex:none;align-items:center;gap:2px;min-height:40px;padding:0 8px 0 4px;border-radius:20px;background:#dfe6ff;color:#1e2c8a}
+.drive-selbar .drive-icon-btn{color:#1e2c8a;border-radius:50%;width:36px;height:36px}
+.drive-selbar .drive-icon-btn:hover{background:rgba(30,44,138,.12);color:#1e2c8a}
+.drive-selbar [data-drive-sel="more"] svg{fill:currentColor;stroke:none}
+.drive-selbar-name{font-size:13px;font-weight:700;max-width:36ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0 10px 0 4px}
+.drive-selbar-sep{width:1px;height:20px;background:rgba(30,44,138,.25);margin:0 6px;flex:none}
+@media(min-width:901px){
+  #driveManagerScreen.has-sel .drive-toolbar{display:none}
+  #driveManagerScreen.has-sel .drive-selbar{display:flex}
+  .drive-toolbar{min-height:40px}
+  #driveManagerScreen .drive-header .drive-search{height:42px;border-radius:21px;max-width:720px;padding:0 16px}
+  .drive-table tbody td{height:46px}
+  .drive-more{opacity:0}
+}
+@media(min-width:641px){.drive-table th:nth-child(5){width:108px}}
+
+/* Hover quick actions on rows (desktop) */
+.drive-quick{width:30px;height:30px;display:inline-grid;place-items:center;border:0;border-radius:50%;background:transparent;color:var(--d-muted);cursor:pointer;opacity:0;transition:opacity .1s,background .1s;vertical-align:middle}
+.drive-quick svg{width:16px;height:16px}
+.drive-quick:hover{background:#e3e8f5;color:var(--d-accent)}
+.drive-item-row:hover .drive-quick,.drive-item-row:focus-within .drive-quick,.drive-item-row.is-selected .drive-quick{opacity:1}
+.drive-grid-card .drive-quick{display:none}
+@media(max-width:640px),(hover:none){.drive-quick{display:none}}
+
+/* Drag & drop upload overlay */
+.drive-dropzone{position:absolute;inset:8px;z-index:60;display:flex;align-items:center;justify-content:center;border:2px dashed var(--d-accent);border-radius:16px;background:rgba(238,241,255,.9);pointer-events:none;text-align:center;color:var(--d-accent-2)}
+.drive-dropzone div{display:flex;flex-direction:column;align-items:center;gap:6px}
+.drive-dropzone svg{width:40px;height:40px;stroke-width:1.8}
+.drive-dropzone strong{font-size:17px;font-weight:800}
+.drive-dropzone span{font-size:12.5px;color:var(--d-muted)}
+
+/* Floating New button (phones/tablets) */
+.drive-fab{display:none;position:absolute;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:30;height:56px;padding:0 22px 0 16px;gap:12px;align-items:center;border:0;border-radius:18px;background:linear-gradient(135deg,#3f51d8,#2f3fb8);color:#fff;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 6px 18px rgba(30,45,120,.38),0 2px 6px rgba(30,45,120,.25);-webkit-tap-highlight-color:transparent}
+.drive-fab svg{width:24px;height:24px;stroke-width:2.2}
+.drive-fab:active{transform:scale(.96)}
+@media(max-width:900px){
+  #driveManagerScreen.can-manage .drive-fab{display:flex}
+  #driveManagerScreen.can-manage .drive-table-scroll,#driveManagerScreen.can-manage .drive-grid{padding-bottom:88px}
+}
+
+/* Bottom sheets for menus on phones */
+.drive-sheet-head{display:none}
+.drive-sheet-backdrop{display:none}
+@keyframes driveSheetUp{from{transform:translateY(24px);opacity:.4}to{transform:none;opacity:1}}
+@media(max-width:640px){
+  .drive-sheet-backdrop{position:fixed;inset:0;z-index:10049;background:rgba(15,23,42,.42)}
+  #driveManagerScreen.has-sheet .drive-sheet-backdrop{display:block}
+  #driveManagerScreen .drive-context-menu,#driveManagerScreen .drive-create-submenu{left:0!important;right:0!important;top:auto!important;bottom:0!important;width:100%!important;max-width:100%!important;max-height:82dvh!important;border:0!important;border-radius:20px 20px 0 0!important;padding:6px 8px calc(10px + env(safe-area-inset-bottom,0px))!important;box-shadow:0 -10px 40px rgba(15,23,42,.3)!important;animation:driveSheetUp .18s ease-out}
+  #driveManagerScreen .drive-context-menu::before,#driveManagerScreen .drive-create-submenu::before{content:"";display:block;width:38px;height:4px;margin:4px auto 8px;border-radius:2px;background:#cfd6e4}
+  .drive-sheet-head{display:flex;align-items:center;gap:12px;padding:6px 10px 12px;margin-bottom:4px;border-bottom:1px solid var(--d-line-soft);font-size:15px;font-weight:700;color:var(--d-text)}
+  .drive-sheet-head span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .drive-sheet-head .drive-file-icon{width:36px;height:36px;border-radius:9px}
+  #driveManagerScreen .drive-context-item{height:50px;font-size:15px;gap:18px;padding:0 12px;border-radius:12px}
+  #driveManagerScreen .drive-context-icon,#driveManagerScreen .drive-context-icon svg{width:20px;height:20px}
+  #driveManagerScreen .drive-create-submenu button{min-height:50px;font-size:15px;gap:18px;padding:0 12px;border-radius:12px}
+  #driveManagerScreen .drive-submenu-icon{font-size:20px}
+  .drive-context-item[data-drive-menu-action="create"]:after{content:""}
+}
+
+/* Phone list = native Drive app rows */
+@media(max-width:640px){
+  .drive-main{padding:8px 0 0;gap:8px}
+  .drive-toolbar,.drive-chips,.drive-readonly-notice,.drive-truncated,.drive-error{margin:0 12px}
+  .drive-table-card{border-radius:0;border-left:0;border-right:0;border-bottom:0}
+  .drive-table thead{display:none}
+  .drive-table tbody td{height:62px;padding:0 4px 0 14px;border-bottom:0}
+  .drive-table td:nth-child(5){width:52px;padding:0 6px 0 0}
+  .drive-table .drive-file-icon{width:40px;height:40px;border-radius:11px;font-size:11px}
+  .drive-table .drive-file-icon svg{width:20px;height:20px}
+  .drive-file-cell{gap:14px}
+  .drive-file-name{font-size:15px;font-weight:600}
+  .drive-file-sub{font-size:12.5px;margin-top:2px}
+  .drive-more{width:40px;height:40px;border-radius:50%;color:#5f6b82}
+  .drive-more svg{width:20px;height:20px}
+  .drive-item-row:active,.drive-grid-card:active{background:#eceffa}
+  .drive-table-footer{display:none}
+  .drive-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:4px 12px 12px}
+  .drive-grid-card{padding:12px;border-radius:14px;gap:10px}
+  .drive-grid-card .drive-file-icon{width:44px;height:44px;border-radius:12px}
+  .drive-grid-card .drive-more{width:36px;height:36px;right:4px;top:4px}
+  .drive-grid-card-name{font-size:14px}
+  .drive-chip{height:34px}
+  .drive-grid-card .drive-type-pill{display:none}
+  .drive-toolbar-right{flex-wrap:nowrap!important}
+}
+@media(max-width:900px){
+  html.drive-open #geminiAssistantLauncher{bottom:calc(88px + env(safe-area-inset-bottom,0px))!important;right:20px!important;transform:scale(.88);transform-origin:bottom right}
+  html.drive-open:has(#driveManagerScreen.has-sheet) #geminiAssistantLauncher,html.drive-open:has(#drivePreview:not(.hidden)) #geminiAssistantLauncher,html.drive-open:has(#driveDialog:not(.hidden)) #geminiAssistantLauncher{display:none!important}
+}
+@media(prefers-reduced-motion:reduce){.drive-fab:active{transform:none}#driveManagerScreen .drive-context-menu,#driveManagerScreen .drive-create-submenu{animation:none}}
+</style>
 </head>
 <body class="bg-coolDark text-slate-800 min-h-screen selection:bg-accentCyan/30 selection:text-slate-900 relative">
   <script>(function(){try{if(new URLSearchParams(window.location.search).get("skipLoading")==="1")document.documentElement.style.visibility="hidden"}catch(e){}})();</script>
@@ -1437,6 +1559,7 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
   <section id="driveManagerScreen" class="drive-screen hidden" aria-label="Drive file manager">
     <div class="drive-app-shell">
       <div class="drive-header">
+        <button type="button" id="driveBackBtn" class="drive-icon-btn drive-back" onclick="driveGoUp()" aria-label="Back" title="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
         <div class="drive-header-left"><div class="drive-brand"><strong>Audit files</strong></div></div>
         <label class="drive-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="driveSearchInput" type="search" placeholder="Search in Drive" autocomplete="off" aria-label="Search in Google Drive"></label>
         <div class="drive-header-right">
@@ -1447,17 +1570,14 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
       </div>
       <div class="drive-workspace">
         <aside class="drive-sidebar" aria-label="Drive navigation">
-          <div class="drive-sidebar-title">Browse</div>
+          <button type="button" id="driveNewSide" class="drive-new-btn" data-drive-new-trigger="1" aria-haspopup="menu" title="New"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>New</span></button>
           <button type="button" class="drive-nav-btn is-current" onclick="driveGoRoot()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg><span>All files</span><span class="drive-nav-count" id="driveNavCount">—</span></button>
-          <div class="drive-sidebar-title">Create</div>
-          <button type="button" class="drive-nav-btn" onclick="driveOpenCreateMode('folder')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 10v6M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg><span>New folder</span></button>
-          <button type="button" class="drive-nav-btn" onclick="driveChooseUpload()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 17v3h16v-3"/></svg><span>Upload files</span></button>
         </aside>
         <main class="drive-main">
           <div class="drive-toolbar">
             <div class="drive-breadcrumbs" id="driveBreadcrumbs" aria-label="Folder path"></div>
             <div class="drive-toolbar-right">
-              <label class="drive-select"><span>Type</span><select id="driveTypeFilter" aria-label="Filter by file type"><option value="all">All types</option><option value="folders">Folders</option><option value="docs">Documents</option><option value="sheets">Spreadsheets</option><option value="presentations">Presentations</option><option value="pdf">PDF</option><option value="images">Images</option><option value="videos">Videos</option><option value="audio">Audio</option><option value="archives">Archives</option></select></label>
+              <label class="drive-select drive-type-select"><span>Type</span><select id="driveTypeFilter" aria-label="Filter by file type"><option value="all">All types</option><option value="folders">Folders</option><option value="docs">Documents</option><option value="sheets">Spreadsheets</option><option value="presentations">Presentations</option><option value="pdf">PDF</option><option value="images">Images</option><option value="videos">Videos</option><option value="audio">Audio</option><option value="archives">Archives</option></select></label>
               <label class="drive-select"><span>Sort</span><select id="driveSortSelect" aria-label="Sort files"><option value="relevance">Relevance</option><option value="name">Name</option><option value="modified">Newest</option><option value="oldest">Oldest</option><option value="type">Type</option><option value="size">Size</option></select></label>
               <div class="drive-view-switch" role="group" aria-label="Change file view">
                 <button type="button" class="is-active" data-drive-view="list" aria-label="List view" aria-pressed="true" title="List view"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
@@ -1465,6 +1585,8 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
               </div>
             </div>
           </div>
+          <div id="driveSelBar" class="drive-selbar" role="toolbar" aria-label="Actions for the selected item"></div>
+          <div id="driveChips" class="drive-chips" role="group" aria-label="Filter by file type"></div>
           <div id="driveReadOnlyNotice" class="drive-readonly-notice hidden"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><span>View-only access. Ask a dashboard editor to upload, create, rename, move or delete items.</span></div>
           <div id="driveTruncatedNotice" class="drive-truncated hidden">Loading files in pages of 100. Use Load more files to continue.</div>
           <div id="driveErrorState" class="drive-error hidden" role="alert"></div>
@@ -1482,6 +1604,9 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
       </div>
     </div>
     <input id="driveUploadInput" type="file" multiple hidden>
+    <div id="driveSheetBackdrop" class="drive-sheet-backdrop" aria-hidden="true"></div>
+    <div id="driveDropZone" class="drive-dropzone hidden" aria-hidden="true"><div><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 17v3h16v-3"/></svg><strong>Drop files to upload</strong><span id="driveDropTarget"></span></div></div>
+    <button type="button" id="driveFab" class="drive-fab" data-drive-new-trigger="1" aria-haspopup="menu" aria-label="New"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>New</span></button>
     <div id="driveContextMenu" class="drive-context-menu hidden" role="menu" aria-label="File actions"></div>
     <div id="driveCreateSubmenu" class="drive-create-submenu hidden" role="menu" aria-label="Create in selected folder"></div>
     <section id="drivePreview" class="drive-preview hidden" role="dialog" aria-modal="true" aria-label="File preview">
@@ -6521,6 +6646,19 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   }
   function applyFolderResult(folderId,folderName,result,pushPath){state.items=Array.isArray(result.items)?result.items:[];state.nextPageToken=String(result.nextPageToken||"");state.canManage=!!result.canManage;state.rootId=result.rootId||state.rootId;state.folderId=folderId||"";state.truncated=!!state.nextPageToken||!!result.incompleteSearch;if(pushPath){if(!state.path.length||state.path[state.path.length-1].id!==state.folderId)state.path.push({id:state.folderId,name:folderName||result.folder&&result.folder.name||"Folder"})}else if(!state.path.length){state.path=[{id:"",name:"All files"}]}el("driveReadOnlyNotice").classList.toggle("hidden",state.canManage);el("driveSignedInAs").textContent=window.getCurrentUserEmail?window.getCurrentUserEmail():"Signed in";var _u=el("driveUploadButton"),_n=el("driveNewButton");if(_u)_u.classList.toggle("hidden",!state.canManage);if(_n)_n.classList.toggle("hidden",!state.canManage);render()}
   function invalidateDriveCache(){S.cache=Object.create(null);if(S.mode&&S.q)setTimeout(function(){runSearch(S.q)},0);state.folderCache=Object.create(null)}
+  async function driveSoftReload(){
+    state.folderCache=Object.create(null);S.cache=Object.create(null);
+    if(!state.open)return;
+    if(S.mode&&S.q){setTimeout(function(){try{runSearch(S.q)}catch(e){}},0);return}
+    var fid=state.folderId,key=fid||"__root__";
+    try{
+      var result=await request("driveList",{folderId:fid,q:"",pageToken:"",fresh:"1"});
+      if(!state.open||state.folderId!==fid||S.mode)return;
+      state.folderCache[key]={result:result,time:Date.now()};
+      applyFolderResult(fid,state.path[state.path.length-1].name,result,false);
+    }catch(err){/* keep the list as-is; a later manual refresh will retry */}
+  }
+  function driveRemoveLocal(id){state.items=(state.items||[]).filter(function(it){return it.id!==id});S.items=(S.items||[]).filter(function(it){return it.id!==id});if(state.selectedId===id){state.selectedId="";state.selectedItem=null}}
   async function loadFolder(folderId,folderName,pushPath,force){hideError();var targetId=folderId||"";var seq=++state.loadSeq;if(pushPath){if(state.path[state.path.length-1].id!==targetId)state.path.push({id:targetId,name:folderName||"Folder"})}else if(!state.path.length){state.path=[{id:targetId,name:folderName||"All files"}]}else if(state.path[state.path.length-1].id!==targetId){state.path=[{id:targetId,name:folderName||"All files"}]}state.folderId=targetId;state.nextPageToken="";state.loadingMore=false;state.activeFilter=(el("driveSearchInput").value||"").trim().toLowerCase();var key=targetId||"__root__",cached=state.folderCache[key],age=cached?Date.now()-cached.time:Infinity;var hadCache=!!cached;if(cached){applyFolderResult(targetId,folderName,cached.result,false);if(!force&&age<DRIVE_CACHE_TTL){setLoading(false);return}}else{state.items=[];render()}setLoading(true,"Loading files…",hadCache);try{var result=await request("driveList",{folderId:targetId,q:"",pageToken:"",fresh:force?"1":"0"});if(seq!==state.loadSeq||!state.open)return;state.folderCache[key]={result:result,time:Date.now()};applyFolderResult(targetId,folderName,result,false)}catch(err){if(seq!==state.loadSeq)return;if(!hadCache){state.items=[];render();showError(err&&err.message?err.message:"Unable to connect to your audit files.");el("driveFooterInfo").textContent="Connection unavailable"}else{showError("Showing the last loaded copy. Refresh to retry the connection.");}}finally{if(seq===state.loadSeq)setLoading(false)}}
   function driveItemById(id){return state.items.find(function(x){return x.id===id})||S.items.find(function(x){return x.id===id})||null}
   function hideContextMenu(){var menu=el("driveContextMenu");if(menu)menu.classList.add("hidden");hideCreateSubmenu();state.contextItem=null;state.contextTargetIsBlank=false}
@@ -6593,9 +6731,8 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       hideContextMenu();
       showToast("Making a copy of “"+item.name+"”…");
       await request("driveCopy",{id:item.id,parentId:parent});
-      invalidateDriveCache();
       showToast("Copy created.","success");
-      await loadFolder(state.folderId,state.path[state.path.length-1].name,false,true);
+      await driveSoftReload();
     }catch(err){showToast(err&&err.message||"Could not make a copy. Check your edit access and try again.","error")}
   }
   async function pasteClipboard(destinationId){
@@ -6608,10 +6745,10 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       if(clip.mode==="copy")await request("driveCopy",{id:clip.item.id,parentId:target});
       else await request("driveMove",{id:clip.item.id,parentId:target});
       if(clip.mode==="move")state.clipboard=null;
-      invalidateDriveCache();
       hideContextMenu();
+      if(clip.mode==="move")driveRemoveLocal(clip.item.id);
       showToast(clip.mode==="copy"?"Copy created in this folder.":"Item moved to this folder.","success");
-      await loadFolder(state.folderId,state.path[state.path.length-1].name,false,true);
+      await driveSoftReload();
     }catch(err){showToast(err&&err.message||"Paste failed. Check your edit access and try again.","error")}
   }
   function driveResolvedFile(item){
@@ -6742,7 +6879,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     if(action==="duplicate"){if(item)await duplicateItem(item);return}
     if(action==="paste"){await pasteClipboard(targetFolder);return}
     if(action==="rename"||action==="move"){if(item)driveOpenDialog(action,item);return}
-    if(action==="trash"){if(item){var ok=typeof window.__confirmAction==="function"?await window.__confirmAction("Move to trash?","'"+item.name+"' will be moved to your Google Drive trash. You can restore it from Drive trash.","Move to trash","danger"):window.confirm("Move '"+item.name+"' to trash?");if(!ok)return;try{await request("driveTrash",{id:item.id});invalidateDriveCache();state.selectedId="";state.selectedItem=null;showToast("Moved to trash.","success");await loadFolder(state.folderId,state.path[state.path.length-1].name,false,true)}catch(err){showToast(err&&err.message||"Could not move this item to trash.","error")}}return}
+    if(action==="trash"){if(item){var ok=typeof window.__confirmAction==="function"?await window.__confirmAction("Move to trash?","'"+item.name+"' will be moved to your Google Drive trash. You can restore it from Drive trash.","Move to trash","danger"):window.confirm("Move '"+item.name+"' to trash?");if(!ok)return;try{showToast("Moving to trash…","loading");await request("driveTrash",{id:item.id});driveRemoveLocal(item.id);if(state.open)render();showToast("Moved to trash.","success");await driveSoftReload()}catch(err){showToast(err&&err.message||"Could not move this item to trash.","error")}}return}
     if(action==="upload"){driveChooseUpload();return}
     if(action==="folder"||action==="docx"||action==="text"){driveOpenDialog(action);return}
   }
@@ -6800,31 +6937,59 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     await loadFolder(parentId,parentName||"Folder",false,true);
   }
   window.driveSubmitDialog=async function(event){
-    event.preventDefault();var mode=state.dialogMode,name=(el("driveDialogName").value||"").trim(),button=el("driveDialogSubmit"),error=el("driveDialogError");
+    event.preventDefault();
+    var mode=state.dialogMode,item=state.dialogItem,name=(el("driveDialogName").value||"").trim(),error=el("driveDialogError");
     var parentId=state.createParentId||state.folderId,parentName=state.createParentName||state.path[state.path.length-1].name;
-    error.classList.add("hidden");button.disabled=true;button.textContent="Creating…";
-    try{
-      if(mode==="folder"){
-        if(!name)throw new Error("Enter a folder name.");await request("driveCreateFolder",{parentId:parentId,name:name});
-      }else if(mode==="rename"){
-        if(!name)throw new Error("Enter a new name.");await request("driveRename",{id:state.dialogItem.id,name:name});
-      }else if(mode==="move"){
-        var target=el("driveDialogMoveTarget").value;await request("driveMove",{id:state.dialogItem.id,parentId:target});
-      }else if(["google-doc","google-sheet","google-slides","pdf","docx","powerpoint","text"].indexOf(mode)>=0){
-        if(!name)throw new Error("Enter a file name.");var content=el("driveDialogContent").value||"";
-        await post("driveCreateNative",{parentId:parentId,name:name,content:content,format:mode});
-      }
-      driveCloseDialog();hideContextMenu();hideCreateSubmenu();
-      if(mode==="folder"||["google-doc","google-sheet","google-slides","pdf","docx","powerpoint","text"].indexOf(mode)>=0){
-        showToast("Created successfully in "+parentName+".","success");await refreshAfterDriveCreate(parentId,parentName);
-      }else{
-        invalidateDriveCache();showToast(mode==="rename"?"Drive item renamed.":"Drive item moved.","success");await loadFolder(state.folderId,state.path[state.path.length-1].name,false,true);
-      }
-    }catch(err){error.textContent=err&&err.message?err.message:"The Drive change could not be completed.";error.classList.remove("hidden")}
-    finally{button.disabled=false;button.textContent=mode==="folder"?"Create folder":mode==="rename"?"Save name":mode==="move"?"Move item":"Create"}
+    var NATIVE=["google-doc","google-sheet","google-slides","pdf","docx","powerpoint","text"];
+    var isNative=NATIVE.indexOf(mode)>=0;
+    function fail(msg){error.textContent=msg;error.classList.remove("hidden")}
+    error.classList.add("hidden");
+    var work,startMsg,doneMsg,failMsg;
+    if(mode==="rename"&&item){
+      if(!name)return fail("Enter a new name.");
+      var renId=item.id,oldName=item.name;
+      if(name===oldName){driveCloseDialog();hideContextMenu();return}
+      startMsg="Renaming “"+oldName+"”…";failMsg="Could not rename “"+oldName+"”. It was left unchanged.";
+      work=function(){return request("driveRename",{id:renId,name:name}).then(function(res){
+        var finalName=(res&&res.name)||name;
+        var apply=function(list){(list||[]).forEach(function(it){if(it&&it.id===renId)it.name=finalName})};
+        apply(state.items);apply(S.items);
+        if(state.selectedItem&&state.selectedItem.id===renId)state.selectedItem.name=finalName;
+        if(state.previewItem&&state.previewItem.id===renId)state.previewItem.name=finalName;
+        (state.path||[]).forEach(function(part){if(part.id===renId)part.name=finalName});
+        state.folderCache=Object.create(null);S.cache=Object.create(null);
+        if(state.open)render();
+        doneMsg="Renamed to “"+finalName+"”.";
+      })};
+    }else if(mode==="move"&&item){
+      var target=el("driveDialogMoveTarget").value,movId=item.id,movName=item.name;
+      startMsg="Moving “"+movName+"”…";failMsg="Could not move “"+movName+"”. It was left where it was.";
+      work=function(){return request("driveMove",{id:movId,parentId:target}).then(function(){
+        driveRemoveLocal(movId);if(state.open)render();doneMsg="Moved “"+movName+"”.";return driveSoftReload()})};
+    }else if(mode==="folder"){
+      if(!name)return fail("Enter a folder name.");
+      startMsg="Creating folder “"+name+"”…";failMsg="Could not create the folder.";
+      work=function(){return request("driveCreateFolder",{parentId:parentId,name:name}).then(function(){
+        doneMsg="Folder created in "+parentName+".";return driveAfterCreate(parentId,parentName)})};
+    }else if(isNative){
+      if(!name)return fail("Enter a file name.");
+      var content=el("driveDialogContent").value||"";
+      startMsg="Creating “"+name+"”…";failMsg="Could not create the file.";
+      work=function(){return post("driveCreateNative",{parentId:parentId,name:name,content:content,format:mode}).then(function(){
+        doneMsg="Created in "+parentName+".";return driveAfterCreate(parentId,parentName)})};
+    }else{return fail("Nothing to do.")}
+    driveCloseDialog();hideContextMenu();hideCreateSubmenu();
+    showToast(startMsg,"loading");
+    try{await work();showToast(doneMsg,"success")}
+    catch(err){showToast(err&&err.message?err.message:failMsg,"error")}
   };
+  async function driveAfterCreate(parentId,parentName){
+    var sameFolder=(parentId||"")===(state.folderId||"")||(parentId&&parentId===state.rootId&&!state.folderId);
+    if(sameFolder&&!S.mode)return driveSoftReload();
+    return refreshAfterDriveCreate(parentId,parentName);
+  }
   async function uploadFile(file){if(file.size>8*1024*1024)throw new Error(file.name+" is larger than the 8 MB per-file upload limit.");var base64=await bytesToBase64(file);return post("driveUpload",{parentId:state.folderId,name:file.name,mimeType:file.type||"application/octet-stream",base64:base64})}
-  async function onUploadChange(){var input=el("driveUploadInput"),files=Array.from(input.files||[]);if(!files.length)return;input.value="";setLoading(true,"Uploading files to Google Drive…");var done=0,failures=[];for(var i=0;i<files.length;i++){try{await uploadFile(files[i]);done++}catch(err){failures.push(files[i].name+": "+(err&&err.message||"upload failed"))}}invalidateDriveCache();await loadFolder(state.folderId,state.path[state.path.length-1].name,false);if(failures.length)showToast(done+" file(s) uploaded. "+failures.length+" failed: "+failures.slice(0,2).join("; "),"error");else showToast(done+" file(s) uploaded to Google Drive.","success")}
+  async function onUploadChange(){var input=el("driveUploadInput"),files=Array.from(input.files||[]);if(!files.length)return;input.value="";showToast("Uploading "+files.length+" file(s)…","loading");var done=0,failures=[];for(var i=0;i<files.length;i++){try{await uploadFile(files[i]);done++}catch(err){failures.push(files[i].name+": "+(err&&err.message||"upload failed"))}}await driveSoftReload();if(failures.length)showToast(done+" file(s) uploaded. "+failures.length+" failed: "+failures.slice(0,2).join("; "),"error");else showToast(done+" file(s) uploaded to Google Drive.","success")}
   async function handleRowAction(action,item){
     if(!item)return;
     state.selectedId=item.id;state.selectedItem=item;
@@ -6855,10 +7020,10 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     var onWorkspace=!!event.target.closest(".drive-main,.drive-table-card,.drive-grid");
     if(!node&&!onWorkspace)return;
     clearTimeout(state.pressTimer);
-    var pressX=event.clientX,pressY=event.clientY,nodeId=node?node.getAttribute("data-drive-open"):"";
-    state.pressTimer=setTimeout(function(){var item=nodeId?driveItemById(nodeId):null;state.suppressNextOpenUntil=Date.now()+900;showContextMenu({clientX:pressX,clientY:pressY},item)},560);
+    var pressX=state.pressX=event.clientX,pressY=state.pressY=event.clientY,nodeId=node?node.getAttribute("data-drive-open"):"";
+    state.pressTimer=setTimeout(function(){var item=nodeId?driveItemById(nodeId):null;state.suppressNextOpenUntil=Date.now()+900;try{if(navigator.vibrate)navigator.vibrate(12)}catch(_e){}showContextMenu({clientX:pressX,clientY:pressY},item)},500);
   },{passive:true});
-  ["pointerup","pointercancel","pointermove"].forEach(function(name){driveScreen.addEventListener(name,function(){clearTimeout(state.pressTimer);state.pressTimer=0},{passive:true})});
+  ["pointerup","pointercancel"].forEach(function(name){driveScreen.addEventListener(name,function(){clearTimeout(state.pressTimer);state.pressTimer=0},{passive:true})});driveScreen.addEventListener("pointermove",function(ev){if(!state.pressTimer)return;if(Math.abs(ev.clientX-(state.pressX||0))>10||Math.abs(ev.clientY-(state.pressY||0))>10){clearTimeout(state.pressTimer);state.pressTimer=0}},{passive:true});
   function driveIsTouchOnly(){try{return window.matchMedia("(hover: none)").matches}catch(e){return false}}
   document.addEventListener("click",function(event){
     var moreBtn=event.target.closest("[data-drive-more]");
@@ -6871,7 +7036,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     var open=event.target.closest("[data-drive-open]");
     if(open){if(Date.now()<state.suppressNextOpenUntil){event.preventDefault();return}var item=driveItemById(open.getAttribute("data-drive-open"));if(item){
       var now=Date.now(),touch=driveIsTouchOnly();
-      var again=state.tapId===item.id&&(touch||now-(state.tapTime||0)<550);
+      var again=(touch||event.pointerType==="touch")||(state.tapId===item.id&&now-(state.tapTime||0)<550);
       state.tapId=item.id;state.tapTime=now;state.selectedId=item.id;state.selectedItem=item;
       if(again){state.tapId="";state.tapTime=0;render();handleRowAction("open",item)}
       else{Array.prototype.forEach.call(document.querySelectorAll("#driveManagerScreen [data-drive-open]"),function(n){var on=n===open;n.classList.toggle("is-selected",on);n.setAttribute("aria-selected",on?"true":"false")})}}
@@ -6913,6 +7078,242 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   if(el("driveGrid"))el("driveGrid").addEventListener("scroll",maybeAutoLoadDriveItems,{passive:true});
   el("driveDialog").addEventListener("keydown",function(e){if(e.key==="Escape")driveCloseDialog()});
   document.addEventListener("keydown",function(e){if(e.key==="Escape"&&state.open&&el("driveDialog")&&!el("driveDialog").classList.contains("hidden"))driveCloseDialog()});
+
+  /* ===== v186: native Drive behaviour layer ===== */
+  var docEl=document.documentElement;
+  var NEW_OPTION_FALLBACK=true;
+  function menusOpen(){var a=el("driveContextMenu"),b=el("driveCreateSubmenu");return !!((a&&!a.classList.contains("hidden"))||(b&&!b.classList.contains("hidden")))}
+  function overlayOpen(){return !el("drivePreview").classList.contains("hidden")||!el("driveDialog").classList.contains("hidden")}
+  function visibleNodes(){return Array.prototype.slice.call(document.querySelectorAll("#driveManagerScreen [data-drive-open]"))}
+  function markSelected(){visibleNodes().forEach(function(n){var on=!!state.selectedId&&n.getAttribute("data-drive-open")===state.selectedId;if(n.classList.contains("is-selected")!==on)n.classList.toggle("is-selected",on);n.setAttribute("aria-selected",on?"true":"false")})}
+  function currentSelection(){if(!state.selectedId)return null;var it=driveItemById(state.selectedId);if(it)state.selectedItem=it;return it}
+  function ownItem(it){return !!(it&&state.canManage&&!(it.isSharedItem||it.driveId||it.sharedWithMeTime))}
+  function canDl(it){return !!(it&&it.kind!=="folder"&&!it.targetIsFolder&&it.canDownload!==false)}
+  function selBtn(a,label,icon){return '<button type="button" class="drive-icon-btn" data-drive-sel="'+a+'" title="'+label+'" aria-label="'+label+'">'+icon+'</button>'}
+  function syncSelectionBar(){
+    var sc=el("driveManagerScreen"),bar=el("driveSelBar");if(!sc||!bar)return;
+    var it=currentSelection();
+    sc.classList.toggle("has-sel",!!it);
+    markSelected();
+    if(!it){bar.innerHTML="";bar.removeAttribute("data-key");return}
+    var key=it.id+"|"+(state.canManage?1:0)+"|"+it.name;
+    if(bar.getAttribute("data-key")===key)return;
+    bar.setAttribute("data-key",key);
+    var isFolder=it.kind==="folder"||it.targetIsFolder;
+    var h=selBtn("clear","Clear selection (Esc)",SVG('<path d="M18 6 6 18M6 6l12 12"/>'))+'<span class="drive-selbar-name" title="'+esc(it.name)+'">'+esc(it.name)+'</span><span class="drive-selbar-sep"></span>';
+    h+=selBtn("open",isFolder?"Open folder (Enter)":"Preview (Enter)",isFolder?IC.folder:IC.eye);
+    if(canDl(it))h+=selBtn("download","Download",IC.download);
+    if(ownItem(it)){h+=selBtn("rename","Rename (F2)",IC.rename)+selBtn("duplicate","Make a copy",IC.copy)+selBtn("move","Move",IC.move)+selBtn("trash","Move to trash (Delete)",IC.trash)}
+    h+=selBtn("more","More actions",IC.more);
+    bar.innerHTML=h;
+  }
+  function clearSelection(){state.selectedId="";state.selectedItem=null;syncSelectionBar()}
+  function syncChips(){
+    var wrap=el("driveChips");if(!wrap)return;
+    if(!wrap.firstChild){var sel=el("driveTypeFilter");if(!sel)return;wrap.innerHTML=Array.prototype.map.call(sel.options,function(o){var label=o.value==="all"?"All":o.textContent;return '<button type="button" class="drive-chip" data-drive-chip="'+esc(o.value)+'" aria-pressed="false">'+esc(label)+'</button>'}).join("")}
+    Array.prototype.forEach.call(wrap.children,function(c){var on=c.getAttribute("data-drive-chip")===(state.typeFilter||"all");c.classList.toggle("is-active",on);c.setAttribute("aria-pressed",on?"true":"false")});
+  }
+  function syncDriveUI(){
+    var sc=el("driveManagerScreen");if(!sc)return;
+    sc.classList.toggle("can-manage",!!state.canManage);
+    sc.classList.toggle("can-go-up",!!(S.mode||(state.path&&state.path.length>1)));
+    var ns=el("driveNewSide");if(ns)ns.classList.toggle("hidden",!state.canManage);
+    syncChips();syncSelectionBar();syncSortSelect();
+  }
+  function syncSortSelect(){
+    var sel=el("driveSortSelect");if(!sel)return;
+    var want=state.sortBy;if(want==="modified"&&effSortDir()==="asc")want="oldest";
+    var rel=sel.querySelector('option[value="relevance"]');if(rel){rel.hidden=!S.mode;rel.disabled=!S.mode}
+    if(sel.value!==want&&sel.querySelector('option[value="'+want+'"]'))sel.value=want;
+  }
+  /* keep UI in sync after every render */
+  var _renderBase=render;
+  render=function(){_renderBase.apply(this,arguments);try{syncDriveUI()}catch(_e){}};
+  /* bottom-sheet header on phones + selection highlight on right-click / long-press */
+  var _showCtxBase=showContextMenu;
+  showContextMenu=function(event,item){
+    _showCtxBase.apply(this,arguments);
+    var m=el("driveContextMenu");
+    if(m&&item&&!m.classList.contains("hidden")){m.insertAdjacentHTML("afterbegin",'<div class="drive-sheet-head">'+driveKindIcon(item)+'<span>'+esc(item.name)+'</span></div>')}
+    try{syncSelectionBar()}catch(_e){}
+  };
+  /* sheet backdrop state + html class (blocks pull-to-refresh while Drive is open) */
+  function syncSheet(){var sc=el("driveManagerScreen");if(sc)sc.classList.toggle("has-sheet",menusOpen())}
+  function syncOpenClass(){var sc=el("driveManagerScreen");docEl.classList.toggle("drive-open",!!(sc&&!sc.classList.contains("hidden")))}
+  if(window.MutationObserver){
+    var mo=new MutationObserver(syncSheet);
+    ["driveContextMenu","driveCreateSubmenu"].forEach(function(id){var n=el(id);if(n)mo.observe(n,{attributes:true,attributeFilter:["class"]})});
+    var mo2=new MutationObserver(syncOpenClass);mo2.observe(driveScreen,{attributes:true,attributeFilter:["class"]});
+  }
+  syncOpenClass();
+
+  /* ---- "New" menu (sidebar button on desktop, floating button on phones) ---- */
+  window.driveShowNewMenu=function(anchor){
+    var submenu=el("driveCreateSubmenu");
+    if(submenu&&!submenu.classList.contains("hidden")&&submenu.getAttribute("data-from")==="new"){hideCreateSubmenu();return}
+    if(!state.canManage){showToast("View-only access. Ask a dashboard editor to create or upload files.","error");return}
+    hideContextMenu();
+    state.contextItem=null;state.contextTargetIsBlank=true;
+    state.createParentId=S.mode?(state.rootId||""):state.folderId;
+    state.createParentName=S.mode?"All files":state.path[state.path.length-1].name;
+    state.createParentItem=null;
+    showCreateSubmenu(anchor);
+    submenu.setAttribute("data-from","new");
+    submenu.insertAdjacentHTML("afterbegin",'<button type="button" role="menuitem" data-drive-new-upload="1"><span class="drive-submenu-icon">⬆️</span><span>File upload</span></button><div class="drive-context-separator"></div>');
+    var r=anchor.getBoundingClientRect(),w=submenu.offsetWidth||220,h=submenu.offsetHeight||320;
+    var left=Math.max(8,Math.min(r.left,window.innerWidth-w-8));
+    var top=r.bottom+6;if(top+h>window.innerHeight-8)top=Math.max(8,r.top-h-6);
+    if(anchor.id==="driveFab"){left=Math.max(8,window.innerWidth-w-16);top=Math.max(8,r.top-h-8)}
+    submenu.style.left=left+"px";submenu.style.top=top+"px";
+  };
+  var _hideSubBase=hideCreateSubmenu;
+  hideCreateSubmenu=function(){var sm=el("driveCreateSubmenu");if(sm)sm.removeAttribute("data-from");_hideSubBase()};
+  /* the context-menu "New" entry must not keep the data-from marker of the New button */
+  var _showSubBase=showCreateSubmenu;
+  showCreateSubmenu=function(anchor){var sm=el("driveCreateSubmenu");if(sm&&!(anchor&&anchor.hasAttribute&&anchor.hasAttribute("data-drive-new-trigger")))sm.removeAttribute("data-from");_showSubBase(anchor)};
+
+  /* ---- one-level-up / back ---- */
+  window.driveGoUp=function(){
+    if(S.mode){var inp=el("driveSearchInput");if(inp){inp.value="";inp.dispatchEvent(new Event("input"))}return true}
+    if(state.path.length>1){state.path=state.path.slice(0,-1);var part=state.path[state.path.length-1];if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();state.activeFilter="";loadFolder(part.id,part.name,false);return true}
+    return false;
+  };
+  function driveHandleBack(){
+    if(!el("driveDialog").classList.contains("hidden")){driveCloseDialog();return}
+    if(!el("drivePreview").classList.contains("hidden")){closePreview();return}
+    if(menusOpen()){hideContextMenu();return}
+    if(window.driveGoUp())return;
+    window.closeDriveManager();
+  }
+  /* Intercept system Back (phone swipe, browser/mouse back) while Drive is open.
+     Registered before the dashboard's "Leave the dashboard?" guard so it runs first. */
+  try{
+    if("navigation" in window){
+      window.navigation.addEventListener("navigate",function(e){
+        if(!state.open||e.navigationType!=="traverse"||!e.cancelable)return;
+        e.preventDefault();e.stopImmediatePropagation();driveHandleBack();
+      });
+    }else{
+      window.addEventListener("popstate",function(e){
+        if(!state.open)return;
+        e.stopImmediatePropagation();
+        try{history.pushState({dashboardGuard:true},document.title,location.href)}catch(_e){}
+        driveHandleBack();
+      });
+    }
+  }catch(_e){}
+
+  /* ---- Block accidental pull-to-refresh (belt and braces next to CSS overscroll-behavior) ---- */
+  (function(){
+    var sx=0,sy=0,ly=0,startTarget=null;
+    function canScrollUp(node){
+      while(node&&node!==driveScreen&&node.nodeType===1){
+        var cs=window.getComputedStyle(node),oy=cs.overflowY;
+        if((oy==="auto"||oy==="scroll")&&node.scrollHeight>node.clientHeight+1&&node.scrollTop>0)return true;
+        node=node.parentNode;
+      }
+      return false;
+    }
+    driveScreen.addEventListener("touchstart",function(e){if(!e.touches||e.touches.length!==1)return;sx=e.touches[0].clientX;sy=ly=e.touches[0].clientY;startTarget=e.target},{passive:true});
+    driveScreen.addEventListener("touchmove",function(e){
+      if(!state.open||!e.touches||e.touches.length!==1)return;
+      var x=e.touches[0].clientX,y=e.touches[0].clientY,delta=y-ly;ly=y;
+      if(delta<=0)return;                                   /* finger moving up: normal scroll */
+      if(Math.abs(y-sy)<=Math.abs(x-sx))return;             /* mostly horizontal: chips / breadcrumbs */
+      if(canScrollUp(startTarget))return;                   /* a list is scrolled: let it scroll back up */
+      if(e.cancelable)e.preventDefault();                   /* would pull the page down => refresh */
+    },{passive:false});
+  })();
+
+  /* ---- Capture-phase click router for the new controls ---- */
+  document.addEventListener("click",function(e){
+    if(!state.open)return;
+    var t=e.target;if(!t||!t.closest)return;
+    var trig=t.closest("[data-drive-new-trigger]");
+    if(trig){e.preventDefault();e.stopPropagation();window.driveShowNewMenu(trig);return}
+    var up=t.closest("[data-drive-new-upload]");
+    if(up){e.preventDefault();e.stopPropagation();hideCreateSubmenu();hideContextMenu();if(!state.canManage){showToast("View-only access.","error");return}driveChooseUpload();return}
+    var chip=t.closest("[data-drive-chip]");
+    if(chip){e.preventDefault();e.stopPropagation();var sel=el("driveTypeFilter");if(sel){sel.value=chip.getAttribute("data-drive-chip");sel.dispatchEvent(new Event("change"))}syncChips();return}
+    var q=t.closest("[data-drive-quick]");
+    if(q){e.preventDefault();e.stopPropagation();var qi=driveItemById(q.getAttribute("data-drive-id"));if(!qi)return;state.selectedId=qi.id;state.selectedItem=qi;syncSelectionBar();var qa=q.getAttribute("data-drive-quick");if(qa==="download")startDriveDownload(qi);else if(qa==="rename")driveOpenDialog("rename",qi);return}
+    var sb=t.closest("[data-drive-sel]");
+    if(sb){
+      e.preventDefault();e.stopPropagation();
+      var it=currentSelection();var a=sb.getAttribute("data-drive-sel");
+      if(a==="clear"){clearSelection();return}
+      if(!it)return;
+      if(a==="more"){var r=sb.getBoundingClientRect();hideContextMenu();showContextMenu({clientX:r.right,clientY:r.bottom+6},it);var m=el("driveContextMenu");if(m){var w=m.offsetWidth||224;m.style.left=Math.max(8,Math.min(r.right-w,window.innerWidth-w-8))+"px"}return}
+      state.contextItem=it;state.contextTargetIsBlank=false;
+      if(a==="open"){handleRowAction("open",it);return}
+      contextAction(a);return
+    }
+  },true);
+  /* click on empty space = deselect (like Drive) */
+  document.addEventListener("click",function(e){
+    if(!state.open)return;var t=e.target;if(!t||!t.closest)return;
+    if(driveScreen.contains(t)&&t.closest(".drive-table-scroll,.drive-grid,.drive-empty")&&!t.closest("[data-drive-open],th,button,a,input,select,label")){clearSelection()}
+    else setTimeout(syncSelectionBar,0);
+  });
+  /* quick actions in rows */
+  var _moreBase=moreButton;
+  moreButton=function(item){
+    var q="";
+    if(canDl(item))q+='<button type="button" class="drive-quick" data-drive-quick="download" data-drive-id="'+esc(item.id)+'" title="Download" aria-label="Download '+esc(item.name)+'">'+IC.download+'</button>';
+    if(ownItem(item))q+='<button type="button" class="drive-quick" data-drive-quick="rename" data-drive-id="'+esc(item.id)+'" title="Rename" aria-label="Rename '+esc(item.name)+'">'+IC.rename+'</button>';
+    return q+_moreBase(item);
+  };
+
+  /* ---- Keyboard like Drive: arrows, Home/End, Enter, Esc, "/" ---- */
+  var escHadLayer=false;
+  document.addEventListener("keydown",function(e){if(e.key==="Escape")escHadLayer=menusOpen()||overlayOpen()},true);
+  document.addEventListener("keydown",function(e){
+    if(!state.open||e.defaultPrevented)return;
+    if(overlayOpen())return;
+    var t=e.target,tag=t&&t.tagName?t.tagName.toLowerCase():"";
+    var editing=tag==="input"||tag==="textarea"||tag==="select"||(t&&t.isContentEditable);
+    if(editing){if(e.key==="Escape"&&t.id==="driveSearchInput"&&!t.value){t.blur()}return}
+    if(e.ctrlKey||e.metaKey||e.altKey)return;
+    if(e.key==="/"){e.preventDefault();var si=el("driveSearchInput");if(si)si.focus();return}
+    if(e.key==="Escape"){if(!escHadLayer&&state.selectedId){clearSelection()}return}
+    var nav=["ArrowDown","ArrowUp","ArrowLeft","ArrowRight","Home","End"];
+    if(nav.indexOf(e.key)<0)return;
+    var nodes=visibleNodes();if(!nodes.length)return;
+    var cur=-1,ae=document.activeElement;
+    if(ae&&ae.hasAttribute&&ae.hasAttribute("data-drive-open"))cur=nodes.indexOf(ae);
+    if(cur<0&&state.selectedId)cur=nodes.findIndex(function(n){return n.getAttribute("data-drive-open")===state.selectedId});
+    var grid=state.view==="grid",cols=1;
+    if(grid){var g=el("driveGrid");try{cols=Math.max(1,getComputedStyle(g).gridTemplateColumns.split(" ").length)}catch(_e){cols=1}}
+    var next=cur;
+    if(e.key==="Home")next=0;else if(e.key==="End")next=nodes.length-1;
+    else if(e.key==="ArrowDown")next=cur<0?0:cur+(grid?cols:1);
+    else if(e.key==="ArrowUp")next=cur<0?0:cur-(grid?cols:1);
+    else if(e.key==="ArrowRight"){if(!grid)return;next=cur<0?0:cur+1}
+    else if(e.key==="ArrowLeft"){if(!grid)return;next=cur<0?0:cur-1}
+    next=Math.max(0,Math.min(nodes.length-1,next));
+    e.preventDefault();
+    var node=nodes[next];state.selectedId=node.getAttribute("data-drive-open");state.selectedItem=driveItemById(state.selectedId);
+    syncSelectionBar();
+    try{node.focus({preventScroll:true});node.scrollIntoView({block:"nearest"})}catch(_e){}
+  });
+
+  /* ---- Drag & drop files to upload ---- */
+  (function(){
+    var depth=0,zone=el("driveDropZone");
+    function hasFiles(e){var ty=e.dataTransfer&&e.dataTransfer.types;return !!ty&&Array.prototype.indexOf.call(ty,"Files")>=0}
+    function hide(){depth=0;if(zone)zone.classList.add("hidden")}
+    driveScreen.addEventListener("dragenter",function(e){if(!hasFiles(e))return;e.preventDefault();depth++;if(zone&&state.canManage){var tg=el("driveDropTarget");if(tg)tg.textContent="to "+(state.path[state.path.length-1].name||"this folder");zone.classList.remove("hidden")}});
+    driveScreen.addEventListener("dragover",function(e){if(!hasFiles(e))return;e.preventDefault();try{e.dataTransfer.dropEffect=state.canManage?"copy":"none"}catch(_e){}});
+    driveScreen.addEventListener("dragleave",function(e){if(!hasFiles(e))return;depth=Math.max(0,depth-1);if(!depth)hide()});
+    driveScreen.addEventListener("drop",function(e){
+      if(!hasFiles(e))return;e.preventDefault();hide();
+      if(!state.canManage){showToast("View-only access. You can't upload here.","error");return}
+      var files=e.dataTransfer.files;if(!files||!files.length)return;
+      var input=el("driveUploadInput");
+      try{input.files=files}catch(_e){showToast("Your browser could not accept the dropped files. Use New \u203A File upload.","error");return}
+      onUploadChange();
+    });
+  })();
 })();
 </script>
 
