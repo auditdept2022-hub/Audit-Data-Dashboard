@@ -444,6 +444,7 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
 .drive-table tbody td:nth-child(3){text-align:right;font-variant-numeric:tabular-nums}
 .drive-table tbody td:nth-child(5){padding:0 4px;text-align:center;overflow:visible}
 .drive-table tbody tr:last-child td{border-bottom:0}
+.drive-item-row,.drive-grid-card{touch-action:manipulation}
 .drive-item-row{cursor:pointer;outline:none;transition:background .1s;-webkit-tap-highlight-color:transparent}
 .drive-item-row:hover{background:#f6f8fd}
 .drive-item-row:focus-visible{background:#f0f3ff;box-shadow:inset 2px 0 0 var(--d-accent)}
@@ -6539,7 +6540,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       html+='<div class="drive-context-separator"></div>';
       if(canItem&&item.kind==="folder")html+=contextButton("create","New",IC.newfolder,false,false)+'<div class="drive-context-separator"></div>';
       html+=contextButton("copy-name","Copy name",IC.link,false,false);
-      if(canItem){html+=contextButton("copy","Copy",IC.copy,false,false)+contextButton("cut","Cut",IC.cut,false,false);if(clip)html+=contextButton("paste",item.kind==="folder"?"Paste into this folder":"Paste here",IC.paste,false,false);html+='<div class="drive-context-separator"></div>'+contextButton("rename","Rename",IC.rename,false,false)+contextButton("move","Move",IC.move,false,false)+contextButton("trash","Move to trash",IC.trash,false,true)}
+      if(canItem){html+=contextButton("copy","Copy",IC.copy,false,false)+contextButton("cut","Cut",IC.cut,false,false)+contextButton("duplicate","Make a copy",IC.copy,false,false);if(clip)html+=contextButton("paste",item.kind==="folder"?"Paste into this folder":"Paste here",IC.paste,false,false);html+='<div class="drive-context-separator"></div>'+contextButton("rename","Rename",IC.rename,false,false)+contextButton("move","Move",IC.move,false,false)+contextButton("trash","Move to trash",IC.trash,false,true)}
       else if(item.isSharedItem||item.driveId||item.sharedWithMeTime)html+='<div class="drive-context-empty">Shared item — manage it in Google Drive</div>';
     }else{
       if(can){html+=contextButton("create","New",IC.newfolder,false,false)+contextButton("paste","Paste here",IC.paste,!clip,false)+contextButton("upload","Upload files",IC.upload,false,false)+contextButton("folder","New folder",IC.newfolder,false,false)}
@@ -6585,6 +6586,18 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   }
   function legacyCopyText(text){var ta=document.createElement("textarea");ta.value=text;ta.style.cssText="position:fixed;opacity:0;left:-9999px;top:0";document.body.appendChild(ta);ta.select();var ok=false;try{ok=document.execCommand("copy")}catch(e){}ta.remove();showToast(ok?"Copied to clipboard.":"Clipboard permission was blocked by the browser.",ok?"success":"error")}
   function setFileClipboard(mode,item){if(!state.canManage){showToast("Only dashboard editors can copy or move files.","error");return}state.clipboard={mode:mode,item:{id:item.id,name:item.name,kind:item.kind}};state.selectedId=item.id;state.selectedItem=item;showToast((mode==="copy"?"Copied":"Cut")+" “"+item.name+"”. Navigate to a folder and paste.","success");render()}
+  async function duplicateItem(item){
+    if(!state.canManage){showToast("Only dashboard editors can copy files.","error");return}
+    var parent=(S.mode&&item.parentId)?item.parentId:state.folderId;
+    try{
+      hideContextMenu();
+      showToast("Making a copy of “"+item.name+"”…");
+      await request("driveCopy",{id:item.id,parentId:parent});
+      invalidateDriveCache();
+      showToast("Copy created.","success");
+      await loadFolder(state.folderId,state.path[state.path.length-1].name,false,true);
+    }catch(err){showToast(err&&err.message||"Could not make a copy. Check your edit access and try again.","error")}
+  }
   async function pasteClipboard(destinationId){
     var clip=state.clipboard;if(!clip){showToast("Nothing to paste yet.");return}
     if(!state.canManage){showToast("Only dashboard editors can paste files.","error");return}
@@ -6726,6 +6739,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     if(action==="download"){if(item)startDriveDownload(item);return}
     if(action==="copy-name"){if(item)copyTextToClipboard(item.name);return}
     if(action==="copy"||action==="cut"){if(item)setFileClipboard(action,item);return}
+    if(action==="duplicate"){if(item)await duplicateItem(item);return}
     if(action==="paste"){await pasteClipboard(targetFolder);return}
     if(action==="rename"||action==="move"){if(item)driveOpenDialog(action,item);return}
     if(action==="trash"){if(item){var ok=typeof window.__confirmAction==="function"?await window.__confirmAction("Move to trash?","'"+item.name+"' will be moved to your Google Drive trash. You can restore it from Drive trash.","Move to trash","danger"):window.confirm("Move '"+item.name+"' to trash?");if(!ok)return;try{await request("driveTrash",{id:item.id});invalidateDriveCache();state.selectedId="";state.selectedItem=null;showToast("Moved to trash.","success");await loadFolder(state.folderId,state.path[state.path.length-1].name,false,true)}catch(err){showToast(err&&err.message||"Could not move this item to trash.","error")}}return}
@@ -6845,6 +6859,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     state.pressTimer=setTimeout(function(){var item=nodeId?driveItemById(nodeId):null;state.suppressNextOpenUntil=Date.now()+900;showContextMenu({clientX:pressX,clientY:pressY},item)},560);
   },{passive:true});
   ["pointerup","pointercancel","pointermove"].forEach(function(name){driveScreen.addEventListener(name,function(){clearTimeout(state.pressTimer);state.pressTimer=0},{passive:true})});
+  function driveIsTouchOnly(){try{return window.matchMedia("(hover: none)").matches}catch(e){return false}}
   document.addEventListener("click",function(event){
     var moreBtn=event.target.closest("[data-drive-more]");
     if(moreBtn&&state.open){event.preventDefault();event.stopPropagation();var moreItem=driveItemById(moreBtn.getAttribute("data-drive-more"));if(moreItem){var r=moreBtn.getBoundingClientRect();state.suppressNextOpenUntil=0;showContextMenu({clientX:r.right-4,clientY:r.bottom+4},moreItem);var m=el("driveContextMenu");if(m){var w=m.offsetWidth||224;m.style.left=Math.max(8,Math.min(r.right-w,window.innerWidth-w-8))+"px"}}return}
@@ -6854,7 +6869,13 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     if(menuAction){event.preventDefault();event.stopPropagation();var action=menuAction.getAttribute("data-drive-menu-action");if(action==="create"){showCreateSubmenu(menuAction);return}contextAction(action);return}
     var closePreviewTarget=event.target.closest("[data-drive-preview-close]");if(closePreviewTarget){closePreview();return}
     var open=event.target.closest("[data-drive-open]");
-    if(open){if(Date.now()<state.suppressNextOpenUntil){event.preventDefault();return}var item=driveItemById(open.getAttribute("data-drive-open"));if(item){state.selectedId=item.id;state.selectedItem=item;render();handleRowAction("open",item)}return}
+    if(open){if(Date.now()<state.suppressNextOpenUntil){event.preventDefault();return}var item=driveItemById(open.getAttribute("data-drive-open"));if(item){
+      var now=Date.now(),touch=driveIsTouchOnly();
+      var again=state.tapId===item.id&&(touch||now-(state.tapTime||0)<550);
+      state.tapId=item.id;state.tapTime=now;state.selectedId=item.id;state.selectedItem=item;
+      if(again){state.tapId="";state.tapTime=0;render();handleRowAction("open",item)}
+      else{Array.prototype.forEach.call(document.querySelectorAll("#driveManagerScreen [data-drive-open]"),function(n){var on=n===open;n.classList.toggle("is-selected",on);n.setAttribute("aria-selected",on?"true":"false")})}}
+      return}
     var crumb=event.target.closest("[data-drive-crumb]");
     if(crumb){var index=Number(crumb.getAttribute("data-drive-crumb"));if(index>=0&&index<state.path.length-1){state.path=state.path.slice(0,index+1);if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();var part=state.path[index];loadFolder(part.id,part.name,false)}return}
     if(!event.target.closest("#driveContextMenu")&&!event.target.closest("#driveCreateSubmenu")){hideContextMenu();hideCreateSubmenu()}
