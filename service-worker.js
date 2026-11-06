@@ -1,5 +1,5 @@
 // service-worker.js — Audit Data Dashboard
-// v189: force a clean shell refresh for the no-store API transport hardening in index.html.
+// v190: Branch Scorecard keeps its desktop table layout on phones inside a contained horizontal-scroll viewport.
 // Bump CACHE_VERSION any time you change what gets precached.
 // v185: Drive UI updates (sortable headers, Make a copy, select-then-open, Audit files title). Bumped so phones fetch the new index.html.
 // v186: Drive native-behaviour update (UI only; precache list unchanged).
@@ -17,7 +17,7 @@
 // v162: assistant speed pass (instant local answers, fewer POST round-trips, early wake-up, compact prompt for general chat).
 // v161: bounded Gemini overload failover/retry and removal of the chat Drive workspace.
 // v172: Drive-native user-corpus search with Shared Drive inclusion, exact phrases, expanded file-type filters, and faster cache refresh.
-const CACHE_VERSION = 'audit-dashboard-v189'
+const CACHE_VERSION = 'audit-dashboard-v190'
 // v141: native Google Sheets creation, flexible natural-language Drive destinations, explicit My Drive root handling and Docs/DOCX/PDF creation; v138 response profiles and v137 transport/template safeguards retained.
 // v137: CORS-resilient assistant file POST/result retrieval, API-key-scoped quota cooldowns, and guarded DOCX section saves.
 // v136: persistent daily-quota cooldown, stable-model preference over preview overrides, and precise template edits.
