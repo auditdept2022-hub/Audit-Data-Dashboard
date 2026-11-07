@@ -10439,7 +10439,7 @@ html body #miniCalendarPopup #miniCalToday{background:#eef2ff!important;color:#3
       var sbw=window.innerWidth-root.clientWidth;root.style.setProperty("--mc-sbw",(sbw>0?sbw:0)+"px");root.classList.add("mc-lock");
     }
     function unlock(){root.classList.remove("mc-lock");root.style.removeProperty("--mc-sbw")}
-    function block(e){ if(!popup.contains(e.target))e.preventDefault() }
+    function block(e){ if(popup.classList.contains("hidden"))return; if(!popup.contains(e.target))e.preventDefault() }
     document.addEventListener("wheel",block,{passive:false});
     document.addEventListener("touchmove",function(e){
       if(popup.classList.contains("hidden"))return;
@@ -10491,10 +10491,10 @@ html body #mcBody .mc-badge{top:2px!important;right:3px!important;min-width:15px
 html body #mcBody .flex.items-center.gap-3.mt-2{margin:0!important;font-size:11px!important;gap:14px!important;flex-wrap:wrap}
 /* right column */
 html body #mcBody #miniCalDetail{margin:0!important;padding:10px!important}
-html body #mcBody #miniCalDetailList{max-height:170px!important}
+html body #mcBody #miniCalDetailList{max-height:min(330px,46vh)!important}
 html body #mcBody .mc-item{padding:7px 9px!important}
 .mc-hol-title{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;margin:2px 2px -4px}
-html body #mcBody #miniCalHolidayList{margin:0!important;max-height:112px!important;padding:6px!important;display:flex;flex-direction:column;gap:2px;background:#f8fafc;border-radius:14px;border:1px solid #edf1f6}
+html body #mcBody #miniCalHolidayList{margin:0!important;max-height:128px!important;padding:6px!important;display:flex;flex-direction:column;gap:2px;background:#f8fafc;border-radius:14px;border:1px solid #edf1f6}
 html body #mcBody #miniCalHolidayList > div{padding:4px 6px!important;border-radius:8px}
 html body #mcBody #miniCalHolidayList span{font-size:12px!important}
 html body #mcBody #miniCalFooter{margin:0!important;gap:8px!important}
@@ -10506,6 +10506,9 @@ html body #mcBody #miniCalFooter button{padding:9px!important;font-size:13px!imp
   html body #mcBody #miniCalGrid .mini-cal-day{height:clamp(36px,10.5vw,44px)!important}
   #miniCalPicker{margin:10px 12px 0!important}
 }
+#miniCalCloseBtn{display:none!important}
+html body #mcBody #miniCalFooter #miniCalToday{width:100%;flex:1 1 100%}
+.mc-hol-title{margin-top:6px}
 </style>
 <script id="v208-calendar-compact-js">
 (function(){
@@ -10522,12 +10525,26 @@ html body #mcBody #miniCalFooter button{padding:9px!important;font-size:13px!imp
     var body=document.createElement("div");body.id="mcBody";
     var left=document.createElement("div"),right=document.createElement("div");left.className=right.className="mc-col";
     var title=document.createElement("div");title.className="mc-hol-title";title.textContent="Holidays this month";
-    [week,grid,legend].forEach(function(n){left.appendChild(n)});
-    [sum,det,title,hol,foot].forEach(function(n){right.appendChild(n)});
+    [week,grid,legend,title,hol].forEach(function(n){left.appendChild(n)});
+    [sum,det,foot].forEach(function(n){right.appendChild(n)});
+    // only ONE close action: the X in the top-right corner
+    var cb=document.getElementById("miniCalCloseBtn");if(cb)cb.remove();
     body.appendChild(left);body.appendChild(right);
     popup.appendChild(body);
   }
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init();
+})();
+</script>
+<script id="v209-scroll-unlock-safety">
+(function(){
+  var root=document.documentElement;
+  function fix(){
+    var p=document.getElementById("miniCalendarPopup");
+    if((!p||p.classList.contains("hidden"))&&root.classList.contains("mc-lock")){root.classList.remove("mc-lock");root.style.removeProperty("--mc-sbw")}
+  }
+  setInterval(fix,800);
+  document.addEventListener("wheel",fix,{passive:true,capture:true});
+  document.addEventListener("touchstart",fix,{passive:true,capture:true});
 })();
 </script>
 </body></html>
