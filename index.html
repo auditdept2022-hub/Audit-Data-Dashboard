@@ -10048,19 +10048,31 @@ html body #scorecardTableBody tr{transition:background-color .15s var(--ease-std
 })();
 </script>
 <style id="v201-clean-branch-bar-scroll">
-/* v201: clean scroll under the pinned Branch Performance bar.
-   The bar is position:fixed with rounded corners, so cards scrolling behind it showed through the
-   corners, the sides and the thin strip under the app header. A solid page-coloured mask sits
-   behind the bar (inside its own stacking context) and hides that. */
-html body #overviewHeaderRow::before{content:"";position:absolute;z-index:-1;pointer-events:none;
-  top:-3px;bottom:0;left:-24px;right:-24px;background:#eef1f6}
-/* keep the bar itself fully opaque */
-html body #overviewHeaderRow{background:#fff!important;background-image:none!important;
-  -webkit-backface-visibility:hidden;backface-visibility:hidden}
-/* soft fade under the bar so cards slide away cleanly instead of being cut off */
-html body #overviewHeaderRow::after{content:"";position:absolute;z-index:-1;pointer-events:none;
-  left:-24px;right:-24px;top:100%;height:10px;
-  background:linear-gradient(180deg,rgba(238,241,246,.95),rgba(238,241,246,0))}
-html body #overviewHeaderSpacer{pointer-events:none}
+/* v203: hide cards scrolling behind the pinned Branch Performance bar WITHOUT touching its design.
+   A page-coloured ring (box-shadow spread) is painted *behind* the bar, so it covers the gap under the
+   app header, the rounded corners and a thin band under the bar. The bar's own background, border,
+   radius and layout are untouched. The bar's original soft shadow is kept after the ring. */
+html body #overviewHeaderRow,
+html body #overviewHeaderRow.is-stuck{
+  box-shadow:0 0 0 10px #eef1f6,0 1px 4px rgba(15,23,42,.04)!important}
+html body #overviewHeaderRow.is-stuck{
+  box-shadow:0 0 0 10px #eef1f6,0 12px 18px -6px rgba(15,23,42,.10)!important}
+</style>
+<style id="v202-scorecard-toolbar-fix">
+/* v202: Reset button overlapped the "All Collection" select on desktop.
+   Cause: the toolbar (search + Reset) was squeezed to ~240px by a generic ":first-child" rule while
+   its search box alone needs 180px, so Reset spilled out. Give the toolbar room for both. */
+@media (min-width:768px){
+  html body #section-scorecard #scorecardControlsLayout > #scorecardControlToolbar{
+    flex:0 0 310px!important;width:310px!important;min-width:310px!important;max-width:100%!important;
+    display:flex!important;flex-wrap:nowrap!important;align-items:center!important;gap:8px!important;box-sizing:border-box!important}
+  html body #section-scorecard #scorecardControlToolbar #scorecardControlSearchWrap{
+    flex:1 1 auto!important;width:auto!important;min-width:0!important}
+  html body #section-scorecard #scorecardControlToolbar #scorecardFilterResetBtn{
+    flex:0 0 auto!important;width:auto!important;min-width:84px!important;height:34px!important;
+    margin:0!important;position:static!important;white-space:nowrap!important}
+  html body #section-scorecard #scorecardControlsLayout > #scorecardFilterControls{
+    flex:1 1 560px!important;min-width:0!important}
+}
 </style>
 </body></html>
