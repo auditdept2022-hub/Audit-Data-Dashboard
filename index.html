@@ -10401,7 +10401,7 @@ html body #miniCalendarPopup #miniCalToday{background:#eef2ff!important;color:#3
     function renderSub(){
       var now=new Date(),na=nextAudit();
       var html='<span>Today · <b>'+now.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})+'</b></span>';
-      if(na){
+      if(false&&na){
         var days=Math.round((na.raw-new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime())/864e5);
         var when=days===0?"today":days===1?"tomorrow":"in "+days+" days";
         html+='<button type="button" class="nx" id="miniCalNextAudit" title="Jump to the next audit">Next audit '+when+' · '+String(na.branch).replace(/[<>&]/g,"")+' &rarr;</button>';
@@ -10509,6 +10509,11 @@ html body #mcBody #miniCalFooter button{padding:9px!important;font-size:13px!imp
 #miniCalCloseBtn{display:none!important}
 html body #mcBody #miniCalFooter #miniCalToday{width:100%;flex:1 1 100%}
 .mc-hol-title{margin-top:6px}
+#miniCalNextAudit{display:none!important}
+/* month navigation: [ < ]  November 2026  [ > ] kept together on the left for easy tapping */
+html body #miniCalHero > div:first-child{justify-content:flex-start!important;gap:8px!important}
+html body #miniCalHero #miniCalNext{margin-left:0!important}
+html body #miniCalHero #miniCalLabel{min-width:clamp(170px,36vw,230px);justify-content:center;text-align:center}
 </style>
 <script id="v208-calendar-compact-js">
 (function(){
