@@ -10132,4 +10132,145 @@ html body #miniCalendarPopup #miniCalToday{margin-top:14px!important;padding:11p
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
 </script>
+<style id="v206-calendar-audit-schedule">
+/* v206: audit schedule highlights, day details and close actions inside the big calendar */
+#miniCalGrid .mini-cal-day{position:relative}
+#miniCalGrid .mini-cal-day[data-date]{cursor:pointer!important}
+#miniCalGrid .mini-cal-day.mc-sched:not(.is-today){background:rgba(245,158,11,.16)!important;border-color:#f59e0b!important;color:#92400e!important;font-weight:800}
+#miniCalGrid .mini-cal-day.mc-overdue:not(.is-today){background:rgba(225,29,72,.10)!important;border-color:#e11d48!important;color:#9f1239!important;font-weight:800}
+#miniCalGrid .mini-cal-day.mc-done:not(.mc-sched):not(.mc-overdue):not(.is-today){border-color:#34d399!important;background:rgba(16,185,129,.08)!important}
+#miniCalGrid .mini-cal-day.mc-sel{outline:3px solid rgba(79,70,229,.55);outline-offset:1px}
+#miniCalGrid .mini-cal-day.is-muted.mc-sched,#miniCalGrid .mini-cal-day.is-muted.mc-overdue,#miniCalGrid .mini-cal-day.is-muted.mc-done{opacity:.75}
+.mc-badge{position:absolute;top:3px;right:4px;min-width:16px;height:16px;padding:0 4px;border-radius:9px;font-style:normal;font-size:10px;line-height:16px;font-weight:800;color:#fff;text-align:center;background:#f59e0b}
+.mc-badge.overdue{background:#e11d48}.mc-badge.done{background:#10b981}
+#miniCalCloseX{position:absolute;top:14px;right:14px;width:36px;height:36px;border-radius:12px;border:0;background:#f1f5f9;color:#475569;font-size:20px;line-height:1;font-weight:700;cursor:pointer;display:grid;place-items:center;z-index:2}
+#miniCalCloseX:hover{background:#e2e8f0;color:#0f172a}
+html body #miniCalendarPopup:not(.hidden) > div:first-child{padding-right:48px}
+#miniCalSummary{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.mc-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:999px;font-size:12px;font-weight:700;background:#f1f5f9;color:#334155}
+.mc-chip i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.mc-chip.sched i{background:#f59e0b}.mc-chip.overdue i{background:#e11d48}.mc-chip.done i{background:#10b981}
+#miniCalDetail{margin-top:14px;padding:12px;border:1px solid #e2e8f0;border-radius:14px;background:#f8fafc}
+#miniCalDetail h4{font-size:13px;font-weight:800;color:#0f172a;margin:0 0 8px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+#miniCalDetail h4 button{border:0;background:none;color:#4f46e5;font-size:12px;font-weight:700;cursor:pointer}
+#miniCalDetailList{max-height:190px;overflow-y:auto;display:grid;gap:6px}
+.mc-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;background:#fff;border:1px solid #e8edf4;border-radius:10px;font-size:13px}
+.mc-item b{color:#0f172a;font-weight:700}.mc-item small{display:block;color:#64748b;font-size:11px;margin-top:1px}
+.mc-pill{flex:0 0 auto;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800;background:#fef3c7;color:#92400e}
+.mc-pill.overdue{background:#ffe4e6;color:#9f1239}.mc-pill.done{background:#d1fae5;color:#065f46}
+.mc-empty{font-size:12px;color:#94a3b8;padding:4px 2px}
+#miniCalFooter{display:flex;gap:8px;margin-top:14px}
+#miniCalFooter button{flex:1;padding:11px;border-radius:12px;font-size:14px;font-weight:700;border:0;cursor:pointer}
+#miniCalCloseBtn{background:#0f2547;color:#fff}
+html body #miniCalendarPopup #miniCalToday{margin-top:0!important;flex:1}
+</style>
+<script id="v206-calendar-audit-schedule-js">
+(function(){
+  var MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+  var DAY=864e5, cache=null, cacheAt=0, selected=null;
+  function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+  function key(d){return d.getFullYear()+"-"+d.getMonth()+"-"+d.getDate()}
+  function fmt(d){return d.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"})}
+  function build(){
+    if(cache&&Date.now()-cacheAt<4000)return cache;
+    var ev={},list=[],seen={};
+    var t0=new Date();t0.setHours(0,0,0,0);var today=t0.getTime();
+    function add(branch,raw,auditor,type){
+      if(raw==null||isNaN(raw))return;
+      var d=new Date(raw);d.setHours(0,0,0,0);
+      var k=key(d),sk=branch+"|"+k;
+      if(seen[sk])return;seen[sk]=1;
+      var e={branch:branch,auditor:auditor||"Unassigned",type:type,raw:d.getTime(),k:k};
+      (ev[k]=ev[k]||[]).push(e);list.push(e);
+    }
+    try{
+      var branches=(window.activeData&&activeData.branches)||(typeof activeData!=="undefined"&&activeData.branches)||[];
+      branches.forEach(function(b){
+        var info=null;try{info=getBranchAuditRoundInfo(b)}catch(e){}
+        if(!info)return;
+        (info.historyRounds||[]).forEach(function(r){add(b.name,r.dateRaw,r.auditor,"done")});
+        (info.plannedRounds||[]).forEach(function(r){add(b.name,r.dateRaw,r.auditor,r.dateRaw<today?"overdue":"sched")});
+        var exp=info.expectedAuditDateRaw;
+        if(exp!=null){
+          var doneForPlan=info.recentDateRaw!=null&&info.recentDateRaw>=exp-7*DAY;
+          if(!doneForPlan)add(b.name,exp,info.upNextAuditor||info.recentAuditor,exp<today?"overdue":"sched");
+        }
+      });
+    }catch(e){console.warn("calendar schedule skipped",e)}
+    cache={ev:ev,list:list,today:today};cacheAt=Date.now();return cache;
+  }
+  function init(){
+    var popup=document.getElementById("miniCalendarPopup"),grid=document.getElementById("miniCalGrid"),
+        label=document.getElementById("miniCalLabel"),trigger=document.getElementById("liveDateTime"),
+        todayBtn=document.getElementById("miniCalToday");
+    if(!popup||!grid||!label||!trigger||!todayBtn||popup.dataset.v206)return;
+    popup.dataset.v206="1";popup.style.position=popup.style.position||"";
+    function closeCal(){if(!popup.classList.contains("hidden"))trigger.click()}
+    // close X
+    var x=document.createElement("button");x.type="button";x.id="miniCalCloseX";x.setAttribute("aria-label","Close calendar");x.innerHTML="&times;";
+    x.addEventListener("click",function(e){e.stopPropagation();closeCal()});popup.insertBefore(x,popup.firstChild);
+    // summary chips (above weekday row)
+    var sum=document.createElement("div");sum.id="miniCalSummary";
+    var head=popup.children[1];popup.insertBefore(sum,head&&head.nextSibling);
+    // details panel + footer
+    var det=document.createElement("div");det.id="miniCalDetail";
+    det.innerHTML='<h4><span id="miniCalDetailTitle"></span><button type="button" id="miniCalDetailClear" hidden>Show upcoming</button></h4><div id="miniCalDetailList"></div>';
+    todayBtn.parentNode.insertBefore(det,todayBtn);
+    var foot=document.createElement("div");foot.id="miniCalFooter";
+    var close=document.createElement("button");close.type="button";close.id="miniCalCloseBtn";close.textContent="Close";
+    close.addEventListener("click",function(e){e.stopPropagation();closeCal()});
+    todayBtn.parentNode.insertBefore(foot,todayBtn);foot.appendChild(todayBtn);foot.appendChild(close);
+    det.querySelector("#miniCalDetailClear").addEventListener("click",function(){selected=null;decorate()});
+    function viewMonthYear(){var m=/^(\w+)\s+(\d{4})/.exec(label.textContent.trim());if(!m)return null;var mi=MONTHS.indexOf(m[1]);return mi<0?null:{m:mi,y:+m[2]}}
+    function pill(t){return t==="done"?'<span class="mc-pill done">Completed</span>':t==="overdue"?'<span class="mc-pill overdue">Overdue</span>':'<span class="mc-pill">Scheduled</span>'}
+    function itemHtml(e,showDate){return '<div class="mc-item"><div><b>'+esc(e.branch)+'</b><small>'+esc(e.auditor)+(showDate?" · "+new Date(e.raw).toLocaleDateString("en-US",{month:"short",day:"numeric"}):"")+'</small></div>'+pill(e.type)+'</div>'}
+    function decorate(){
+      var vm=viewMonthYear();if(!vm)return;
+      var data=build();
+      var first=new Date(vm.y,vm.m,1),start=first.getDay(),cells=grid.children;
+      var monthCounts={sched:0,overdue:0,done:0};
+      for(var i=0;i<cells.length;i++){
+        var c=cells[i],d=new Date(vm.y,vm.m,1-start+i),k=key(d),list=data.ev[k];
+        c.setAttribute("data-date",k);
+        c.classList.remove("mc-sched","mc-overdue","mc-done","mc-sel");
+        var old=c.querySelector(".mc-badge");if(old)old.remove();
+        if(list&&list.length){
+          var has={sched:0,overdue:0,done:0};list.forEach(function(e){has[e.type]++});
+          var top=has.overdue?"overdue":has.sched?"sched":"done";
+          c.classList.add("mc-"+top);
+          var b=document.createElement("i");b.className="mc-badge "+(top==="sched"?"":top);b.textContent=list.length;c.appendChild(b);
+          if(d.getMonth()===vm.m){monthCounts.sched+=has.sched;monthCounts.overdue+=has.overdue;monthCounts.done+=has.done}
+        }
+        if(selected===k)c.classList.add("mc-sel");
+      }
+      sum.innerHTML='<span class="mc-chip sched"><i></i>'+monthCounts.sched+' scheduled</span>'+
+        (monthCounts.overdue?'<span class="mc-chip overdue"><i></i>'+monthCounts.overdue+' overdue</span>':'')+
+        '<span class="mc-chip done"><i></i>'+monthCounts.done+' completed</span>';
+      var title=det.querySelector("#miniCalDetailTitle"),listEl=det.querySelector("#miniCalDetailList"),clr=det.querySelector("#miniCalDetailClear");
+      if(selected&&data.ev[selected]){
+        var parts=selected.split("-"),sd=new Date(+parts[0],+parts[1],+parts[2]);
+        title.textContent=fmt(sd);clr.hidden=false;
+        listEl.innerHTML=data.ev[selected].map(function(e){return itemHtml(e,false)}).join("");
+      }else{
+        clr.hidden=true;
+        var up=data.list.filter(function(e){return e.type!=="done"&&e.raw>=data.today}).sort(function(a,b){return a.raw-b.raw}).slice(0,6);
+        var od=data.list.filter(function(e){return e.type==="overdue"}).sort(function(a,b){return a.raw-b.raw}).slice(0,3);
+        title.textContent=selected?"No audits on this day":"Upcoming audits";
+        listEl.innerHTML=(od.length?od.map(function(e){return itemHtml(e,true)}).join(""):"")+
+          (up.length?up.map(function(e){return itemHtml(e,true)}).join(""):(od.length?"":'<div class="mc-empty">No scheduled audits found. Tap a highlighted day to see details.</div>'));
+      }
+    }
+    grid.addEventListener("click",function(e){
+      var c=e.target.closest&&e.target.closest(".mini-cal-day[data-date]");if(!c)return;
+      var k=c.getAttribute("data-date");selected=(selected===k)?null:k;decorate();
+    });
+    new MutationObserver(function(){decorate()}).observe(grid,{childList:true});
+    new MutationObserver(function(){
+      if(!popup.classList.contains("hidden")){selected=null;cache=null;decorate()}
+    }).observe(popup,{attributes:true,attributeFilter:["class"]});
+    decorate();
+  }
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init();
+})();
+</script>
 </body></html>
