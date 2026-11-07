@@ -1249,6 +1249,67 @@ html body main.dash-container #section-overview + .grid{margin-top:12px !importa
   <script>(function(){var pct=0,done=false,splashGone=false,creepTimer=null;function el(id){return document.getElementById(id)}var SCENE_ANIMS={skyRise:1,starTwinkle:1,sunPath:1,moonPath:1,loadingRainStorm:1,loadingLightningFlash:1,loadingRigCruise:1,loadingRigLightSync:1,loadingStormClear:1};function driveScene(r){if(!window.__loadingRealMode||!document.getAnimations)return;var t=Math.max(0,Math.min(1,r/100))*899;var anims=document.getElementById("loadingScreen");if(!anims)return;document.getAnimations().forEach(function(a){if(SCENE_ANIMS[a.animationName]&&a.effect&&a.effect.target&&anims.contains(a.effect.target)){if(a.playState!=="paused")a.pause();a.currentTime=t}})}window.__driveLoadingScene=function(){driveScene(pct)};function paint(label){var r=Math.round(pct);driveScene(r);var lf=el("loadingProgressFill"),lp=el("loadingProgressPct");if(lf)lf.style.width=r+"%";if(lp)lp.textContent=r+"%";var bf=el("bootSplashFill"),bt=el("bootSplashText");if(bf)bf.style.width=r+"%";if(bt&&label&&bt.textContent!==label)bt.textContent=label;if(label&&window.__loadingRealMode){var st=el("loadingStatusText");if(st&&st.textContent!==label)st.textContent=label}}function stopCreep(){if(creepTimer){clearInterval(creepTimer);creepTimer=null}}function set(p,label,creepTo){if(done)return;stopCreep();var advanced=p>=pct;if(p>pct)pct=Math.min(p,99);paint(advanced?label:void 0);if(creepTo&&creepTo>pct)creepTimer=setInterval(function(){if(done||pct>=creepTo-.5){stopCreep();return}pct+=(creepTo-pct)*.06;paint()},300)}function hideSplash(){var s=el("bootSplash");splashGone=true;if(!s)return;s.style.opacity="0";setTimeout(function(){if(s.parentNode)s.parentNode.removeChild(s)},420)}function finish(label){if(done)return;stopCreep();pct=100;paint(label||"Ready");done=true;setTimeout(hideSplash,250)}function reset(){if(!done&&!splashGone)return;stopCreep();pct=0;done=false;paint("Starting…")}window.__bootProgress={set:set,finish:finish,reset:reset,hide:hideSplash,splashVisible:function(){return!splashGone&&!!el("bootSplash")&&!done}};set(5,"Starting…");document.addEventListener("DOMContentLoaded",function(){set(10,"Loading app…")});if(document.readyState==="complete")set(15,"Checking session…");else window.addEventListener("load",function(){set(15,"Checking session…")});setTimeout(hideSplash,3e4)})();</script>
   <script>if("serviceWorker"in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("service-worker.js").catch(function(){})});var __swHadController=!!navigator.serviceWorker.controller;navigator.serviceWorker.addEventListener("controllerchange",function(){if(!__swHadController)return;__showAppUpdateBanner()});navigator.serviceWorker.addEventListener("message",function(ev){if(!ev.data||ev.data.type!=="APP_UPDATE_AVAILABLE")return;__showAppUpdateBanner()});function __showAppUpdateBanner(){if(document.getElementById("appUpdateBanner"))return;var bar=document.createElement("div");bar.id="appUpdateBanner";bar.setAttribute("role","status");bar.style.cssText="position:fixed;left:50%;transform:translateX(-50%);top:calc(4rem + env(safe-area-inset-top,0px));"+"z-index:2147483000;display:flex;align-items:center;gap:.75rem;padding:.65rem .9rem;border-radius:.85rem;"+"background:#0f2547;color:#fff;font:600 .8rem/1.2 system-ui,sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.35);max-width:calc(100vw - 1.5rem)";var msg=document.createElement("span");msg.textContent="A new version of the dashboard is available.";var go=document.createElement("button");go.textContent="Refresh";go.style.cssText="background:#fff;color:#0f2547;border:0;border-radius:.6rem;padding:.4rem .8rem;font-weight:700;cursor:pointer";go.onclick=function(ev){ev.stopPropagation();window.location.reload()};var later=document.createElement("button");later.textContent="✕";later.setAttribute("aria-label","Dismiss");later.style.cssText="background:transparent;color:#cbd5e1;border:0;cursor:pointer;font-size:1rem";later.onclick=function(ev){ev.stopPropagation();bar.remove()};bar.appendChild(msg);bar.appendChild(go);bar.appendChild(later);bar.style.cursor="pointer";bar.setAttribute("role","button");bar.setAttribute("tabindex","0");bar.setAttribute("aria-label","A new version of the dashboard is available. Activate to refresh.");bar.onclick=function(){window.location.reload()};bar.onkeydown=function(ev){if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();window.location.reload()}};document.body.appendChild(bar)}}</script>
   
+<style id="overview-cards-larger">
+/* Overview stack cards: a little larger than the original (desktop only) */
+@media (min-width:768px){
+  html body #section-overview > :first-child{padding:17px 18px 14px !important;border-radius:22px !important}
+  html body #section-overview > :nth-child(2),
+  html body #section-overview > :nth-child(3),
+  html body #section-overview > :nth-child(4){padding:17px 18px 14px !important;border-radius:22px !important;min-height:210px !important}
+  html body #section-overview{gap:12px !important}
+
+  /* Audit risk */
+  html body #section-overview > :first-child > :first-child > span:first-child{font-size:11px !important}
+  html body #section-overview > :first-child > :first-child > span:last-child{width:37px !important;height:37px !important}
+  html body #section-overview > :first-child > :nth-child(2){margin-top:13px !important;margin-bottom:10px !important;padding-bottom:11px !important}
+  html body #section-overview > :first-child h3{font-size:32px !important}
+  html body #section-overview > :first-child p{font-size:9.5px !important}
+  html body #section-overview > :first-child #stat-audit-risk-sub{font-size:10.5px !important;gap:7px 10px !important}
+  html body #section-overview > :first-child .mo-footnote{font-size:10.5px !important}
+  html body #section-overview > :first-child .mo-footnote b{font-size:12px !important}
+
+  /* Collection / Sales / Service */
+  html body .mo-icon{width:43px !important;height:43px !important;flex:0 0 43px !important}
+  html body .mo-icon svg{width:22px !important;height:22px !important}
+  html body .mo-eyebrow{font-size:10px !important}
+  html body .mo-heading-copy strong{font-size:17px !important}
+  html body .mo-heading-copy small{font-size:11.5px !important}
+  html body .mo-open{width:30px !important;height:30px !important;flex:0 0 30px !important}
+  html body .mo-open svg{width:16px !important;height:16px !important}
+
+  html body .mo-main{margin-top:15px !important}
+  html body .mo-collection .mo-main,
+  html body .mo-sales .mo-main,
+  html body .mo-service .mo-main{min-height:92px !important}
+  html body .mo-label{font-size:9.5px !important}
+  html body .mo-collection .mo-value,
+  html body .mo-sales .mo-value,
+  html body .mo-service .mo-value,
+  html body .mo-value{font-size:41px !important}
+  html body .mo-unit{font-size:11px !important}
+
+  html body .mo-collection .mo-breakdown,
+  html body .mo-sales .mo-breakdown{grid-template-columns:repeat(3,minmax(0,94px)) !important;gap:7px !important}
+  html body .mo-collection .mo-mini-stat,
+  html body .mo-sales .mo-mini-stat{min-height:58px !important;padding:9px 9px 8px !important}
+  html body .mo-dot{width:7px !important;height:7px !important;flex:0 0 7px !important}
+  html body .mo-collection .mo-mini-label,
+  html body .mo-sales .mo-mini-label,
+  html body .mo-mini-label{font-size:9.5px !important}
+  html body .mo-mini-stat strong{font-size:18px !important;padding-left:11px !important}
+
+  html body .mo-service-side{min-width:114px !important;padding:9px 13px 9px 15px !important}
+  html body .mo-side-label{font-size:9px !important}
+  html body .mo-side-count{font-size:25px !important}
+  html body .mo-side-caption{font-size:10px !important}
+
+  html body .mo-foot{padding-top:10px !important}
+  html body .mo-progress{height:6px !important}
+  html body .mo-footnote{font-size:10.5px !important}
+  html body .mo-footnote b{font-size:12px !important}
+}
+</style>
+
   <style id="authGateTheme">#authGate,#loadingScreen{font-family:'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif;background:radial-gradient(1100px 650px at 12% -10%,rgba(255,255,255,.16),transparent 55%),radial-gradient(900px 650px at 100% 105%,rgba(255,255,255,.1),transparent 55%),linear-gradient(125deg,#1e2f8f 0,#3730a3 38%,#4f46e5 68%,#0891b2 100%);overflow:hidden}.auth-crest-frame{position:relative;display:inline-flex}.auth-crest-frame::after,.auth-crest-frame::before{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border-radius:9999px;pointer-events:none}.auth-crest-frame::before{width:calc(100% + 24px);height:calc(100% + 24px);border:1px solid rgba(255,255,255,.45);animation:authPulse 3.6s ease-in-out infinite}.auth-crest-frame::after{width:calc(100% + 46px);height:calc(100% + 46px);border:1px solid rgba(255,255,255,.22);animation:authPulse 3.6s ease-in-out infinite .7s}@keyframes authPulse{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.55}50%{transform:translate(-50%,-50%) scale(1.08);opacity:1}}.auth-plaque{position:relative;overflow:hidden;background:linear-gradient(180deg,#fff,#f7f9ff);border:1px solid rgba(79,70,229,.14);border-radius:1.1rem;box-shadow:0 30px 70px -20px rgba(15,23,60,.45)}.auth-plaque::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#3730a3,#4f46e5 55%,#0891b2)}.auth-label{color:#64748b;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}.auth-input{width:100%;background:#fff;border:1px solid rgba(79,70,229,.18);color:#1e293b;border-radius:.75rem;padding:.7rem .9rem;font-size:.875rem;transition:all .2s ease}.auth-input::placeholder{color:#94a3b8}.auth-input:focus{outline:0;border-color:#4f46e5;box-shadow:0 0 0 3px rgba(79,70,229,.16)}.auth-submit{background:linear-gradient(90deg,#3730a3,#4f46e5);color:#fff}.auth-submit:hover{filter:brightness(1.06)}.auth-submit:disabled{filter:grayscale(.15)}.auth-toggle-pass{position:absolute;right:.55rem;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:1.75rem;height:1.75rem;border-radius:.5rem;color:#94a3b8;background:0 0;border:none;cursor:pointer;transition:color .15s ease,background .15s ease}.auth-toggle-pass:hover{color:#4f46e5;background:rgba(79,70,229,.08)}.auth-remember{display:flex;align-items:center;gap:.5rem;cursor:pointer;user-select:none}.auth-remember input{appearance:none;-webkit-appearance:none;-moz-appearance:none;-webkit-print-color-adjust:exact;print-color-adjust:exact;width:1.05rem;height:1.05rem;min-width:1.05rem;min-height:1.05rem;margin:0;padding:0;box-sizing:border-box;border:1.75px solid #94a3b8;border-radius:.35rem;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .15s ease;background:#fff;outline:0}.auth-remember input:hover{border-color:#4f46e5}.auth-remember input:focus-visible{box-shadow:0 0 0 3px rgba(79,70,229,.25)}.auth-remember input:checked{background-color:#4f46e5}</style>
   <div id="authGate" class="fixed inset-0 z-[200] flex items-center justify-center p-4">
     <div class="relative w-full max-w-[400px]">
