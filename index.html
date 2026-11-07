@@ -10199,6 +10199,7 @@ html body #miniCalendarPopup #miniCalToday{margin-top:0!important;flex:1}
     }catch(e){console.warn("calendar schedule skipped",e)}
     cache={ev:ev,list:list,today:today};cacheAt=Date.now();return cache;
   }
+  window.__mcBuild=build;
   function init(){
     var popup=document.getElementById("miniCalendarPopup"),grid=document.getElementById("miniCalGrid"),
         label=document.getElementById("miniCalLabel"),trigger=document.getElementById("liveDateTime"),
@@ -10269,6 +10270,192 @@ html body #miniCalendarPopup #miniCalToday{margin-top:0!important;flex:1}
       if(!popup.classList.contains("hidden")){selected=null;cache=null;decorate()}
     }).observe(popup,{attributes:true,attributeFilter:["class"]});
     decorate();
+  }
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init();
+})();
+</script>
+<style id="v207-calendar-redesign">
+/* v207: calendar redesign - navy hero header, round day cells, sticky header, scroll lock */
+html.mc-lock,html.mc-lock body{overflow:hidden!important;overscroll-behavior:none!important}
+html.mc-lock body{padding-right:var(--mc-sbw,0px)!important}
+#miniCalBackdrop{background:radial-gradient(1200px 700px at 50% 40%,rgba(30,58,138,.35),rgba(8,15,35,.70))!important;touch-action:none;overscroll-behavior:contain}
+html body #miniCalendarPopup:not(.hidden){
+  padding:0 0 22px!important;border-radius:28px!important;background:#fff!important;overscroll-behavior:contain;
+  width:min(680px,calc(100vw - 20px))!important;border:0!important;
+  box-shadow:0 40px 100px -20px rgba(2,8,28,.65),0 0 0 1px rgba(255,255,255,.08)!important;
+  animation:mcRise .32s cubic-bezier(.2,.9,.25,1.05) both!important}
+@keyframes mcRise{from{opacity:0;translate:0 26px;scale:.94}to{opacity:1;translate:0 0;scale:1}}
+html body #miniCalendarPopup > :not(#miniCalHero){margin-left:26px!important;margin-right:26px!important}
+/* hero */
+#miniCalHero{position:sticky;top:0;z-index:5;margin:0 0 16px!important;padding:18px 22px 16px;color:#fff;overflow:hidden;
+  background:linear-gradient(135deg,#0b1b3f 0%,#1e3a8a 55%,#2563eb 100%)}
+#miniCalHero::before{content:"";position:absolute;right:-60px;top:-80px;width:230px;height:230px;border-radius:50%;background:radial-gradient(circle,rgba(125,211,252,.35),transparent 68%);pointer-events:none}
+#miniCalHero::after{content:"";position:absolute;left:-40px;bottom:-90px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(167,139,250,.28),transparent 70%);pointer-events:none}
+#miniCalHero > *{position:relative;z-index:1}
+html body #miniCalHero > div:first-child{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0!important;padding:0 52px 0 0!important}
+html body #miniCalHero #miniCalLabel{font-size:clamp(20px,4.6vw,28px)!important;font-weight:800!important;color:#fff!important;letter-spacing:-.025em!important;cursor:pointer;display:inline-flex;align-items:center;gap:8px;padding:4px 10px;border-radius:12px;transition:background .15s}
+html body #miniCalHero #miniCalLabel:hover{background:rgba(255,255,255,.14)}
+html body #miniCalHero #miniCalLabel::after{content:"";width:8px;height:8px;border-right:2.5px solid rgba(255,255,255,.8);border-bottom:2.5px solid rgba(255,255,255,.8);transform:rotate(45deg) translateY(-2px);transition:transform .2s}
+html body #miniCalHero.picker-open #miniCalLabel::after{transform:rotate(225deg) translate(-2px,0)}
+html body #miniCalHero #miniCalPrev,html body #miniCalHero #miniCalNext{width:42px;height:42px;padding:0!important;display:grid;place-items:center;border-radius:14px!important;background:rgba(255,255,255,.14)!important;color:#fff!important;border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(4px);transition:background .15s,transform .15s}
+html body #miniCalHero #miniCalPrev:hover,html body #miniCalHero #miniCalNext:hover{background:rgba(255,255,255,.26)!important}
+html body #miniCalHero #miniCalPrev:active,html body #miniCalHero #miniCalNext:active{transform:scale(.92)}
+html body #miniCalHero #miniCalCloseX{top:16px;right:16px;width:40px;height:40px;background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.2);font-size:24px}
+html body #miniCalHero #miniCalCloseX:hover{background:#e11d48;border-color:#e11d48}
+#miniCalHeroSub{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 14px;margin-top:12px;font-size:12.5px;font-weight:600;color:rgba(226,232,255,.9)}
+#miniCalHeroSub b{color:#fff;font-weight:800}
+#miniCalHeroSub .nx{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(251,191,36,.18);color:#fde68a;cursor:pointer;border:0;font:inherit;font-weight:700}
+#miniCalHeroSub .nx:hover{background:rgba(251,191,36,.3)}
+/* month / year picker */
+#miniCalPicker{margin:0 26px 14px!important;padding:14px;border-radius:18px;background:#f1f5ff;border:1px solid #dbe4ff;animation:mcRise .22s ease both}
+#miniCalPicker[hidden]{display:none}
+#miniCalPicker .yr{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:10px;font-weight:800;font-size:18px;color:#1e293b}
+#miniCalPicker .yr button{width:34px;height:34px;border-radius:10px;border:0;background:#fff;color:#334155;font-size:18px;cursor:pointer;box-shadow:0 1px 3px rgba(15,23,42,.1)}
+#miniCalPicker .ms{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+#miniCalPicker .ms button{padding:10px 0;border-radius:12px;border:0;background:#fff;color:#334155;font-weight:700;font-size:13px;cursor:pointer;box-shadow:0 1px 3px rgba(15,23,42,.08);transition:transform .12s,background .12s}
+#miniCalPicker .ms button:hover{background:#e0e7ff;transform:translateY(-1px)}
+#miniCalPicker .ms button.cur{background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff}
+/* summary chips */
+#miniCalSummary{margin-bottom:14px!important}
+.mc-chip{background:#f8fafc;border:1px solid #e8edf4;padding:7px 12px}
+/* weekday row */
+html body #miniCalendarPopup .grid-cols-7.gap-y-1{font-size:11px!important;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8!important;margin-bottom:6px!important}
+html body #miniCalendarPopup .grid-cols-7.gap-y-1 span:first-child,html body #miniCalendarPopup .grid-cols-7.gap-y-1 span:last-child{color:#f43f5e!important}
+/* day cells */
+html body #miniCalendarPopup #miniCalGrid{gap:6px!important}
+html body #miniCalendarPopup #miniCalGrid.mc-flip{animation:mcFlip .28s cubic-bezier(.22,1,.36,1) both}
+@keyframes mcFlip{from{opacity:.2;translate:var(--mc-dx,18px) 0}to{opacity:1;translate:0 0}}
+html body #miniCalendarPopup #miniCalGrid .mini-cal-day{height:clamp(44px,7.4vw,60px)!important;border:1px solid transparent!important;border-radius:16px!important;background:#f8fafc!important;box-shadow:none!important;font-size:15px!important;font-weight:600;color:#1e293b;transition:transform .15s,background .15s,box-shadow .15s}
+html body #miniCalendarPopup #miniCalGrid .mini-cal-day:hover{background:#eef2ff!important;transform:translateY(-2px);box-shadow:0 8px 16px -8px rgba(30,58,138,.35)!important}
+html body #miniCalendarPopup #miniCalGrid .mini-cal-day.is-muted{background:transparent!important;color:#cbd5e1!important;box-shadow:none!important}
+html body #miniCalendarPopup #miniCalGrid .mini-cal-day.is-today{background:linear-gradient(135deg,#1e3a8a,#2563eb)!important;color:#fff!important;box-shadow:0 10px 22px -8px rgba(37,99,235,.7)!important;font-weight:800}
+html body #miniCalendarPopup #miniCalGrid .mini-cal-day.is-holiday-regular:not(.is-today){background:#eef2ff!important;color:#4338ca!important}
+html body #miniCalendarPopup #miniCalGrid .mini-cal-day.is-holiday-special:not(.is-today){background:#fff7ed!important;color:#c2410c!important}
+html body #miniCalendarPopup #miniCalGrid .mini-cal-day.mc-sched:not(.is-today){background:linear-gradient(160deg,#fff4d6,#ffe2a1)!important;border-color:#f5b83d!important;color:#92400e!important;font-weight:800}
+html body #miniCalendarPopup #miniCalGrid .mini-cal-day.mc-overdue:not(.is-today){background:linear-gradient(160deg,#ffe4e9,#ffc2cd)!important;border-color:#f43f5e!important;color:#9f1239!important;font-weight:800}
+html body #miniCalendarPopup #miniCalGrid .mini-cal-day.mc-done:not(.mc-sched):not(.mc-overdue):not(.is-today){background:#ecfdf5!important;border-color:#a7f3d0!important;color:#047857!important}
+html body #miniCalendarPopup #miniCalGrid .mini-cal-day.mc-sel{outline:3px solid #6366f1!important;outline-offset:2px}
+.mc-badge{top:4px!important;right:5px!important;min-width:17px!important;height:17px!important;line-height:17px!important;box-shadow:0 2px 5px rgba(15,23,42,.25)}
+/* legend, detail, footer */
+#miniCalDetail{background:linear-gradient(180deg,#f8fafc,#f1f5f9)!important;border-radius:18px!important;border:1px solid #e5eaf2!important}
+.mc-item{border-radius:12px!important;box-shadow:0 1px 2px rgba(15,23,42,.04);animation:mcRise .25s ease both}
+#miniCalFooter{gap:10px!important}
+#miniCalFooter button{border-radius:14px!important;transition:transform .12s,filter .15s}
+#miniCalFooter button:active{transform:scale(.97)}
+html body #miniCalendarPopup #miniCalToday{background:#eef2ff!important;color:#3730a3!important}
+#miniCalCloseBtn{background:linear-gradient(135deg,#0b1b3f,#1e3a8a)!important}
+@media (max-width:520px){
+  html body #miniCalendarPopup > :not(#miniCalHero){margin-left:14px!important;margin-right:14px!important}
+  #miniCalPicker{margin:0 14px 12px!important}
+  #miniCalHero{padding:14px 14px 12px}
+  html body #miniCalendarPopup #miniCalGrid{gap:4px!important}
+  html body #miniCalendarPopup #miniCalGrid .mini-cal-day{border-radius:13px!important;font-size:14px!important}
+}
+@media (prefers-reduced-motion:reduce){html body #miniCalendarPopup:not(.hidden),#miniCalGrid.mc-flip,.mc-item,#miniCalPicker{animation:none!important}}
+</style>
+<script id="v207-calendar-redesign-js">
+(function(){
+  var MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+  function init(){
+    var popup=document.getElementById("miniCalendarPopup"),grid=document.getElementById("miniCalGrid"),
+        label=document.getElementById("miniCalLabel"),trigger=document.getElementById("liveDateTime"),
+        prev=document.getElementById("miniCalPrev"),next=document.getElementById("miniCalNext"),
+        todayBtn=document.getElementById("miniCalToday"),closeX=document.getElementById("miniCalCloseX"),
+        bd=document.getElementById("miniCalBackdrop"),foot=document.getElementById("miniCalFooter");
+    if(!popup||!grid||!label||!prev||!next||!trigger||popup.dataset.v207)return;
+    popup.dataset.v207="1";
+    var navRow=prev.parentNode;
+    // ---- hero wrapper: nav row + close X + sub line
+    var hero=document.createElement("div");hero.id="miniCalHero";
+    popup.insertBefore(hero,popup.firstChild);
+    hero.appendChild(navRow);if(closeX)hero.appendChild(closeX);
+    var sub=document.createElement("div");sub.id="miniCalHeroSub";hero.appendChild(sub);
+    // ---- month/year picker
+    var picker=document.createElement("div");picker.id="miniCalPicker";picker.hidden=true;
+    popup.insertBefore(picker,hero.nextSibling);
+    var pickYear=new Date().getFullYear();
+    function vm(){var m=/^(\w+)\s+(\d{4})/.exec(label.textContent.trim());if(!m)return null;var i=MONTHS.indexOf(m[1]);return i<0?null:{m:i,y:+m[2]}}
+    function gotoMonth(y,m){
+      var cur=vm();if(!cur)return;var d=(y-cur.y)*12+(m-cur.m),btn=d<0?prev:next;
+      grid.style.setProperty("--mc-dx",d<0?"-18px":"18px");
+      for(var i=0;i<Math.abs(d)&&i<240;i++)btn.click();
+    }
+    function renderPicker(){
+      var cur=vm()||{m:0,y:pickYear},now=new Date();
+      picker.innerHTML='<div class="yr"><button type="button" data-y="-1" aria-label="Previous year">&lsaquo;</button><span>'+pickYear+'</span><button type="button" data-y="1" aria-label="Next year">&rsaquo;</button></div><div class="ms">'+
+        MONTHS.map(function(n,i){return '<button type="button" data-m="'+i+'"'+(cur.y===pickYear&&cur.m===i?' class="cur"':'')+'>'+n.slice(0,3)+'</button>'}).join("")+'</div>';
+    }
+    function setPicker(open){picker.hidden=!open;hero.classList.toggle("picker-open",open);if(open){var c=vm();if(c)pickYear=c.y;renderPicker()}}
+    label.addEventListener("click",function(e){e.stopPropagation();setPicker(picker.hidden)});
+    label.setAttribute("role","button");label.setAttribute("title","Jump to month / year");
+    picker.addEventListener("click",function(e){
+      e.stopPropagation();var b=e.target.closest("button");if(!b)return;
+      if(b.dataset.y){pickYear+=+b.dataset.y;renderPicker();return}
+      if(b.dataset.m!=null){gotoMonth(pickYear,+b.dataset.m);setPicker(false)}
+    });
+    // ---- hero sub line: today + next audit shortcut
+    function nextAudit(){
+      try{var d=window.__mcBuild&&window.__mcBuild();if(!d)return null;
+        var up=d.list.filter(function(e){return e.type!=="done"&&e.raw>=d.today}).sort(function(a,b){return a.raw-b.raw});return up[0]||null}catch(e){return null}
+    }
+    function renderSub(){
+      var now=new Date(),na=nextAudit();
+      var html='<span>Today · <b>'+now.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})+'</b></span>';
+      if(na){
+        var days=Math.round((na.raw-new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime())/864e5);
+        var when=days===0?"today":days===1?"tomorrow":"in "+days+" days";
+        html+='<button type="button" class="nx" id="miniCalNextAudit" title="Jump to the next audit">Next audit '+when+' · '+String(na.branch).replace(/[<>&]/g,"")+' &rarr;</button>';
+      }
+      sub.innerHTML=html;
+    }
+    sub.addEventListener("click",function(e){
+      var b=e.target.closest("#miniCalNextAudit");if(!b)return;e.stopPropagation();
+      var na=nextAudit();if(!na)return;var d=new Date(na.raw);gotoMonth(d.getFullYear(),d.getMonth());
+      setTimeout(function(){var c=grid.querySelector('.mini-cal-day[data-date="'+na.k+'"]');if(c)c.click()},60);
+    });
+    // ---- month change animation + keep sub/picker fresh
+    new MutationObserver(function(){
+      grid.classList.remove("mc-flip");void grid.offsetWidth;grid.classList.add("mc-flip");
+      if(!picker.hidden)renderPicker();
+    }).observe(grid,{childList:true});
+    // ---- swipe left/right on the grid
+    var sx=null,sy=null;
+    grid.addEventListener("touchstart",function(e){var t=e.touches[0];sx=t.clientX;sy=t.clientY},{passive:true});
+    grid.addEventListener("touchend",function(e){
+      if(sx==null)return;var t=e.changedTouches[0],dx=t.clientX-sx,dy=t.clientY-sy;sx=null;
+      if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)*1.4){grid.style.setProperty("--mc-dx",dx<0?"22px":"-22px");(dx<0?next:prev).click()}
+    },{passive:true});
+    // ---- keyboard: arrows = month, T = today, Esc handled by the original code
+    document.addEventListener("keydown",function(e){
+      if(popup.classList.contains("hidden"))return;
+      var tag=(e.target&&e.target.tagName)||"";if(/INPUT|TEXTAREA|SELECT/.test(tag))return;
+      if(e.key==="ArrowLeft"){e.preventDefault();grid.style.setProperty("--mc-dx","-18px");prev.click()}
+      else if(e.key==="ArrowRight"){e.preventDefault();grid.style.setProperty("--mc-dx","18px");next.click()}
+      else if(e.key==="t"||e.key==="T"){todayBtn&&todayBtn.click()}
+    });
+    // ---- scroll lock: page behind never moves while the calendar is open
+    var root=document.documentElement;
+    function lock(){
+      var sbw=window.innerWidth-root.clientWidth;root.style.setProperty("--mc-sbw",(sbw>0?sbw:0)+"px");root.classList.add("mc-lock");
+    }
+    function unlock(){root.classList.remove("mc-lock");root.style.removeProperty("--mc-sbw")}
+    function block(e){ if(!popup.contains(e.target))e.preventDefault() }
+    document.addEventListener("wheel",block,{passive:false});
+    document.addEventListener("touchmove",function(e){
+      if(popup.classList.contains("hidden"))return;
+      if(!popup.contains(e.target)){e.preventDefault();return}
+      // inside the popup: only allow scrolling when the popup itself can scroll
+      if(popup.scrollHeight<=popup.clientHeight+1)e.preventDefault();
+    },{passive:false});
+    document.addEventListener("keydown",function(e){
+      if(popup.classList.contains("hidden"))return;
+      if([" ","PageDown","PageUp","Home","End","ArrowUp","ArrowDown"].indexOf(e.key)>-1&&!popup.contains(e.target)&&!/INPUT|TEXTAREA|SELECT/.test((e.target&&e.target.tagName)||""))e.preventDefault();
+    });
+    new MutationObserver(function(){
+      var open=!popup.classList.contains("hidden");
+      if(open){lock();setPicker(false);renderSub();popup.scrollTop=0}else{unlock();setPicker(false)}
+    }).observe(popup,{attributes:true,attributeFilter:["class"]});
+    if(!popup.classList.contains("hidden")){lock();renderSub()}
   }
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init();
 })();
