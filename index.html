@@ -10460,4 +10460,74 @@ html body #miniCalendarPopup #miniCalToday{background:#eef2ff!important;color:#3
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init();
 })();
 </script>
+<style id="v208-calendar-compact">
+/* v208: compact two-column calendar, Close button pinned to the right edge */
+html body #miniCalendarPopup:not(.hidden){
+  width:min(880px,calc(100vw - 20px))!important;padding:0!important;border-radius:24px!important;
+  scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
+html body #miniCalendarPopup:not(.hidden)::-webkit-scrollbar{width:6px}
+html body #miniCalendarPopup:not(.hidden)::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:6px}
+html body #miniCalendarPopup > :not(#miniCalHero){margin-left:0!important;margin-right:0!important}
+/* hero: slimmer, and the close X is taken out of the flow and pinned to the top-right corner */
+#miniCalHero{margin:0!important;padding:12px 64px 12px 16px!important}
+#miniCalHero > :not(#miniCalCloseX){position:relative;z-index:1}
+html body #miniCalHero > #miniCalCloseX{position:absolute!important;top:12px!important;right:12px!important;left:auto!important;bottom:auto!important;margin:0!important;
+  width:38px!important;height:38px!important;border-radius:12px!important;z-index:6!important;font-size:22px!important}
+html body #miniCalHero > div:first-child{padding:0!important;justify-content:flex-start!important;gap:10px!important}
+html body #miniCalHero #miniCalLabel{font-size:clamp(19px,4vw,24px)!important;padding:2px 8px!important}
+html body #miniCalHero #miniCalPrev,html body #miniCalHero #miniCalNext{width:36px!important;height:36px!important;border-radius:12px!important}
+html body #miniCalHero #miniCalNext{margin-left:auto}
+#miniCalHeroSub{margin-top:8px!important;font-size:12px!important}
+#miniCalPicker{margin:12px 18px 0!important;padding:12px!important}
+/* body: two columns */
+#mcBody{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px;padding:14px 18px 18px;align-items:start}
+.mc-col{min-width:0;display:flex;flex-direction:column;gap:10px}
+html body #mcBody #miniCalSummary{margin:0!important}
+html body #mcBody .grid-cols-7.gap-y-1{margin:0 0 -4px!important;font-size:10.5px!important}
+html body #mcBody #miniCalGrid{gap:4px!important}
+html body #mcBody #miniCalGrid .mini-cal-day{height:clamp(38px,5vw,46px)!important;border-radius:12px!important;font-size:14px!important}
+html body #mcBody #miniCalGrid .mini-cal-day .ph-holiday-dot{width:5px!important;height:5px!important;margin-top:0!important}
+html body #mcBody .mc-badge{top:2px!important;right:3px!important;min-width:15px!important;height:15px!important;line-height:15px!important;font-size:9px!important}
+html body #mcBody .flex.items-center.gap-3.mt-2{margin:0!important;font-size:11px!important;gap:14px!important;flex-wrap:wrap}
+/* right column */
+html body #mcBody #miniCalDetail{margin:0!important;padding:10px!important}
+html body #mcBody #miniCalDetailList{max-height:170px!important}
+html body #mcBody .mc-item{padding:7px 9px!important}
+.mc-hol-title{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;margin:2px 2px -4px}
+html body #mcBody #miniCalHolidayList{margin:0!important;max-height:112px!important;padding:6px!important;display:flex;flex-direction:column;gap:2px;background:#f8fafc;border-radius:14px;border:1px solid #edf1f6}
+html body #mcBody #miniCalHolidayList > div{padding:4px 6px!important;border-radius:8px}
+html body #mcBody #miniCalHolidayList span{font-size:12px!important}
+html body #mcBody #miniCalFooter{margin:0!important;gap:8px!important}
+html body #mcBody #miniCalFooter button{padding:9px!important;font-size:13px!important;border-radius:12px!important}
+@media (max-width:720px){
+  html body #miniCalendarPopup:not(.hidden){width:min(480px,calc(100vw - 16px))!important;border-radius:20px!important}
+  #mcBody{grid-template-columns:minmax(0,1fr);gap:12px;padding:12px}
+  #miniCalHero{padding:10px 58px 10px 12px!important}
+  html body #mcBody #miniCalGrid .mini-cal-day{height:clamp(36px,10.5vw,44px)!important}
+  #miniCalPicker{margin:10px 12px 0!important}
+}
+</style>
+<script id="v208-calendar-compact-js">
+(function(){
+  function init(){
+    var popup=document.getElementById("miniCalendarPopup");
+    if(!popup||popup.dataset.v208)return;
+    var picker=document.getElementById("miniCalPicker"),hero=document.getElementById("miniCalHero"),
+        sum=document.getElementById("miniCalSummary"),grid=document.getElementById("miniCalGrid"),
+        det=document.getElementById("miniCalDetail"),hol=document.getElementById("miniCalHolidayList"),
+        foot=document.getElementById("miniCalFooter"),
+        week=popup.querySelector(".grid-cols-7.gap-y-1"),legend=popup.querySelector(".flex.items-center.gap-3.mt-2");
+    if(!hero||!sum||!grid||!det||!hol||!foot||!week||!legend)return;
+    popup.dataset.v208="1";
+    var body=document.createElement("div");body.id="mcBody";
+    var left=document.createElement("div"),right=document.createElement("div");left.className=right.className="mc-col";
+    var title=document.createElement("div");title.className="mc-hol-title";title.textContent="Holidays this month";
+    [week,grid,legend].forEach(function(n){left.appendChild(n)});
+    [sum,det,title,hol,foot].forEach(function(n){right.appendChild(n)});
+    body.appendChild(left);body.appendChild(right);
+    popup.appendChild(body);
+  }
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init();
+})();
+</script>
 </body></html>
