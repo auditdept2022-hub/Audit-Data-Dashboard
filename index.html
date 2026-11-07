@@ -4716,71 +4716,68 @@ const CONNECTION_STATUS_FRESH_MS=60e3;function connectionStatusStale_(id,now){co
 
 
 <style id="scorecard-fill-fit">
-  /* Desktop/tablet use the measured scorecard window; phones use page scroll. */
-  #section-scorecard{content-visibility:visible!important;contain:initial!important;contain-intrinsic-size:none!important;margin-bottom:0!important}
+  /* Keep the proven 14-branch scorecard window on every screen size.
+     The rows scroll vertically inside this region; the complete table swipes horizontally. */
+  #section-scorecard{
+    content-visibility:visible!important;
+    contain:initial!important;
+    contain-intrinsic-size:none!important;
+    margin-bottom:0!important;
+  }
   body{padding-bottom:max(8px,env(safe-area-inset-bottom,0px))!important}
-  #scorecardScrollWrap{overscroll-behavior-y:auto}
+  #scorecardScrollWrap{
+    overscroll-behavior-y:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+    scroll-behavior:auto!important;
+  }
   @media (max-width:767px){
     #section-scorecard #scorecardScrollWrap{
-      height:auto!important;max-height:none!important;min-height:0!important;
-      overflow-x:auto!important;overflow-y:hidden!important;
-      overscroll-behavior-x:contain!important;overscroll-behavior-y:auto!important;
-      scroll-snap-type:none!important;-webkit-overflow-scrolling:touch!important;
+      touch-action:pan-x pan-y!important;
+      overscroll-behavior-y:auto!important;
+      -webkit-overflow-scrolling:touch!important;
     }
-    #section-scorecard #scorecardScrollWrap thead th{position:static!important;top:auto!important}
   }
 </style>
 <script id="scorecard-fill-fit-js">
 (function(){
+  'use strict';
+  var VISIBLE_ROWS=14;
   var raf=0;
-  var phoneQuery=window.matchMedia?window.matchMedia("(max-width: 767px)"):null;
-
-  function isPhone(){return !!(phoneQuery&&phoneQuery.matches)}
 
   function fit(){
-    var wrap=document.getElementById("scorecardScrollWrap");
-    var card=document.getElementById("section-scorecard");
+    var wrap=document.getElementById('scorecardScrollWrap');
+    var card=document.getElementById('section-scorecard');
     if(!wrap||!card||card.offsetParent===null)return;
 
-    /* Phones: let the document own vertical scrolling. The table remains
-       horizontally swipeable, so a finger drag never gets trapped in a
-       second vertical scroll region. */
-    if(isPhone()){
+    var rows=wrap.querySelectorAll('#scorecardTableBody tr:not(.scorecard-empty-row)');
+    if(!rows.length||rows.length<=VISIBLE_ROWS){
       wrap.__boxH=null;
-      wrap.style.setProperty("height","auto","important");
-      wrap.style.setProperty("max-height","none","important");
-      wrap.style.setProperty("min-height","0","important");
-      wrap.style.setProperty("overflow-y","hidden","important");
-      wrap.style.setProperty("overflow-x","auto","important");
+      wrap.style.setProperty('height','auto','important');
+      wrap.style.setProperty('max-height','none','important');
+      wrap.style.setProperty('min-height','0','important');
+      wrap.style.setProperty('overflow-y','auto','important');
+      wrap.style.setProperty('overflow-x','auto','important');
       return;
     }
 
-    /* Desktop/tablet: retain the measured 14-row scrolling window. */
-    var VISIBLE_ROWS=14;
-    var real=wrap.querySelectorAll("#scorecardTableBody tr:not(.scorecard-empty-row)");
-    if(!real.length||real.length<=VISIBLE_ROWS){
-      wrap.__boxH=null;
-      wrap.style.setProperty("height","auto","important");
-      wrap.style.setProperty("max-height","none","important");
-      wrap.style.setProperty("overflow-y","hidden","important");
-      wrap.style.setProperty("overflow-x","auto","important");
-      return;
-    }
-
-    var thEl=wrap.querySelector("thead");
-    var headPx=thEl?thEl.getBoundingClientRect().height:40;
-    var take=Math.min(VISIBLE_ROWS,real.length),sumPx=0;
-    for(var q=0;q<take;q++)sumPx+=real[q].getBoundingClientRect().height;
-    var boxH=Math.ceil(headPx+sumPx+2);
+    /* Measure actual rendered rows, not the viewport. This avoids address-bar
+       resize jumps while preserving a consistent, usable 14-row scroll window. */
+    var thead=wrap.querySelector('thead');
+    var headerPx=thead?thead.getBoundingClientRect().height:40;
+    var count=Math.min(VISIBLE_ROWS,rows.length);
+    var rowsPx=0;
+    for(var i=0;i<count;i++)rowsPx+=rows[i].getBoundingClientRect().height;
+    var boxH=Math.ceil(headerPx+rowsPx+2);
     if(!isFinite(boxH)||boxH<200)return;
+
     if(wrap.__boxH!==boxH){
       wrap.__boxH=boxH;
-      wrap.style.setProperty("height",boxH+"px","important");
-      wrap.style.setProperty("max-height",boxH+"px","important");
+      wrap.style.setProperty('height',boxH+'px','important');
+      wrap.style.setProperty('max-height',boxH+'px','important');
     }
-    wrap.style.setProperty("min-height","0","important");
-    wrap.style.setProperty("overflow-y","auto","important");
-    wrap.style.setProperty("overflow-x","auto","important");
+    wrap.style.setProperty('min-height','0','important');
+    wrap.style.setProperty('overflow-y','auto','important');
+    wrap.style.setProperty('overflow-x','auto','important');
   }
 
   function schedule(){
@@ -4790,46 +4787,49 @@ const CONNECTION_STATUS_FRESH_MS=60e3;function connectionStatusStale_(id,now){co
 
   function init(){
     fit();
-    var __lastW=window.innerWidth;
-    window.addEventListener("resize",function(){
-      if(window.innerWidth===__lastW)return;
-      __lastW=window.innerWidth;
+    var lastWidth=window.innerWidth;
+    window.addEventListener('resize',function(){
+      if(window.innerWidth===lastWidth)return;
+      lastWidth=window.innerWidth;
       schedule();
     },{passive:true});
-    window.addEventListener("orientationchange",schedule);
-    if(phoneQuery&&phoneQuery.addEventListener)phoneQuery.addEventListener("change",schedule);
-    else if(phoneQuery&&phoneQuery.addListener)phoneQuery.addListener(schedule);
+    window.addEventListener('orientationchange',schedule,{passive:true});
     if(window.visualViewport){
-      var __lastVW=window.visualViewport.width;
-      window.visualViewport.addEventListener("resize",function(){
-        var w=window.visualViewport.width;
-        if(Math.abs(w-__lastVW)<1)return;
-        __lastVW=w;
+      var lastVisualWidth=window.visualViewport.width;
+      window.visualViewport.addEventListener('resize',function(){
+        var width=window.visualViewport.width;
+        /* Ignore height-only address-bar/keyboard changes; row width changes matter. */
+        if(Math.abs(width-lastVisualWidth)<1)return;
+        lastVisualWidth=width;
         schedule();
-      });
+      },{passive:true});
     }
     if(document.fonts&&document.fonts.ready)document.fonts.ready.then(schedule);
-    window.addEventListener("load",schedule);
-    var card=document.getElementById("section-scorecard");
+    window.addEventListener('load',schedule,{passive:true});
+
+    var card=document.getElementById('section-scorecard');
     if(card&&window.ResizeObserver){
-      var ro=new ResizeObserver(schedule);
+      var cardObserver=new ResizeObserver(schedule);
       for(var i=0;i<card.children.length;i++){
-        if(card.children[i].id!=="scorecardScrollWrap")ro.observe(card.children[i]);
+        if(card.children[i].id!=='scorecardScrollWrap')cardObserver.observe(card.children[i]);
       }
-      var hd=document.querySelector("header");
-      if(hd)ro.observe(hd);
-      var tb=document.getElementById("scorecardTableBody");
-      if(tb&&window.MutationObserver)new MutationObserver(schedule).observe(tb,{childList:true});
+      var header=document.querySelector('header');
+      if(header)cardObserver.observe(header);
     }
-    /* The section can be revealed after login/data loading. */
+
+    var tbody=document.getElementById('scorecardTableBody');
+    if(tbody&&window.MutationObserver){
+      new MutationObserver(schedule).observe(tbody,{childList:true});
+    }
+    /* The scorecard may become visible only after sign-in or data loading. */
     if(card&&window.MutationObserver){
-      new MutationObserver(schedule).observe(card,{attributes:true,attributeFilter:["class","style"]});
+      new MutationObserver(schedule).observe(card,{attributes:true,attributeFilter:['class','style']});
     }
     setTimeout(schedule,400);
     setTimeout(schedule,1500);
   }
 
-  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);
   else init();
 })();
 </script>
