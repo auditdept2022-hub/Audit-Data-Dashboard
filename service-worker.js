@@ -6,6 +6,7 @@
 // v192: scorecard no longer freezes # / Branch columns (all columns scroll horizontally); Drive root shows icon instead of 'All files' text; Snapshot Filter metrics menu no longer closes itself and no longer collapses on mobile address-bar resize; touch/hover smoothness fixes.
 // v191: fixes mobile scorecard table cascade specificity; preserves native 13-column desktop table in its own phone-width scroller.
 // Bump CACHE_VERSION any time you change what gets precached.
+// v221: Detailed Profile Audit Findings shows five records at a time with touch scrolling and parent handoff.
 // v220: continuous detailed-profile scrolling; nested modal scroll areas hand off vertical gestures at their edges.
 // v219: restore the measured 14-row vertical scorecard scroller on phones and desktops; preserve native touch chaining.
 // v215: pairs with index.html - removes hidden refresh animation work, eliminates scroll-lock polling, and tightens desktop/mobile motion.
@@ -40,7 +41,7 @@
 // v162: assistant speed pass (instant local answers, fewer POST round-trips, early wake-up, compact prompt for general chat).
 // v161: bounded Gemini overload failover/retry and removal of the chat Drive workspace.
 // v172: Drive-native user-corpus search with Shared Drive inclusion, exact phrases, expanded file-type filters, and faster cache refresh.
-const CACHE_VERSION = 'audit-dashboard-v220'
+const CACHE_VERSION = 'audit-dashboard-v221'
 // v141: native Google Sheets creation, flexible natural-language Drive destinations, explicit My Drive root handling and Docs/DOCX/PDF creation; v138 response profiles and v137 transport/template safeguards retained.
 // v137: CORS-resilient assistant file POST/result retrieval, API-key-scoped quota cooldowns, and guarded DOCX section saves.
 // v136: persistent daily-quota cooldown, stable-model preference over preview overrides, and precise template edits.
