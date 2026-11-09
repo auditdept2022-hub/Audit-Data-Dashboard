@@ -6,6 +6,8 @@
 // v192: scorecard no longer freezes # / Branch columns (all columns scroll horizontally); Drive root shows icon instead of 'All files' text; Snapshot Filter metrics menu no longer closes itself and no longer collapses on mobile address-bar resize; touch/hover smoothness fixes.
 // v191: fixes mobile scorecard table cascade specificity; preserves native 13-column desktop table in its own phone-width scroller.
 // Bump CACHE_VERSION any time you change what gets precached.
+// v229: preserve the active Drive folder across page refresh; only the Drive Home button returns to dashboard.
+// v228: popup recent-files browser; package + cache all connected HTML pages; page-local refresh/home navigation safety.
 // v227: show ten recently modified files in the Drive sidebar.
 // v226: Drive header leading Home icon and preview-only pinch zoom.
 // v225: lower idle GPU/motion overhead on constrained devices; targeted control transitions.
@@ -46,7 +48,7 @@
 // v162: assistant speed pass (instant local answers, fewer POST round-trips, early wake-up, compact prompt for general chat).
 // v161: bounded Gemini overload failover/retry and removal of the chat Drive workspace.
 // v172: Drive-native user-corpus search with Shared Drive inclusion, exact phrases, expanded file-type filters, and faster cache refresh.
-const CACHE_VERSION = 'audit-dashboard-v227'
+const CACHE_VERSION = 'audit-dashboard-v229'
 // v141: native Google Sheets creation, flexible natural-language Drive destinations, explicit My Drive root handling and Docs/DOCX/PDF creation; v138 response profiles and v137 transport/template safeguards retained.
 // v137: CORS-resilient assistant file POST/result retrieval, API-key-scoped quota cooldowns, and guarded DOCX section saves.
 // v136: persistent daily-quota cooldown, stable-model preference over preview overrides, and precise template edits.
@@ -136,7 +138,13 @@ const APP_SHELL = [
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
-  './icons/apple-touch-icon.png'
+  './icons/apple-touch-icon.png',
+  // Sibling tools are cached as their own documents. Their navigation remains
+  // network-first and never falls back to the dashboard shell.
+  './Data-updater.html',
+  './Opex.html',
+  './Parts_Request.html',
+  './attendance_dashboard.html'
 ];
 // Pinned CDN files fetched once at install so charts work on the very first
 // offline/slow open (non-fatal if any of them fails).
@@ -364,8 +372,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Same-origin navigation to a page OTHER than the dashboard (sibling pages
-  // such as Opex.html / Parts_Request.html / attendance_dashboard_*.html):
+  // Same-origin navigation to a page OTHER than the dashboard (Data-updater.html,
+  // Opex.html, Parts_Request.html, attendance_dashboard.html, and other siblings):
   // network-first, cache that page under its OWN key, never touch index.html.
   if (request.mode === 'navigate' && !isDashboardShellUrl(url)) {
     // FIX: on a bad connection these pages waited on the network indefinitely even

@@ -978,7 +978,7 @@ function setConnStatus(on){
   }
 }
 
-$('dashboardBtn').onclick = () => { window.location.href = 'index.html'; };
+$('dashboardBtn').onclick = () => { window.location.assign(new URL('./index.html', window.location.href).href); };
 
 // ---------- sync ----------
 // Shared "refresh everything" action: re-fetches users, requests, records from
@@ -997,7 +997,9 @@ async function refreshEverything(){
 
 $('syncBtn').onclick = refreshEverything;
 
-// long-press the reload button to force-reset the app (clears cache & does a hard reload)
+// Long-press the sync button to reload this page only. The dashboard and its
+// sibling tools share one origin-wide service worker/cache, so this action must
+// never clear unrelated caches or unregister the shared worker.
 (function setupForceReset(){
   const btn = $('syncBtn');
   if (!btn) return;
@@ -1017,24 +1019,18 @@ $('syncBtn').onclick = refreshEverything;
   btn.addEventListener('mouseleave', cancel);
 })();
 
-async function forceResetApp(){
-  try { showToast('Resetting app…'); } catch (e) {}
+function forceResetApp(){
+  try { showToast('Refreshing this page…'); } catch (e) {}
+  // Keep the current pathname and hash. A cache-busting query makes the
+  // sibling-page network-first service-worker route fetch this same HTML page
+  // again; it does not navigate to index.html or disturb other app pages.
   try {
-    if (window.caches && caches.keys) {
-      const names = await caches.keys();
-      await Promise.all(names.map(n => caches.delete(n)));
-    }
-  } catch (e) {}
-  try {
-    if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map(r => r.unregister()));
-    }
-  } catch (e) {}
-  try { sessionStorage.clear(); } catch (e) {}
-  const url = new URL(window.location.href);
-  url.searchParams.set('_reset', Date.now().toString());
-  window.location.replace(url.toString());
+    const url = new URL(window.location.href);
+    url.searchParams.set('_reset', Date.now().toString());
+    window.location.replace(url.toString());
+  } catch (e) {
+    window.location.reload();
+  }
 }
 
 // ---------- pull-to-refresh (swipe down at the top of the page to refresh) ----------
