@@ -3486,6 +3486,99 @@ function renderBranchDetail(b,container){const riskProfile=computeRiskProfile(b)
     });
   },{passive:true});
 }
+function bindProfileFindingsTouchScroll_(list){
+  if(!list||list.__profileFindingsTouchBound)return;
+  list.__profileFindingsTouchBound=true;
+  const state={active:false,mode:"pending",startX:0,startY:0,lastY:0,lastTime:0,velocity:0,frame:0,parent:null};
+  const stopMomentum=function(){if(state.frame){cancelAnimationFrame(state.frame);state.frame=0}};
+  const findParent=function(){
+    let node=list.parentElement;
+    while(node&&node!==document.body&&node!==document.documentElement){
+      const cs=window.getComputedStyle(node);
+      if(/^(auto|scroll|overlay)$/.test(cs.overflowY)&&node.scrollHeight>node.clientHeight+1)return node;
+      node=node.parentElement;
+    }
+    return document.scrollingElement||document.documentElement;
+  };
+  const applyDelta=function(delta){
+    let remaining=delta;
+    const listBefore=list.scrollTop;
+    const listMax=Math.max(0,list.scrollHeight-list.clientHeight);
+    const listNext=Math.max(0,Math.min(listMax,listBefore+remaining));
+    list.scrollTop=listNext;
+    remaining-=listNext-listBefore;
+    const parent=state.parent;
+    if(Math.abs(remaining)>.05&&parent&&parent!==list){
+      const parentBefore=parent.scrollTop;
+      const parentMax=Math.max(0,parent.scrollHeight-parent.clientHeight);
+      const parentNext=Math.max(0,Math.min(parentMax,parentBefore+remaining));
+      parent.scrollTop=parentNext;
+      remaining-=parentNext-parentBefore;
+    }
+    return remaining;
+  };
+  const onStart=function(e){
+    if(!e.touches||e.touches.length!==1)return;
+    stopMomentum();
+    const t=e.touches[0],now=performance.now();
+    state.active=true;state.mode="pending";state.startX=t.clientX;state.startY=t.clientY;
+    state.lastY=t.clientY;state.lastTime=now;state.velocity=0;state.parent=findParent();
+  };
+  const onMove=function(e){
+    if(!state.active||!e.touches||e.touches.length!==1)return;
+    const t=e.touches[0],x=t.clientX,y=t.clientY;
+    if(state.mode==="pending"){
+      const dx=x-state.startX,dy=y-state.startY;
+      if(Math.max(Math.abs(dx),Math.abs(dy))<5)return;
+      if(Math.abs(dx)>Math.abs(dy)*1.15){state.mode="horizontal";return}
+      state.mode="vertical";
+    }
+    if(state.mode!=="vertical")return;
+    if(e.cancelable)e.preventDefault();
+    const now=performance.now(),dt=Math.max(8,now-state.lastTime);
+    const delta=state.lastY-y;
+    state.lastY=y;state.lastTime=now;
+    if(Math.abs(delta)<.05)return;
+    const leftover=applyDelta(delta);
+    const instant=delta/dt;
+    state.velocity=state.velocity*.62+instant*.38;
+    if(Math.abs(leftover)>=Math.abs(delta)-.05)state.velocity=0;
+  };
+  const startMomentum=function(){
+    if(Math.abs(state.velocity)<.08)return;
+    let last=0;
+    const step=function(now){
+      if(!last)last=now;
+      const dt=Math.min(32,Math.max(0,now-last));last=now;
+      const delta=state.velocity*dt;
+      const leftover=applyDelta(delta);
+      state.velocity*=Math.exp(-dt/270);
+      if(Math.abs(state.velocity)>.025&&Math.abs(leftover)<Math.abs(delta)-.05){state.frame=requestAnimationFrame(step)}
+      else{state.frame=0;state.velocity=0}
+    };
+    state.frame=requestAnimationFrame(step);
+  };
+  const onEnd=function(e){
+    if(!state.active)return;
+    /* If a second finger was used for zoom and one finger lifts, start a fresh
+       one-finger tracking segment instead of releasing momentum mid-gesture. */
+    if(e.touches&&e.touches.length===1){
+      const t=e.touches[0];state.mode="pending";state.startX=t.clientX;state.startY=t.clientY;
+      state.lastY=t.clientY;state.lastTime=performance.now();state.velocity=0;return;
+    }
+    if(e.touches&&e.touches.length>1)return;
+    const wasVertical=state.mode==="vertical";
+    state.active=false;state.mode="pending";
+    if(wasVertical)startMomentum();
+  };
+  const onCancel=function(){state.active=false;state.mode="pending";state.velocity=0;stopMomentum()};
+  list.addEventListener("touchstart",onStart,{passive:true});
+  list.addEventListener("touchmove",onMove,{passive:false});
+  list.addEventListener("touchend",onEnd,{passive:true});
+  list.addEventListener("touchcancel",onCancel,{passive:true});
+  list.style.scrollBehavior="auto";
+  list.style.touchAction="pan-x pinch-zoom";
+}
 function fitProfileFindingsFiveWindow_(container){
   bindProfileFindingsResize_();
   if(!container||!container.getClientRects().length)return;
@@ -3521,6 +3614,7 @@ function fitProfileFindingsFiveWindow_(container){
   list.setAttribute("tabindex","0");
   list.setAttribute("role","region");
   list.setAttribute("aria-label","Audit Findings list. Five findings are shown at a time. Scroll within this area to see the remaining findings.");
+  bindProfileFindingsTouchScroll_(list);
 }
 function renderProfileFindingsPanel(branchName,year,containerId){containerId=containerId||"findingsYearDetail";const container=document.getElementById(containerId);if(!container)return;const allDetail=activeData.auditFindingsDetail&&activeData.auditFindingsDetail[branchName]||[];const records=allDetail.filter(r=>getRecordYear(r)===Number(year)).sort((a,b)=>a.date<b.date?1:-1);const yearTabs=getAllowedFindingYears().map(y=>{const count=allDetail.filter(r=>getRecordYear(r)===y).length;const active=Number(year)===y;return`\n            <button type="button" data-fb="${escapeFindingHTML(branchName)}" onclick="renderProfileFindingsPanel(this.dataset.fb, ${y}, '${containerId}')"\n                class="px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors inline-flex items-center gap-1 shrink-0 ${active?"bg-accentIndigo text-white border-accentIndigo":"bg-white text-slate-500 border-coolBorder hover:border-accentIndigo/40"}">\n                <span>${y}</span>\n                <span class="px-1 min-w-[16px] text-center rounded ${active?"bg-white/25 text-white":"bg-slate-100 text-slate-500"} text-[10px] font-bold tabular-nums">${count}</span>\n            </button>`}).join("");const rowsHtml=records.length===0?`<tr><td colspan="3" class="p-4 text-center text-xs text-slate-400 italic">No individual findings recorded for FY${year} (from AUDIT FINDINGS sheet).</td></tr>`:records.map(r=>`\n                <tr class="border-t border-coolBorder">\n                    <td class="p-2 text-[11px] font-semibold text-slate-500 tabular-nums whitespace-nowrap align-top text-right">${formatFindingDate(r.date,r.year)}</td>\n                    <td class="p-2 align-top whitespace-nowrap">${getFindingCategoryBadge(r.category)}</td>\n                    <td class="p-2 text-xs text-slate-800">${escapeFindingHTML(r.finding)}</td>\n                </tr>`).join("");const cardsHtml=records.length===0?`<div class="p-4 text-center text-xs text-slate-400 italic">No individual findings recorded for FY${year} (from AUDIT FINDINGS sheet).</div>`:records.map(r=>`\n                <div class="fp-card p-2.5 border-t border-coolBorder first:border-t-0">\n                    <div class="flex items-center justify-between gap-2 mb-1">\n                        <span class="fp-date text-[11px] font-semibold text-slate-500 tabular-nums">${formatFindingDate(r.date,r.year)}</span>\n                        ${getFindingCategoryBadge(r.category)}\n                    </div>\n                    <p class="text-xs text-slate-800 leading-snug break-words">${escapeFindingHTML(r.finding)}</p>\n                </div>`).join("");container.innerHTML=`\n            <div class="bg-white rounded-lg border border-coolBorder overflow-hidden profile-findings-card">\n                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-3 py-2 bg-slate-50 border-b border-coolBorder">\n                    <span class="fp-title text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-snug"><span class="fp-name">${escapeFindingHTML(branchName)} — </span>Audit Findings<span class="fp-src"> (source: AUDIT FINDINGS sheet)</span> · FY${year}: ${records.length} finding${records.length===1?"":"s"}</span>\n                    <div class="flex gap-1.5 overflow-x-auto sm:flex-wrap sm:overflow-visible -mx-1 px-1 sm:mx-0 sm:px-0 min-w-0 max-w-full">${yearTabs}</div>\n                </div>\n                <div class="profile-findings-list">\n                    <div class="sm:hidden divide-y divide-coolBorder">${cardsHtml}</div>\n                    <table class="hidden sm:table w-full text-left border-collapse">\n                        <thead class="bg-slate-50 text-[9px] uppercase tracking-wider text-slate-400 font-bold sticky top-0">\n                            <tr><th class="p-2 w-24 text-right">Date</th><th class="p-2 w-40">Category</th><th class="p-2">Remarks</th></tr>\n                        </thead>\n                        <tbody>${rowsHtml}</tbody>\n                    </table>\n                </div>\n            </div>`;if(containerId==="findingsYearDetail"||containerId==="brpFindingsDetail")fitProfileFindingsFiveWindow_(container)}function computeAvgSales(b){return b.salesMar.ins+b.salesApr.ins+b.salesMay.ins-(b.salesMar.ca+b.salesApr.ca+b.salesMay.ca)}function salesMonthLabels(){const sm=activeData&&activeData.summary||{};return sm.salesTrendLabels||sm.trendLabels||["MAR","APR","MAY"]}
 function fmtSigned(n){return n>0?"+"+n.toLocaleString():n<0?"\u2212"+Math.abs(n).toLocaleString():"0"}
@@ -10969,8 +11063,8 @@ button:active:not(:disabled),[role="button"]:active:not([aria-disabled="true"]),
   }
 }
 </style>
-<style id="scroll-chaining-repair-v221">
-/* v221: Detailed Profile Audit Findings shows five records at a time in a smooth inner scroller. */
+<style id="scroll-chaining-repair-v222">
+/* v222: keep the five-item Audit Findings window while explicitly forwarding touch movement to its profile parent. */
 /* v220: modal content has one continuous vertical scroll surface. Nested lists
    may keep their intended dimensions where necessary, but at their scroll edges
    vertical gestures must hand off to the containing modal instead of being trapped. */
@@ -11009,9 +11103,12 @@ button:active:not(:disabled),[role="button"]:active:not([aria-disabled="true"]),
   overflow-x: hidden !important;
   overflow-y: auto !important;
   overscroll-behavior-y: auto !important;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
+  -webkit-overflow-scrolling: auto !important;
+  /* Vertical touch movement is handled by a small scroll-chain fallback so
+     older mobile browsers cannot trap gestures inside this nested list. */
+  touch-action: pan-x pinch-zoom !important;
   scrollbar-gutter: stable;
+  scroll-behavior: auto !important;
 }
 .profile-findings-list.profile-findings-windowed::-webkit-scrollbar {
   width: 6px !important;
@@ -11021,6 +11118,122 @@ button:active:not(:disabled),[role="button"]:active:not([aria-disabled="true"]),
 @supports (overflow: clip) {
   .profile-findings-card:has(> .profile-findings-list.profile-findings-windowed) {
     overflow: clip !important;
+  }
+}
+</style>
+
+
+<style id="viewport-adaptive-layout-v223">
+/* v223 — use the full browser viewport while keeping the document naturally scrollable.
+   CSS responds directly to viewport changes; it does not scale the UI with transforms. */
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+}
+@supports (min-height: 100dvh) {
+  html,
+  body {
+    min-height: 100dvh;
+  }
+}
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* Keep the top app bar aligned to the full available window. */
+header.app-header-reveal {
+  width: 100%;
+  box-sizing: border-box;
+}
+header.app-header-reveal .dash-container-header {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+  box-sizing: border-box;
+}
+
+/* The prior 1,760px cap left unused gutters on wide monitors. Let the actual
+   viewport determine the dashboard width; clamp only the interior gutters. */
+@media (min-width: 768px) {
+  header.app-header-reveal .dash-container-header {
+    padding-left: clamp(16px, 1.35vw, 32px) !important;
+    padding-right: clamp(16px, 1.35vw, 32px) !important;
+  }
+
+  main.dash-container {
+    display: block;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding-top: clamp(10px, .8vw, 18px) !important;
+    padding-right: clamp(16px, 1.45vw, 34px) !important;
+    padding-bottom: clamp(28px, 2vw, 48px) !important;
+    padding-left: clamp(16px, 1.45vw, 34px) !important;
+    box-sizing: border-box !important;
+    min-height: calc(100vh - var(--hdr-h, 64px));
+  }
+
+  @supports (min-height: 100dvh) {
+    main.dash-container {
+      min-height: calc(100dvh - var(--hdr-h, 64px));
+    }
+  }
+
+  main.dash-container > *,
+  main.dash-container > * > * {
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  /* Scale section spacing gently with screen width, without stretching text
+     or forcing long dashboards into a fixed-height viewport. */
+  main.dash-container.space-y-4 > * + * {
+    margin-top: clamp(10px, .9vw, 18px) !important;
+  }
+  #section-overview {
+    gap: clamp(12px, 1vw, 20px) !important;
+  }
+  #section-overview + .grid,
+  #section-charts {
+    gap: clamp(12px, 1vw, 20px) !important;
+  }
+}
+
+/* Very wide workstations: preserve the same information hierarchy while
+   allowing the cards and chart columns to occupy the extra screen width. */
+@media (min-width: 1920px) {
+  main.dash-container {
+    padding-right: clamp(30px, 1.7vw, 48px) !important;
+    padding-left: clamp(30px, 1.7vw, 48px) !important;
+  }
+  #section-overview > *,
+  #section-overview + .grid > *,
+  #section-charts > *,
+  #section-rankings > .grid > *,
+  #section-findings > .grid > * {
+    min-width: 0 !important;
+  }
+}
+
+/* Touch layouts retain their established spacing and scroll behavior. */
+@media (max-width: 767px) {
+  header.app-header-reveal,
+  header.app-header-reveal .dash-container-header,
+  main.dash-container {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  main.dash-container {
+    min-height: calc(100vh - var(--hdr-h, 64px));
+  }
+  @supports (min-height: 100dvh) {
+    main.dash-container {
+      min-height: calc(100dvh - var(--hdr-h, 64px));
+    }
   }
 }
 </style>
