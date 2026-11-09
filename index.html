@@ -1324,6 +1324,13 @@ html body main.dash-container #section-overview + .grid{margin-top:12px !importa
 .drive-recent-more svg{width:13px;height:13px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .drive-recent-modal-list .drive-recent-rank{flex:none;width:18px;text-align:right;font-size:10px;font-weight:700;color:var(--d-faint);font-variant-numeric:tabular-nums}
 </style>
+<style id="drive-preview-native-v245">
+.drive-preview-viewport,.drive-preview-stage,.drive-preview-stage iframe{contain:none!important;transform:none!important;will-change:auto!important;touch-action:auto!important}
+.drive-preview-viewport,#driveManagerScreen .drive-preview-viewport{overflow:hidden!important;cursor:auto!important;overscroll-behavior:auto}
+.drive-preview-stage{position:absolute!important;inset:0;width:100%!important;height:100%!important}
+.drive-preview-stage iframe,#driveManagerScreen .drive-preview-viewport iframe{position:absolute!important;inset:0;width:100%!important;height:100%!important;pointer-events:auto!important;border:0}
+.drive-preview-gesture,.drive-preview-zoom,.drive-preview-mode{display:none!important}
+</style>
 <style id="drive-recent-popup-v228">
 /* v228: Recent files open in a focused dialog; the sidebar remains compact. */
 .drive-recent-trigger{width:100%;min-height:54px;display:flex;align-items:center;gap:8px;padding:8px 9px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--d-text);text-align:left;cursor:pointer;transition:background-color .14s ease,border-color .14s ease;}
@@ -2513,9 +2520,9 @@ html body main.dash-container #section-overview + .grid{margin-top:12px !importa
         <div class="drive-preview-header">
           <div class="drive-preview-heading"><span id="drivePreviewIcon" class="drive-preview-file-icon">FILE</span><div><strong id="drivePreviewName">Preview</strong><span id="drivePreviewMeta">File preview</span></div></div>
           
-          <div class="drive-preview-tools"><a id="drivePreviewOpen" class="drive-preview-open hidden" href="#" target="_blank" rel="noopener noreferrer" title="Open file in Chrome" aria-label="Open file in Chrome"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M19 13v6a2 2 0 0 1-2 2H5V7a2 2 0 0 1 2-2h6"/></svg><span class="drive-preview-open-label">Open in Chrome</span></a><a id="drivePreviewDownload" class="drive-preview-download hidden" href="#" target="_blank" rel="noopener">Download</a><div class="drive-preview-zoom" role="group" aria-label="Preview zoom"><button type="button" id="drivePreviewZoomOut" aria-label="Zoom out" title="Zoom out" onclick="drivePreviewZoom(-0.25)">−</button><button type="button" id="drivePreviewZoomValue" class="drive-preview-zoom-value" aria-label="Reset zoom" title="Reset zoom" onclick="drivePreviewZoomReset()">100%</button><button type="button" id="drivePreviewZoomIn" aria-label="Zoom in" title="Zoom in" onclick="drivePreviewZoom(0.25)">+</button></div><button type="button" id="drivePreviewFullscreen" class="drive-icon-btn" onclick="driveTogglePreviewFullscreen()" aria-label="Expand preview" title="Expand preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg></button><button type="button" class="drive-icon-btn" data-drive-preview-close aria-label="Close preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+          <div class="drive-preview-tools"><a id="drivePreviewOpen" class="drive-preview-open hidden" href="#" target="_blank" rel="noopener noreferrer" title="Open file in Chrome" aria-label="Open file in Chrome"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M19 13v6a2 2 0 0 1-2 2H5V7a2 2 0 0 1 2-2h6"/></svg><span class="drive-preview-open-label">Open in Chrome</span></a><a id="drivePreviewDownload" class="drive-preview-download hidden" href="#" target="_blank" rel="noopener">Download</a><button type="button" id="drivePreviewFullscreen" class="drive-icon-btn" onclick="driveTogglePreviewFullscreen()" aria-label="Expand preview" title="Expand preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg></button><button type="button" class="drive-icon-btn" data-drive-preview-close aria-label="Close preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
         </div>
-        <div class="drive-preview-body"><div id="drivePreviewViewport" class="drive-preview-viewport"><div id="drivePreviewStage" class="drive-preview-stage"><iframe id="drivePreviewFrame" title="File preview" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; clipboard-read; clipboard-write; fullscreen" allowfullscreen></iframe><div id="drivePreviewGesture" class="drive-preview-gesture" aria-hidden="true"></div></div></div><div id="drivePreviewLoading" class="drive-preview-loading" role="status"><span class="drive-spinner" aria-hidden="true"></span><span id="drivePreviewLoadingText">Loading preview…</span></div></div>
+        <div class="drive-preview-body"><div id="drivePreviewViewport" class="drive-preview-viewport"><div id="drivePreviewStage" class="drive-preview-stage"><iframe id="drivePreviewFrame" title="File preview" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; clipboard-read; clipboard-write; fullscreen" allowfullscreen></iframe></div></div><div id="drivePreviewLoading" class="drive-preview-loading" role="status"><span class="drive-spinner" aria-hidden="true"></span><span id="drivePreviewLoadingText">Loading preview…</span></div></div>
         <footer class="drive-preview-footer">If Google shows 404, check that Chrome is signed into a Google account with access to this file. Dashboard sign-in does not automatically grant Google Drive permissions.</footer>
       </div>
     </section>
@@ -8118,114 +8125,11 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     // for link-shared PDFs, images, and files that require a resource key.
     return driveWithResourceKey("https://drive.google.com/file/d/"+id+"/preview",resolved.resourceKey);
   }
-  var pvX=0,pvY=0,MINZ=.5,MAXZ=5,pvW=0,pvH=0,pvRaf=0,pvLastLabel="",pvLastZoomed=null;
-  function pvMeasure(){var v=el("drivePreviewViewport");if(v){pvW=v.clientWidth;pvH=v.clientHeight}}
-  function pvClamp(){
-    if(!pvW||!pvH)pvMeasure();
-    var w=pvW,h=pvH,sw=w*previewZoom,sh=h*previewZoom;
-    if(sw<=w)pvX=(w-sw)/2;else pvX=Math.min(0,Math.max(w-sw,pvX));
-    if(sh<=h)pvY=(h-sh)/2;else pvY=Math.min(0,Math.max(h-sh,pvY));
-  }
-  function pvPaint(){
-    pvRaf=0;
-    var stage=el("drivePreviewStage");if(!stage)return;
-    pvClamp();
-    stage.style.transform="translate3d("+pvX.toFixed(2)+"px,"+pvY.toFixed(2)+"px,0) scale("+previewZoom.toFixed(4)+")";
-    var label=Math.round(previewZoom*100)+"%";
-    if(label!==pvLastLabel){
-      pvLastLabel=label;
-      var vb=el("drivePreviewZoomValue"),mi=el("drivePreviewZoomOut"),pl=el("drivePreviewZoomIn");
-      if(vb){vb.textContent=label;vb.setAttribute("aria-label","Reset zoom from "+label);vb.title="Tap to reset"}
-      if(mi)mi.disabled=previewZoom<=MINZ+.001;if(pl)pl.disabled=previewZoom>=MAXZ-.001;
-    }
-    var z=previewZoom>1.001;
-    if(z!==pvLastZoomed){pvLastZoomed=z;var v=el("drivePreviewViewport");if(v)v.classList.toggle("is-zoomed",z)}
-  }
-  // At most one transform write per animation frame, however many pointer/wheel events arrive.
-  function pvRender(now){
-    if(now===true){if(pvRaf){cancelAnimationFrame(pvRaf);pvRaf=0}pvPaint();return}
-    if(!pvRaf)pvRaf=requestAnimationFrame(pvPaint);
-  }
-  // zoom keeping the point (fx,fy) (viewport coords) fixed under the fingers/cursor
-  function pvZoomAt(next,fx,fy){
-    next=Math.max(MINZ,Math.min(MAXZ,Number(next)||1));
-    var cx=(fx-pvX)/previewZoom,cy=(fy-pvY)/previewZoom;
-    previewZoom=next;pvX=fx-cx*next;pvY=fy-cy*next;pvRender();
-  }
-  function applyPreviewZoom(value,center,anchor){
-    var v=el("drivePreviewViewport");if(!v)return;
-    pvMeasure();
-    if(Math.abs((Number(value)||1)-1)<.001&&!anchor){previewZoom=1;pvX=0;pvY=0;pvRender(true);return}
-    var fx=anchor?anchor.x:pvW/2,fy=anchor?anchor.y:pvH/2;
-    pvZoomAt(value,fx,fy);
-  }
-  window.drivePreviewZoom=function(delta){applyPreviewZoom(previewZoom+(Number(delta)||0),true)};
-  window.drivePreviewZoomReset=function(){pvMeasure();previewZoom=1;pvX=0;pvY=0;pvRender(true)};
-  // Gesture layer sits above the cross-origin iframe, so pinch, drag, wheel and
-  // double-tap are always received by the dashboard on phone AND desktop.
-  (function bindDrivePreviewGestures(){
-    var layer=el("drivePreviewGesture"),viewport=el("drivePreviewViewport");
-    if(!layer||!viewport||layer.dataset.bound==="1")return;layer.dataset.bound="1";
-    var pts=new Map(),startDist=0,startZoom=1,lastX=0,lastY=0,lastTap=0,moved=false;
-    var rl=0,rt=0;
-    function measureRect(){var r=viewport.getBoundingClientRect();rl=r.left;rt=r.top;pvW=viewport.clientWidth;pvH=viewport.clientHeight}
-    function rel(e){return{x:e.clientX-rl,y:e.clientY-rt}}
-    function two(){var a=Array.from(pts.values());return{d:Math.hypot(a[1].x-a[0].x,a[1].y-a[0].y)||1,x:(a[0].x+a[1].x)/2,y:(a[0].y+a[1].y)/2}}
-    layer.addEventListener("pointerdown",function(e){
-      if(e.pointerType==="mouse"&&e.button!==0)return;
-      try{layer.setPointerCapture(e.pointerId)}catch(_){}
-      if(!pts.size)measureRect();
-      var p=rel(e);pts.set(e.pointerId,p);moved=false;
-      if(pts.size===2){var t=two();startDist=t.d;startZoom=previewZoom;lastX=t.x;lastY=t.y}
-      else{lastX=p.x;lastY=p.y}
-      layer.classList.add("is-dragging");e.preventDefault();
-    });
-    layer.addEventListener("pointermove",function(e){
-      if(!pts.has(e.pointerId))return;
-      var p=rel(e);pts.set(e.pointerId,p);
-      if(pts.size>=2){
-        var t=two();
-        pvX+=t.x-lastX;pvY+=t.y-lastY;            // pan with the midpoint
-        var next=Math.max(MINZ,Math.min(MAXZ,startZoom*(t.d/startDist)));
-        pvZoomAt(next,t.x,t.y);lastX=t.x;lastY=t.y;moved=true;
-      }else if(pts.size===1){
-        var dx=p.x-lastX,dy=p.y-lastY;
-        if(Math.abs(dx)+Math.abs(dy)>1)moved=true;
-        pvX+=dx;pvY+=dy;lastX=p.x;lastY=p.y;pvRender();
-      }
-      e.preventDefault();
-    });
-    function up(e){
-      if(!pts.has(e.pointerId))return;
-      var wasSingle=pts.size===1;pts.delete(e.pointerId);
-      try{layer.releasePointerCapture(e.pointerId)}catch(_){}
-      if(pts.size===1){var q=Array.from(pts.values())[0];lastX=q.x;lastY=q.y}
-      if(!pts.size){
-        layer.classList.remove("is-dragging");
-        if(wasSingle&&!moved&&e.type==="pointerup"){
-          var now=Date.now();
-          if(now-lastTap<320){var p=rel(e);if(previewZoom>1.05){window.drivePreviewZoomReset()}else{pvZoomAt(2.5,p.x,p.y)}lastTap=0}
-          else lastTap=now;
-        }
-      }
-    }
-    layer.addEventListener("pointerup",up);layer.addEventListener("pointercancel",up);
-    // Desktop: wheel / trackpad = zoom at the cursor (Ctrl or pinch gesture), plain wheel = pan
-    layer.addEventListener("wheel",function(e){
-      e.preventDefault();if(!pvW)measureRect();var r0=viewport.getBoundingClientRect();rl=r0.left;rt=r0.top;var p=rel(e);
-      if(e.ctrlKey||e.metaKey){pvZoomAt(previewZoom*Math.exp(-e.deltaY*0.01),p.x,p.y)}
-      else if(previewZoom>1.001){pvX-=e.deltaX;pvY-=e.deltaY;pvRender()}
-      else{pvZoomAt(previewZoom*Math.exp(-e.deltaY*0.0025),p.x,p.y)}
-    },{passive:false});
-    // Safari trackpad pinch
-    var gz=1;
-    layer.addEventListener("gesturestart",function(e){e.preventDefault();measureRect();gz=previewZoom});
-    layer.addEventListener("gesturechange",function(e){e.preventDefault();var p=rel(e);pvZoomAt(gz*e.scale,p.x||pvW/2,p.y||pvH/2)});
-    function refit(){measureRect();pvRender()}
-    window.addEventListener("resize",refit);
-    window.addEventListener("orientationchange",function(){setTimeout(refit,60);setTimeout(refit,350)});
-    if(window.ResizeObserver){try{new ResizeObserver(refit).observe(viewport)}catch(_){}}
-  })();
+  // v245: the preview is the plain, native Google viewer (native scroll, page change and pinch).
+  // No overlay, no transform: nothing here intercepts touch or mouse input.
+  function applyPreviewZoom(){previewZoom=1;var st=el("drivePreviewStage");if(st)st.style.transform=""}
+  window.drivePreviewZoom=function(){};
+  window.drivePreviewZoomReset=function(){applyPreviewZoom()};
   function openPreview(item){
     if(!item||item.kind==="folder")return;
     clearTimeout(previewCloseTimer);clearTimeout(previewLoadTimer);
