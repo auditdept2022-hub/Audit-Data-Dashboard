@@ -1,4 +1,4 @@
-<!-- Release v226: Drive header refinement and touch pinch-zoom for file previews. -->
+<!-- Release v227: Drive sidebar lists the 10 most recently modified files. -->
 <!DOCTYPE html>
 <html lang="en" class="page-fade-ready"><head>
   <meta charset="UTF-8">
@@ -394,6 +394,21 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
 .drive-nav-count{margin-left:auto;font-size:11px;font-weight:700;color:var(--d-faint);font-variant-numeric:tabular-nums}
 .drive-sidebar-hint{margin-top:auto;padding:10px;font-size:11px;line-height:1.45;color:var(--d-faint)}
 .drive-sidebar-hint kbd{font:inherit;font-weight:700;color:var(--d-muted)}
+.drive-sidebar-section-title{padding:10px 8px 5px;font-size:9px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--d-faint)}
+.drive-recent-list{display:flex;flex-direction:column;gap:3px;min-height:0;}
+.drive-recent-item{width:100%;min-width:0;min-height:43px;display:flex;align-items:center;gap:7px;padding:5px 6px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--d-text);text-align:left;cursor:pointer;transition:background-color .14s ease,border-color .14s ease;}
+.drive-recent-item:hover{background:var(--d-bg);border-color:var(--d-line);}
+.drive-recent-item:focus-visible,.drive-recent-browse:focus-visible{outline:2px solid #9aa7ef;outline-offset:1px;}
+.drive-recent-item .drive-file-icon{width:23px;height:23px;min-width:23px;border-radius:6px;font-size:7px;}
+.drive-recent-copy{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;}
+.drive-recent-name{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10.5px;line-height:1.25;font-weight:650;color:var(--d-text);}
+.drive-recent-date{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px;line-height:1.2;color:var(--d-faint);font-weight:500;}
+.drive-recent-state{padding:9px 8px;font-size:10.5px;line-height:1.4;color:var(--d-faint);}
+.drive-recent-retry{margin:4px 7px 8px;padding:5px 7px;border:1px solid var(--d-line);border-radius:7px;background:var(--d-surface);font-size:10px;font-weight:700;color:var(--d-accent);cursor:pointer;}
+.drive-recent-browse{display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%;margin-top:8px;padding:9px 8px;border:0;border-top:1px solid var(--d-line);background:transparent;color:var(--d-muted);font-size:10.5px;font-weight:700;text-align:left;cursor:pointer;}
+.drive-recent-browse:hover{color:var(--d-accent);background:var(--d-bg);}
+.drive-recent-browse svg{width:13px;height:13px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+
 .drive-main{min-width:0;min-height:0;display:flex;flex-direction:column;gap:8px;padding:10px 12px 12px}
 
 /* toolbar */
@@ -2280,7 +2295,9 @@ html body main.dash-container #section-overview + .grid{margin-top:12px !importa
       <div class="drive-workspace">
         <aside class="drive-sidebar" aria-label="Drive navigation">
           <button type="button" id="driveNewSide" class="drive-new-btn" data-drive-new-trigger="1" aria-haspopup="menu" title="New"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>New</span></button>
-          <button type="button" class="drive-nav-btn is-current" onclick="driveGoRoot()" aria-label="All files" title="All files"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg><span class="d-sr">All files</span><span class="drive-nav-count" id="driveNavCount">—</span></button>
+          <div class="drive-sidebar-section-title">Recently modified</div>
+          <div id="driveRecentFiles" class="drive-recent-list" aria-label="Ten most recently modified files" aria-live="polite"><div class="drive-recent-state">Loading recent files…</div></div>
+          <button type="button" class="drive-recent-browse" onclick="driveGoRoot()" aria-label="Browse all files">Browse all files <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
         </aside>
         <main class="drive-main">
           <div class="drive-toolbar">
@@ -7571,7 +7588,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
 <script>
 (function(){
   "use strict";
-  var state={open:false,loading:false,loadingMore:false,canManage:false,folderId:"",items:[],nextPageToken:"",path:[{id:"",name:"All files"}],rootId:"",moveItem:null,dialogMode:"",dialogItem:null,activeFilter:"",typeFilter:"all",sortBy:"name",sortDir:"",view:"list",compact:true,folderCache:Object.create(null),loadSeq:0,selectedId:"",clipboard:null,contextItem:null,pressTimer:0,suppressNextOpenUntil:0,previewItem:null,selectedItem:null,contextTargetIsBlank:false,createParentId:"",createParentName:"All files",createParentItem:null};
+  var state={open:false,loading:false,loadingMore:false,canManage:false,folderId:"",items:[],recentItems:[],recentLoading:false,recentError:"",recentLoadedAt:0,recentLoadSeq:0,nextPageToken:"",path:[{id:"",name:"All files"}],rootId:"",moveItem:null,dialogMode:"",dialogItem:null,activeFilter:"",typeFilter:"all",sortBy:"name",sortDir:"",view:"list",compact:true,folderCache:Object.create(null),loadSeq:0,selectedId:"",clipboard:null,contextItem:null,pressTimer:0,suppressNextOpenUntil:0,previewItem:null,selectedItem:null,contextTargetIsBlank:false,createParentId:"",createParentName:"All files",createParentItem:null};
   var DRIVE_CACHE_TTL=45000;
   var previewZoom=1,previewLoadTimer=0,previewCloseTimer=0;
   try{state.view=sessionStorage.getItem("auditFilesView")==="grid"?"grid":"list"}catch(e){}
@@ -7597,6 +7614,34 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   async function loadMoreDriveItems(){if(state.loadingMore)return;var searchMode=!!S.mode,token=searchMode?S.nextPageToken:state.nextPageToken;if(!token)return;var query=S.q,filter=S.type||state.typeFilter||"all",folderId=state.folderId;state.loadingMore=true;render();try{var result=searchMode?await request("driveSearch",{q:query,type:filter,pageToken:token}):await request("driveList",{folderId:folderId,q:"",pageToken:token});if(searchMode){if(!S.mode||S.q!==query||S.type!==filter)return;var existing=Object.create(null);S.items.forEach(function(x){existing[x.id]=1});(Array.isArray(result.items)?result.items:[]).forEach(function(x){if(!existing[x.id]){S.items.push(x);existing[x.id]=1}});S.nextPageToken=String(result.nextPageToken||"");S.incompleteSearch=S.incompleteSearch||!!result.incompleteSearch;S.truncated=!!S.nextPageToken||S.incompleteSearch;saveCurrentSearchCache(query,filter)}else{if(!state.open||state.folderId!==folderId)return;var seen=Object.create(null);state.items.forEach(function(x){seen[x.id]=1});(Array.isArray(result.items)?result.items:[]).forEach(function(x){if(!seen[x.id]){state.items.push(x);seen[x.id]=1}});state.nextPageToken=String(result.nextPageToken||"");var key=folderId||"__root__",cached=state.folderCache[key];if(cached){cached.result={items:state.items.slice(),nextPageToken:state.nextPageToken,canManage:state.canManage,rootId:state.rootId};cached.time=Date.now()}}hideError()}catch(err){state.autoLoadPauseUntil=Date.now()+6000;showError(err&&err.message?err.message:"Could not load the next page of files.")}finally{state.loadingMore=false;render()}}
   var SVG=function(d){return'<svg viewBox="0 0 24 24" aria-hidden="true">'+d+'</svg>'};var IC={open:SVG('<path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>'),folder:SVG('<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>'),eye:SVG('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>'),download:SVG('<path d="M12 4v12m0 0 5-5m-5 5-5-5M4 20h16"/>'),link:SVG('<path d="M17 22h-1a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4h1M7 22h1a4 4 0 0 0 4-4v-1M7 2h1a4 4 0 0 1 4 4v1"/>'),copy:SVG('<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M4 16V5a1 1 0 0 1 1-1h11"/>'),cut:SVG('<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/>'),paste:SVG('<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>'),rename:SVG('<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>'),move:SVG('<path d="M5 12h14m-6-6 6 6-6 6"/>'),trash:SVG('<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6"/>'),upload:SVG('<path d="M12 16V4M7 9l5-5 5 5M4 17v3h16v-3"/>'),newfolder:SVG('<path d="M12 10v6M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>'),doc:SVG('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>'),code:SVG('<path d="m8 7-5 5 5 5M16 7l5 5-5 5"/>'),more:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>'};function moreButton(item){return'<button type="button" class="drive-more" data-drive-more="'+esc(item.id)+'" aria-label="More actions for '+esc(item.name)+'" title="More actions">'+IC.more+'</button>'}function driveKindIcon(item){if(item.kind==="folder")return'<span class="drive-file-icon folder">'+IC.folder+'</span>';var mime=String(item.mimeType||"").toLowerCase(),name=String(item.name||"").toLowerCase();if(mime.indexOf("pdf")>=0||name.endsWith(".pdf"))return'<span class="drive-file-icon pdf">PDF</span>';if(mime.indexOf("image/")===0)return'<span class="drive-file-icon image">IMG</span>';if(mime.indexOf("spreadsheet")>=0||/\.(xlsx?|csv)$/.test(name))return'<span class="drive-file-icon sheet">XLS</span>';if(mime.indexOf("document")>=0||/\.(docx?|rtf)$/.test(name))return'<span class="drive-file-icon doc">DOC</span>';if(mime.indexOf("presentation")>=0||/\.(pptx?)$/.test(name))return'<span class="drive-file-icon doc">PPT</span>';if(/\.(zip|rar|7z)$/.test(name))return'<span class="drive-file-icon">ZIP</span>';return'<span class="drive-file-icon">FILE</span>'}
   function typeLabel(item){if(item.kind==="folder")return"Folder";var mime=String(item.mimeType||"");var name=String(item.name||"");var ext=name.indexOf(".")>=0?name.split(".").pop().toUpperCase():"FILE";if(mime.indexOf("application/vnd.google-apps.document")===0)return"Google Doc";if(mime.indexOf("application/vnd.google-apps.spreadsheet")===0)return"Google Sheet";if(mime.indexOf("application/vnd.google-apps.presentation")===0)return"Google Slides";return ext.slice(0,10)}
+  function renderRecentDriveFiles(){
+    var wrap=el("driveRecentFiles");if(!wrap)return;
+    var items=(Array.isArray(state.recentItems)?state.recentItems:[]).slice(0,10);
+    if(!items.length&&state.recentLoading){wrap.innerHTML='<div class="drive-recent-state">Loading recent files…</div>';return}
+    if(!items.length&&state.recentError){wrap.innerHTML='<div class="drive-recent-state">Could not load recent files.</div><button type="button" class="drive-recent-retry" data-drive-recent-retry="1">Try again</button>';return}
+    if(!items.length){wrap.innerHTML='<div class="drive-recent-state">No recent files found.</div>';return}
+    wrap.innerHTML=items.map(function(item){
+      var modified=fmtDate(item.modifiedTime),name=String(item.name||"Untitled");
+      return '<button type="button" class="drive-recent-item" data-drive-recent-open="'+esc(item.id)+'" title="'+esc(name)+' · Modified '+esc(modified)+'" aria-label="Preview '+esc(name)+', modified '+esc(modified)+'">'+driveKindIcon(item)+'<span class="drive-recent-copy"><span class="drive-recent-name">'+esc(name)+'</span><span class="drive-recent-date">'+esc(modified)+'</span></span></button>';
+    }).join("");
+  }
+  async function loadRecentDriveFiles(force){
+    if(!state.open)return;
+    if(state.recentLoading)return;
+    if(!force&&state.recentItems.length&&Date.now()-state.recentLoadedAt<45000){renderRecentDriveFiles();return}
+    var seq=++state.recentLoadSeq;state.recentLoading=true;state.recentError="";renderRecentDriveFiles();
+    try{
+      var result=await request("driveRecent",{fresh:force?"1":"0"});
+      if(!state.open||seq!==state.recentLoadSeq)return;
+      state.recentItems=(Array.isArray(result.items)?result.items:[]).filter(function(item){return item&&item.kind==="file"&&!item.targetIsFolder;}).slice(0,10);
+      state.recentLoadedAt=Date.now();state.recentError="";
+    }catch(err){
+      if(seq!==state.recentLoadSeq)return;
+      state.recentError=String(err&&err.message||err||"Could not load recent files");
+    }finally{
+      if(seq===state.recentLoadSeq){state.recentLoading=false;renderRecentDriveFiles()}
+    }
+  }
   var DRIVE_ROOT_ICON='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';function renderBreadcrumbs(){var wrap=el("driveBreadcrumbs");if(!wrap)return;if(S.mode){wrap.innerHTML='<button type="button" class="drive-crumb drive-crumb-root" onclick="driveGoRoot()" aria-label="All files" title="All files">All files</button><span class="drive-crumb-sep">›</span><span class="drive-crumb current">Search results for \u201c'+esc(S.q)+'\u201d</span>';return}wrap.innerHTML=state.path.map(function(part,i){return(i?'<span class="drive-crumb-sep">›</span>':"")+'<button type="button" class="drive-crumb '+(i===state.path.length-1?"current":"")+'" data-drive-crumb="'+i+'" '+(i===state.path.length-1?"disabled":"")+(i===0?' aria-label="'+esc(part.name)+'" title="'+esc(part.name)+'"':"")+'>'+esc(part.name)+'</button>'}).join("")}
   function matchesType(item){if(state.typeFilter==="all")return true;var name=String(item.name||"").toLowerCase(),mime=String(item.mimeType||"").toLowerCase();if(state.typeFilter==="folders")return item.kind==="folder";if(item.kind==="folder")return false;if(state.typeFilter==="pdf")return mime.indexOf("pdf")>=0||name.endsWith(".pdf");if(state.typeFilter==="images")return mime.indexOf("image/")===0||/\.(png|jpe?g|gif|webp|svg|heic|tif?f)$/.test(name);if(state.typeFilter==="videos")return mime.indexOf("video/")===0||/\.(mp4|mov|avi|mkv|webm|mpeg|mpg)$/.test(name);if(state.typeFilter==="audio")return mime.indexOf("audio/")===0||/\.(mp3|wav|m4a|aac|ogg|flac)$/.test(name);if(state.typeFilter==="presentations")return mime.indexOf("presentation")>=0||mime.indexOf("powerpoint")>=0||mime.indexOf("opendocument.presentation")>=0||/\.(pptx?|odp)$/.test(name);if(state.typeFilter==="archives")return /\.(zip|rar|7z|tar|gz|tgz)$/.test(name)||/zip|rar|7z|tar|gzip/.test(mime);if(state.typeFilter==="docs")return mime.indexOf("document")>=0||mime.indexOf("msword")>=0||mime.indexOf("text/plain")>=0||mime.indexOf("rtf")>=0||mime.indexOf("opendocument.text")>=0||/\.(docx?|rtf|odt|txt|md)$/.test(name);if(state.typeFilter==="sheets")return mime.indexOf("spreadsheet")>=0||mime.indexOf("excel")>=0||mime.indexOf("text/csv")>=0||mime.indexOf("opendocument.spreadsheet")>=0||/\.(xlsx?|csv|ods)$/.test(name);return true}
   function getVisibleItems(){var visible=(S.mode?S.items:state.items).filter(function(item){return(!state.activeFilter||String(item.name||"").toLowerCase().indexOf(state.activeFilter)>=0)&&matchesType(item)});if(S.mode&&state.sortBy==="relevance")return visible;visible.sort(function(a,b){if(a.kind!==b.kind)return a.kind==="folder"?-1:1;var an=String(a.name||"").toLocaleLowerCase(),bn=String(b.name||"").toLocaleLowerCase();var key=effSortKey(),dir=effSortDir()==="asc"?1:-1;if(key==="modified"){var at=new Date(a.modifiedTime||0).getTime()||0,bt=new Date(b.modifiedTime||0).getTime()||0;return (at-bt)*dir||an.localeCompare(bn)}if(key==="size"){var sa=Number(a.size)||0,sb=Number(b.size)||0;return (sa-sb)*dir||an.localeCompare(bn)}if(key==="type"){var typeA=typeLabel(a).toLowerCase(),typeB=typeLabel(b).toLowerCase();return (typeA.localeCompare(typeB)*dir)||an.localeCompare(bn)}return an.localeCompare(bn)*dir});return visible}
@@ -7615,7 +7660,6 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     el("driveStatItems").textContent=String(visible.length);
     el("driveStatFolders").textContent=String(folders);
     el("driveStatFiles").textContent=String(files);
-    el("driveNavCount").textContent=String(visible.length);
     el("driveCurrentFolderTitle").textContent=state.path[state.path.length-1].name;
     el("driveTableSubtitle").textContent=visible.length+" item"+(visible.length===1?"":"s")+" · "+folders+" folder"+(folders===1?"":"s");
     el("driveFooterInfo").textContent=visible.length+" item"+(visible.length===1?"":"s")+" loaded"+(state.activeFilter?" for “"+state.activeFilter+"”":"");
@@ -7662,6 +7706,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   async function driveSoftReload(){
     state.folderCache=Object.create(null);S.cache=Object.create(null);
     if(!state.open)return;
+    loadRecentDriveFiles(true);
     if(S.mode&&S.q){setTimeout(function(){try{runSearch(S.q)}catch(e){}},0);return}
     var fid=state.folderId,key=fid||"__root__";
     try{
@@ -7671,7 +7716,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       applyFolderResult(fid,state.path[state.path.length-1].name,result,false);
     }catch(err){/* keep the list as-is; a later manual refresh will retry */}
   }
-  function driveRemoveLocal(id){state.items=(state.items||[]).filter(function(it){return it.id!==id});S.items=(S.items||[]).filter(function(it){return it.id!==id});if(state.selectedId===id){state.selectedId="";state.selectedItem=null}}
+  function driveRemoveLocal(id){state.items=(state.items||[]).filter(function(it){return it.id!==id});S.items=(S.items||[]).filter(function(it){return it.id!==id});state.recentItems=(state.recentItems||[]).filter(function(it){return it.id!==id});renderRecentDriveFiles();if(state.selectedId===id){state.selectedId="";state.selectedItem=null}}
   async function loadFolder(folderId,folderName,pushPath,force){
     hideError();var targetId=folderId||"",seq=++state.loadSeq;
     if(pushPath){if(state.path[state.path.length-1].id!==targetId)state.path.push({id:targetId,name:folderName||"Folder"})}
@@ -7691,7 +7736,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       else{showError("Showing the last loaded copy. Refresh to retry the connection.")}
     }finally{if(seq===state.loadSeq){setLoading(false);if(!hadCache)render()}}
   }
-  function driveItemById(id){return state.items.find(function(x){return x.id===id})||S.items.find(function(x){return x.id===id})||null}
+  function driveItemById(id){return state.items.find(function(x){return x.id===id})||S.items.find(function(x){return x.id===id})||state.recentItems.find(function(x){return x.id===id})||null}
   function hideContextMenu(){var menu=el("driveContextMenu");if(menu)menu.classList.add("hidden");hideCreateSubmenu();state.contextItem=null;state.contextTargetIsBlank=false}
   function contextButton(action,label,icon,disabled,danger){return '<button type="button" role="menuitem" data-drive-menu-action="'+action+'" '+(disabled?'disabled':'')+' class="drive-context-item '+(danger?'is-danger':'')+'"><span class="drive-context-icon">'+icon+'</span><span>'+label+'</span></button>'}
   function showContextMenu(event,item){
@@ -7975,7 +8020,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     if(action==="upload"){driveChooseUpload();return}
     if(action==="folder"||action==="docx"||action==="text"){driveOpenDialog(action);return}
   }
-  window.openDriveManager=function(){var screen=el("driveManagerScreen");if(!screen)return;if(typeof window.closeSideMenu==="function")window.closeSideMenu();var activeEmail=window.getCurrentUserEmail?String(window.getCurrentUserEmail()||"").toLowerCase():"";if(state.cacheUser&&state.cacheUser!==activeEmail){invalidateDriveCache();S.cache=Object.create(null);state.clipboard=null;state.selectedItem=null;state.selectedId=""}state.cacheUser=activeEmail;state.selectedItem=null;state.selectedId="";state.createParentId="";state.createParentName="All files";state.createParentItem=null;hideContextMenu();state.open=true;screen.classList.remove("hidden");document.body.style.overflow="hidden";if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();state.path=[{id:"",name:"All files"}];applyDriveCompactMode();loadFolder("", "All files", false,false)};
+  window.openDriveManager=function(){var screen=el("driveManagerScreen");if(!screen)return;if(typeof window.closeSideMenu==="function")window.closeSideMenu();var activeEmail=window.getCurrentUserEmail?String(window.getCurrentUserEmail()||"").toLowerCase():"";if(state.cacheUser&&state.cacheUser!==activeEmail){invalidateDriveCache();S.cache=Object.create(null);state.clipboard=null;state.selectedItem=null;state.selectedId=""}state.cacheUser=activeEmail;state.selectedItem=null;state.selectedId="";state.createParentId="";state.createParentName="All files";state.createParentItem=null;hideContextMenu();state.open=true;screen.classList.remove("hidden");document.body.style.overflow="hidden";if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();state.path=[{id:"",name:"All files"}];applyDriveCompactMode();loadFolder("", "All files", false,false);loadRecentDriveFiles(false)};
   window.closeDriveManager=function(){var screen=el("driveManagerScreen");if(screen)screen.classList.add("hidden");state.open=false;driveCloseDialog();closePreview();hideContextMenu();document.body.style.overflow=""};
   window.driveRefresh=function(){if(state.open&&S.mode&&S.q){S.loading=true;render();runSearch(S.q,true);return}if(state.open)loadFolder(state.folderId,state.path[state.path.length-1].name,false,true)};
   window.driveGoRoot=function(){state.path=[{id:"",name:"All files"}];if(el("driveSearchInput"))el("driveSearchInput").value="";resetSearch();loadFolder("","All files",false)};
@@ -8018,6 +8063,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   };
   window.driveCloseDialog=function(){el("driveDialog").classList.add("hidden");state.dialogMode="";state.dialogItem=null};
   async function refreshAfterDriveCreate(parentId,parentName){
+    loadRecentDriveFiles(true);
     state.folderCache=Object.create(null);
     if(parentId&&parentId===state.rootId){parentId="";parentName="All files";state.path=[{id:"",name:"All files"}]}
     var index=state.path.findIndex(function(part){return part.id===parentId});
@@ -8045,12 +8091,13 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       work=function(){return request("driveRename",{id:renId,name:name}).then(function(res){
         var finalName=(res&&res.name)||name;
         var apply=function(list){(list||[]).forEach(function(it){if(it&&it.id===renId)it.name=finalName})};
-        apply(state.items);apply(S.items);
+        apply(state.items);apply(S.items);apply(state.recentItems);
         if(state.selectedItem&&state.selectedItem.id===renId)state.selectedItem.name=finalName;
         if(state.previewItem&&state.previewItem.id===renId)state.previewItem.name=finalName;
         (state.path||[]).forEach(function(part){if(part.id===renId)part.name=finalName});
         state.folderCache=Object.create(null);S.cache=Object.create(null);
         if(state.open)render();
+        loadRecentDriveFiles(true);
         doneMsg="Renamed to “"+finalName+"”.";
       })};
     }else if(mode==="move"&&item){
@@ -8097,6 +8144,17 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       return;
     }
   }
+  var recentFilesContainer=el("driveRecentFiles");
+  if(recentFilesContainer)recentFilesContainer.addEventListener("click",function(event){
+    var retry=event.target.closest("[data-drive-recent-retry]");
+    if(retry){event.preventDefault();loadRecentDriveFiles(true);return}
+    var trigger=event.target.closest("[data-drive-recent-open]");
+    if(!trigger)return;
+    event.preventDefault();
+    var id=trigger.getAttribute("data-drive-recent-open");
+    var item=state.recentItems.find(function(file){return file.id===id});
+    if(item)openPreview(item);
+  });
   var driveScreen=el("driveManagerScreen");
   el("driveContextMenu").addEventListener("pointerover",function(event){var trigger=event.target.closest('[data-drive-menu-action="create"]');if(trigger)showCreateSubmenu(trigger);else hideCreateSubmenu()});
   el("driveContextMenu").addEventListener("pointerleave",function(event){if(event.pointerType==="touch")return;var related=event.relatedTarget;if(related&&related.closest&&related.closest("#driveCreateSubmenu"))return;hideCreateSubmenu()});
