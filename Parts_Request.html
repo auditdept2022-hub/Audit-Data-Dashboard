@@ -499,7 +499,109 @@
     .card{ padding: 12px 14px; }
   }
 </style>
-<script src="./app-navigation.js" defer></script>
+<script id="audit-app-navigation-v232">
+/* Self-contained same-frame navigation for the dashboard and its sibling apps.
+   Navigation stays in the current frame: sandboxed hosts may silently block
+   window.top.location, which previously left app links appearing unresponsive. */
+(function (window, document) {
+  'use strict';
+  var HOME_KEY = 'auditDashboard.homeUrl.v232';
+  var LEGACY_KEYS = [
+    'auditDashboard.homeUrl.v230',
+    'auditDashboard:homeUrl:v230',
+    'auditDashboardHomeUrl',
+    'audit-dashboard-home-url'
+  ];
+  var APP_FILES = {
+    'attendance_dashboard.html': true,
+    'Data-updater.html': true,
+    'Opex.html': true,
+    'Parts_Request.html': true
+  };
+  var APP_PATH = /\/(?:attendance_dashboard|data-updater|opex|parts_request)\.html$/i;
+
+  function storageRead(name, key) {
+    try { var storage = window[name]; return storage && storage.getItem(key) || ''; }
+    catch (err) { return ''; }
+  }
+  function storageWrite(name, key, value) {
+    try { var storage = window[name]; if (storage) storage.setItem(key, value); }
+    catch (err) { /* embedded or privacy-restricted storage may be unavailable */ }
+  }
+  function safeUrl(value) {
+    if (!value) return null;
+    try {
+      var url = new URL(value, window.location.href);
+      if (url.origin !== window.location.origin) return null;
+      if (APP_PATH.test(url.pathname)) return null;
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+      return url;
+    } catch (err) { return null; }
+  }
+  function currentHomeUrl() {
+    var url = new URL(window.location.href);
+    url.hash = '';
+    return url.href;
+  }
+  function rememberDashboardHomeUrl() {
+    if (APP_PATH.test(window.location.pathname || '')) {
+      return storageRead('sessionStorage', HOME_KEY) || storageRead('localStorage', HOME_KEY);
+    }
+    var value = currentHomeUrl();
+    storageWrite('sessionStorage', HOME_KEY, value);
+    storageWrite('localStorage', HOME_KEY, value);
+    LEGACY_KEYS.forEach(function (key) {
+      storageWrite('sessionStorage', key, value);
+      storageWrite('localStorage', key, value);
+    });
+    return value;
+  }
+  function getDashboardHomeUrl() {
+    var candidates = [
+      storageRead('sessionStorage', HOME_KEY),
+      storageRead('localStorage', HOME_KEY)
+    ];
+    LEGACY_KEYS.forEach(function (key) {
+      candidates.push(storageRead('sessionStorage', key));
+      candidates.push(storageRead('localStorage', key));
+    });
+    if (document.referrer) candidates.push(document.referrer);
+    for (var i = 0; i < candidates.length; i++) {
+      var found = safeUrl(candidates[i]);
+      if (found) return found.href;
+    }
+    var fallback = new URL('./index.html', window.location.href);
+    fallback.searchParams.set('skipLoading', '1');
+    fallback.hash = '';
+    return fallback.href;
+  }
+  function navigateToSubApp(fileName) {
+    var file = String(fileName || '');
+    if (!APP_FILES[file]) {
+      console.error('[navigation] Refused unknown app page:', file);
+      return false;
+    }
+    rememberDashboardHomeUrl();
+    var destination = new URL(file, window.location.href);
+    destination.hash = '';
+    // Do not attempt window.top navigation. In sandboxed hosts that can be
+    // silently denied without throwing, so the click appears to do nothing.
+    window.location.assign(destination.href);
+    return false;
+  }
+  function navigateToDashboardHome(event) {
+    if (event && typeof event.preventDefault === 'function') event.preventDefault();
+    var destination = getDashboardHomeUrl();
+    window.location.assign(destination);
+    return false;
+  }
+  window.rememberDashboardHomeUrl = rememberDashboardHomeUrl;
+  window.getDashboardHomeUrl = getDashboardHomeUrl;
+  window.navigateToSubApp = navigateToSubApp;
+  window.navigateToDashboardHome = navigateToDashboardHome;
+  if (!APP_PATH.test(window.location.pathname || '')) rememberDashboardHomeUrl();
+})(window, document);
+</script>
 </head>
 <body>
 <div id="toast" class="toast" role="status" aria-live="polite">
