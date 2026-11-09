@@ -1324,6 +1324,27 @@ html body main.dash-container #section-overview + .grid{margin-top:12px !importa
 .drive-recent-more svg{width:13px;height:13px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .drive-recent-modal-list .drive-recent-rank{flex:none;width:18px;text-align:right;font-size:10px;font-weight:700;color:var(--d-faint);font-variant-numeric:tabular-nums}
 </style>
+<style id="drive-preview-pdf-v247">
+.drive-preview.is-pdf-mode .drive-preview-viewport{display:none!important}
+.pdf-scroll{display:block!important}
+.pdf-pages{display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px;width:max-content;min-width:100%;box-sizing:border-box}
+.pdf-page{position:relative;flex:none;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.18);overflow:hidden}
+.pdf-page canvas{display:block;width:100%;height:100%}
+.dpi-page{padding:0 9px;font:700 12px/1 Inter,system-ui,sans-serif;color:#52617b;font-variant-numeric:tabular-nums;white-space:nowrap}
+</style>
+<style id="drive-preview-image-v246">
+.drive-preview-image{position:absolute;inset:0;z-index:1;background:#e9edf4}
+.drive-preview-image.hidden{display:none!important}
+.drive-preview.is-image-mode .drive-preview-viewport{display:none!important}
+.dpi-scroll{position:absolute;inset:0;display:flex;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;cursor:default}
+.dpi-scroll.can-pan{cursor:grab}.dpi-scroll.is-dragging{cursor:grabbing}
+.dpi-scroll img{margin:auto;flex:none;max-width:none;display:block;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.18);-webkit-user-select:none;user-select:none;-webkit-user-drag:none;-webkit-touch-callout:none}
+.dpi-controls{position:absolute;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:3;display:inline-flex;align-items:center;gap:2px;padding:3px;border:1px solid #dfe4ef;border-radius:10px;background:rgba(255,255,255,.96);box-shadow:0 4px 16px rgba(0,0,0,.14)}
+.dpi-controls button{height:32px;min-width:34px;padding:0 8px;border:0;border-radius:7px;background:transparent;color:#33415e;font:700 15px/1 Inter,system-ui,sans-serif;cursor:pointer}
+.dpi-controls button:hover:not(:disabled){background:#e9edff;color:#2f3fb8}
+.dpi-controls button:disabled{opacity:.35;cursor:default}
+.dpi-controls #dpiReset{min-width:52px;font-size:12px;font-variant-numeric:tabular-nums}
+</style>
 <style id="drive-preview-native-v245">
 .drive-preview-viewport,.drive-preview-stage,.drive-preview-stage iframe{contain:none!important;transform:none!important;will-change:auto!important;touch-action:auto!important}
 .drive-preview-viewport,#driveManagerScreen .drive-preview-viewport{overflow:hidden!important;cursor:auto!important;overscroll-behavior:auto}
@@ -2522,7 +2543,7 @@ html body main.dash-container #section-overview + .grid{margin-top:12px !importa
           
           <div class="drive-preview-tools"><a id="drivePreviewOpen" class="drive-preview-open hidden" href="#" target="_blank" rel="noopener noreferrer" title="Open file in Chrome" aria-label="Open file in Chrome"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M19 13v6a2 2 0 0 1-2 2H5V7a2 2 0 0 1 2-2h6"/></svg><span class="drive-preview-open-label">Open in Chrome</span></a><a id="drivePreviewDownload" class="drive-preview-download hidden" href="#" target="_blank" rel="noopener">Download</a><button type="button" id="drivePreviewFullscreen" class="drive-icon-btn" onclick="driveTogglePreviewFullscreen()" aria-label="Expand preview" title="Expand preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg></button><button type="button" class="drive-icon-btn" data-drive-preview-close aria-label="Close preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
         </div>
-        <div class="drive-preview-body"><div id="drivePreviewViewport" class="drive-preview-viewport"><div id="drivePreviewStage" class="drive-preview-stage"><iframe id="drivePreviewFrame" title="File preview" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; clipboard-read; clipboard-write; fullscreen" allowfullscreen></iframe></div></div><div id="drivePreviewLoading" class="drive-preview-loading" role="status"><span class="drive-spinner" aria-hidden="true"></span><span id="drivePreviewLoadingText">Loading preview…</span></div></div>
+        <div class="drive-preview-body"><div id="drivePreviewViewport" class="drive-preview-viewport"><div id="drivePreviewStage" class="drive-preview-stage"><iframe id="drivePreviewFrame" title="File preview" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; clipboard-read; clipboard-write; fullscreen" allowfullscreen></iframe></div></div><div id="drivePreviewImage" class="drive-preview-image hidden"><div id="drivePreviewImageScroll" class="dpi-scroll"><img id="drivePreviewImg" alt="" draggable="false"></div><div class="dpi-controls" role="group" aria-label="Image zoom"><button type="button" id="dpiOut" aria-label="Zoom out" title="Zoom out">−</button><button type="button" id="dpiReset" aria-label="Fit to screen" title="Fit to screen">100%</button><button type="button" id="dpiIn" aria-label="Zoom in" title="Zoom in">+</button></div></div><div id="drivePreviewPdf" class="drive-preview-image drive-preview-pdf hidden"><div id="drivePreviewPdfScroll" class="dpi-scroll pdf-scroll"><div id="drivePreviewPdfPages" class="pdf-pages"></div></div><div class="dpi-controls" role="group" aria-label="Document zoom"><span id="pdfPageInd" class="dpi-page">1 / 1</span><button type="button" id="pdfOut" aria-label="Zoom out" title="Zoom out">−</button><button type="button" id="pdfReset" aria-label="Fit to width" title="Fit to width">100%</button><button type="button" id="pdfIn" aria-label="Zoom in" title="Zoom in">+</button></div></div><div id="drivePreviewLoading" class="drive-preview-loading" role="status"><span class="drive-spinner" aria-hidden="true"></span><span id="drivePreviewLoadingText">Loading preview…</span></div></div>
         <footer class="drive-preview-footer">If Google shows 404, check that Chrome is signed into a Google account with access to this file. Dashboard sign-in does not automatically grant Google Drive permissions.</footer>
       </div>
     </section>
@@ -8130,6 +8151,299 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   function applyPreviewZoom(){previewZoom=1;var st=el("drivePreviewStage");if(st)st.style.transform=""}
   window.drivePreviewZoom=function(){};
   window.drivePreviewZoomReset=function(){applyPreviewZoom()};
+  // ---- v246: images open in a native in-dashboard viewer (drag to move, wheel/pinch/buttons to zoom).
+  // Other file types keep Google's own viewer. Any failure falls back to the Google viewer.
+  var dpi={url:"",z:1,fit:1,nw:0,nh:0,raf:0,pending:null,bound:false,seq:0};
+  function drivePreviewIsImage(item){
+    if(!item||item.kind==="folder"||item.targetIsFolder)return false;
+    var mime=String(item.mimeType||"").toLowerCase(),name=String(item.name||"").toLowerCase();
+    var okType=/^image\/(png|jpe?g|gif|webp|bmp|svg\+xml|avif)$/.test(mime)||(mime.indexOf("image/")!==0&&/\.(png|jpe?g|gif|webp|bmp|svg|avif)$/.test(name)&&mime.indexOf("application/vnd.google-apps")!==0);
+    if(!okType)return false;
+    var size=Number(item.size)||0;
+    return !(size>8*1024*1024);
+  }
+  function dpiEls(){return{wrap:el("drivePreview"),box:el("drivePreviewImage"),scroll:el("drivePreviewImageScroll"),img:el("drivePreviewImg")}}
+  function dpiLayout(){
+    var e=dpiEls();if(!e.img||!e.scroll)return;
+    var cw=e.scroll.clientWidth,ch=e.scroll.clientHeight,nw=dpi.nw||cw,nh=dpi.nh||ch;
+    dpi.fit=Math.min(cw/nw,ch/nh,1)||1;
+    e.img.style.width=Math.max(1,nw*dpi.fit*dpi.z)+"px";e.img.style.height="auto";
+    var lab=el("dpiReset");if(lab)lab.textContent=Math.round(dpi.z*100)+"%";
+    var o=el("dpiOut"),i=el("dpiIn");if(o)o.disabled=dpi.z<=.5+.001;if(i)i.disabled=dpi.z>=8-.001;
+    var can=e.img.getBoundingClientRect().width>cw+1||e.img.getBoundingClientRect().height>ch+1;
+    e.scroll.classList.toggle("can-pan",can);
+  }
+  // zoom keeping the image point under (cx,cy) (client coords) fixed
+  function dpiZoomTo(nz,cx,cy){
+    var e=dpiEls();if(!e.img||!e.scroll)return;
+    nz=Math.max(.5,Math.min(8,nz));
+    var r=e.img.getBoundingClientRect(),sr=e.scroll.getBoundingClientRect();
+    if(cx==null){cx=sr.left+sr.width/2;cy=sr.top+sr.height/2}
+    var ox=r.width?Math.min(1,Math.max(0,(cx-r.left)/r.width)):.5,oy=r.height?Math.min(1,Math.max(0,(cy-r.top)/r.height)):.5;
+    dpi.z=nz;dpiLayout();
+    var r2=e.img.getBoundingClientRect();
+    e.scroll.scrollLeft+=(r2.left+ox*r2.width)-cx;
+    e.scroll.scrollTop+=(r2.top+oy*r2.height)-cy;
+  }
+  function dpiQueueZoom(nz,cx,cy){
+    dpi.pending={z:nz,x:cx,y:cy};
+    if(dpi.raf)return;
+    dpi.raf=requestAnimationFrame(function(){dpi.raf=0;var q=dpi.pending;dpi.pending=null;if(q)dpiZoomTo(q.z,q.x,q.y)});
+  }
+  function dpiBind(){
+    if(dpi.bound)return;var e=dpiEls();if(!e.scroll)return;dpi.bound=true;
+    var sc=e.scroll;
+    el("dpiIn").addEventListener("click",function(){dpiZoomTo(dpi.z*1.25)});
+    el("dpiOut").addEventListener("click",function(){dpiZoomTo(dpi.z/1.25)});
+    el("dpiReset").addEventListener("click",function(){dpi.z=1;dpiLayout();sc.scrollLeft=0;sc.scrollTop=0});
+    // mouse: click-and-drag to move
+    var drag=null;
+    sc.addEventListener("pointerdown",function(ev){
+      if(ev.pointerType!=="mouse"||ev.button!==0)return;
+      drag={x:ev.clientX,y:ev.clientY,l:sc.scrollLeft,t:sc.scrollTop};
+      try{sc.setPointerCapture(ev.pointerId)}catch(_){}
+      sc.classList.add("is-dragging");ev.preventDefault();
+    });
+    sc.addEventListener("pointermove",function(ev){
+      if(!drag)return;sc.scrollLeft=drag.l-(ev.clientX-drag.x);sc.scrollTop=drag.t-(ev.clientY-drag.y);
+    });
+    function endDrag(ev){if(!drag)return;drag=null;sc.classList.remove("is-dragging");try{sc.releasePointerCapture(ev.pointerId)}catch(_){}}
+    sc.addEventListener("pointerup",endDrag);sc.addEventListener("pointercancel",endDrag);
+    // mouse wheel / trackpad pinch (Ctrl+wheel) zoom at the cursor; plain wheel scrolls natively
+    sc.addEventListener("wheel",function(ev){
+      if(!(ev.ctrlKey||ev.metaKey))return;
+      ev.preventDefault();dpiQueueZoom((dpi.pending?dpi.pending.z:dpi.z)*Math.exp(-ev.deltaY*0.01),ev.clientX,ev.clientY);
+    },{passive:false});
+    // double-click / double-tap: zoom in or back to fit
+    sc.addEventListener("dblclick",function(ev){if(dpi.z>1.05){dpi.z=1;dpiLayout();sc.scrollLeft=0;sc.scrollTop=0}else dpiZoomTo(2.5,ev.clientX,ev.clientY)});
+    // touch: one finger scrolls natively, two fingers pinch-zoom
+    var pinch=null;
+    function d2(t){return Math.hypot(t[1].clientX-t[0].clientX,t[1].clientY-t[0].clientY)||1}
+    sc.addEventListener("touchstart",function(ev){if(ev.touches.length===2)pinch={d:d2(ev.touches),z:dpi.z}},{passive:true});
+    sc.addEventListener("touchmove",function(ev){
+      if(!pinch||ev.touches.length!==2)return;ev.preventDefault();
+      var t=ev.touches;dpiQueueZoom(pinch.z*d2(t)/pinch.d,(t[0].clientX+t[1].clientX)/2,(t[0].clientY+t[1].clientY)/2);
+    },{passive:false});
+    sc.addEventListener("touchend",function(ev){if(ev.touches.length<2)pinch=null},{passive:true});
+    sc.addEventListener("touchcancel",function(){pinch=null},{passive:true});
+    // Safari trackpad pinch
+    var gz=1;
+    sc.addEventListener("gesturestart",function(ev){ev.preventDefault();gz=dpi.z});
+    sc.addEventListener("gesturechange",function(ev){ev.preventDefault();dpiQueueZoom(gz*ev.scale,ev.clientX,ev.clientY)});
+    // rotate / resize: re-fit
+    function refit(){if(!e.box.classList.contains("hidden"))dpiLayout()}
+    window.addEventListener("resize",refit);
+    window.addEventListener("orientationchange",function(){setTimeout(refit,80);setTimeout(refit,350)});
+    if(window.ResizeObserver){try{new ResizeObserver(refit).observe(sc)}catch(_){}}
+  }
+  function drivePreviewImageClose(){
+    dpi.seq++;var e=dpiEls();
+    if(e.wrap)e.wrap.classList.remove("is-image-mode");
+    if(e.box)e.box.classList.add("hidden");
+    if(e.img){e.img.removeAttribute("src");e.img.style.width=""}
+    if(dpi.url){try{URL.revokeObjectURL(dpi.url)}catch(_){}dpi.url=""}
+    dpi.z=1;dpi.nw=0;dpi.nh=0;
+  }
+  async function drivePreviewImageOpen(item,fallback){
+    drivePreviewImageClose();
+    var seq=++dpi.seq,e=dpiEls();
+    if(!e.box||!e.img||!e.scroll){fallback();return}
+    dpiBind();
+    function fail(){if(seq!==dpi.seq)return;drivePreviewImageClose();dpi.seq=seq;fallback()}
+    try{
+      var id=item.effectiveId||item.targetId||item.id,key=item.effectiveResourceKey||item.targetResourceKey||item.resourceKey||"";
+      var result=await request("driveDownloadProxy",{id:id,resourceKey:key});
+      if(seq!==dpi.seq||state.previewItem!==item)return;
+      if(!result||!result.base64){fail();return}
+      var bin=atob(String(result.base64)),bytes=new Uint8Array(bin.length);
+      for(var o=0;o<bin.length;o+=32768){var end=Math.min(o+32768,bin.length);for(var i=o;i<end;i++)bytes[i]=bin.charCodeAt(i)}
+      var mime=String(result.mimeType||item.mimeType||"image/png");if(mime.indexOf("image/")!==0)mime="image/png";
+      dpi.url=URL.createObjectURL(new Blob([bytes],{type:mime}));
+      e.img.onload=function(){
+        if(seq!==dpi.seq)return;
+        dpi.nw=e.img.naturalWidth||0;dpi.nh=e.img.naturalHeight||0;dpi.z=1;
+        e.wrap.classList.add("is-image-mode");e.box.classList.remove("hidden");
+        dpiLayout();e.scroll.scrollLeft=0;e.scroll.scrollTop=0;
+        clearTimeout(previewLoadTimer);
+        var loader=el("drivePreviewLoading");if(loader){loader.classList.add("is-done");setTimeout(function(){if(loader.classList.contains("is-done"))loader.classList.add("hidden")},150)}
+      };
+      e.img.onerror=fail;
+      e.img.src=dpi.url;
+    }catch(err){fail()}
+  }
+  // ---- v247: PDFs (and Google Docs / Slides exported as PDF) open in a built-in document viewer:
+  // native scrolling between pages, pinch / Ctrl+wheel / buttons zoom, drag to move. Falls back to Google's viewer.
+  var PDFJS_VER="3.11.174",PDFJS_BASE="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/"+PDFJS_VER+"/";
+  var pdfv={doc:null,z:1,base:600,pages:[],visible:new Set(),io:null,seq:0,raf:0,pending:null,rt:0,bound:false,lib:null,libPromise:null,worker:""};
+  function drivePreviewPdfKind(item){
+    if(!item||item.kind==="folder"||item.targetIsFolder)return "";
+    var mime=String(item.mimeType||"").toLowerCase(),name=String(item.name||"").toLowerCase();
+    if(mime==="application/vnd.google-apps.document"||mime==="application/vnd.google-apps.presentation")return "native";
+    if(mime.indexOf("application/vnd.google-apps")===0)return "";
+    if(mime==="application/pdf"||/\.pdf$/.test(name)){return (Number(item.size)||0)>8*1024*1024?"":"pdf"}
+    return "";
+  }
+  function pdfLoadLib(){
+    if(pdfv.lib)return Promise.resolve(pdfv.lib);
+    if(pdfv.libPromise)return pdfv.libPromise;
+    pdfv.libPromise=new Promise(function(resolve,reject){
+      function ready(){
+        var lib=window.pdfjsLib;if(!lib){reject(new Error("PDF library unavailable"));return}
+        fetch(PDFJS_BASE+"pdf.worker.min.js").then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){
+          pdfv.worker=URL.createObjectURL(new Blob([t],{type:"text/javascript"}));lib.GlobalWorkerOptions.workerSrc=pdfv.worker;pdfv.lib=lib;resolve(lib)
+        }).catch(function(){lib.GlobalWorkerOptions.workerSrc=PDFJS_BASE+"pdf.worker.min.js";pdfv.lib=lib;resolve(lib)});
+      }
+      if(window.pdfjsLib){ready();return}
+      var sc=document.createElement("script");sc.src=PDFJS_BASE+"pdf.min.js";sc.async=true;sc.onload=ready;
+      sc.onerror=function(){pdfv.libPromise=null;reject(new Error("PDF library failed to load"))};
+      document.head.appendChild(sc);
+    });
+    return pdfv.libPromise;
+  }
+  function pdfEls(){return{wrap:el("drivePreview"),box:el("drivePreviewPdf"),scroll:el("drivePreviewPdfScroll"),pages:el("drivePreviewPdfPages")}}
+  function pdfHideLoader(){clearTimeout(previewLoadTimer);var loader=el("drivePreviewLoading");if(loader){loader.classList.add("is-done");setTimeout(function(){if(loader.classList.contains("is-done"))loader.classList.add("hidden")},150)}}
+  function pdfMeasureBase(){var e=pdfEls();pdfv.base=Math.max(220,(e.scroll?e.scroll.clientWidth:600)-24)}
+  function pdfLayoutPages(){
+    var W=pdfv.base*pdfv.z;
+    for(var i=1;i<pdfv.pages.length;i++){var st=pdfv.pages[i];if(!st)continue;st.el.style.width=W+"px";st.el.style.height=(W*st.ratio)+"px"}
+    var lab=el("pdfReset");if(lab)lab.textContent=Math.round(pdfv.z*100)+"%";
+    var o=el("pdfOut"),n=el("pdfIn");if(o)o.disabled=pdfv.z<=.5+.001;if(n)n.disabled=pdfv.z>=5-.001;
+    var sc=pdfEls().scroll;if(sc)sc.classList.toggle("can-pan",true);
+  }
+  function pdfRenderPage(n){
+    var st=pdfv.pages[n];if(!st||!pdfv.doc)return;
+    var W=Math.round(st.el.clientWidth||parseFloat(st.el.style.width)||pdfv.base);
+    if(st.renderedW===W||st.pendingW===W)return;
+    st.pendingW=W;var seq=pdfv.seq;
+    if(st.task){try{st.task.cancel()}catch(_){}st.task=null}
+    pdfv.doc.getPage(n).then(function(page){
+      if(seq!==pdfv.seq)return;
+      var vp0=page.getViewport({scale:1}),dpr=Math.min(window.devicePixelRatio||1,2),scale=W/vp0.width*dpr;
+      var area=vp0.width*scale*vp0.height*scale;if(area>16e6)scale*=Math.sqrt(16e6/area);
+      var vp=page.getViewport({scale:scale}),cv=document.createElement("canvas");
+      cv.width=Math.max(1,Math.floor(vp.width));cv.height=Math.max(1,Math.floor(vp.height));
+      var task=page.render({canvasContext:cv.getContext("2d"),viewport:vp});st.task=task;
+      return task.promise.then(function(){
+        if(seq!==pdfv.seq)return;
+        st.task=null;st.pendingW=0;st.renderedW=W;
+        var old=st.el.querySelector("canvas");if(old)st.el.replaceChild(cv,old);else st.el.appendChild(cv);
+      });
+    }).catch(function(){st.pendingW=0;st.task=null});
+  }
+  function pdfReleasePage(n){var st=pdfv.pages[n];if(!st)return;if(st.task){try{st.task.cancel()}catch(_){}st.task=null}st.pendingW=0;st.renderedW=0;var c=st.el.querySelector("canvas");if(c)c.remove()}
+  function pdfScheduleRerender(){clearTimeout(pdfv.rt);pdfv.rt=setTimeout(function(){pdfv.visible.forEach(function(n){pdfRenderPage(n)})},160)}
+  function pdfUpdateIndicator(){
+    var e=pdfEls();if(!e.scroll||!pdfv.doc)return;
+    var mid=e.scroll.scrollTop+e.scroll.clientHeight/3,cur=1;
+    for(var i=1;i<pdfv.pages.length;i++){var st=pdfv.pages[i];if(st&&st.el.offsetTop<=mid)cur=i;else break}
+    var ind=el("pdfPageInd");if(ind)ind.textContent=cur+" / "+(pdfv.pages.length-1);
+  }
+  function pdfZoomTo(nz,cx,cy){
+    var e=pdfEls(),sc=e.scroll;if(!sc)return;
+    nz=Math.max(.5,Math.min(5,nz));
+    var r=sc.getBoundingClientRect();if(cx==null){cx=r.left+r.width/2;cy=r.top+r.height/2}
+    var px=cx-r.left,py=cy-r.top,ow=sc.scrollWidth||1,oh=sc.scrollHeight||1;
+    var fx=(sc.scrollLeft+px)/ow,fy=(sc.scrollTop+py)/oh;
+    pdfv.z=nz;pdfLayoutPages();
+    sc.scrollLeft=fx*sc.scrollWidth-px;sc.scrollTop=fy*sc.scrollHeight-py;
+    pdfScheduleRerender();pdfUpdateIndicator();
+  }
+  function pdfQueueZoom(nz,cx,cy){
+    pdfv.pending={z:nz,x:cx,y:cy};if(pdfv.raf)return;
+    pdfv.raf=requestAnimationFrame(function(){pdfv.raf=0;var q=pdfv.pending;pdfv.pending=null;if(q)pdfZoomTo(q.z,q.x,q.y)});
+  }
+  function pdfBind(){
+    if(pdfv.bound)return;var e=pdfEls();if(!e.scroll)return;pdfv.bound=true;var sc=e.scroll;
+    el("pdfIn").addEventListener("click",function(){pdfZoomTo(pdfv.z*1.25)});
+    el("pdfOut").addEventListener("click",function(){pdfZoomTo(pdfv.z/1.25)});
+    el("pdfReset").addEventListener("click",function(){pdfv.z=1;pdfLayoutPages();sc.scrollLeft=0;pdfScheduleRerender()});
+    var drag=null;
+    sc.addEventListener("pointerdown",function(ev){
+      if(ev.pointerType!=="mouse"||ev.button!==0)return;
+      drag={x:ev.clientX,y:ev.clientY,l:sc.scrollLeft,t:sc.scrollTop};
+      try{sc.setPointerCapture(ev.pointerId)}catch(_){}
+      sc.classList.add("is-dragging");ev.preventDefault();
+    });
+    sc.addEventListener("pointermove",function(ev){if(!drag)return;sc.scrollLeft=drag.l-(ev.clientX-drag.x);sc.scrollTop=drag.t-(ev.clientY-drag.y)});
+    function endDrag(ev){if(!drag)return;drag=null;sc.classList.remove("is-dragging");try{sc.releasePointerCapture(ev.pointerId)}catch(_){}}
+    sc.addEventListener("pointerup",endDrag);sc.addEventListener("pointercancel",endDrag);
+    sc.addEventListener("wheel",function(ev){
+      if(!(ev.ctrlKey||ev.metaKey))return;
+      ev.preventDefault();pdfQueueZoom((pdfv.pending?pdfv.pending.z:pdfv.z)*Math.exp(-ev.deltaY*0.01),ev.clientX,ev.clientY);
+    },{passive:false});
+    sc.addEventListener("dblclick",function(ev){if(pdfv.z>1.05){pdfv.z=1;pdfLayoutPages();sc.scrollLeft=0;pdfScheduleRerender()}else pdfZoomTo(2,ev.clientX,ev.clientY)});
+    var pinch=null;function d2(t){return Math.hypot(t[1].clientX-t[0].clientX,t[1].clientY-t[0].clientY)||1}
+    sc.addEventListener("touchstart",function(ev){if(ev.touches.length===2)pinch={d:d2(ev.touches),z:pdfv.z}},{passive:true});
+    sc.addEventListener("touchmove",function(ev){
+      if(!pinch||ev.touches.length!==2)return;ev.preventDefault();
+      var t=ev.touches;pdfQueueZoom(pinch.z*d2(t)/pinch.d,(t[0].clientX+t[1].clientX)/2,(t[0].clientY+t[1].clientY)/2);
+    },{passive:false});
+    sc.addEventListener("touchend",function(ev){if(ev.touches.length<2)pinch=null},{passive:true});
+    sc.addEventListener("touchcancel",function(){pinch=null},{passive:true});
+    var gz=1;
+    sc.addEventListener("gesturestart",function(ev){ev.preventDefault();gz=pdfv.z});
+    sc.addEventListener("gesturechange",function(ev){ev.preventDefault();pdfQueueZoom(gz*ev.scale,ev.clientX,ev.clientY)});
+    var sraf=0;sc.addEventListener("scroll",function(){if(sraf)return;sraf=requestAnimationFrame(function(){sraf=0;pdfUpdateIndicator()})},{passive:true});
+    function refit(){if(e.box.classList.contains("hidden")||!pdfv.doc)return;pdfMeasureBase();pdfLayoutPages();pdfScheduleRerender()}
+    window.addEventListener("resize",refit);
+    window.addEventListener("orientationchange",function(){setTimeout(refit,80);setTimeout(refit,350)});
+    if(window.ResizeObserver){try{new ResizeObserver(refit).observe(sc)}catch(_){}}
+  }
+  function drivePreviewPdfClose(){
+    pdfv.seq++;clearTimeout(pdfv.rt);
+    var e=pdfEls();
+    if(e.wrap)e.wrap.classList.remove("is-pdf-mode");
+    if(e.box)e.box.classList.add("hidden");
+    if(pdfv.io){try{pdfv.io.disconnect()}catch(_){}pdfv.io=null}
+    pdfv.visible.clear();
+    pdfv.pages.forEach(function(st){if(st&&st.task){try{st.task.cancel()}catch(_){}}});
+    pdfv.pages=[];
+    if(e.pages)e.pages.innerHTML="";
+    if(pdfv.doc){try{pdfv.doc.destroy()}catch(_){}pdfv.doc=null}
+    pdfv.z=1;
+  }
+  async function drivePreviewPdfOpen(item,kind,fallback){
+    drivePreviewPdfClose();
+    var seq=++pdfv.seq,e=pdfEls();
+    if(!e.box||!e.scroll||!e.pages){fallback();return}
+    pdfBind();
+    var failed=false;
+    function fail(){if(failed||seq!==pdfv.seq)return;failed=true;drivePreviewPdfClose();pdfv.seq=seq;fallback()}
+    try{
+      var libP=pdfLoadLib();
+      var id=item.effectiveId||item.targetId||item.id,key=item.effectiveResourceKey||item.targetResourceKey||item.resourceKey||"";
+      var fields={id:id,resourceKey:key};if(kind==="native")fields.pdf="1";
+      var result=await request("driveDownloadProxy",fields);
+      if(seq!==pdfv.seq||state.previewItem!==item)return;
+      if(!result||!result.base64||(result.mimeType&&String(result.mimeType).toLowerCase().indexOf("pdf")<0)){fail();return}
+      var bin=atob(String(result.base64)),bytes=new Uint8Array(bin.length);
+      for(var o=0;o<bin.length;o+=32768){var end=Math.min(o+32768,bin.length);for(var i=o;i<end;i++)bytes[i]=bin.charCodeAt(i)}
+      var lib=await libP;
+      if(seq!==pdfv.seq)return;
+      var doc=await lib.getDocument({data:bytes}).promise;
+      if(seq!==pdfv.seq){try{doc.destroy()}catch(_){}return}
+      if(doc.numPages>250){try{doc.destroy()}catch(_){}fail();return}
+      pdfv.doc=doc;
+      e.wrap.classList.add("is-pdf-mode");e.box.classList.remove("hidden");
+      pdfMeasureBase();pdfv.z=1;
+      var pages=[null];
+      for(var n=1;n<=doc.numPages;n++){
+        var pg=await doc.getPage(n);if(seq!==pdfv.seq)return;
+        var vp=pg.getViewport({scale:1}),d=document.createElement("div");d.className="pdf-page";d.setAttribute("data-page",String(n));
+        pages.push({el:d,ratio:vp.height/vp.width,renderedW:0,pendingW:0,task:null});
+        e.pages.appendChild(d);
+      }
+      pdfv.pages=pages;pdfLayoutPages();e.scroll.scrollTop=0;e.scroll.scrollLeft=0;
+      pdfv.io=new IntersectionObserver(function(entries){
+        entries.forEach(function(en){
+          var n=Number(en.target.getAttribute("data-page"));
+          if(en.isIntersecting){pdfv.visible.add(n);pdfRenderPage(n)}else{pdfv.visible.delete(n);pdfReleasePage(n)}
+        });
+      },{root:e.scroll,rootMargin:"120% 0px 120% 0px"});
+      for(var k=1;k<pages.length;k++)pdfv.io.observe(pages[k].el);
+      pdfUpdateIndicator();pdfHideLoader();
+    }catch(err){fail()}
+  }
   function openPreview(item){
     if(!item||item.kind==="folder")return;
     clearTimeout(previewCloseTimer);clearTimeout(previewLoadTimer);
@@ -8149,7 +8463,11 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     frame.src="about:blank";
     var previewUrl=drivePreviewUrl(item);frame.dataset.previewUrl=previewUrl;
     wrap.classList.remove("hidden");
-    requestAnimationFrame(function(){if(state.previewItem===item)frame.src=previewUrl});
+    drivePreviewImageClose();drivePreviewPdfClose();
+    var pdfKind=drivePreviewPdfKind(item),toFrame=function(){if(state.previewItem===item)frame.src=previewUrl};
+    if(drivePreviewIsImage(item)){drivePreviewImageOpen(item,toFrame)}
+    else if(pdfKind){drivePreviewPdfOpen(item,pdfKind,toFrame)}
+    else requestAnimationFrame(toFrame);
     previewLoadTimer=setTimeout(function(){if(state.previewItem===item&&loadText)loadText.textContent="Still loading from Google Drive…"},9000);
     document.body.style.overflow="hidden";
   }
@@ -8160,7 +8478,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   function closePreview(){
     var wrap=el("drivePreview");if(!wrap)return;clearTimeout(previewLoadTimer);clearTimeout(previewCloseTimer);
     if(wrap.classList.contains("hidden")){state.previewItem=null;return}
-    wrap.classList.remove("is-fullscreen");wrap.classList.add("is-closing");state.previewItem=null;
+    wrap.classList.remove("is-fullscreen");wrap.classList.add("is-closing");state.previewItem=null;drivePreviewImageClose();drivePreviewPdfClose();
     previewCloseTimer=setTimeout(function(){wrap.classList.add("hidden");wrap.classList.remove("is-closing");var frame=el("drivePreviewFrame");if(frame){frame.src="about:blank";frame.style.pointerEvents="auto"}var loader=el("drivePreviewLoading");if(loader)loader.classList.remove("is-done","hidden");applyPreviewZoom(1,false)},170);
     if(state.open)document.body.style.overflow="hidden";else document.body.style.overflow="";
   }
