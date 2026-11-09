@@ -166,7 +166,10 @@ html.dashboard-quiet-refresh .stat-counting{transition:none!important}#toast{tra
     }
   </style>
 <style id="statCompareFitStyle">
-.stat-compare-cell{container-type:inline-size;min-width:0}
+.stat-compare-cell{container-type:inline-size;min-width:0;position:relative;overflow:hidden;border:1px solid rgb(var(--cmp-rgb,13 157 110)/.28);border-radius:12px;padding:10px 8px 8px;background:linear-gradient(to bottom,rgb(var(--cmp-rgb,13 157 110)/.06),transparent);transition:border-color .2s,box-shadow .2s}
+.stat-compare-cell::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:rgb(var(--cmp-rgb,13 157 110)/.7)}
+.stat-compare-cell:hover{border-color:rgb(var(--cmp-rgb,13 157 110)/.55);box-shadow:0 2px 8px rgb(var(--cmp-rgb,13 157 110)/.15)}
+.stat-compare-repo{--cmp-rgb:91 61 240}
 .stat-compare-line{white-space:nowrap;font-size:clamp(8px,7cqw,14px);line-height:1.35;letter-spacing:0}
 .stat-compare-line .font-extrabold{margin-left:.15em}
 .col-sub-slot{display:flex;align-items:center;margin-bottom:.5rem}
@@ -2536,9 +2539,9 @@ html body main.dash-container #section-overview + .grid{margin-top:12px !importa
             <span class="p-1.5 bg-accentEmerald/10 text-accentEmerald rounded-lg group-hover:bg-accentEmerald group-hover:text-white transition-colors shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-users w-4 h-4"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><path d="M16 3.128a4 4 0 0 1 0 7.744"></path><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><circle cx="9" cy="7" r="4"></circle></svg></span>
           </div>
           <p class="text-[11px] font-semibold text-accentAmber mt-1 hidden" id="stat-total-accounts-fallback-warning">Latest month unavailable — showing previous</p>
-          <div class="mt-2 grid grid-cols-2 gap-3">
+          <div class="mt-2.5 grid grid-cols-2 gap-2">
             <div id="stat-accounts-compare" class="stat-compare-cell">—</div>
-            <div id="stat-repo-compare" class="stat-compare-cell">—</div>
+            <div id="stat-repo-compare" class="stat-compare-cell stat-compare-repo">—</div>
           </div>
         </div>
       </div>
