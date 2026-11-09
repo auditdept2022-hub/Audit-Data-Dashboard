@@ -2448,11 +2448,7 @@ html body main.dash-container #section-overview + .grid{margin-top:12px !importa
           </div>
           <div class="mo-main">
             <div class="mo-primary"><span class="mo-label">BRANCHES<br>ON TARGET</span><div class="mo-value" id="moServicePrimary">—</div></div>
-            <div class="mo-service-side">
-              <span class="mo-side-label">NEEDS ATTENTION</span>
-              <div class="mo-side-count" id="moServiceDeclining">—</div>
-              <span class="mo-side-caption">declining</span>
-            </div>
+            <div class="mo-breakdown" id="moServiceStats"></div>
           </div>
           <div class="mo-foot">
             <div class="mo-progress" id="moServiceProgress" aria-label="Service status distribution"></div>
@@ -8821,6 +8817,7 @@ button:disabled:active,button[disabled]:active,[aria-disabled=true]:active{trans
 </style>
 
 
+<style id="mo-service-breakdown">.mo-service .mo-mini-stat{grid-column:3}.mo-service .mo-mini-label{font-size:7px!important;letter-spacing:-.01em}</style>
 <script id="mobile-overview-cards-data-v200">
 (function(){
   function put(id,value){var el=document.getElementById(id);if(el)el.textContent=String(value==null?0:value)}
@@ -8839,7 +8836,7 @@ button:disabled:active,button[disabled]:active,[aria-disabled=true]:active{trans
     var sl=document.getElementById('moSalesStats');if(sl)sl.innerHTML=breakdownHtml(sales);
     setProgress('moSalesProgress',[{value:sum.salesImproving,color:'#5576e8'}].concat(sales));
     put('moServicePrimary',number(sum.serviceTarget).toLocaleString());
-    put('moServiceDeclining',number(sum.serviceDeclining).toLocaleString());
+    var sv=document.getElementById('moServiceStats');if(sv)sv.innerHTML=breakdownHtml([{label:'Needs attention',value:sum.serviceDeclining,color:'#ee9763'}]);
     setProgress('moServiceProgress',[{value:sum.serviceTarget,color:'#0b9fc4'},{value:sum.serviceDeclining,color:'#ee9763'}]);
     var ys=window.FINDING_YEARS||[2024,2025,2026];
     var vals=[number(sum.findings2024),number(sum.findings2025),number(sum.findings2026)];
