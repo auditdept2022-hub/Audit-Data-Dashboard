@@ -1,5 +1,4 @@
-<!-- Release v225: targeted control transitions, reduced idle chart GPU promotion, and low-resource redraw motion guard.
-Audit dashboard front end v187: native Google-Drive-style behaviour on desktop and mobile (New menu, selection bar, keyboard, drag-drop upload, bottom sheets, FAB, one-tap open, system Back) and accidental pull-to-refresh blocked in Drive; v183: fresh per-click Drive download resolution, capability-aware download actions, precise unsupported-file feedback; v182: Drive native-file exports, official webContentLink downloads, paginated-cache invalidation, and Drive action audit; previous v182: Drive shortcut/resource-key preview repairs, faster file-list rendering, and fresh-on-open listing; v180 Drive preview actions retained; previous: v163: Gemini + Groq provider selection; Audit dashboard front end v162: assistant speed pass (instant local answers, fewer POST round-trips, early server wake-up); v161: Gemini 503 failover/retry and chat Drive workspace removed. -->
+<!-- Release v226: Drive header refinement and touch pinch-zoom for file previews. -->
 <!DOCTYPE html>
 <html lang="en" class="page-fade-ready"><head>
   <meta charset="UTF-8">
@@ -1239,6 +1238,43 @@ html body #liveTimeText{font-size:13px !important}
 html body #liveDateText,html body #overviewHeaderRow #liveDateTime > span:nth-child(2){font-size:10.5px !important}
 html body main.dash-container #section-overview + .grid{margin-top:12px !important}
 }</style>
+
+<style id="drive-header-and-pinch-v226">
+/* v226: place icon-only Home at the Drive header's leading edge. */
+#driveManagerScreen .drive-header{gap:9px;min-width:0;}
+#driveManagerScreen .drive-header>.drive-home{order:0;display:inline-grid;place-items:center;flex:0 0 36px;width:36px;min-width:36px;height:36px;margin:0;padding:0;border-radius:10px;}
+#driveManagerScreen .drive-header-left{order:1;display:flex!important;align-items:center;gap:8px;flex:0 0 auto;min-width:0;}
+#driveManagerScreen .drive-brand{min-width:0;}
+#driveManagerScreen .drive-brand strong{display:block!important;white-space:nowrap;font-size:14px;}
+#driveManagerScreen .drive-search{order:2;flex:1 1 auto;width:auto;min-width:0;margin:0;}
+#driveManagerScreen .drive-search input{min-width:0;}
+#driveManagerScreen #driveSignedInAs{display:none!important;}
+#driveManagerScreen .drive-home svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
+#driveManagerScreen .drive-back{flex:none;}
+/* Preview-only pinch scaling; native scrolling and embedded viewer interaction remain enabled at 100%. */
+#driveManagerScreen .drive-preview-viewport{touch-action:pan-x pan-y pinch-zoom;-webkit-overflow-scrolling:touch;}
+#driveManagerScreen .drive-preview-viewport iframe{touch-action:pan-x pan-y pinch-zoom;}
+#driveManagerScreen .drive-preview-viewport.is-zoomed{cursor:grab;}
+#driveManagerScreen .drive-preview-viewport.is-zoomed:active{cursor:grabbing;}
+#driveManagerScreen .drive-preview-viewport.is-zoomed iframe{pointer-events:none;}
+@media(max-width:640px){
+  #driveManagerScreen .drive-header{gap:5px;padding-left:6px;padding-right:6px;}
+  #driveManagerScreen .drive-header>.drive-home{flex-basis:32px;width:32px;min-width:32px;height:32px;}
+  #driveManagerScreen .drive-header-left{display:flex!important;gap:5px;}
+  #driveManagerScreen .drive-brand strong{display:block!important;font-size:12.5px;letter-spacing:-.015em;}
+  #driveManagerScreen .drive-search{flex:1 1 0;min-width:64px;}
+}
+@media(max-width:360px){
+  #driveManagerScreen .drive-header{gap:4px;}
+  #driveManagerScreen .drive-header>.drive-home{flex-basis:30px;width:30px;min-width:30px;height:30px;}
+  #driveManagerScreen .drive-brand strong{font-size:11.5px;}
+  #driveManagerScreen .drive-header-left{gap:3px;}
+  #driveManagerScreen .drive-search{min-width:54px;}
+}
+@media(prefers-reduced-motion:reduce){
+  #driveManagerScreen .drive-preview-viewport{scroll-behavior:auto!important;}
+}
+</style>
 </head>
 <body class="bg-coolDark text-slate-800 min-h-screen selection:bg-accentCyan/30 selection:text-slate-900 relative">
   <script>(function(){try{if(new URLSearchParams(window.location.search).get("skipLoading")==="1")document.documentElement.style.visibility="hidden"}catch(e){}})();</script>
@@ -2233,14 +2269,13 @@ html body main.dash-container #section-overview + .grid{margin-top:12px !importa
   <section id="driveManagerScreen" class="drive-screen hidden" aria-label="Drive file manager">
     <div class="drive-app-shell">
       <div class="drive-header">
-        <button type="button" id="driveBackBtn" class="drive-icon-btn drive-back" onclick="driveGoUp()" aria-label="Back" title="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
-        <div class="drive-header-left"><div class="drive-brand"><strong>Audit files</strong></div></div>
-        <label class="drive-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="driveSearchInput" type="search" placeholder="Search in Drive" autocomplete="off" aria-label="Search in Google Drive"></label>
-        <div class="drive-header-right">
-          <span id="driveSignedInAs" hidden></span>
-          <button type="button" class="drive-icon-btn" onclick="driveRefresh()" aria-label="Refresh" title="Refresh"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 0-15-6.7L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"/><path d="M16 16h5v5"/></svg></button>
-          <button type="button" class="drive-btn drive-home" onclick="closeDriveManager()" aria-label="Home, back to dashboard" title="Home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg><span>Home</span></button>
+        <button type="button" class="drive-btn drive-home" onclick="closeDriveManager()" aria-label="Home, back to dashboard" title="Home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></button>
+        <div class="drive-header-left">
+          <div class="drive-brand"><strong>Audit files</strong></div>
+          <button type="button" id="driveBackBtn" class="drive-icon-btn drive-back" onclick="driveGoUp()" aria-label="Back" title="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
         </div>
+        <label class="drive-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="driveSearchInput" type="search" placeholder="Search in Drive" autocomplete="off" aria-label="Search in Google Drive"></label>
+        <span id="driveSignedInAs" hidden></span>
       </div>
       <div class="drive-workspace">
         <aside class="drive-sidebar" aria-label="Drive navigation">
@@ -7777,17 +7812,53 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     // for link-shared PDFs, images, and files that require a resource key.
     return driveWithResourceKey("https://drive.google.com/file/d/"+id+"/preview",resolved.resourceKey);
   }
-  function applyPreviewZoom(value,center){
+  function applyPreviewZoom(value,center,anchor){
     var viewport=el("drivePreviewViewport"),stage=el("drivePreviewStage"),frame=el("drivePreviewFrame");
-    previewZoom=Math.max(.75,Math.min(2.5,Math.round((Number(value)||1)*4)/4));
+    var previousZoom=previewZoom||1;
+    var focal=anchor&&viewport?{x:Math.max(0,Number(anchor.x)||0),y:Math.max(0,Number(anchor.y)||0)}:null;
+    var contentX=focal?(viewport.scrollLeft+focal.x)/previousZoom:0;
+    var contentY=focal?(viewport.scrollTop+focal.y)/previousZoom:0;
+    previewZoom=Math.max(.75,Math.min(2.5,Number(value)||1));
     if(stage&&frame){stage.style.width=(previewZoom*100)+"%";stage.style.height=(previewZoom*100)+"%";frame.style.width=(100/previewZoom)+"%";frame.style.height=(100/previewZoom)+"%";frame.style.transform="scale("+previewZoom+")";frame.style.pointerEvents=previewZoom>1.001?"none":"auto"}
+    if(viewport)viewport.classList.toggle("is-zoomed",previewZoom>1.001);
     var valueButton=el("drivePreviewZoomValue"),minus=el("drivePreviewZoomOut"),plus=el("drivePreviewZoomIn"),label=Math.round(previewZoom*100)+"%",isZoomed=previewZoom>1.001;
-    if(valueButton){valueButton.textContent=label;valueButton.setAttribute("aria-label","Reset zoom from "+label);valueButton.title=isZoomed?"Reset to 100% to interact; scroll or drag to pan while zoomed":"Reset zoom to 100%"}
+    if(valueButton){valueButton.textContent=label;valueButton.setAttribute("aria-label","Reset zoom from "+label);valueButton.title=isZoomed?"Tap to reset; pinch to zoom and drag to pan":"Tap to reset; pinch to zoom"}
     if(minus)minus.disabled=previewZoom<=.75;if(plus)plus.disabled=previewZoom>=2.5;
-    if(viewport){if(center){requestAnimationFrame(function(){viewport.scrollLeft=Math.max(0,(viewport.scrollWidth-viewport.clientWidth)/2);viewport.scrollTop=Math.max(0,(viewport.scrollHeight-viewport.clientHeight)/2)})}else{viewport.scrollLeft=0;viewport.scrollTop=0}}
+    if(viewport){requestAnimationFrame(function(){
+      if(focal){viewport.scrollLeft=Math.max(0,contentX*previewZoom-focal.x);viewport.scrollTop=Math.max(0,contentY*previewZoom-focal.y)}
+      else if(center){viewport.scrollLeft=Math.max(0,(viewport.scrollWidth-viewport.clientWidth)/2);viewport.scrollTop=Math.max(0,(viewport.scrollHeight-viewport.clientHeight)/2)}
+      else{viewport.scrollLeft=0;viewport.scrollTop=0}
+    })}
   }
   window.drivePreviewZoom=function(delta){applyPreviewZoom(previewZoom+(Number(delta)||0),true)};
   window.drivePreviewZoomReset=function(){applyPreviewZoom(1,false)};
+
+  // Gesture zoom is scoped to the file-preview viewport only. The embedded
+  // Google viewer remains interactive at 100%; when the preview is zoomed,
+  // the iframe yields pointer input so the outer viewport can pan the page.
+  (function bindDrivePreviewPinchZoom(){
+    var viewport=el("drivePreviewViewport");
+    if(!viewport||viewport.dataset.pinchZoomBound==="1")return;
+    viewport.dataset.pinchZoomBound="1";
+    var pinch=null;
+    function distance(a,b){var dx=b.clientX-a.clientX,dy=b.clientY-a.clientY;return Math.sqrt(dx*dx+dy*dy)}
+    function midpoint(a,b,rect){return{x:(a.clientX+b.clientX)/2-rect.left,y:(a.clientY+b.clientY)/2-rect.top}}
+    viewport.addEventListener("touchstart",function(event){
+      if(event.touches.length!==2)return;
+      var rect=viewport.getBoundingClientRect(),a=event.touches[0],b=event.touches[1];
+      pinch={distance:Math.max(1,distance(a,b)),zoom:previewZoom||1,center:midpoint(a,b,rect)};
+    },{passive:true});
+    viewport.addEventListener("touchmove",function(event){
+      if(!pinch||event.touches.length!==2)return;
+      var rect=viewport.getBoundingClientRect(),a=event.touches[0],b=event.touches[1];
+      var nextCenter=midpoint(a,b,rect),ratio=distance(a,b)/pinch.distance;
+      if(event.cancelable)event.preventDefault();
+      applyPreviewZoom(pinch.zoom*ratio,false,nextCenter);
+    },{passive:false});
+    function endPinch(event){if(!event.touches||event.touches.length<2)pinch=null}
+    viewport.addEventListener("touchend",endPinch,{passive:true});
+    viewport.addEventListener("touchcancel",function(){pinch=null},{passive:true});
+  })();
   function openPreview(item){
     if(!item||item.kind==="folder")return;
     clearTimeout(previewCloseTimer);clearTimeout(previewLoadTimer);
