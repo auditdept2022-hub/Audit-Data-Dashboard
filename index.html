@@ -1302,6 +1302,12 @@ html body main.dash-container #section-overview + .grid{margin-top:12px !importa
 }
 </style>
 
+<style id="drive-my-folder-v242">
+.drive-my-folder{display:flex;align-items:center;gap:9px;width:100%;margin:6px 0 8px;padding:9px 10px;border:1px solid var(--d-line);border-radius:10px;background:var(--d-surface);color:var(--d-text);font:800 12px/1.2 inherit;font-family:inherit;text-align:left;cursor:pointer}
+.drive-my-folder:hover{background:var(--d-bg);border-color:#cfd6f7;color:var(--d-accent,#3445b8)}
+.drive-my-folder:focus-visible{outline:2px solid #9aa7ef;outline-offset:1px}
+.drive-my-folder svg{width:17px;height:17px;flex:none;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+</style>
 <style id="drive-recent-top20-v241">
 .drive-recent-sidehead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 9px 6px}
 .drive-recent-sidetitle{font-size:11px;line-height:1.2;font-weight:800;color:var(--d-text)}
@@ -2456,10 +2462,10 @@ html body main.dash-container #section-overview + .grid{margin-top:12px !importa
       <div class="drive-workspace">
         <aside class="drive-sidebar" aria-label="Drive navigation">
           <button type="button" id="driveNewSide" class="drive-new-btn" data-drive-new-trigger="1" aria-haspopup="menu" title="New"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>New</span></button>
+          <button type="button" id="driveMyFolder" class="drive-my-folder" onclick="driveGoRoot()" aria-label="My folder" title="My folder"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg><span>My folder</span></button>
           <div class="drive-recent-sidehead"><span class="drive-recent-sidetitle">Recently modified</span><span id="driveRecentCount" class="drive-recent-count" aria-label="Recent file count">10</span></div>
           <div id="driveRecentSideList" class="drive-recent-list drive-recent-side-list" aria-label="Twenty most recently modified files" aria-live="polite"><div class="drive-recent-state">Loading recent files…</div></div>
           <button type="button" id="driveRecentToggle" class="drive-recent-more" aria-haspopup="dialog" aria-controls="driveRecentModal" aria-expanded="false" title="Show the 20 most recently modified files"><span>More</span><span class="drive-recent-more-sub">Top 20</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
-          <button type="button" class="drive-recent-browse" onclick="driveGoRoot()" aria-label="Browse all files">Browse all files <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
         </aside>
         <main class="drive-main">
           <div class="drive-toolbar">
@@ -2516,7 +2522,7 @@ html body main.dash-container #section-overview + .grid{margin-top:12px !importa
           <button type="button" class="drive-icon-btn" data-drive-recent-close aria-label="Close recent files" title="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
         </div>
         <div id="driveRecentFiles" class="drive-recent-list drive-recent-modal-list" aria-label="Ten most recently modified files" aria-live="polite"><div class="drive-recent-state">Loading recent files…</div></div>
-        <div class="drive-recent-modal-footer"><span>Sorted by last modified time</span><button type="button" class="drive-btn primary" id="driveRecentBrowseAll">Browse all files</button></div>
+        <div class="drive-recent-modal-footer"><span>Sorted by last modified time</span><button type="button" class="drive-btn primary" id="driveRecentBrowseAll">My folder</button></div>
       </div>
     </section>
     <div id="driveDialog" class="drive-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="driveDialogTitle">
