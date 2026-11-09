@@ -1268,8 +1268,6 @@ html body main.dash-container #section-overview + .grid{margin-top:12px !importa
 .drive-preview-gesture{position:absolute;inset:0;z-index:2;touch-action:none;background:transparent;cursor:grab;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .drive-preview-gesture.is-dragging{cursor:grabbing}
 .drive-preview-gesture.is-off{display:none}
-.drive-preview-mode{height:26px;min-width:28px;padding:0 6px;border:0;border-radius:6px;background:transparent;color:#33415e;font:700 14px/1 Inter,system-ui,sans-serif;cursor:pointer}
-.drive-preview-mode.is-on{background:#e0e5ff;color:#2f3fb8}
 .drive-preview-viewport.is-zoomed iframe{pointer-events:auto!important}
 </style>
 <style id="drive-header-and-pinch-v226">
@@ -2515,7 +2513,7 @@ html body main.dash-container #section-overview + .grid{margin-top:12px !importa
         <div class="drive-preview-header">
           <div class="drive-preview-heading"><span id="drivePreviewIcon" class="drive-preview-file-icon">FILE</span><div><strong id="drivePreviewName">Preview</strong><span id="drivePreviewMeta">File preview</span></div></div>
           
-          <div class="drive-preview-tools"><a id="drivePreviewOpen" class="drive-preview-open hidden" href="#" target="_blank" rel="noopener noreferrer" title="Open file in Chrome" aria-label="Open file in Chrome"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M19 13v6a2 2 0 0 1-2 2H5V7a2 2 0 0 1 2-2h6"/></svg><span class="drive-preview-open-label">Open in Chrome</span></a><a id="drivePreviewDownload" class="drive-preview-download hidden" href="#" target="_blank" rel="noopener">Download</a><div class="drive-preview-zoom" role="group" aria-label="Preview zoom"><button type="button" id="drivePreviewZoomOut" aria-label="Zoom out" title="Zoom out" onclick="drivePreviewZoom(-0.25)">−</button><button type="button" id="drivePreviewZoomValue" class="drive-preview-zoom-value" aria-label="Reset zoom" title="Reset zoom" onclick="drivePreviewZoomReset()">100%</button><button type="button" id="drivePreviewZoomIn" aria-label="Zoom in" title="Zoom in" onclick="drivePreviewZoom(0.25)">+</button><button type="button" id="drivePreviewMode" class="drive-preview-mode is-on" aria-pressed="true" aria-label="Move and zoom mode" title="Move/zoom is ON. Tap to switch to scroll mode (use the file viewer's own scrolling)" onclick="drivePreviewToggleMode()">✥</button></div><button type="button" id="drivePreviewFullscreen" class="drive-icon-btn" onclick="driveTogglePreviewFullscreen()" aria-label="Expand preview" title="Expand preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg></button><button type="button" class="drive-icon-btn" data-drive-preview-close aria-label="Close preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+          <div class="drive-preview-tools"><a id="drivePreviewOpen" class="drive-preview-open hidden" href="#" target="_blank" rel="noopener noreferrer" title="Open file in Chrome" aria-label="Open file in Chrome"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M19 13v6a2 2 0 0 1-2 2H5V7a2 2 0 0 1 2-2h6"/></svg><span class="drive-preview-open-label">Open in Chrome</span></a><a id="drivePreviewDownload" class="drive-preview-download hidden" href="#" target="_blank" rel="noopener">Download</a><div class="drive-preview-zoom" role="group" aria-label="Preview zoom"><button type="button" id="drivePreviewZoomOut" aria-label="Zoom out" title="Zoom out" onclick="drivePreviewZoom(-0.25)">−</button><button type="button" id="drivePreviewZoomValue" class="drive-preview-zoom-value" aria-label="Reset zoom" title="Reset zoom" onclick="drivePreviewZoomReset()">100%</button><button type="button" id="drivePreviewZoomIn" aria-label="Zoom in" title="Zoom in" onclick="drivePreviewZoom(0.25)">+</button></div><button type="button" id="drivePreviewFullscreen" class="drive-icon-btn" onclick="driveTogglePreviewFullscreen()" aria-label="Expand preview" title="Expand preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg></button><button type="button" class="drive-icon-btn" data-drive-preview-close aria-label="Close preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
         </div>
         <div class="drive-preview-body"><div id="drivePreviewViewport" class="drive-preview-viewport"><div id="drivePreviewStage" class="drive-preview-stage"><iframe id="drivePreviewFrame" title="File preview" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; clipboard-read; clipboard-write; fullscreen" allowfullscreen></iframe><div id="drivePreviewGesture" class="drive-preview-gesture" aria-hidden="true"></div></div></div><div id="drivePreviewLoading" class="drive-preview-loading" role="status"><span class="drive-spinner" aria-hidden="true"></span><span id="drivePreviewLoadingText">Loading preview…</span></div></div>
         <footer class="drive-preview-footer">If Google shows 404, check that Chrome is signed into a Google account with access to this file. Dashboard sign-in does not automatically grant Google Drive permissions.</footer>
@@ -8120,7 +8118,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     // for link-shared PDFs, images, and files that require a resource key.
     return driveWithResourceKey("https://drive.google.com/file/d/"+id+"/preview",resolved.resourceKey);
   }
-  var pvX=0,pvY=0,pvMode=true,MINZ=.5,MAXZ=5,pvW=0,pvH=0,pvRaf=0,pvLastLabel="",pvLastZoomed=null;
+  var pvX=0,pvY=0,MINZ=.5,MAXZ=5,pvW=0,pvH=0,pvRaf=0,pvLastLabel="",pvLastZoomed=null;
   function pvMeasure(){var v=el("drivePreviewViewport");if(v){pvW=v.clientWidth;pvH=v.clientHeight}}
   function pvClamp(){
     if(!pvW||!pvH)pvMeasure();
@@ -8163,14 +8161,6 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   }
   window.drivePreviewZoom=function(delta){applyPreviewZoom(previewZoom+(Number(delta)||0),true)};
   window.drivePreviewZoomReset=function(){pvMeasure();previewZoom=1;pvX=0;pvY=0;pvRender(true)};
-  window.drivePreviewToggleMode=function(){
-    pvMode=!pvMode;
-    var g=el("drivePreviewGesture"),b=el("drivePreviewMode");
-    if(g)g.classList.toggle("is-off",!pvMode);
-    if(b){b.classList.toggle("is-on",pvMode);b.setAttribute("aria-pressed",pvMode?"true":"false");
-      b.title=pvMode?"Move/zoom is ON. Tap for scroll mode (file viewer's own scrolling)":"Scroll mode is ON. Tap to move/zoom with fingers or mouse"}
-  };
-
   // Gesture layer sits above the cross-origin iframe, so pinch, drag, wheel and
   // double-tap are always received by the dashboard on phone AND desktop.
   (function bindDrivePreviewGestures(){
@@ -8231,7 +8221,10 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     var gz=1;
     layer.addEventListener("gesturestart",function(e){e.preventDefault();measureRect();gz=previewZoom});
     layer.addEventListener("gesturechange",function(e){e.preventDefault();var p=rel(e);pvZoomAt(gz*e.scale,p.x||pvW/2,p.y||pvH/2)});
-    window.addEventListener("resize",function(){measureRect();pvRender()});
+    function refit(){measureRect();pvRender()}
+    window.addEventListener("resize",refit);
+    window.addEventListener("orientationchange",function(){setTimeout(refit,60);setTimeout(refit,350)});
+    if(window.ResizeObserver){try{new ResizeObserver(refit).observe(viewport)}catch(_){}}
   })();
   function openPreview(item){
     if(!item||item.kind==="folder")return;
@@ -8248,7 +8241,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     else if(nativeOpen){nativeOpen.removeAttribute("href");nativeOpen.classList.add("hidden")}
     var dl=el("drivePreviewDownload");
     if(item.kind!=="folder"&&!item.targetIsFolder&&item.canDownload!==false){dl.href="#";dl.textContent="Download";dl.title="Check the latest Google Drive download permission and prepare the file";dl.classList.remove("hidden")}else{dl.removeAttribute("href");dl.classList.add("hidden")}
-    window.drivePreviewZoomReset();if(!pvMode)window.drivePreviewToggleMode();
+    window.drivePreviewZoomReset();
     frame.src="about:blank";
     var previewUrl=drivePreviewUrl(item);frame.dataset.previewUrl=previewUrl;
     wrap.classList.remove("hidden");
