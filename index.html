@@ -1254,6 +1254,13 @@ html body #liveDateText,html body #overviewHeaderRow #liveDateTime > span:nth-ch
 html body main.dash-container #section-overview + .grid{margin-top:12px !important}
 }</style>
 
+<style id="drive-preview-perf-v243">
+.drive-preview-stage{contain:layout paint;backface-visibility:hidden;-webkit-backface-visibility:hidden;transition:none!important}
+.drive-preview-gesture{contain:strict}
+.drive-preview-viewport{contain:strict}
+.drive-preview:not(.hidden) .drive-preview-backdrop{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+.drive-preview-panel{will-change:auto!important}
+</style>
 <style id="drive-preview-gesture-v240">
 .drive-preview-viewport{overflow:hidden!important;touch-action:none!important;overscroll-behavior:contain}
 .drive-preview-stage{position:absolute!important;left:0;top:0;width:100%!important;height:100%!important;transform-origin:0 0;will-change:transform}
@@ -8113,38 +8120,49 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     // for link-shared PDFs, images, and files that require a resource key.
     return driveWithResourceKey("https://drive.google.com/file/d/"+id+"/preview",resolved.resourceKey);
   }
-  var pvX=0,pvY=0,pvMode=true,MINZ=.5,MAXZ=5;
+  var pvX=0,pvY=0,pvMode=true,MINZ=.5,MAXZ=5,pvW=0,pvH=0,pvRaf=0,pvLastLabel="",pvLastZoomed=null;
+  function pvMeasure(){var v=el("drivePreviewViewport");if(v){pvW=v.clientWidth;pvH=v.clientHeight}}
   function pvClamp(){
-    var v=el("drivePreviewViewport");if(!v)return;
-    var w=v.clientWidth,h=v.clientHeight,sw=w*previewZoom,sh=h*previewZoom;
+    if(!pvW||!pvH)pvMeasure();
+    var w=pvW,h=pvH,sw=w*previewZoom,sh=h*previewZoom;
     if(sw<=w)pvX=(w-sw)/2;else pvX=Math.min(0,Math.max(w-sw,pvX));
     if(sh<=h)pvY=(h-sh)/2;else pvY=Math.min(0,Math.max(h-sh,pvY));
   }
-  function pvRender(){
-    var stage=el("drivePreviewStage"),v=el("drivePreviewViewport");if(!stage)return;
+  function pvPaint(){
+    pvRaf=0;
+    var stage=el("drivePreviewStage");if(!stage)return;
     pvClamp();
-    stage.style.transform="translate3d("+pvX+"px,"+pvY+"px,0) scale("+previewZoom+")";
+    stage.style.transform="translate3d("+pvX.toFixed(2)+"px,"+pvY.toFixed(2)+"px,0) scale("+previewZoom.toFixed(4)+")";
+    var label=Math.round(previewZoom*100)+"%";
+    if(label!==pvLastLabel){
+      pvLastLabel=label;
+      var vb=el("drivePreviewZoomValue"),mi=el("drivePreviewZoomOut"),pl=el("drivePreviewZoomIn");
+      if(vb){vb.textContent=label;vb.setAttribute("aria-label","Reset zoom from "+label);vb.title="Tap to reset"}
+      if(mi)mi.disabled=previewZoom<=MINZ+.001;if(pl)pl.disabled=previewZoom>=MAXZ-.001;
+    }
     var z=previewZoom>1.001;
-    if(v)v.classList.toggle("is-zoomed",z);
-    var vb=el("drivePreviewZoomValue"),mi=el("drivePreviewZoomOut"),pl=el("drivePreviewZoomIn"),label=Math.round(previewZoom*100)+"%";
-    if(vb){vb.textContent=label;vb.setAttribute("aria-label","Reset zoom from "+label);vb.title="Tap to reset"}
-    if(mi)mi.disabled=previewZoom<=MINZ+.001;if(pl)pl.disabled=previewZoom>=MAXZ-.001;
+    if(z!==pvLastZoomed){pvLastZoomed=z;var v=el("drivePreviewViewport");if(v)v.classList.toggle("is-zoomed",z)}
+  }
+  // At most one transform write per animation frame, however many pointer/wheel events arrive.
+  function pvRender(now){
+    if(now===true){if(pvRaf){cancelAnimationFrame(pvRaf);pvRaf=0}pvPaint();return}
+    if(!pvRaf)pvRaf=requestAnimationFrame(pvPaint);
   }
   // zoom keeping the point (fx,fy) (viewport coords) fixed under the fingers/cursor
   function pvZoomAt(next,fx,fy){
-    var v=el("drivePreviewViewport");if(!v)return;
     next=Math.max(MINZ,Math.min(MAXZ,Number(next)||1));
     var cx=(fx-pvX)/previewZoom,cy=(fy-pvY)/previewZoom;
     previewZoom=next;pvX=fx-cx*next;pvY=fy-cy*next;pvRender();
   }
   function applyPreviewZoom(value,center,anchor){
     var v=el("drivePreviewViewport");if(!v)return;
-    if(Math.abs((Number(value)||1)-1)<.001&&!anchor){previewZoom=1;pvX=0;pvY=0;pvRender();return}
-    var fx=anchor?anchor.x:v.clientWidth/2,fy=anchor?anchor.y:v.clientHeight/2;
+    pvMeasure();
+    if(Math.abs((Number(value)||1)-1)<.001&&!anchor){previewZoom=1;pvX=0;pvY=0;pvRender(true);return}
+    var fx=anchor?anchor.x:pvW/2,fy=anchor?anchor.y:pvH/2;
     pvZoomAt(value,fx,fy);
   }
   window.drivePreviewZoom=function(delta){applyPreviewZoom(previewZoom+(Number(delta)||0),true)};
-  window.drivePreviewZoomReset=function(){previewZoom=1;pvX=0;pvY=0;pvRender()};
+  window.drivePreviewZoomReset=function(){pvMeasure();previewZoom=1;pvX=0;pvY=0;pvRender(true)};
   window.drivePreviewToggleMode=function(){
     pvMode=!pvMode;
     var g=el("drivePreviewGesture"),b=el("drivePreviewMode");
@@ -8159,11 +8177,14 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     var layer=el("drivePreviewGesture"),viewport=el("drivePreviewViewport");
     if(!layer||!viewport||layer.dataset.bound==="1")return;layer.dataset.bound="1";
     var pts=new Map(),startDist=0,startZoom=1,lastX=0,lastY=0,lastTap=0,moved=false;
-    function rel(e){var r=viewport.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
+    var rl=0,rt=0;
+    function measureRect(){var r=viewport.getBoundingClientRect();rl=r.left;rt=r.top;pvW=viewport.clientWidth;pvH=viewport.clientHeight}
+    function rel(e){return{x:e.clientX-rl,y:e.clientY-rt}}
     function two(){var a=Array.from(pts.values());return{d:Math.hypot(a[1].x-a[0].x,a[1].y-a[0].y)||1,x:(a[0].x+a[1].x)/2,y:(a[0].y+a[1].y)/2}}
     layer.addEventListener("pointerdown",function(e){
       if(e.pointerType==="mouse"&&e.button!==0)return;
       try{layer.setPointerCapture(e.pointerId)}catch(_){}
+      if(!pts.size)measureRect();
       var p=rel(e);pts.set(e.pointerId,p);moved=false;
       if(pts.size===2){var t=two();startDist=t.d;startZoom=previewZoom;lastX=t.x;lastY=t.y}
       else{lastX=p.x;lastY=p.y}
@@ -8175,7 +8196,6 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       if(pts.size>=2){
         var t=two();
         pvX+=t.x-lastX;pvY+=t.y-lastY;            // pan with the midpoint
-        previewZoom=Math.max(MINZ,Math.min(MAXZ,previewZoom));
         var next=Math.max(MINZ,Math.min(MAXZ,startZoom*(t.d/startDist)));
         pvZoomAt(next,t.x,t.y);lastX=t.x;lastY=t.y;moved=true;
       }else if(pts.size===1){
@@ -8202,16 +8222,16 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     layer.addEventListener("pointerup",up);layer.addEventListener("pointercancel",up);
     // Desktop: wheel / trackpad = zoom at the cursor (Ctrl or pinch gesture), plain wheel = pan
     layer.addEventListener("wheel",function(e){
-      e.preventDefault();var p=rel(e);
+      e.preventDefault();if(!pvW)measureRect();var r0=viewport.getBoundingClientRect();rl=r0.left;rt=r0.top;var p=rel(e);
       if(e.ctrlKey||e.metaKey){pvZoomAt(previewZoom*Math.exp(-e.deltaY*0.01),p.x,p.y)}
       else if(previewZoom>1.001){pvX-=e.deltaX;pvY-=e.deltaY;pvRender()}
       else{pvZoomAt(previewZoom*Math.exp(-e.deltaY*0.0025),p.x,p.y)}
     },{passive:false});
     // Safari trackpad pinch
     var gz=1;
-    layer.addEventListener("gesturestart",function(e){e.preventDefault();gz=previewZoom});
-    layer.addEventListener("gesturechange",function(e){e.preventDefault();var p=rel(e);pvZoomAt(gz*e.scale,p.x||viewport.clientWidth/2,p.y||viewport.clientHeight/2)});
-    window.addEventListener("resize",function(){pvRender()});
+    layer.addEventListener("gesturestart",function(e){e.preventDefault();measureRect();gz=previewZoom});
+    layer.addEventListener("gesturechange",function(e){e.preventDefault();var p=rel(e);pvZoomAt(gz*e.scale,p.x||pvW/2,p.y||pvH/2)});
+    window.addEventListener("resize",function(){measureRect();pvRender()});
   })();
   function openPreview(item){
     if(!item||item.kind==="folder")return;
