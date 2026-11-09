@@ -1302,6 +1302,17 @@ html body main.dash-container #section-overview + .grid{margin-top:12px !importa
 }
 </style>
 
+<style id="drive-recent-top20-v241">
+.drive-recent-sidehead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 9px 6px}
+.drive-recent-sidetitle{font-size:11px;line-height:1.2;font-weight:800;color:var(--d-text)}
+.drive-recent-side-list{padding:0 2px;margin-bottom:2px}
+.drive-recent-more{width:100%;display:flex;align-items:center;gap:6px;margin-top:4px;padding:8px 9px;border:1px solid var(--d-line);border-radius:9px;background:var(--d-surface);color:var(--d-accent,#3445b8);font:800 11px/1.2 inherit;font-family:inherit;cursor:pointer;text-align:left}
+.drive-recent-more:hover,.drive-recent-more[aria-expanded="true"]{background:var(--d-bg);border-color:#cfd6f7}
+.drive-recent-more>span:first-child{flex:1}
+.drive-recent-more-sub{font-size:9px;font-weight:700;color:var(--d-faint)}
+.drive-recent-more svg{width:13px;height:13px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.drive-recent-modal-list .drive-recent-rank{flex:none;width:18px;text-align:right;font-size:10px;font-weight:700;color:var(--d-faint);font-variant-numeric:tabular-nums}
+</style>
 <style id="drive-recent-popup-v228">
 /* v228: Recent files open in a focused dialog; the sidebar remains compact. */
 .drive-recent-trigger{width:100%;min-height:54px;display:flex;align-items:center;gap:8px;padding:8px 9px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--d-text);text-align:left;cursor:pointer;transition:background-color .14s ease,border-color .14s ease;}
@@ -2445,11 +2456,9 @@ html body main.dash-container #section-overview + .grid{margin-top:12px !importa
       <div class="drive-workspace">
         <aside class="drive-sidebar" aria-label="Drive navigation">
           <button type="button" id="driveNewSide" class="drive-new-btn" data-drive-new-trigger="1" aria-haspopup="menu" title="New"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>New</span></button>
-          <button type="button" id="driveRecentToggle" class="drive-recent-trigger" aria-haspopup="dialog" aria-controls="driveRecentModal" aria-expanded="false" title="Show the ten most recently modified files">
-            <span class="drive-recent-trigger-copy"><span class="drive-recent-trigger-title">Recently modified</span><span class="drive-recent-trigger-sub">Latest files across Drive</span></span>
-            <span id="driveRecentCount" class="drive-recent-count" aria-label="Recent file count">10</span>
-            <svg class="drive-recent-trigger-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
-          </button>
+          <div class="drive-recent-sidehead"><span class="drive-recent-sidetitle">Recently modified</span><span id="driveRecentCount" class="drive-recent-count" aria-label="Recent file count">10</span></div>
+          <div id="driveRecentSideList" class="drive-recent-list drive-recent-side-list" aria-label="Twenty most recently modified files" aria-live="polite"><div class="drive-recent-state">Loading recent files…</div></div>
+          <button type="button" id="driveRecentToggle" class="drive-recent-more" aria-haspopup="dialog" aria-controls="driveRecentModal" aria-expanded="false" title="Show the 20 most recently modified files"><span>More</span><span class="drive-recent-more-sub">Top 20</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
           <button type="button" class="drive-recent-browse" onclick="driveGoRoot()" aria-label="Browse all files">Browse all files <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
         </aside>
         <main class="drive-main">
@@ -2503,7 +2512,7 @@ html body main.dash-container #section-overview + .grid{margin-top:12px !importa
       <button type="button" class="drive-dialog-backdrop" data-drive-recent-close aria-label="Close recent files"></button>
       <div class="drive-dialog-card drive-recent-card">
         <div class="drive-dialog-head drive-recent-head">
-          <div><h2 id="driveRecentTitle">Recently modified files</h2><p>Up to 10 of the latest files across your visible Google Drive.</p></div>
+          <div><h2 id="driveRecentTitle">Recently modified files</h2><p>Top 20 latest files across your visible Google Drive.</p></div>
           <button type="button" class="drive-icon-btn" data-drive-recent-close aria-label="Close recent files" title="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
         </div>
         <div id="driveRecentFiles" class="drive-recent-list drive-recent-modal-list" aria-label="Ten most recently modified files" aria-live="polite"><div class="drive-recent-state">Loading recent files…</div></div>
@@ -7846,17 +7855,25 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   }
   var driveRecentBrowseAll=el("driveRecentBrowseAll");
   if(driveRecentBrowseAll)driveRecentBrowseAll.addEventListener("click",function(){window.closeDriveRecentModal(false);driveGoRoot()});
+  function recentRowHtml(item,rank){
+    var modified=fmtDate(item.modifiedTime),name=String(item.name||"Untitled");
+    return '<button type="button" class="drive-recent-item" data-drive-recent-open="'+esc(item.id)+'" title="'+esc(name)+' · Modified '+esc(modified)+'" aria-label="Preview '+esc(name)+', modified '+esc(modified)+'">'+(rank?'<span class="drive-recent-rank" aria-hidden="true">'+rank+'</span>':'')+driveKindIcon(item)+'<span class="drive-recent-copy"><span class="drive-recent-name">'+esc(name)+'</span><span class="drive-recent-date">'+esc(modified)+'</span></span></button>';
+  }
   function renderRecentDriveFiles(){
-    var wrap=el("driveRecentFiles");if(!wrap)return;
-    var items=(Array.isArray(state.recentItems)?state.recentItems:[]).slice(0,10);
-    var count=el("driveRecentCount");if(count)count.textContent=state.recentLoading?"…":String(items.length);
-    if(!items.length&&state.recentLoading){wrap.innerHTML='<div class="drive-recent-state">Loading recent files…</div>';return}
-    if(!items.length&&state.recentError){wrap.innerHTML='<div class="drive-recent-state">Could not load recent files.</div><button type="button" class="drive-recent-retry" data-drive-recent-retry="1">Try again</button>';return}
-    if(!items.length){wrap.innerHTML='<div class="drive-recent-state">No recent files found.</div>';return}
-    wrap.innerHTML=items.map(function(item){
-      var modified=fmtDate(item.modifiedTime),name=String(item.name||"Untitled");
-      return '<button type="button" class="drive-recent-item" data-drive-recent-open="'+esc(item.id)+'" title="'+esc(name)+' · Modified '+esc(modified)+'" aria-label="Preview '+esc(name)+', modified '+esc(modified)+'">'+driveKindIcon(item)+'<span class="drive-recent-copy"><span class="drive-recent-name">'+esc(name)+'</span><span class="drive-recent-date">'+esc(modified)+'</span></span></button>';
-    }).join("");
+    var side=el("driveRecentSideList"),modal=el("driveRecentFiles");if(!side&&!modal)return;
+    var all=(Array.isArray(state.recentItems)?state.recentItems:[]).slice(0,20);
+    var top=all.slice(0,10);
+    var count=el("driveRecentCount");if(count)count.textContent=state.recentLoading&&!all.length?"…":String(top.length);
+    var more=el("driveRecentToggle");if(more){var sub=more.querySelector(".drive-recent-more-sub");if(sub)sub.textContent=all.length>10?("+"+(all.length-10)+" more"):"Top 20"}
+    function fill(wrap,list,ranked){
+      if(!wrap)return;
+      if(!list.length&&state.recentLoading){wrap.innerHTML='<div class="drive-recent-state">Loading recent files…</div>';return}
+      if(!list.length&&state.recentError){wrap.innerHTML='<div class="drive-recent-state">Could not load recent files.</div><button type="button" class="drive-recent-retry" data-drive-recent-retry="1">Try again</button>';return}
+      if(!list.length){wrap.innerHTML='<div class="drive-recent-state">No recent files found.</div>';return}
+      wrap.innerHTML=list.map(function(item,i){return recentRowHtml(item,ranked?i+1:0)}).join("");
+    }
+    fill(side,top,false);
+    fill(modal,all,true);
   }
   async function loadRecentDriveFiles(force){
     if(!state.open)return;
@@ -7866,7 +7883,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     try{
       var result=await request("driveRecent",{fresh:force?"1":"0"});
       if(!state.open||seq!==state.recentLoadSeq)return;
-      state.recentItems=(Array.isArray(result.items)?result.items:[]).filter(function(item){return item&&item.kind==="file"&&!item.targetIsFolder;}).slice(0,10);
+      state.recentItems=(Array.isArray(result.items)?result.items:[]).filter(function(item){return item&&item.kind==="file"&&!item.targetIsFolder;}).slice(0,20);
       state.recentLoadedAt=Date.now();state.recentError="";
     }catch(err){
       if(seq!==state.recentLoadSeq)return;
@@ -8452,7 +8469,8 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       return;
     }
   }
-  var recentFilesContainer=el("driveRecentFiles");
+  ["driveRecentFiles","driveRecentSideList"].forEach(function(cid){
+  var recentFilesContainer=el(cid);
   if(recentFilesContainer)recentFilesContainer.addEventListener("click",function(event){
     var retry=event.target.closest("[data-drive-recent-retry]");
     if(retry){event.preventDefault();loadRecentDriveFiles(true);return}
@@ -8462,6 +8480,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     var id=trigger.getAttribute("data-drive-recent-open");
     var item=state.recentItems.find(function(file){return file.id===id});
     if(item){window.closeDriveRecentModal(false);openPreview(item);}
+  });
   });
   var driveScreen=el("driveManagerScreen");
   el("driveContextMenu").addEventListener("pointerover",function(event){var trigger=event.target.closest('[data-drive-menu-action="create"]');if(trigger)showCreateSubmenu(trigger);else hideCreateSubmenu()});
