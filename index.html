@@ -1324,6 +1324,36 @@ html body main.dash-container #section-overview + .grid{margin-top:12px !importa
 .drive-recent-more svg{width:13px;height:13px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .drive-recent-modal-list .drive-recent-rank{flex:none;width:18px;text-align:right;font-size:10px;font-weight:700;color:var(--d-faint);font-variant-numeric:tabular-nums}
 </style>
+<style id="drive-preview-text-card-v249">
+.drive-preview.is-text-mode .drive-preview-viewport,.drive-preview.is-card-mode .drive-preview-viewport{display:none!important}
+.drive-preview-text,.drive-preview-card{position:absolute;inset:0;z-index:1;background:#e9edf4}
+.drive-preview-text.hidden,.drive-preview-card.hidden{display:none!important}
+.dpt-bar{position:absolute;left:0;right:0;top:0;z-index:2;display:flex;align-items:center;gap:6px;padding:6px 10px;background:rgba(255,255,255,.96);border-bottom:1px solid #dfe4ef;font:600 11.5px/1 Inter,system-ui,sans-serif;color:#52617b}
+.dpt-bar .dpt-info{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dpt-bar button{height:28px;min-width:30px;padding:0 9px;border:1px solid #dfe4ef;border-radius:7px;background:#fff;color:#33415e;font:700 12px/1 Inter,system-ui,sans-serif;cursor:pointer}
+.dpt-bar button:hover:not(:disabled){background:#e9edff;color:#2f3fb8}
+.dpt-bar button[aria-pressed="true"]{background:#e9edff;color:#2f3fb8;border-color:#c9d1f5}
+.dpt-bar button:disabled{opacity:.4;cursor:default}
+.dpt-scroll{position:absolute;inset:41px 0 0 0;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;background:#fff}
+.dpt-pre{margin:0;padding:14px 16px 28px;font:12.5px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;color:#1f2a44;white-space:pre;tab-size:4;-webkit-user-select:text;user-select:text}
+.dpt-pre.is-wrap{white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}
+.dpt-table{border-collapse:collapse;font:12px/1.4 Inter,system-ui,sans-serif;color:#1f2a44;min-width:100%}
+.dpt-table th,.dpt-table td{border:1px solid #e3e7f1;padding:5px 10px;text-align:left;vertical-align:top;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dpt-table th{position:sticky;top:0;background:#f3f5fb;font-weight:800;z-index:1}
+.dpt-table tr:nth-child(even) td{background:#fafbfe}
+.dpt-note{padding:8px 16px;background:#fff8e1;color:#7a5b00;font:600 11.5px/1.4 Inter,system-ui,sans-serif;border-bottom:1px solid #f1e3b0}
+.drive-preview-card{display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto}
+.dpc-box{width:min(420px,100%);padding:28px 24px 24px;border:1px solid #dfe4ef;border-radius:16px;background:#fff;box-shadow:0 6px 28px rgba(31,42,68,.12);text-align:center;font-family:Inter,system-ui,sans-serif}
+.dpc-icon{display:inline-flex;align-items:center;justify-content:center;min-width:64px;height:64px;padding:0 10px;border-radius:14px;background:#eef1ff;color:#3445b8;font:800 15px/1 Inter,system-ui,sans-serif;letter-spacing:.02em}
+.dpc-name{margin:14px 0 4px;font:800 15px/1.3 Inter,system-ui,sans-serif;color:#1f2a44;word-break:break-word}
+.dpc-meta{font:600 12px/1.3 Inter,system-ui,sans-serif;color:#7b879f}
+.dpc-reason{margin:14px 0 20px;font:500 13px/1.5 Inter,system-ui,sans-serif;color:#52617b}
+.dpc-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.dpc-actions button,.dpc-actions a{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:38px;padding:0 18px;border-radius:10px;font:800 13px/1 Inter,system-ui,sans-serif;text-decoration:none;cursor:pointer;border:1px solid #cfd6f7;background:#fff;color:#3445b8}
+.dpc-actions .is-primary{background:#3445b8;border-color:#3445b8;color:#fff}
+.dpc-actions button:hover,.dpc-actions a:hover{filter:brightness(.96)}
+.dpc-actions svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+</style>
 <style id="drive-preview-pdf-v247">
 .drive-preview.is-pdf-mode .drive-preview-viewport{display:none!important}
 .pdf-scroll{display:block!important}
@@ -2504,7 +2534,7 @@ html body main.dash-container #section-overview + .grid{margin-top:12px !importa
           <div class="drive-toolbar">
             <div class="drive-breadcrumbs" id="driveBreadcrumbs" aria-label="Folder path"></div>
             <div class="drive-toolbar-right">
-              <label class="drive-select drive-type-select"><span>Type</span><select id="driveTypeFilter" aria-label="Filter by file type"><option value="all">All types</option><option value="folders">Folders</option><option value="docs">Documents</option><option value="sheets">Spreadsheets</option><option value="presentations">Presentations</option><option value="pdf">PDF</option><option value="images">Images</option><option value="videos">Videos</option><option value="audio">Audio</option><option value="archives">Archives</option></select></label>
+              <label class="drive-select drive-type-select"><span>Type</span><select id="driveTypeFilter" aria-label="Filter by file type"><option value="all">All types</option><option value="folders">Folders</option><option value="docs">Documents</option><option value="sheets">Spreadsheets</option><option value="presentations">Presentations</option><option value="pdf">PDF</option><option value="images">Images</option><option value="videos">Videos</option><option value="audio">Audio</option><option value="archives">Archives</option><option value="text">Text &amp; code</option><option value="other">Other</option></select></label>
               <label class="drive-select"><span>Sort</span><select id="driveSortSelect" aria-label="Sort files"><option value="relevance">Relevance</option><option value="name">Name</option><option value="modified">Newest</option><option value="oldest">Oldest</option><option value="type">Type</option><option value="size">Size</option></select></label>
               <div class="drive-view-switch" role="group" aria-label="Change file view">
                 <button type="button" class="is-active" data-drive-view="list" aria-label="List view" aria-pressed="true" title="List view"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
@@ -2543,7 +2573,7 @@ html body main.dash-container #section-overview + .grid{margin-top:12px !importa
           
           <div class="drive-preview-tools"><a id="drivePreviewOpen" class="drive-preview-open hidden" href="#" target="_blank" rel="noopener noreferrer" title="Open file in Chrome" aria-label="Open file in Chrome"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M19 13v6a2 2 0 0 1-2 2H5V7a2 2 0 0 1 2-2h6"/></svg><span class="drive-preview-open-label">Open in Chrome</span></a><a id="drivePreviewDownload" class="drive-preview-download hidden" href="#" target="_blank" rel="noopener">Download</a><button type="button" id="drivePreviewFullscreen" class="drive-icon-btn" onclick="driveTogglePreviewFullscreen()" aria-label="Expand preview" title="Expand preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg></button><button type="button" class="drive-icon-btn" data-drive-preview-close aria-label="Close preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
         </div>
-        <div class="drive-preview-body"><div id="drivePreviewViewport" class="drive-preview-viewport"><div id="drivePreviewStage" class="drive-preview-stage"><iframe id="drivePreviewFrame" title="File preview" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; clipboard-read; clipboard-write; fullscreen" allowfullscreen></iframe></div></div><div id="drivePreviewImage" class="drive-preview-image hidden"><div id="drivePreviewImageScroll" class="dpi-scroll"><img id="drivePreviewImg" alt="" draggable="false"></div><div class="dpi-controls" role="group" aria-label="Image zoom"><button type="button" id="dpiOut" aria-label="Zoom out" title="Zoom out">−</button><button type="button" id="dpiReset" aria-label="Fit to screen" title="Fit to screen">100%</button><button type="button" id="dpiIn" aria-label="Zoom in" title="Zoom in">+</button></div></div><div id="drivePreviewPdf" class="drive-preview-image drive-preview-pdf hidden"><div id="drivePreviewPdfScroll" class="dpi-scroll pdf-scroll"><div id="drivePreviewPdfPages" class="pdf-pages"></div></div><div class="dpi-controls" role="group" aria-label="Document zoom"><span id="pdfPageInd" class="dpi-page">1 / 1</span><button type="button" id="pdfOut" aria-label="Zoom out" title="Zoom out">−</button><button type="button" id="pdfReset" aria-label="Fit to width" title="Fit to width">100%</button><button type="button" id="pdfIn" aria-label="Zoom in" title="Zoom in">+</button></div></div><div id="drivePreviewLoading" class="drive-preview-loading" role="status"><span class="drive-spinner" aria-hidden="true"></span><span id="drivePreviewLoadingText">Loading preview…</span></div></div>
+        <div class="drive-preview-body"><div id="drivePreviewViewport" class="drive-preview-viewport"><div id="drivePreviewStage" class="drive-preview-stage"><iframe id="drivePreviewFrame" title="File preview" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; clipboard-read; clipboard-write; fullscreen" allowfullscreen></iframe></div></div><div id="drivePreviewImage" class="drive-preview-image hidden"><div id="drivePreviewImageScroll" class="dpi-scroll"><img id="drivePreviewImg" alt="" draggable="false"></div><div class="dpi-controls" role="group" aria-label="Image zoom"><button type="button" id="dpiOut" aria-label="Zoom out" title="Zoom out">−</button><button type="button" id="dpiReset" aria-label="Fit to screen" title="Fit to screen">100%</button><button type="button" id="dpiIn" aria-label="Zoom in" title="Zoom in">+</button></div></div><div id="drivePreviewPdf" class="drive-preview-image drive-preview-pdf hidden"><div id="drivePreviewPdfScroll" class="dpi-scroll pdf-scroll"><div id="drivePreviewPdfPages" class="pdf-pages"></div></div><div class="dpi-controls" role="group" aria-label="Document zoom"><span id="pdfPageInd" class="dpi-page">1 / 1</span><button type="button" id="pdfOut" aria-label="Zoom out" title="Zoom out">−</button><button type="button" id="pdfReset" aria-label="Fit to width" title="Fit to width">100%</button><button type="button" id="pdfIn" aria-label="Zoom in" title="Zoom in">+</button></div></div><div id="drivePreviewText" class="drive-preview-text hidden"><div class="dpt-bar"><span id="dptInfo" class="dpt-info"></span><button type="button" id="dptView" aria-pressed="false" class="hidden" title="Switch between table and raw text">Table</button><button type="button" id="dptWrap" aria-pressed="false" title="Wrap long lines">Wrap</button><button type="button" id="dptSmaller" aria-label="Smaller text" title="Smaller text">A−</button><button type="button" id="dptBigger" aria-label="Larger text" title="Larger text">A+</button><button type="button" id="dptCopy" title="Copy all text">Copy</button></div><div id="dptScroll" class="dpt-scroll"><div id="dptNote" class="dpt-note hidden"></div><pre id="dptPre" class="dpt-pre"></pre><div id="dptTableWrap" class="hidden"></div></div></div><div id="drivePreviewCard" class="drive-preview-card hidden"><div class="dpc-box"><div id="dpcIcon" class="dpc-icon">FILE</div><div id="dpcName" class="dpc-name"></div><div id="dpcMeta" class="dpc-meta"></div><div id="dpcReason" class="dpc-reason"></div><div class="dpc-actions"><button type="button" id="dpcDownload" class="is-primary"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Download</button><a id="dpcOpen" href="#" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M19 13v6a2 2 0 0 1-2 2H5V7a2 2 0 0 1 2-2h6"/></svg>Open in Drive</a></div></div></div><div id="drivePreviewLoading" class="drive-preview-loading" role="status"><span class="drive-spinner" aria-hidden="true"></span><span id="drivePreviewLoadingText">Loading preview…</span></div></div>
         <footer class="drive-preview-footer">If Google shows 404, check that Chrome is signed into a Google account with access to this file. Dashboard sign-in does not automatically grant Google Drive permissions.</footer>
       </div>
     </section>
@@ -7932,7 +7962,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     }
   }
   var DRIVE_ROOT_ICON='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';function renderBreadcrumbs(){var wrap=el("driveBreadcrumbs");if(!wrap)return;if(S.mode){wrap.innerHTML='<button type="button" class="drive-crumb drive-crumb-root" onclick="driveGoRoot()" aria-label="All files" title="All files">All files</button><span class="drive-crumb-sep">›</span><span class="drive-crumb current">Search results for \u201c'+esc(S.q)+'\u201d</span>';return}wrap.innerHTML=state.path.map(function(part,i){return(i?'<span class="drive-crumb-sep">›</span>':"")+'<button type="button" class="drive-crumb '+(i===state.path.length-1?"current":"")+'" data-drive-crumb="'+i+'" '+(i===state.path.length-1?"disabled":"")+(i===0?' aria-label="'+esc(part.name)+'" title="'+esc(part.name)+'"':"")+'>'+esc(part.name)+'</button>'}).join("")}
-  function matchesType(item){if(state.typeFilter==="all")return true;var name=String(item.name||"").toLowerCase(),mime=String(item.mimeType||"").toLowerCase();if(state.typeFilter==="folders")return item.kind==="folder";if(item.kind==="folder")return false;if(state.typeFilter==="pdf")return mime.indexOf("pdf")>=0||name.endsWith(".pdf");if(state.typeFilter==="images")return mime.indexOf("image/")===0||/\.(png|jpe?g|gif|webp|svg|heic|tif?f)$/.test(name);if(state.typeFilter==="videos")return mime.indexOf("video/")===0||/\.(mp4|mov|avi|mkv|webm|mpeg|mpg)$/.test(name);if(state.typeFilter==="audio")return mime.indexOf("audio/")===0||/\.(mp3|wav|m4a|aac|ogg|flac)$/.test(name);if(state.typeFilter==="presentations")return mime.indexOf("presentation")>=0||mime.indexOf("powerpoint")>=0||mime.indexOf("opendocument.presentation")>=0||/\.(pptx?|odp)$/.test(name);if(state.typeFilter==="archives")return /\.(zip|rar|7z|tar|gz|tgz)$/.test(name)||/zip|rar|7z|tar|gzip/.test(mime);if(state.typeFilter==="docs")return mime.indexOf("document")>=0||mime.indexOf("msword")>=0||mime.indexOf("text/plain")>=0||mime.indexOf("rtf")>=0||mime.indexOf("opendocument.text")>=0||/\.(docx?|rtf|odt|txt|md)$/.test(name);if(state.typeFilter==="sheets")return mime.indexOf("spreadsheet")>=0||mime.indexOf("excel")>=0||mime.indexOf("text/csv")>=0||mime.indexOf("opendocument.spreadsheet")>=0||/\.(xlsx?|csv|ods)$/.test(name);return true}
+  function matchesType(item){if(state.typeFilter==="all")return true;if(state.typeFilter==="other"){if(item.kind==="folder")return false;var keep=state.typeFilter,hit=false;try{["pdf","images","videos","audio","presentations","archives","docs","sheets","text"].forEach(function(k){if(!hit){state.typeFilter=k;if(matchesType(item))hit=true}})}finally{state.typeFilter=keep}return !hit}if(state.typeFilter==="text")return item.kind!=="folder"&&!!drivePreviewTextKind(item);var name=String(item.name||"").toLowerCase(),mime=String(item.mimeType||"").toLowerCase();if(state.typeFilter==="folders")return item.kind==="folder";if(item.kind==="folder")return false;if(state.typeFilter==="pdf")return mime.indexOf("pdf")>=0||name.endsWith(".pdf");if(state.typeFilter==="images")return mime.indexOf("image/")===0||/\.(png|jpe?g|gif|webp|svg|heic|tif?f)$/.test(name);if(state.typeFilter==="videos")return mime.indexOf("video/")===0||/\.(mp4|mov|avi|mkv|webm|mpeg|mpg)$/.test(name);if(state.typeFilter==="audio")return mime.indexOf("audio/")===0||/\.(mp3|wav|m4a|aac|ogg|flac)$/.test(name);if(state.typeFilter==="presentations")return mime.indexOf("presentation")>=0||mime.indexOf("powerpoint")>=0||mime.indexOf("opendocument.presentation")>=0||/\.(pptx?|odp)$/.test(name);if(state.typeFilter==="archives")return /\.(zip|rar|7z|tar|gz|tgz)$/.test(name)||/zip|rar|7z|tar|gzip/.test(mime);if(state.typeFilter==="docs")return mime.indexOf("document")>=0||mime.indexOf("msword")>=0||mime.indexOf("text/plain")>=0||mime.indexOf("rtf")>=0||mime.indexOf("opendocument.text")>=0||/\.(docx?|rtf|odt|txt|md)$/.test(name);if(state.typeFilter==="sheets")return mime.indexOf("spreadsheet")>=0||mime.indexOf("excel")>=0||mime.indexOf("text/csv")>=0||mime.indexOf("opendocument.spreadsheet")>=0||/\.(xlsx?|csv|ods)$/.test(name);return true}
   function getVisibleItems(){var visible=(S.mode?S.items:state.items).filter(function(item){return(!state.activeFilter||String(item.name||"").toLowerCase().indexOf(state.activeFilter)>=0)&&matchesType(item)});if(S.mode&&state.sortBy==="relevance")return visible;visible.sort(function(a,b){if(a.kind!==b.kind)return a.kind==="folder"?-1:1;var an=String(a.name||"").toLocaleLowerCase(),bn=String(b.name||"").toLocaleLowerCase();var key=effSortKey(),dir=effSortDir()==="asc"?1:-1;if(key==="modified"){var at=new Date(a.modifiedTime||0).getTime()||0,bt=new Date(b.modifiedTime||0).getTime()||0;return (at-bt)*dir||an.localeCompare(bn)}if(key==="size"){var sa=Number(a.size)||0,sb=Number(b.size)||0;return (sa-sb)*dir||an.localeCompare(bn)}if(key==="type"){var typeA=typeLabel(a).toLowerCase(),typeB=typeLabel(b).toLowerCase();return (typeA.localeCompare(typeB)*dir)||an.localeCompare(bn)}return an.localeCompare(bn)*dir});return visible}
   function effSortKey(){return state.sortBy==="oldest"?"modified":state.sortBy}
   function effSortDir(){if(state.sortDir)return state.sortDir;if(state.sortBy==="oldest")return"asc";return state.sortBy==="modified"?"desc":"asc"}
@@ -7951,7 +7981,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     el("driveStatFiles").textContent=String(files);
     el("driveCurrentFolderTitle").textContent=state.path[state.path.length-1].name;
     el("driveTableSubtitle").textContent=visible.length+" item"+(visible.length===1?"":"s")+" · "+folders+" folder"+(folders===1?"":"s");
-    el("driveFooterInfo").textContent=visible.length+" item"+(visible.length===1?"":"s")+" loaded"+(state.activeFilter?" for “"+state.activeFilter+"”":"");
+    el("driveFooterInfo").textContent=visible.length+" item"+(visible.length===1?"":"s")+" loaded"+(state.activeFilter?" for “"+state.activeFilter+"”":"");var allCount=(S.mode?S.items:state.items).length,hiddenCount=allCount-visible.length;if(!S.mode&&hiddenCount>0)el("driveFooterInfo").textContent=visible.length+" of "+allCount+" items shown · "+hiddenCount+" hidden by the "+(state.typeFilter!=="all"?"type":"search")+" filter";
     if(S.mode)el("driveFooterInfo").textContent=(S.loading?"Searching your Google Drive… ":"")+visible.length+" result"+(visible.length===1?"":"s")+" loaded for \u201c"+S.q+"\u201d";
     var hasMore=!!(S.mode?S.nextPageToken:state.nextPageToken),loadMoreRow=el("driveLoadMoreRow"),loadMoreButton=el("driveLoadMore");
     if(loadMoreRow)loadMoreRow.classList.toggle("hidden",!hasMore&&!state.loadingMore);
@@ -7990,7 +8020,19 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     }
     setTimeout(maybeAutoLoadDriveItems,0);
   }
-  function applyFolderResult(folderId,folderName,result,pushPath){state.items=Array.isArray(result.items)?result.items:[];state.nextPageToken=String(result.nextPageToken||"");state.canManage=!!result.canManage;state.rootId=result.rootId||state.rootId;state.folderId=folderId||"";state.truncated=!!state.nextPageToken||!!result.incompleteSearch;if(pushPath){if(!state.path.length||state.path[state.path.length-1].id!==state.folderId)state.path.push({id:state.folderId,name:folderName||result.folder&&result.folder.name||"Folder"})}else if(!state.path.length){state.path=[{id:"",name:"All files"}]}el("driveReadOnlyNotice").classList.toggle("hidden",state.canManage);el("driveSignedInAs").textContent=window.getCurrentUserEmail?window.getCurrentUserEmail():"Signed in";saveDriveSessionState();var _u=el("driveUploadButton"),_n=el("driveNewButton");if(_u)_u.classList.toggle("hidden",!state.canManage);if(_n)_n.classList.toggle("hidden",!state.canManage);render()}
+  // v250: a folder keeps loading page after page until every item is listed (no scrolling / "Load more" needed).
+  var driveAllPagesRun=0;
+  async function driveLoadAllPages(folderId){
+    var run=++driveAllPagesRun,guard=0;
+    await Promise.resolve();
+    while(run===driveAllPagesRun&&state.open&&!S.mode&&state.folderId===folderId&&state.nextPageToken&&guard++<400){
+      if(state.loading||state.loadingMore){await new Promise(function(r){setTimeout(r,150)});continue}
+      var before=state.nextPageToken,paused=state.autoLoadPauseUntil||0;
+      await loadMoreDriveItems();
+      if(state.nextPageToken===before||(state.autoLoadPauseUntil||0)>Math.max(paused,Date.now()))break; // error: stop, "Load more" stays available
+    }
+  }
+  function applyFolderResult(folderId,folderName,result,pushPath){state.items=Array.isArray(result.items)?result.items:[];state.nextPageToken=String(result.nextPageToken||"");state.canManage=!!result.canManage;state.rootId=result.rootId||state.rootId;state.folderId=folderId||"";state.truncated=!!state.nextPageToken||!!result.incompleteSearch;if(pushPath){if(!state.path.length||state.path[state.path.length-1].id!==state.folderId)state.path.push({id:state.folderId,name:folderName||result.folder&&result.folder.name||"Folder"})}else if(!state.path.length){state.path=[{id:"",name:"All files"}]}el("driveReadOnlyNotice").classList.toggle("hidden",state.canManage);el("driveSignedInAs").textContent=window.getCurrentUserEmail?window.getCurrentUserEmail():"Signed in";saveDriveSessionState();var _u=el("driveUploadButton"),_n=el("driveNewButton");if(_u)_u.classList.toggle("hidden",!state.canManage);if(_n)_n.classList.toggle("hidden",!state.canManage);render();driveLoadAllPages(state.folderId)}
   function invalidateDriveCache(){S.cache=Object.create(null);if(S.mode&&S.q)setTimeout(function(){runSearch(S.q)},0);state.folderCache=Object.create(null)}
   async function driveSoftReload(){
     state.folderCache=Object.create(null);S.cache=Object.create(null);
@@ -8016,7 +8058,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     if(cached){applyFolderResult(targetId,folderName,cached.result,false);if(!force&&age<DRIVE_CACHE_TTL){setLoading(false);return}setLoading(true,"Refreshing files…",true)}
     else{state.items=[];setLoading(true,"Loading files…",false);render()}
     try{
-      var result=await request("driveList",{folderId:targetId,q:"",pageToken:"",fresh:force?"1":"0"});
+      var result=await request("driveList",{folderId:targetId,q:"",pageToken:"",fresh:(force||!hadCache)?"1":"0"});
       if(seq!==state.loadSeq||!state.open)return;
       state.folderCache[key]={result:result,time:Date.now()};applyFolderResult(targetId,folderName,result,false);
     }catch(err){
@@ -8444,8 +8486,177 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       pdfUpdateIndicator();pdfHideLoader();
     }catch(err){fail()}
   }
+
+  // ---- v249: text-type files show inside the dashboard; files Google cannot preview get a proper card
+  // (Download + Open in Drive). Everything Google previews well keeps using its own viewer.
+  var DPT_MAX=8*1024*1024; // the dashboard download proxy itself caps at 8 MB
+  var DPT_EXT=/\.(txt|text|md|markdown|log|csv|tsv|json|jsonl|ndjson|xml|yml|yaml|toml|ini|cfg|conf|env|properties|html?|xhtml|css|scss|less|js|mjs|cjs|jsx|ts|tsx|gs|gas|py|rb|php|java|kt|c|h|cc|cpp|hpp|cs|go|rs|swift|sh|bash|zsh|bat|cmd|ps1|sql|r|lua|pl|vb|vbs|svg|tex|srt|vtt|diff|patch|gitignore|dockerfile|makefile|rst|adoc|org)$/;
+  var DPT_MIME=/^(application\/(json|ld\+json|xml|xhtml\+xml|javascript|x-javascript|x-sh|x-httpd-php|x-yaml|yaml|x-ndjson|sql|x-sql|toml)|text\/(?!rtf|richtext))/;
+  var DPC_GOOGLE_MIME=/^(application\/pdf|image\/|video\/|audio\/|application\/vnd\.openxmlformats-officedocument\.|application\/msword|application\/vnd\.ms-(excel|powerpoint|word)|application\/vnd\.oasis\.opendocument\.|application\/rtf|text\/rtf|application\/vnd\.google-apps\.(document|spreadsheet|presentation|drawing))/;
+  var DPC_GOOGLE_EXT=/\.(pdf|png|jpe?g|gif|webp|bmp|svg|avif|heic|tiff?|ico|docx?|dotx?|xlsx?|xlsm|xlsb|pptx?|potx?|ppsx|odt|ods|odp|rtf|mp4|mov|m4v|avi|wmv|webm|mkv|flv|3gp|mpe?g|mp3|wav|m4a|aac|ogg|flac|wma|ai|psd|eps|ps|dwg|dxf|ttf|otf|woff2?|pages|numbers|key|xps|epub|svgz)$/;
+  var dpt={seq:0,text:"",rows:null,fs:12.5,bound:false,view:"text",item:null};
+  var dpc={bound:false,item:null};
+  function dpName(item){return String(item&&item.name||"").toLowerCase()}
+  function drivePreviewTextKind(item){
+    if(!item||item.kind==="folder"||item.targetIsFolder)return "";
+    var mime=String(item.effectiveMimeType||item.targetMimeType||item.mimeType||"").toLowerCase(),name=dpName(item);
+    if(mime.indexOf("application/vnd.google-apps")===0)return "";
+    if(DPT_MIME.test(mime)||(DPT_EXT.test(name)&&!/^(image|video|audio)\//.test(mime)&&mime!=="application/pdf"))return "text";
+    return "";
+  }
+  function drivePreviewCardReason(item){
+    // returns a reason string when this file should get the "no preview" card, otherwise "".
+    if(!item||item.kind==="folder"||item.targetIsFolder)return "";
+    var mime=String(item.effectiveMimeType||item.targetMimeType||item.mimeType||"").toLowerCase(),name=dpName(item);
+    if(mime.indexOf("application/vnd.google-apps")===0){
+      if(DPC_GOOGLE_MIME.test(mime))return "";
+      return "This Google item type can't be previewed here.";
+    }
+    var size=Number(item.size)||0;
+    if(drivePreviewTextKind(item)){return size>DPT_MAX?"This text file is too large to show here ("+fmtSize(size)+").":""}
+    if(DPC_GOOGLE_MIME.test(mime)||DPC_GOOGLE_EXT.test(name))return "";
+    return "Google can't preview this type of file.";
+  }
+  function dptEls(){return{wrap:el("drivePreview"),box:el("drivePreviewText"),scroll:el("dptScroll"),pre:el("dptPre"),tw:el("dptTableWrap"),note:el("dptNote"),info:el("dptInfo")}}
+  function dptParseCsv(text,delim){
+    var rows=[],row=[],cell="",q=false,i=0,n=text.length,max=5001;
+    for(;i<n&&rows.length<max;i++){
+      var c=text.charAt(i);
+      if(q){if(c==='"'){if(text.charAt(i+1)==='"'){cell+='"';i++}else q=false}else cell+=c}
+      else if(c==='"'&&cell===""){q=true}
+      else if(c===delim){row.push(cell);cell=""}
+      else if(c==="\n"||c==="\r"){if(c==="\r"&&text.charAt(i+1)==="\n")i++;row.push(cell);cell="";rows.push(row);row=[]}
+      else cell+=c;
+    }
+    if(rows.length<max&&(cell!==""||row.length)){row.push(cell);rows.push(row)}
+    return {rows:rows,truncated:i<n};
+  }
+  function dptRenderTable(){
+    var e=dptEls();if(!dpt.rows||!e.tw)return;
+    var r=dpt.rows.rows,cols=0;r.forEach(function(x){if(x.length>cols)cols=x.length});
+    var t=document.createElement("table");t.className="dpt-table";
+    r.forEach(function(x,ri){
+      var tr=document.createElement("tr");
+      for(var c=0;c<cols;c++){var cell=document.createElement(ri===0?"th":"td");var v=x[c]==null?"":String(x[c]);cell.textContent=v;if(v.length>40)cell.title=v;tr.appendChild(cell)}
+      t.appendChild(tr);
+    });
+    e.tw.innerHTML="";e.tw.appendChild(t);
+  }
+  function dptSetView(mode){
+    var e=dptEls();dpt.view=mode;
+    var asTable=mode==="table"&&dpt.rows;
+    e.pre.classList.toggle("hidden",!!asTable);e.tw.classList.toggle("hidden",!asTable);
+    var b=el("dptView");if(b){b.textContent=asTable?"Raw":"Table";b.setAttribute("aria-pressed",asTable?"true":"false")}
+    var w=el("dptWrap");if(w)w.disabled=!!asTable;
+    e.scroll.scrollTop=0;e.scroll.scrollLeft=0;
+  }
+  function dptApplyFont(){var e=dptEls();if(e.pre)e.pre.style.fontSize=dpt.fs+"px";if(e.tw)e.tw.style.fontSize=Math.max(10,dpt.fs-.5)+"px";var a=el("dptSmaller"),b=el("dptBigger");if(a)a.disabled=dpt.fs<=9;if(b)b.disabled=dpt.fs>=24}
+  function dptBind(){
+    if(dpt.bound)return;dpt.bound=true;
+    el("dptWrap").addEventListener("click",function(){var on=el("dptPre").classList.toggle("is-wrap");this.setAttribute("aria-pressed",on?"true":"false")});
+    el("dptSmaller").addEventListener("click",function(){dpt.fs=Math.max(9,dpt.fs-1);dptApplyFont()});
+    el("dptBigger").addEventListener("click",function(){dpt.fs=Math.min(24,dpt.fs+1);dptApplyFont()});
+    el("dptView").addEventListener("click",function(){dptSetView(dpt.view==="table"?"text":"table")});
+    el("dptCopy").addEventListener("click",function(){
+      var btn=this,txt=dpt.text||"";
+      function done(ok){var old="Copy";btn.textContent=ok?"Copied":"Copy failed";setTimeout(function(){btn.textContent=old},1400)}
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(function(){done(true)},function(){done(false)})}
+      else{try{var ta=document.createElement("textarea");ta.value=txt;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();var ok=document.execCommand("copy");ta.remove();done(ok)}catch(_){done(false)}}
+    });
+  }
+  function drivePreviewTextClose(){
+    dpt.seq++;var e=dptEls();
+    if(e.wrap)e.wrap.classList.remove("is-text-mode");
+    if(e.box)e.box.classList.add("hidden");
+    if(e.pre)e.pre.textContent="";
+    if(e.tw)e.tw.innerHTML="";
+    dpt.text="";dpt.rows=null;dpt.item=null;
+  }
+  async function drivePreviewTextOpen(item,fallback){
+    drivePreviewTextClose();
+    var seq=++dpt.seq,e=dptEls();
+    if(!e.box||!e.scroll||!e.pre){fallback();return}
+    dptBind();
+    function fail(){if(seq!==dpt.seq)return;drivePreviewTextClose();dpt.seq=seq;fallback()}
+    try{
+      var id=item.effectiveId||item.targetId||item.id,key=item.effectiveResourceKey||item.targetResourceKey||item.resourceKey||"";
+      var result=await request("driveDownloadProxy",{id:id,resourceKey:key});
+      if(seq!==dpt.seq||state.previewItem!==item)return;
+      if(!result||!result.base64){fail();return}
+      var bin=atob(String(result.base64)),bytes=new Uint8Array(bin.length);
+      for(var o=0;o<bin.length;o+=32768){var end=Math.min(o+32768,bin.length);for(var i=o;i<end;i++)bytes[i]=bin.charCodeAt(i)}
+      // binary guard: NUL bytes in the first 8 KB mean this is not really text
+      var probe=Math.min(bytes.length,8192),nul=0;for(var k=0;k<probe;k++){if(bytes[k]===0)nul++}
+      if(nul>0&&!(bytes.length>=2&&((bytes[0]===0xFF&&bytes[1]===0xFE)||(bytes[0]===0xFE&&bytes[1]===0xFF)))){showPreviewCard(item,"This file looks like binary data, so it can't be shown as text.");return}
+      var enc="utf-8";
+      if(bytes.length>=2&&bytes[0]===0xFF&&bytes[1]===0xFE)enc="utf-16le";else if(bytes.length>=2&&bytes[0]===0xFE&&bytes[1]===0xFF)enc="utf-16be";
+      var text;try{text=new TextDecoder(enc).decode(bytes)}catch(_){text=new TextDecoder("utf-8").decode(bytes)}
+      if(text.charCodeAt(0)===0xFEFF)text=text.slice(1);
+      dpt.text=text;dpt.item=item;
+      var name=dpName(item),lines=text.length?text.split("\n").length:0,isCsv=/\.(csv|tsv)$/.test(name)||/^text\/(csv|tab-separated-values)/.test(String(item.mimeType||"").toLowerCase());
+      var rows=null,note="";
+      if(isCsv){
+        var delim=/\.tsv$/.test(name)||/tab-separated/.test(String(item.mimeType||"").toLowerCase())?"\t":",";
+        rows=dptParseCsv(text,delim);
+        if(rows.truncated)note="Table view shows the first 5,000 rows. Use Raw, or Download for the full file.";
+      }
+      dpt.rows=rows&&rows.rows.length>1?rows:null;
+      e.pre.textContent=text;
+      e.pre.classList.remove("is-wrap");var w=el("dptWrap");if(w){w.setAttribute("aria-pressed","false")}
+      e.note.textContent=note;e.note.classList.toggle("hidden",!note||!dpt.rows);
+      var vb=el("dptView");if(vb)vb.classList.toggle("hidden",!dpt.rows);
+      if(dpt.rows)dptRenderTable();
+      e.info.textContent=lines.toLocaleString()+" line"+(lines===1?"":"s")+" · "+fmtSize(bytes.length)+(enc!=="utf-8"?" · "+enc.toUpperCase():"");
+      dptApplyFont();
+      e.wrap.classList.add("is-text-mode");e.box.classList.remove("hidden");
+      dptSetView(dpt.rows?"table":"text");
+      pdfHideLoader();
+    }catch(err){fail()}
+  }
+  // "No preview" card
+  function dpcBind(){
+    if(dpc.bound)return;dpc.bound=true;
+    el("dpcDownload").addEventListener("click",function(){if(dpc.item)startDriveDownload(dpc.item)});
+  }
+  function drivePreviewCardClose(){
+    var w=el("drivePreview"),c=el("drivePreviewCard");
+    if(w)w.classList.remove("is-card-mode");if(c)c.classList.add("hidden");dpc.item=null;
+  }
+  function showPreviewCard(item,reason){
+    if(state.previewItem!==item)return;
+    drivePreviewTextClose();drivePreviewImageClose();drivePreviewPdfClose();
+    dpcBind();dpc.item=item;
+    var w=el("drivePreview"),c=el("drivePreviewCard");if(!w||!c)return;
+    el("dpcIcon").textContent=typeLabel(item).slice(0,5).toUpperCase()||"FILE";
+    el("dpcName").textContent=item.name||"File";
+    el("dpcMeta").textContent=typeLabel(item)+" · "+fmtSize(item.size);
+    el("dpcReason").textContent=(reason||"Google can't preview this type of file.")+" You can download it or open it in Google Drive.";
+    var dl=el("dpcDownload");dl.classList.toggle("hidden",item.canDownload===false);
+    var r=driveResolvedFile(item),open=el("dpcOpen");
+    open.href=driveWithResourceKey("https://drive.google.com/file/d/"+encodeURIComponent(r.id)+"/view",r.resourceKey);
+    var frame=el("drivePreviewFrame");if(frame)frame.src="about:blank";
+    w.classList.add("is-card-mode");c.classList.remove("hidden");
+    pdfHideLoader();
+  }
+  // v251: huge files are not previewed in the dashboard; they open directly in Google Drive
+  // (or the matching Google Docs / Sheets / Slides editor) in a new tab.
+  var DRIVE_DIRECT_OPEN_BYTES=8*1024*1024;
+  function drivePreviewIsHuge(item){
+    if(!item||item.kind==="folder"||item.targetIsFolder)return false;
+    var mime=String(item.effectiveMimeType||item.targetMimeType||item.mimeType||"").toLowerCase();
+    if(mime.indexOf("application/vnd.google-apps")===0)return false;
+    return (Number(item.size)||0)>DRIVE_DIRECT_OPEN_BYTES;
+  }
   function openPreview(item){
     if(!item||item.kind==="folder")return;
+    var hugeBlocked=false;
+    if(drivePreviewIsHuge(item)){
+      var hugeUrl=driveEditorTarget(item).url,hw=null;
+      if(!hugeUrl){var hr=driveResolvedFile(item);hugeUrl=driveWithResourceKey("https://drive.google.com/file/d/"+encodeURIComponent(hr.id)+"/view",hr.resourceKey)}
+      try{hw=window.open(hugeUrl,"_blank");if(hw){try{hw.opener=null}catch(_){}}}catch(_){hw=null}
+      if(hw){showToast("Large file ("+fmtSize(item.size)+") opened directly in Google Drive.","success");return}
+      hugeBlocked=true;
+    }
     clearTimeout(previewCloseTimer);clearTimeout(previewLoadTimer);
     hideContextMenu();hideCreateSubmenu();state.previewItem=item;
     var wrap=el("drivePreview"),frame=el("drivePreviewFrame"),loader=el("drivePreviewLoading"),loadText=el("drivePreviewLoadingText");
@@ -8463,10 +8674,14 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     frame.src="about:blank";
     var previewUrl=drivePreviewUrl(item);frame.dataset.previewUrl=previewUrl;
     wrap.classList.remove("hidden");
-    drivePreviewImageClose();drivePreviewPdfClose();
+    drivePreviewImageClose();drivePreviewPdfClose();drivePreviewTextClose();drivePreviewCardClose();
     var pdfKind=drivePreviewPdfKind(item),toFrame=function(){if(state.previewItem===item)frame.src=previewUrl};
-    if(drivePreviewIsImage(item)){drivePreviewImageOpen(item,toFrame)}
+    var cardReason=hugeBlocked?"This file is large ("+fmtSize(item.size)+") and your browser blocked the new tab, so it is not previewed here.":drivePreviewCardReason(item);
+    if(hugeBlocked){showPreviewCard(item,cardReason)}
+    else if(drivePreviewIsImage(item)){drivePreviewImageOpen(item,toFrame)}
     else if(pdfKind){drivePreviewPdfOpen(item,pdfKind,toFrame)}
+    else if(cardReason){showPreviewCard(item,cardReason)}
+    else if(drivePreviewTextKind(item)){drivePreviewTextOpen(item,toFrame)}
     else requestAnimationFrame(toFrame);
     previewLoadTimer=setTimeout(function(){if(state.previewItem===item&&loadText)loadText.textContent="Still loading from Google Drive…"},9000);
     document.body.style.overflow="hidden";
@@ -8478,7 +8693,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   function closePreview(){
     var wrap=el("drivePreview");if(!wrap)return;clearTimeout(previewLoadTimer);clearTimeout(previewCloseTimer);
     if(wrap.classList.contains("hidden")){state.previewItem=null;return}
-    wrap.classList.remove("is-fullscreen");wrap.classList.add("is-closing");state.previewItem=null;drivePreviewImageClose();drivePreviewPdfClose();
+    wrap.classList.remove("is-fullscreen");wrap.classList.add("is-closing");state.previewItem=null;drivePreviewImageClose();drivePreviewPdfClose();drivePreviewTextClose();drivePreviewCardClose();
     previewCloseTimer=setTimeout(function(){wrap.classList.add("hidden");wrap.classList.remove("is-closing");var frame=el("drivePreviewFrame");if(frame){frame.src="about:blank";frame.style.pointerEvents="auto"}var loader=el("drivePreviewLoading");if(loader)loader.classList.remove("is-done","hidden");applyPreviewZoom(1,false)},170);
     if(state.open)document.body.style.overflow="hidden";else document.body.style.overflow="";
   }
@@ -8574,7 +8789,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     if(!path.length||path[0].id!=="")path.unshift({id:"",name:"All files"});
     var folderId=String(saved.folderId||"");
     if(path[path.length-1].id!==folderId){if(folderId)path.push({id:folderId,name:"Folder"});else path=[{id:"",name:"All files"}]}
-    state.cacheUser=activeEmail;state.path=path;state.folderId=folderId;state.view=saved.view==="grid"?"grid":"list";state.compact=saved.compact!==false;state.typeFilter=String(saved.typeFilter||"all");state.sortBy=String(saved.sortBy||"name");state.sortDir=saved.sortDir==="asc"||saved.sortDir==="desc"?saved.sortDir:"";
+    state.cacheUser=activeEmail;state.path=path;state.folderId=folderId;state.view=saved.view==="grid"?"grid":"list";state.compact=saved.compact!==false;state.typeFilter="all";state.sortBy=String(saved.sortBy||"name");state.sortDir=saved.sortDir==="asc"||saved.sortDir==="desc"?saved.sortDir:"";
     state.selectedItem=null;state.selectedId="";state.createParentId="";state.createParentName=path[path.length-1].name;state.createParentItem=null;hideContextMenu();state.open=true;screen.classList.remove("hidden");document.body.style.overflow="hidden";
     var search=el("driveSearchInput"),type=el("driveTypeFilter"),sort=el("driveSortSelect");if(search)search.value="";if(type)type.value=state.typeFilter;if(sort)sort.value=state.sortBy;
     resetSearch();applyDriveCompactMode();
