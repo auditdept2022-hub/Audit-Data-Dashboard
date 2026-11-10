@@ -6892,7 +6892,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   var fileInput = document.getElementById("geminiAssistantFile");
   var filesEl = document.getElementById("geminiAssistantFiles");
   var aiState = { gemini: "checking", provider: (providerSelect && /^(?:auto|gemini|groq)$/.test(providerSelect.value) ? providerSelect.value : "auto"), checked: false, canPropose: false, canApprove: false, apiConfigured: false, geminiConfigured: false, groqConfigured: false, sending: false, reading: false, lastReplyAt: 0, files: [], history: [], pendingCount: 0 };
-  var MAX_FILES = 10, MAX_INLINE_TOTAL = 12 * 1024 * 1024, MAX_TEXT_CHARS = 1000000;
+  var MAX_FILES = 10, MAX_INLINE_TOTAL = 8 * 1024 * 1024, MAX_TEXT_CHARS = 1000000;
 
   function assistantApiBase_() {
     try { if (typeof defaultAppsScriptUrl !== "undefined" && defaultAppsScriptUrl) return String(defaultAppsScriptUrl); } catch (e) {}
@@ -6974,17 +6974,30 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       document.body.appendChild(iframe);
       await frameReady;
       document.body.appendChild(form);
-      var postFinished = waitForAssistantFrameLoad_(iframe, 300000);
+      var postFinished = waitForAssistantFrameLoad_(iframe, 240000);
       try { HTMLFormElement.prototype.submit.call(form); }
       catch (submitErr) { throw new Error("The browser could not submit the assistant file request: " + String(submitErr && submitErr.message || submitErr)); }
-      await postFinished;
+      // v256: a slow upload is not necessarily a failed one. If the browser gives up waiting, keep
+      // checking for the server's saved result for another ~2 minutes before reporting a timeout.
+      var postTimedOut = false;
+      try { await postFinished; }
+      catch (waitErr) {
+        if (/did not return from the dashboard server/i.test(String(waitErr && waitErr.message || waitErr))) postTimedOut = true;
+        else throw waitErr;
+      }
       // doPost caches the parsed result before returning its ContentService
       // response, so a short retry handles only cache propagation/temporary read delay.
       var envelope = null;
-      for (var attempt = 0; attempt < 3; attempt++) {
+      var maxPolls = postTimedOut ? 24 : 3;
+      for (var attempt = 0; attempt < maxPolls; attempt++) {
         envelope = await assistantRequest_("aiAssistantResult", { requestId: requestId }, b.token);
         if (envelope && envelope.ready && envelope.result) break;
-        if (attempt < 2) await sleep_(250 * (attempt + 1));
+        if (attempt < maxPolls - 1) await sleep_(postTimedOut ? 5000 : 250 * (attempt + 1));
+      }
+      if (postTimedOut && (!envelope || !envelope.ready || !envelope.result)) {
+        var slow = new Error("The server took too long to process the file. Try a smaller file, fewer pages, or send it again in a minute. Nothing was changed on the dashboard.");
+        slow.transport = true;
+        throw slow;
       }
       if (!envelope || !envelope.ready || !envelope.result) {
         var missing = new Error("The upload request returned, but its result could not be retrieved. Check Apps Script > Executions before resending to avoid duplicating a completed action.");
@@ -7261,7 +7274,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
         try {
           var inlineUsed = aiState.files.reduce(function (n, f) { return n + (f.size || 0); }, 0);
           var item = await extractFile_(file);
-          if (item.kind === "inline" && inlineUsed + item.size > MAX_INLINE_TOTAL) { addMessage_(file.name + " is too large. Keep inline PDFs and images under about 12 MB in total per message.", "error"); continue; }
+          if (item.kind === "inline" && inlineUsed + item.size > MAX_INLINE_TOTAL) { addMessage_(file.name + " is too large. Keep inline PDFs and images under about 8 MB in total per message.", "error"); continue; }
           if (item.kind === "text" && !String(item.text || "").trim()) { addMessage_(file.name + " has no readable text.", "error"); continue; }
           aiState.files.push(item);
         } catch (err) { addMessage_(err.message || ("Could not read " + file.name), "error"); }
