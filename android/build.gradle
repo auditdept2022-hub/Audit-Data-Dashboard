@@ -1,3 +1,33 @@
 plugins {
-    id 'com.android.application' version '8.7.3' apply false
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.auditdashboard.mobile'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.auditdashboard.mobile'
+        minSdk 24
+        targetSdk 34
+        versionCode 3
+        versionName '1.1.1'
+    }
+
+    // Fixed signing key so every build is signed the same way.
+    // This lets a new APK install OVER the old one (no uninstall needed).
+    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+    }
 }
