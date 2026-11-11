@@ -150,8 +150,8 @@ public class MainActivity extends Activity {
         settings.setSupportZoom(true);
         settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
-        // Fixed text size and no automatic text inflation, so the page's own CSS decides sizes and card layout.
-        settings.setTextZoom(100);
+        // Slightly smaller, fixed text size and no automatic text inflation, so content fits like a native app.
+        settings.setTextZoom(92);
         settings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.NORMAL);
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(true);
@@ -482,16 +482,34 @@ public class MainActivity extends Activity {
     private static final int MAX_DOWNLOAD_BASE64_CHARS = 80 * 1024 * 1024;
     private volatile boolean expectBlob = false;
 
-    // Lay the page out at 430 CSS px wide and scale it to fit the screen, so text size, header and
-    // card layout look like the 430px mobile view instead of being ~12% larger on narrow phones.
-    private static final int LAYOUT_WIDTH_CSS_PX = 430;
+    // Auto-fit: keep the site's own responsive phone layout (device width) and add safety rules so
+    // nothing is cut off: truncated text wraps instead of "...", no sideways overflow, and the last
+    // cards are not hidden behind the floating assistant button.
     private static final String ENSURE_VIEWPORT =
-            "(function(){var W=" + LAYOUT_WIDTH_CSS_PX + ";if(window.screen&&screen.width>=W)return;"
+            "(function(){"
             + "var m=document.querySelector('meta[name=viewport]');"
-            + "if(!m){m=document.createElement('meta');m.name='viewport';"
+            + "if(!m){m=document.createElement('meta');m.name='viewport';m.content='width=device-width, initial-scale=1';"
             + "(document.head||document.documentElement).appendChild(m);}"
-            + "var c='width='+W+', initial-scale='+(screen.width/W).toFixed(3)"
-            + "+', minimum-scale=0.5, maximum-scale=5';if(m.content!==c)m.content=c;})();";
+            + "if(!document.getElementById('ad-fit')){var st=document.createElement('style');st.id='ad-fit';"
+            + "st.textContent='html,body{overflow-x:clip!important;max-width:100%}"
+            + "body{padding-bottom:104px!important;box-sizing:border-box}"
+            + "img,svg,canvas,video{max-width:100%}';"
+            + "(document.head||document.documentElement).appendChild(st);}"
+            + "if(window.__adFitOn)return;window.__adFitOn=true;"
+            + "var seen=new WeakSet(),timer=null;"
+            + "function fix(){timer=null;var all=document.body?document.body.getElementsByTagName('*'):[];"
+            + "for(var i=0;i<all.length;i++){var e=all[i];if(seen.has(e))continue;"
+            + "if(e.closest&&e.closest('table,[role=table],pre,code,svg'))continue;"
+            + "var cs=getComputedStyle(e);if(cs.textOverflow==='ellipsis'&&e.scrollWidth>e.clientWidth+1){"
+            + "seen.add(e);e.style.setProperty('text-overflow','clip','important');"
+            + "e.style.setProperty('white-space','normal','important');"
+            + "e.style.setProperty('overflow','visible','important');"
+            + "e.style.setProperty('overflow-wrap','anywhere','important');"
+            + "e.style.setProperty('min-width','0','important');}}}"
+            + "function sched(){if(!timer)timer=setTimeout(fix,350);}"
+            + "new MutationObserver(sched).observe(document.documentElement,{childList:true,subtree:true,characterData:true});"
+            + "window.addEventListener('resize',sched);sched();"
+            + "})();";
 
     private static final String DOWNLOAD_NAME_HOOK =
             "(function(){if(window.__adHook)return;window.__adHook=true;window.__adBlobs={};"
