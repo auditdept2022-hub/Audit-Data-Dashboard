@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.app.DownloadManager;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.ContentValues;
 import android.graphics.Color;
@@ -65,8 +66,6 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Window window = getWindow();
-        window.setStatusBarColor(Color.rgb(16, 24, 40));
-        window.setNavigationBarColor(Color.rgb(16, 24, 40));
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
 
         buildLayout();
@@ -80,10 +79,10 @@ public class MainActivity extends Activity {
 
     private void buildLayout() {
         root = new FrameLayout(this);
-        root.setBackgroundColor(Color.rgb(248, 250, 252));
+        root.setBackgroundColor(getColor(R.color.app_background));
 
         webView = new WebView(this);
-        webView.setBackgroundColor(Color.rgb(248, 250, 252));
+        webView.setBackgroundColor(getColor(R.color.app_background));
         root.addView(webView, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
@@ -108,11 +107,11 @@ public class MainActivity extends Activity {
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setGravity(Gravity.CENTER);
         panel.setPadding(dp(28), dp(28), dp(28), dp(28));
-        panel.setBackgroundColor(Color.rgb(248, 250, 252));
+        panel.setBackgroundColor(getColor(R.color.app_background));
 
         TextView title = new TextView(this);
         title.setText("You're offline or the dashboard could not be reached.");
-        title.setTextColor(Color.rgb(16, 24, 40));
+        title.setTextColor(getColor(R.color.text_primary));
         title.setTextSize(20);
         title.setGravity(Gravity.CENTER);
         title.setPadding(0, 0, 0, dp(10));
@@ -121,7 +120,7 @@ public class MainActivity extends Activity {
 
         TextView detail = new TextView(this);
         detail.setText("Check your internet connection, then try again. Your dashboard data remains on the website.");
-        detail.setTextColor(Color.rgb(71, 84, 103));
+        detail.setTextColor(getColor(R.color.text_secondary));
         detail.setTextSize(14);
         detail.setGravity(Gravity.CENTER);
         detail.setPadding(0, 0, 0, dp(18));
@@ -147,15 +146,29 @@ public class MainActivity extends Activity {
         settings.setDatabaseEnabled(true);
         settings.setLoadWithOverviewMode(true);
         settings.setUseWideViewPort(true);
-        settings.setSupportZoom(false);
-        settings.setBuiltInZoomControls(false);
+        // Match Chrome mobile: pinch zoom allowed (if the page allows it), no on-screen +/- buttons.
+        settings.setSupportZoom(true);
+        settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
+        // Fixed text size and no automatic text inflation, so the page's own CSS decides sizes and card layout.
+        settings.setTextZoom(100);
+        settings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.NORMAL);
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(true);
         settings.setJavaScriptCanOpenWindowsAutomatically(true);
         settings.setSupportMultipleWindows(true);
         settings.setMediaPlaybackRequiresUserGesture(true);
-        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+
+        // Present the same browser identity as Chrome so the site serves its normal mobile design.
+        String ua = settings.getUserAgentString();
+        if (ua != null) {
+            settings.setUserAgentString(ua.replace("; wv)", ")").replace(" Version/4.0", ""));
+        }
+        // Lets you inspect the page from a computer (chrome://inspect) in debug builds only.
+        if ((getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            WebView.setWebContentsDebuggingEnabled(true);
+        }
 
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
@@ -184,11 +197,17 @@ public class MainActivity extends Activity {
             }
 
             @Override
+            public void onPageCommitVisible(WebView view, String url) {
+                view.evaluateJavascript(ENSURE_VIEWPORT, null);
+            }
+
+            @Override
             public void onPageFinished(WebView view, String url) {
                 progressBar.setProgress(100);
                 progressBar.setVisibility(View.GONE);
                 CookieManager.getInstance().flush();
                 view.evaluateJavascript(DOWNLOAD_NAME_HOOK, null);
+                view.evaluateJavascript(ENSURE_VIEWPORT, null);
             }
 
             @Override
@@ -462,6 +481,17 @@ public class MainActivity extends Activity {
     private static final String DASHBOARD_HOST = "auditdashboard.devs.li";
     private static final int MAX_DOWNLOAD_BASE64_CHARS = 80 * 1024 * 1024;
     private volatile boolean expectBlob = false;
+
+    // Lay the page out at 430 CSS px wide and scale it to fit the screen, so text size, header and
+    // card layout look like the 430px mobile view instead of being ~12% larger on narrow phones.
+    private static final int LAYOUT_WIDTH_CSS_PX = 430;
+    private static final String ENSURE_VIEWPORT =
+            "(function(){var W=" + LAYOUT_WIDTH_CSS_PX + ";if(window.screen&&screen.width>=W)return;"
+            + "var m=document.querySelector('meta[name=viewport]');"
+            + "if(!m){m=document.createElement('meta');m.name='viewport';"
+            + "(document.head||document.documentElement).appendChild(m);}"
+            + "var c='width='+W+', initial-scale='+(screen.width/W).toFixed(3)"
+            + "+', minimum-scale=0.5, maximum-scale=5';if(m.content!==c)m.content=c;})();";
 
     private static final String DOWNLOAD_NAME_HOOK =
             "(function(){if(window.__adHook)return;window.__adHook=true;window.__adBlobs={};"
