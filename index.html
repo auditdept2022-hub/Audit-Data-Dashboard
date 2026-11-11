@@ -8572,10 +8572,17 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   // native scrolling between pages, pinch / Ctrl+wheel / buttons zoom, drag to move. Falls back to Google's viewer.
   var PDFJS_VER="3.11.174",PDFJS_BASE="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/"+PDFJS_VER+"/";
   var pdfv={doc:null,z:1,base:600,pages:[],visible:new Set(),io:null,seq:0,raf:0,pending:null,rt:0,bound:false,lib:null,libPromise:null,worker:""};
+  // v264: on phones / the Android app Google's own preview frame cannot be used: it needs a separate
+  // Google sign-in (blocked inside embedded WebViews) and its redirects hand the file to the native Drive app.
+  // So on phones every preview uses the built-in viewers (signed in through the dashboard) or a card.
+  function drivePreviewIsMobile(){
+    try{var p=window.__dashboardDeviceProfile_;if(p&&p.mobile)return true;return !!(window.matchMedia&&window.matchMedia("(max-width: 767px)").matches)}catch(_){return false}
+  }
   function drivePreviewPdfKind(item){
     if(!item||item.kind==="folder"||item.targetIsFolder)return "";
     var mime=String(item.mimeType||"").toLowerCase(),name=String(item.name||"").toLowerCase();
     if(mime==="application/vnd.google-apps.document"||mime==="application/vnd.google-apps.presentation")return "native";
+    if(drivePreviewIsMobile()&&(mime==="application/vnd.google-apps.spreadsheet"||mime==="application/vnd.google-apps.drawing"))return "native";
     if(mime.indexOf("application/vnd.google-apps")===0)return "";
     if(mime==="application/pdf"||/\.pdf$/.test(name)){return (Number(item.size)||0)>8*1024*1024?"":"pdf"}
     return "";
@@ -8908,7 +8915,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     if(drivePreviewIsHuge(item)){
       var hugeUrl=driveEditorTarget(item).url,hw=null;
       if(!hugeUrl){var hr=driveResolvedFile(item);hugeUrl=driveWithResourceKey("https://drive.google.com/file/d/"+encodeURIComponent(hr.id)+"/view",hr.resourceKey)}
-      try{hw=window.open(hugeUrl,"_blank");if(hw){try{hw.opener=null}catch(_){}}}catch(_){hw=null}
+      if(!drivePreviewIsMobile()){try{hw=window.open(hugeUrl,"_blank");if(hw){try{hw.opener=null}catch(_){}}}catch(_){hw=null}}
       if(hw){showToast("Large file ("+fmtSize(item.size)+") opened directly in Google Drive.","success");return}
       hugeBlocked=true;
     }
@@ -8930,8 +8937,13 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     var previewUrl=drivePreviewUrl(item);frame.dataset.previewUrl=previewUrl;
     wrap.classList.remove("hidden");
     drivePreviewImageClose();drivePreviewPdfClose();drivePreviewTextClose();drivePreviewCardClose();
-    var pdfKind=drivePreviewPdfKind(item),toFrame=function(){if(state.previewItem===item)frame.src=previewUrl};
-    var cardReason=hugeBlocked?"This file is large ("+fmtSize(item.size)+") and your browser blocked the new tab, so it is not previewed here.":drivePreviewCardReason(item);
+    var mobilePv=drivePreviewIsMobile();
+    var pdfKind=drivePreviewPdfKind(item),toFrame=function(){
+      if(state.previewItem!==item)return;
+      if(mobilePv){showPreviewCard(item,"This file can't be previewed inside the app (Google's own viewer needs a separate Google sign-in on phones).");return}
+      frame.src=previewUrl;
+    };
+    var cardReason=hugeBlocked?(mobilePv?"This file is large ("+fmtSize(item.size)+"), so it is not previewed here.":"This file is large ("+fmtSize(item.size)+") and your browser blocked the new tab, so it is not previewed here."):drivePreviewCardReason(item);
     if(hugeBlocked){showPreviewCard(item,cardReason)}
     else if(drivePreviewIsImage(item)){drivePreviewImageOpen(item,toFrame)}
     else if(pdfKind){drivePreviewPdfOpen(item,pdfKind,toFrame)}
