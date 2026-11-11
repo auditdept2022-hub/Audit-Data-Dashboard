@@ -6,17 +6,24 @@ import android.app.DownloadManager;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.ContentValues;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Message;
+import android.provider.MediaStore;
+import android.util.Base64;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
+import android.view.WindowManager;
 import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebResourceResponse;
 import android.webkit.URLUtil;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -32,6 +39,11 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONObject;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
@@ -55,7 +67,7 @@ public class MainActivity extends Activity {
         Window window = getWindow();
         window.setStatusBarColor(Color.rgb(16, 24, 40));
         window.setNavigationBarColor(Color.rgb(16, 24, 40));
-        window.setSoftInputMode(WindowManagerFlags.SOFT_INPUT_ADJUST_RESIZE);
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
 
         buildLayout();
         configureWebView();
@@ -140,13 +152,16 @@ public class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(true);
-        settings.setJavaScriptCanOpenWindowsAutomatically(false);
+        settings.setJavaScriptCanOpenWindowsAutomatically(true);
+        settings.setSupportMultipleWindows(true);
         settings.setMediaPlaybackRequiresUserGesture(true);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
 
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
+
+        webView.addJavascriptInterface(new DownloadBridge(), "AndroidDownload");
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -173,6 +188,14 @@ public class MainActivity extends Activity {
                 progressBar.setProgress(100);
                 progressBar.setVisibility(View.GONE);
                 CookieManager.getInstance().flush();
+                view.evaluateJavascript(DOWNLOAD_NAME_HOOK, null);
+            }
+
+            @Override
+            public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse errorResponse) {
+                if (request.isForMainFrame() && errorResponse != null && errorResponse.getStatusCode() >= 500) {
+                    showConnectionError();
+                }
             }
 
             @Override
@@ -200,6 +223,41 @@ public class MainActivity extends Activity {
                 } else {
                     progressBar.setVisibility(View.VISIBLE);
                 }
+            }
+
+            @Override
+            public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
+                // Popups: dashboard pages load in the main view, everything else goes to the browser.
+                WebView popup = new WebView(MainActivity.this);
+                popup.setWebViewClient(new WebViewClient() {
+                    private boolean handled = false;
+
+                    private void handle(WebView v, String url) {
+                        if (handled || url == null || url.equals("about:blank")) return;
+                        handled = true;
+                        Uri uri = Uri.parse(url);
+                        if (!routeUrl(uri)) {
+                            webView.loadUrl(url);
+                        }
+                        v.stopLoading();
+                        v.destroy();
+                    }
+
+                    @Override
+                    public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest request) {
+                        handle(v, request.getUrl().toString());
+                        return true;
+                    }
+
+                    @Override
+                    public void onPageStarted(WebView v, String url, android.graphics.Bitmap favicon) {
+                        handle(v, url);
+                    }
+                });
+                WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
+                transport.setWebView(popup);
+                resultMsg.sendToTarget();
+                return true;
             }
 
             @Override
@@ -285,6 +343,21 @@ public class MainActivity extends Activity {
 
     private void startDownload() {
         if (pendingDownloadUrl == null) return;
+        if (pendingDownloadUrl.startsWith("blob:") || pendingDownloadUrl.startsWith("data:")) {
+            String u = pendingDownloadUrl;
+            String d = pendingDownloadDisposition;
+            String m = pendingDownloadMimeType;
+            pendingDownloadUrl = null;
+            pendingDownloadUserAgent = null;
+            pendingDownloadDisposition = null;
+            pendingDownloadMimeType = null;
+            if (u.startsWith("blob:")) {
+                fetchBlobAndSave(u, m);
+            } else {
+                saveDataUrl(u, d, m);
+            }
+            return;
+        }
         try {
             DownloadManager.Request request = new DownloadManager.Request(Uri.parse(pendingDownloadUrl));
             request.setTitle(URLUtil.guessFileName(pendingDownloadUrl, pendingDownloadDisposition, pendingDownloadMimeType));
@@ -383,8 +456,129 @@ public class MainActivity extends Activity {
         return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
     }
 
-    // Avoids requiring an additional AndroidX dependency just to resize around the keyboard.
-    private static final class WindowManagerFlags {
-        static final int SOFT_INPUT_ADJUST_RESIZE = 0x10;
+    // ---- In-page generated downloads (blob: / data: URLs) -------------------------------------
+    // DownloadManager cannot fetch blob: URLs, so the page hands the bytes to the app instead.
+
+    private static final String DASHBOARD_HOST = "auditdashboard.devs.li";
+    private static final int MAX_DOWNLOAD_BASE64_CHARS = 80 * 1024 * 1024;
+    private volatile boolean expectBlob = false;
+
+    private static final String DOWNLOAD_NAME_HOOK =
+            "(function(){if(window.__adHook)return;window.__adHook=true;window.__adBlobs={};"
+            + "var c=URL.createObjectURL;URL.createObjectURL=function(o){var u=c.call(URL,o);"
+            + "try{if(o instanceof Blob)window.__adBlobs[u]=o;}catch(e){}return u;};"
+            + "var r=URL.revokeObjectURL;URL.revokeObjectURL=function(u){"
+            + "setTimeout(function(){try{delete window.__adBlobs[u];}catch(e){}},60000);"
+            + "return r.call(URL,u);};"
+            + "document.addEventListener('click',function(e){var a=e.target&&e.target.closest?"
+            + "e.target.closest('a[download]'):null;if(a){window.__adName=a.getAttribute('download')||'';}},true);"
+            + "var ac=HTMLAnchorElement.prototype.click;HTMLAnchorElement.prototype.click=function(){"
+            + "if(this.download)window.__adName=this.download;return ac.apply(this,arguments);};})();";
+
+    private void fetchBlobAndSave(String blobUrl, String mimeType) {
+        String current = webView.getUrl();
+        String host = current == null ? "" : String.valueOf(Uri.parse(current).getHost()).toLowerCase(Locale.ROOT);
+        if (!DASHBOARD_HOST.equals(host)) {
+            Toast.makeText(this, "Download blocked: not from the dashboard.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        expectBlob = true;
+        Toast.makeText(this, "Preparing download\u2026", Toast.LENGTH_SHORT).show();
+        String js = "(function(u){var b=window.__adBlobs&&window.__adBlobs[u];"
+                + "var p=b?Promise.resolve(b):fetch(u).then(function(r){return r.blob();});"
+                + "p.then(function(blob){var fr=new FileReader();fr.onloadend=function(){"
+                + "var s=String(fr.result);var i=s.indexOf(',');"
+                + "AndroidDownload.save(s.substring(i+1),blob.type||'',window.__adName||'');window.__adName='';};"
+                + "fr.readAsDataURL(blob);}).catch(function(e){AndroidDownload.fail(String(e));});})("
+                + JSONObject.quote(blobUrl) + ");";
+        webView.evaluateJavascript(js, null);
+    }
+
+    private void saveDataUrl(String dataUrl, String disposition, String mimeType) {
+        try {
+            int comma = dataUrl.indexOf(',');
+            String meta = dataUrl.substring(5, comma);
+            String payload = dataUrl.substring(comma + 1);
+            byte[] bytes;
+            if (meta.contains(";base64")) {
+                bytes = Base64.decode(payload, Base64.DEFAULT);
+            } else {
+                bytes = Uri.decode(payload).getBytes("UTF-8");
+            }
+            String mime = meta.split(";")[0];
+            if (mime.isEmpty()) mime = mimeType == null ? "application/octet-stream" : mimeType;
+            String name = URLUtil.guessFileName("download", disposition, mime);
+            saveBytesToDownloads(bytes, mime, name);
+        } catch (Exception ex) {
+            Toast.makeText(this, "Could not save the download.", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private String cleanFileName(String requested, String mime) {
+        String name = requested == null ? "" : requested.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_").trim();
+        if (name.isEmpty()) name = "audit-dashboard-file";
+        if (!name.contains(".") && mime != null && !mime.isEmpty()) {
+            String ext = android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(mime);
+            if (ext != null) name = name + "." + ext;
+        }
+        return name;
+    }
+
+    private void saveBytesToDownloads(byte[] bytes, String mime, String requestedName) throws Exception {
+        String name = cleanFileName(requestedName, mime);
+        String type = (mime == null || mime.isEmpty()) ? "application/octet-stream" : mime;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ContentValues values = new ContentValues();
+            values.put(MediaStore.Downloads.DISPLAY_NAME, name);
+            values.put(MediaStore.Downloads.MIME_TYPE, type);
+            values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+            Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+            if (uri == null) throw new IllegalStateException("insert failed");
+            try (OutputStream out = getContentResolver().openOutputStream(uri)) {
+                out.write(bytes);
+            }
+        } else {
+            File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+            if (!dir.exists()) dir.mkdirs();
+            File target = new File(dir, name);
+            int n = 1;
+            while (target.exists()) {
+                int dot = name.lastIndexOf('.');
+                String base = dot > 0 ? name.substring(0, dot) : name;
+                String ext = dot > 0 ? name.substring(dot) : "";
+                target = new File(dir, base + " (" + (n++) + ")" + ext);
+            }
+            try (FileOutputStream out = new FileOutputStream(target)) {
+                out.write(bytes);
+            }
+        }
+        final String shown = name;
+        runOnUiThread(() -> Toast.makeText(this, "Saved to Downloads: " + shown, Toast.LENGTH_LONG).show());
+    }
+
+    private final class DownloadBridge {
+        @JavascriptInterface
+        public void save(String base64, String mime, String name) {
+            // Only accept data the app itself asked the page for.
+            if (!expectBlob) return;
+            expectBlob = false;
+            try {
+                if (base64 == null || base64.length() > MAX_DOWNLOAD_BASE64_CHARS) {
+                    throw new IllegalArgumentException("too large");
+                }
+                saveBytesToDownloads(Base64.decode(base64, Base64.DEFAULT), mime, name);
+            } catch (Exception ex) {
+                runOnUiThread(() -> Toast.makeText(MainActivity.this,
+                        "Could not save the download. Please try again.", Toast.LENGTH_LONG).show());
+            }
+        }
+
+        @JavascriptInterface
+        public void fail(String message) {
+            if (!expectBlob) return;
+            expectBlob = false;
+            runOnUiThread(() -> Toast.makeText(MainActivity.this,
+                    "Download failed. Please try again.", Toast.LENGTH_LONG).show());
+        }
     }
 }

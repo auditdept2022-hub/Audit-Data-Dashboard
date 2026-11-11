@@ -11,6 +11,8 @@ The app loads the live website. It does not copy dashboard records, store passwo
 - WebView configured for the dashboard's JavaScript interface and browser storage.
 - Persistent WebView cookies for the dashboard session.
 - Android file picker support for dashboard file-upload controls.
+- Reports generated inside the page (blob/data downloads) are saved to your Downloads folder.
+- Popup windows from the dashboard are handled instead of being blocked.
 - Download Manager handling for report/file downloads.
 - Android Back navigation, loading indicator, and an offline retry screen.
 - Google Drive, Google Docs, and Google account pages are opened in the phone's external browser.
@@ -18,18 +20,13 @@ The app loads the live website. It does not copy dashboard records, store passwo
 
 ## Build an installable APK without installing Android Studio
 
-This project includes a GitHub Actions workflow that builds a debug APK in the cloud.
+This project includes a GitHub Actions workflow (`.github/workflows/build-android-apk.yml`) that builds a debug APK in the cloud. See `README-ADD-TO-EXISTING-GITHUB.md` for the upload steps.
 
-1. Extract `AuditDashboardAndroid.zip` on your computer.
-2. Sign in to GitHub and create a **new empty repository** (private is fine), for example `audit-dashboard-android`.
-3. In that repository, choose **Add file → Upload files** and upload the *contents* of this extracted folder. Keep the `.github/workflows/build-apk.yml` file and its folders; do not omit hidden folders.
-4. Commit the upload to the `main` branch.
-5. Open the repository's **Actions** tab and select **Build Audit Dashboard APK**. The workflow should start automatically after the commit. You can also open it and choose **Run workflow**.
-6. When the run is complete, open the successful run and download the artifact named **audit-dashboard-apk**.
-7. Extract the downloaded artifact. It contains `app-debug.apk`.
-8. Send `app-debug.apk` to your Android phone, open it, and allow installation from that source when Android asks. Then launch **Audit Dashboard**.
+1. Put the `android/` folder and `.github/workflows/build-android-apk.yml` in the root of your repository and push to `main` or `master`.
+2. Open the **Actions** tab, choose **Build Audit Dashboard Android APK**, and (if it did not start by itself) click **Run workflow**.
+3. When the run succeeds, download the artifact **audit-dashboard-apk**, extract it, and install `app-debug.apk` on your phone.
 
-The generated debug APK is signed for direct installation/testing. It is not a Play Store release build. Keep your GitHub repository private if you prefer not to publish the app source.
+Every build is signed with the same key (`android/app/debug.keystore`), so a newer APK installs over the old one without uninstalling. This is a debug/sideload key, not a Play Store release key.
 
 ## Build locally with Android Studio
 
