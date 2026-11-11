@@ -24,6 +24,7 @@ import android.view.WindowManager;
 import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
 import android.webkit.JavascriptInterface;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebResourceResponse;
 import android.webkit.URLUtil;
 import android.webkit.ValueCallback;
@@ -179,7 +180,18 @@ public class MainActivity extends Activity {
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                // Only top-level navigations may leave the app. Frames inside the dashboard (previews,
+                // embeds) stay in place instead of being thrown to the browser / native Drive app.
+                if (!request.isForMainFrame()) return false;
                 return routeUrl(request.getUrl());
+            }
+
+            @Override
+            public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+                // The page's renderer was killed (usually low memory). Rebuild the WebView
+                // instead of leaving a frozen / blank screen or crashing the app.
+                recoverFromRendererLoss();
+                return true;
             }
 
             @Override
@@ -445,7 +457,31 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         CookieManager.getInstance().flush();
+        // Tell the page it is hidden so the dashboard stops its background refresh / presence timers
+        // while the app is in the background (less battery use, and no pile-up of work on return).
+        if (webView != null) webView.onPause();
         super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (webView != null) webView.onResume();
+    }
+
+    private void recoverFromRendererLoss() {
+        if (webView == null || root == null) return;
+        ViewGroup parent = (ViewGroup) webView.getParent();
+        if (parent != null) parent.removeView(webView);
+        webView.destroy();
+        webView = new WebView(this);
+        webView.setBackgroundColor(getColor(R.color.app_background));
+        root.addView(webView, 0, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        configureWebView();
+        errorPanel.setVisibility(View.GONE);
+        webView.setVisibility(View.VISIBLE);
+        webView.loadUrl(DASHBOARD_URL);
     }
 
     @Override
