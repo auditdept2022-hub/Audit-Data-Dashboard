@@ -49,7 +49,7 @@ import java.io.OutputStream;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
-    private static final String DASHBOARD_URL = "https://auditdashboard.devs.li/";
+    private static final String DASHBOARD_URL = "https://auditdept2022-hub.github.io/Audit-Data-Dashboard/";
     private static final int FILE_CHOOSER_REQUEST = 4101;
     private static final int DOWNLOAD_PERMISSION_REQUEST = 4102;
 
@@ -514,7 +514,7 @@ public class MainActivity extends Activity {
     // ---- In-page generated downloads (blob: / data: URLs) -------------------------------------
     // DownloadManager cannot fetch blob: URLs, so the page hands the bytes to the app instead.
 
-    private static final String DASHBOARD_HOST = "auditdashboard.devs.li";
+    private static final String DASHBOARD_HOST = "auditdept2022-hub.github.io";
     private static final int MAX_DOWNLOAD_BASE64_CHARS = 80 * 1024 * 1024;
     private volatile boolean expectBlob = false;
 
