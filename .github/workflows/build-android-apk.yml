@@ -30,21 +30,24 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      # The GitHub runner already ships with the Android SDK, so no extra action is needed.
+      # Accept licences and install exactly the SDK pieces the project asks for.
+      # (Same versions as android/app/build.gradle: compileSdk 35, buildTools 35.0.0.)
       - name: Prepare Android SDK
         shell: bash
         run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           SDKM="$(command -v sdkmanager || true)"
-          if [ -z "$SDKM" ]; then SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"; fi
-          echo "Using $SDKM"
+          if [ -z "$SDKM" ]; then SDKM="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"; fi
+          echo "SDK_ROOT=$SDK_ROOT  SDKM=$SDKM"
           set +o pipefail
-          yes | "$SDKM" --licenses > /dev/null 2>&1 || true
-          "$SDKM" "platforms;android-35" "build-tools;35.0.0"
+          yes | "$SDKM" --sdk_root="$SDK_ROOT" --licenses > /tmp/licences.log 2>&1 || true
+          tail -3 /tmp/licences.log
+          "$SDKM" --sdk_root="$SDK_ROOT" "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$SDK_ROOT" > android/local.properties
 
       - name: Build debug APK
         working-directory: android
-        run: gradle --no-daemon assembleDebug
+        run: gradle --no-daemon --stacktrace --console=plain assembleDebug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -53,3 +56,14 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Upload build reports (only if the build failed)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-reports
+          path: |
+            android/app/build/reports
+            android/app/build/outputs/logs
+          if-no-files-found: ignore
+          retention-days: 7
