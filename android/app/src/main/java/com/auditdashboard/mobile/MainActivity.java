@@ -183,11 +183,11 @@ public class MainActivity extends Activity {
         settings.setTextZoom(92);
         settings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.NORMAL);
         settings.setAllowFileAccess(false);
-        settings.setAllowContentAccess(true);
+        settings.setAllowContentAccess(false);
         settings.setJavaScriptCanOpenWindowsAutomatically(true);
         settings.setSupportMultipleWindows(true);
         settings.setMediaPlaybackRequiresUserGesture(true);
-        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         // Performance: use the HTTP cache normally, rasterize off-screen content ahead of scrolling,
         // keep the page's renderer at high priority, and drop the stretch/glow effect on overscroll.
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
@@ -239,6 +239,7 @@ public class MainActivity extends Activity {
 
             @Override
             public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                trustedPage = isDashboardUrl(url);
                 errorPanel.setVisibility(View.GONE);
                 webView.setVisibility(View.VISIBLE);
                 progressBar.setVisibility(View.VISIBLE);
@@ -380,20 +381,33 @@ public class MainActivity extends Activity {
 
     private boolean routeUrl(Uri uri) {
         String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
-        if ("http".equals(scheme) || "https".equals(scheme)) {
+        if ("https".equals(scheme)) {
             String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
-            if (host.equals("drive.google.com") || host.equals("docs.google.com") ||
-                    host.equals("accounts.google.com") || host.equals("myaccount.google.com")) {
-                openExternal(uri);
-                return true;
-            }
-            return false;
+            // SECURITY: only the dashboard itself may load inside the WebView (which exposes the
+            // AndroidDownload JS bridge). Every other site opens in the phone's browser.
+            if (host.equals(DASHBOARD_HOST)) return false;
+            openExternal(uri);
+            return true;
+        }
+        if ("http".equals(scheme)) {
+            openExternal(uri);
+            return true;
         }
         if ("about".equals(scheme) || "blob".equals(scheme) || "data".equals(scheme)) {
             return false;
         }
         openExternal(uri);
         return true;
+    }
+
+    private static boolean isDashboardUrl(String url) {
+        try {
+            Uri u = Uri.parse(url);
+            return "https".equalsIgnoreCase(u.getScheme())
+                    && DASHBOARD_HOST.equalsIgnoreCase(u.getHost());
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private void openExternal(Uri uri) {
@@ -429,17 +443,23 @@ public class MainActivity extends Activity {
             return;
         }
         try {
+            if (!pendingDownloadUrl.startsWith("https://")) {
+                Toast.makeText(this, "Blocked: downloads must use HTTPS.", Toast.LENGTH_LONG).show();
+                return;
+            }
             DownloadManager.Request request = new DownloadManager.Request(Uri.parse(pendingDownloadUrl));
             request.setTitle(URLUtil.guessFileName(pendingDownloadUrl, pendingDownloadDisposition, pendingDownloadMimeType));
             request.setDescription("Downloading from Audit Dashboard");
             request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
             request.setAllowedOverMetered(true);
             request.setAllowedOverRoaming(false);
-            String cookies = CookieManager.getInstance().getCookie(pendingDownloadUrl);
-            if (cookies != null) request.addRequestHeader("Cookie", cookies);
+            if (isDashboardUrl(pendingDownloadUrl)) {
+                String cookies = CookieManager.getInstance().getCookie(pendingDownloadUrl);
+                if (cookies != null) request.addRequestHeader("Cookie", cookies);
+            }
             if (pendingDownloadUserAgent != null) request.addRequestHeader("User-Agent", pendingDownloadUserAgent);
             request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS,
-                    URLUtil.guessFileName(pendingDownloadUrl, pendingDownloadDisposition, pendingDownloadMimeType));
+                    cleanFileName(URLUtil.guessFileName(pendingDownloadUrl, pendingDownloadDisposition, pendingDownloadMimeType), pendingDownloadMimeType));
             DownloadManager manager = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
             manager.enqueue(request);
             Toast.makeText(this, "Download started. Check your Downloads folder.", Toast.LENGTH_LONG).show();
@@ -556,6 +576,7 @@ public class MainActivity extends Activity {
     private static final String DASHBOARD_HOST = "auditdept2022-hub.github.io";
     private static final int MAX_DOWNLOAD_BASE64_CHARS = 80 * 1024 * 1024;
     private volatile boolean expectBlob = false;
+    private volatile boolean trustedPage = false;
 
     // Auto-fit: keep the site's own responsive phone layout (device width) and add safety rules so
     // nothing is cut off: truncated text wraps instead of "...", no sideways overflow, and the last
@@ -694,8 +715,8 @@ public class MainActivity extends Activity {
     private final class DownloadBridge {
         @JavascriptInterface
         public void save(String base64, String mime, String name) {
-            // Only accept data the app itself asked the page for.
-            if (!expectBlob) return;
+            // Only accept data the app itself asked the page for, from the dashboard origin.
+            if (!expectBlob || !trustedPage) return;
             expectBlob = false;
             try {
                 if (base64 == null || base64.length() > MAX_DOWNLOAD_BASE64_CHARS) {
@@ -710,7 +731,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void fail(String message) {
-            if (!expectBlob) return;
+            if (!expectBlob || !trustedPage) return;
             expectBlob = false;
             runOnUiThread(() -> Toast.makeText(MainActivity.this,
                     "Download failed. Please try again.", Toast.LENGTH_LONG).show());
