@@ -46,13 +46,58 @@ jobs:
           "$SDKM" --sdk_root="$SDK_ROOT" "platforms;android-35" "build-tools;35.0.0"
           echo "sdk.dir=$SDK_ROOT" > android/local.properties
 
-      # Safety net: always use the correct root Gradle file, even if a wrong
-      # build.gradle was uploaded into android/ by mistake.
-      - name: Restore android/build.gradle
+      # Safety net: always write the two correct Gradle files, even if a
+      # build.gradle was uploaded to the wrong folder by mistake.
+      - name: Write correct Gradle files
         run: |
-          printf "plugins {\n    id 'com.android.application' version '8.7.3' apply false\n}\n" > android/build.gradle
+          cat > android/build.gradle <<'EOF_ROOT'
+          plugins {
+              id 'com.android.application' version '8.7.3' apply false
+          }
+          EOF_ROOT
+          cat > android/app/build.gradle <<'EOF_APP'
+          plugins {
+              id 'com.android.application'
+          }
+
+          def apkBuildNumber = (project.findProperty('apkVersionCode') ?: '2').toString().toInteger()
+
+          android {
+              namespace 'com.auditdashboard.mobile'
+              compileSdk 35
+
+              defaultConfig {
+                  applicationId 'com.auditdashboard.mobile'
+                  minSdk 24
+                  targetSdk 34
+                  versionCode apkBuildNumber
+                  versionName "1.1.${apkBuildNumber}"
+              }
+
+              // Signing key comes from GitHub Secrets (never stored in the repo).
+              // Same key every build => a new APK installs OVER the old one.
+              // If the secrets are not set, Gradle falls back to its own throwaway debug key.
+              signingConfigs {
+                  release {
+                      def ksPath = System.getenv('KEYSTORE_FILE')
+                      if (ksPath) {
+                          storeFile file(ksPath)
+                          storePassword System.getenv('KEYSTORE_PASSWORD')
+                          keyAlias System.getenv('KEY_ALIAS')
+                          keyPassword System.getenv('KEY_PASSWORD')
+                      }
+                  }
+              }
+
+              buildTypes {
+                  debug {
+                      if (System.getenv('KEYSTORE_FILE')) signingConfig signingConfigs.release
+                  }
+              }
+          }
+          EOF_APP
           echo "--- android/build.gradle"; cat android/build.gradle
-          echo "--- android/app/build.gradle (first lines)"; head -8 android/app/build.gradle
+          echo "--- android/app/build.gradle"; head -6 android/app/build.gradle
 
       - name: Load signing key from GitHub Secrets
         env:
