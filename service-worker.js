@@ -5,6 +5,7 @@
 // v193: phone scorecard is no longer a nested vertical scroller (page scrolls smoothly, table scrolls sideways only); uniform row shading; 3-digit row numbers fit; height refit ignores URL-bar resizes.
 // v192: scorecard no longer freezes # / Branch columns (all columns scroll horizontally); Drive root shows icon instead of 'All files' text; Snapshot Filter metrics menu no longer closes itself and no longer collapses on mobile address-bar resize; touch/hover smoothness fixes.
 // v191: fixes mobile scorecard table cascade specificity; preserves native 13-column desktop table in its own phone-width scroller.
+// v272: security pass - CSP on every page, sheet-data sanitising on the attendance page, unpkg.com removed from cacheable hosts.
 // Bump CACHE_VERSION any time you change what gets precached.
 // v269: sub-pages (Opex, Parts_Request, Data-updater, attendance_dashboard) now require Firebase sign-in and send the ID token to Apps Script.
 // v268: performance engine in index.html (non-blocking fonts, hidden-tab animation pause, cached scroll layout reads, ?perf=1 profiler). Bumped so installed clients fetch the new shell.
@@ -55,7 +56,7 @@
 // v162: assistant speed pass (instant local answers, fewer POST round-trips, early wake-up, compact prompt for general chat).
 // v161: bounded Gemini overload failover/retry and removal of the chat Drive workspace.
 // v172: Drive-native user-corpus search with Shared Drive inclusion, exact phrases, expanded file-type filters, and faster cache refresh.
-const CACHE_VERSION = 'audit-dashboard-v271'
+const CACHE_VERSION = 'audit-dashboard-v272'
 // v141: native Google Sheets creation, flexible natural-language Drive destinations, explicit My Drive root handling and Docs/DOCX/PDF creation; v138 response profiles and v137 transport/template safeguards retained.
 // v137: CORS-resilient assistant file POST/result retrieval, API-key-scoped quota cooldowns, and guarded DOCX section saves.
 // v136: persistent daily-quota cooldown, stable-model preference over preview overrides, and precise template edits.
@@ -164,7 +165,6 @@ const CDN_HOSTS = [
   'cdn.tailwindcss.com',
   'cdn.jsdelivr.net',
   'cdnjs.cloudflare.com',
-  'unpkg.com',
   'fonts.googleapis.com',
   'fonts.gstatic.com',
   'www.gstatic.com'

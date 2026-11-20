@@ -55,6 +55,7 @@ onAuthStateChanged(auth,function(u){ if(u){window.__agReady();}else{window.__agD
 
 <meta charset="UTF-8" />
 <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://docs.google.com https://*.googleapis.com https://www.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://api.open-meteo.com; frame-src https://drive.google.com https://docs.google.com https://*.google.com https://*.googleusercontent.com blob: data:; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
@@ -1568,7 +1569,7 @@ function renderAttachChip(){
   if (currentImage) {
     chip.hidden = false;
     btn.textContent = '📎 Replace screenshot';
-    chip.innerHTML = `<img src="${currentImage.data}" alt="Attached screenshot" /><span>${escapeHtml(currentImage.name)}</span><button type="button" id="removeAttachBtn" title="Remove">×</button>`;
+    chip.innerHTML = `<img src="${safeImgSrc(currentImage.data)}" alt="Attached screenshot" /><span>${escapeHtml(currentImage.name)}</span><button type="button" id="removeAttachBtn" title="Remove">×</button>`;
     chip.querySelector('img').onclick = () => openImgLightbox(currentImage.data);
     $('removeAttachBtn').onclick = () => { currentImage = null; renderAttachChip(); };
   } else {
@@ -1578,6 +1579,8 @@ function renderAttachChip(){
   }
 }
 
+// SECURITY: image sources come from saved sheet data / file readers; allow only data:image/* and https URLs.
+function safeImgSrc(v){ v=String(v==null?'':v); return (/^data:image\/(png|jpe?g|gif|webp);base64,[A-Za-z0-9+\/=]+$/i.test(v)||/^https:\/\//i.test(v))?escapeHtml(v):''; }
 function openImgLightbox(src){
   if (!src) return;
   $('imgOverlayImg').src = src;
@@ -2321,7 +2324,7 @@ function printItemsSlip(items, dateVal){
     seenPrintImgs.add(entry.image);
     const page = document.createElement('div');
     page.className = 'pi-page';
-    page.innerHTML = `<div class="pi-title">Attachment — ${escapeHtml(entry.item || '')}</div><img class="pi-img" src="${entry.image}" alt="Order screenshot" />`;
+    page.innerHTML = `<div class="pi-title">Attachment — ${escapeHtml(entry.item || '')}</div><img class="pi-img" src="${safeImgSrc(entry.image)}" alt="Order screenshot" />`;
     slip.appendChild(page);
   });
 

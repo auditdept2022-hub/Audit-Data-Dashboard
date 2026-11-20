@@ -55,6 +55,7 @@ onAuthStateChanged(auth,function(u){ if(u){window.__agReady();}else{window.__agD
 
 <meta charset="UTF-8">
 <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://docs.google.com https://*.googleapis.com https://www.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://api.open-meteo.com; frame-src https://drive.google.com https://docs.google.com https://*.google.com https://*.googleusercontent.com blob: data:; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
 <!-- PWA: installable app config, shared across the whole site. -->
@@ -2834,6 +2835,14 @@ function parseRowsToSheet(rows){
 // so it's the most reliable read path when the public gviz export is
 // blocked by network/sandbox restrictions. Requires a doGet handler in the
 // Apps Script project \u2014 see the Code.gs setup notes.
+// SECURITY: this page builds HTML from sheet values. Strip tag/attribute-breaking characters at ingest
+// so a malicious or accidental "<img onerror=...>" in a sheet cell cannot execute (stored XSS).
+function adNeutralize(v){
+  if(typeof v==='string') return v.replace(/[<>"`]/g,'');
+  if(Array.isArray(v)) return v.map(adNeutralize);
+  if(v&&typeof v==='object'){ const o={}; for(const k of Object.keys(v)){ if(k==='__proto__'||k==='constructor'||k==='prototype') continue; o[adNeutralize(k)]=adNeutralize(v[k]); } return o; }
+  return v;
+}
 async function fetchSheetViaWebApp(name){
   if(!state.webAppUrl) throw new Error('no web app URL configured');
   const url = `${state.webAppUrl}?sheet=${encodeURIComponent(name)}&_=${Date.now()}`;
@@ -2852,7 +2861,7 @@ async function fetchSheetViaWebApp(name){
   const json = await res.json().catch(() => null);
   if(!json || json.ok !== true) throw new Error((json && json.error) ? json.error : 'web app did not return attendance data \u2014 add the doGet handler from the setup notes');
   if(!Array.isArray(json.employees) || !Array.isArray(json.days)) throw new Error('web app response was missing employees/days');
-  return { employees: json.employees, days: json.days };
+  return adNeutralize({ employees: json.employees, days: json.days });
 }
 
 async function fetchSheetLive(name){
@@ -2877,7 +2886,7 @@ async function fetchSheetLive(name){
   const rows = parseCSV(text);
   const parsed = parseRowsToSheet(rows);
   if(!parsed) throw new Error('could not find a "Month" header row on the "' + name + '" tab');
-  return parsed;
+  return adNeutralize(parsed);
 }
 
 async function getSheetData(name, force){
