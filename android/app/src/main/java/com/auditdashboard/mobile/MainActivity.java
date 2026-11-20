@@ -16,6 +16,7 @@ import android.os.Environment;
 import android.os.Message;
 import android.provider.MediaStore;
 import android.util.Base64;
+import android.view.Display;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -69,12 +70,39 @@ public class MainActivity extends Activity {
         Window window = getWindow();
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
 
+        requestHighRefreshRate();
         buildLayout();
         configureWebView();
 
         boolean restored = savedInstanceState != null && webView.restoreState(savedInstanceState) != null;
         if (!restored) {
             webView.loadUrl(DASHBOARD_URL);
+        }
+    }
+
+    // Ask Android for the screen's highest refresh rate (90/120 Hz) so scrolling is as smooth as the panel allows.
+    private void requestHighRefreshRate() {
+        try {
+            Display display = Build.VERSION.SDK_INT >= 30 ? getDisplay() : getWindowManager().getDefaultDisplay();
+            if (display == null) return;
+            Display.Mode current = display.getMode();
+            float best = 0f;
+            int bestId = 0;
+            for (Display.Mode m : display.getSupportedModes()) {
+                if (m.getPhysicalWidth() == current.getPhysicalWidth()
+                        && m.getPhysicalHeight() == current.getPhysicalHeight()
+                        && m.getRefreshRate() > best) {
+                    best = m.getRefreshRate();
+                    bestId = m.getModeId();
+                }
+            }
+            if (bestId != 0) {
+                WindowManager.LayoutParams lp = getWindow().getAttributes();
+                lp.preferredDisplayModeId = bestId;
+                lp.preferredRefreshRate = best;
+                getWindow().setAttributes(lp);
+            }
+        } catch (Throwable ignored) {
         }
     }
 
@@ -160,6 +188,15 @@ public class MainActivity extends Activity {
         settings.setSupportMultipleWindows(true);
         settings.setMediaPlaybackRequiresUserGesture(true);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+        // Performance: use the HTTP cache normally, rasterize off-screen content ahead of scrolling,
+        // keep the page's renderer at high priority, and drop the stretch/glow effect on overscroll.
+        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+        settings.setOffscreenPreRaster(true);
+        webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        webView.setScrollBarStyle(View.SCROLLBARS_INSIDE_OVERLAY);
+        if (Build.VERSION.SDK_INT >= 26) {
+            webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false);
+        }
 
         // Present the same browser identity as Chrome so the site serves its normal mobile design.
         String ua = settings.getUserAgentString();
@@ -211,6 +248,7 @@ public class MainActivity extends Activity {
             @Override
             public void onPageCommitVisible(WebView view, String url) {
                 view.evaluateJavascript(ENSURE_VIEWPORT, null);
+                view.evaluateJavascript(APP_PERF_CSS, null);
             }
 
             @Override
@@ -220,6 +258,7 @@ public class MainActivity extends Activity {
                 CookieManager.getInstance().flush();
                 view.evaluateJavascript(DOWNLOAD_NAME_HOOK, null);
                 view.evaluateJavascript(ENSURE_VIEWPORT, null);
+                view.evaluateJavascript(APP_PERF_CSS, null);
             }
 
             @Override
@@ -521,6 +560,18 @@ public class MainActivity extends Activity {
     // Auto-fit: keep the site's own responsive phone layout (device width) and add safety rules so
     // nothing is cut off: truncated text wraps instead of "...", no sideways overflow, and the last
     // cards are not hidden behind the floating assistant button.
+    // App-only speed-ups (the website in a normal browser is untouched): background-blur layers are the
+    // most expensive thing a phone GPU repaints while scrolling, so they are turned off inside the app.
+    private static final String APP_PERF_CSS =
+            "(function(){"
+            + "if(document.getElementById('ad-perf'))return;"
+            + "var st=document.createElement('style');st.id='ad-perf';"
+            + "st.textContent='*{-webkit-backdrop-filter:none!important;backdrop-filter:none!important;"
+            + "-webkit-tap-highlight-color:transparent}"
+            + "html{overscroll-behavior:none}"
+            + "body{touch-action:manipulation}';"
+            + "(document.head||document.documentElement).appendChild(st);})();";
+
     private static final String ENSURE_VIEWPORT =
             "(function(){"
             + "var m=document.querySelector('meta[name=viewport]');"
