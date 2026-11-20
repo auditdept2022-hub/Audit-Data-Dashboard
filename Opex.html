@@ -1,6 +1,58 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!-- AUTH-GUARD v1: sub-pages require the same Firebase sign-in as index.html, and every
+     request to an Apps Script backend carries the user's Firebase ID token (idToken). -->
+<script>
+(function(){
+  var de=document.documentElement; de.classList.add('ag-pending');
+  var st=document.createElement('style');
+  st.textContent='html.ag-pending body{visibility:hidden!important}#agMsg{position:fixed;top:0;left:0;right:0;bottom:0;z-index:2147483647;display:flex;flex-direction:column;gap:12px;align-items:center;justify-content:center;background:#0f172a;color:#e2e8f0;font:600 15px system-ui,sans-serif;text-align:center;padding:24px}#agMsg a{color:#93c5fd}';
+  document.head.appendChild(st);
+  var box=document.createElement('div'); box.id='agMsg'; box.textContent='Checking sign-in\u2026'; de.appendChild(box);
+  var ready,denied,readyP=new Promise(function(res,rej){ready=res;denied=rej;}); readyP.catch(function(){});
+  var HOME='index.html';
+  window.__agReady=function(){ de.classList.remove('ag-pending'); if(box.parentNode)box.parentNode.removeChild(box); ready(true); };
+  window.__agDenied=function(){ box.textContent='Please sign in first\u2026'; denied(new Error('signed-out')); location.replace(HOME); };
+  setTimeout(function(){ if(de.classList.contains('ag-pending')&&box.parentNode){ box.innerHTML='Could not verify your sign-in.<br><a href="'+HOME+'">Open the dashboard and sign in</a>'; } },12000);
+  function race(p,ms){return Promise.race([p,new Promise(function(r){setTimeout(function(){r(null)},ms)})]);}
+  function getToken(){ return readyP.then(function(){ return race(window.__agToken?window.__agToken():Promise.resolve(null),15000); }).catch(function(){return null;}); }
+  var orig=window.fetch.bind(window);
+  function isScript(u){ try{ return new URL(u,location.href).hostname==='script.google.com'; }catch(e){ return false; } }
+  window.fetch=async function(input,init){
+    try{
+      var url=typeof input==='string'?input:(input&&input.url)||String(input);
+      if(isScript(url)){
+        var tok=await getToken();
+        if(tok){
+          var method=String((init&&init.method)||(input&&input.method)||'GET').toUpperCase();
+          if(method==='GET'||method==='HEAD'){
+            var u=new URL(url,location.href); u.searchParams.set('idToken',tok);
+            input=(typeof input==='string')?u.href:new Request(u.href,input);
+          }else if(init&&typeof init.body==='string'){
+            try{ var o=JSON.parse(init.body); if(o&&typeof o==='object'&&!Array.isArray(o)){ o.idToken=tok; init=Object.assign({},init,{body:JSON.stringify(o)}); } }catch(e){}
+          }
+        }
+      }
+    }catch(e){}
+    return orig(input,init);
+  };
+})();
+</script>
+<script type="module">
+import{initializeApp,getApps,getApp}from"https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import{getAuth,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+const cfg={apiKey:"AIzaSyCuntpbNHmez53kWE9nyORhNC62W_FvrTU",authDomain:"audit-dashboard-4ca4a.firebaseapp.com",projectId:"audit-dashboard-4ca4a",storageBucket:"audit-dashboard-4ca4a.firebasestorage.app",messagingSenderId:"508009297337",appId:"1:508009297337:web:b31255a81546216d703268"};
+const app=getApps().length?getApp():initializeApp(cfg);
+const auth=getAuth(app);
+window.__agToken=async function(){
+  if(!auth.currentUser)return null;
+  try{return await auth.currentUser.getIdToken();}catch(e){try{return await auth.currentUser.getIdToken(true);}catch(e2){return null;}}
+};
+onAuthStateChanged(auth,function(u){ if(u){window.__agReady();}else{window.__agDenied();} });
+</script>
+<!-- /AUTH-GUARD -->
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
@@ -711,9 +763,7 @@
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
 
-  setPersistence(auth, browserLocalPersistence).catch(function(err) {
-    console.warn('Could not set auth persistence:', err);
-  });
+  // (Persistence is chosen at sign-in on index.html; do not override it here.)
 
   // Gate for the Delete button: re-checks the *currently signed-in*
   // person's own account password (not a shared/static one) before a
