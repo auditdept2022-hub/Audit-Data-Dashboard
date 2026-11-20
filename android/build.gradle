@@ -2,6 +2,8 @@ plugins {
     id 'com.android.application'
 }
 
+def apkBuildNumber = (project.findProperty('apkVersionCode') ?: '2').toString().toInteger()
+
 android {
     namespace 'com.auditdashboard.mobile'
     compileSdk 35
@@ -10,8 +12,8 @@ android {
         applicationId 'com.auditdashboard.mobile'
         minSdk 24
         targetSdk 34
-        versionCode (project.findProperty('apkVersionCode') ?: '2').toInteger()
-        versionName '1.1.' + (project.findProperty('apkVersionCode') ?: '0')
+        versionCode apkBuildNumber
+        versionName "1.1.${apkBuildNumber}"
     }
 
     // Signing key comes from GitHub Secrets (never stored in the repo).
