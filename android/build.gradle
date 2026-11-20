@@ -1,3 +1,37 @@
 plugins {
-    id 'com.android.application' version '8.7.3' apply false
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.auditdashboard.mobile'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.auditdashboard.mobile'
+        minSdk 24
+        targetSdk 34
+        versionCode (project.findProperty('apkVersionCode') ?: '2').toInteger()
+        versionName '1.1.' + (project.findProperty('apkVersionCode') ?: '0')
+    }
+
+    // Signing key comes from GitHub Secrets (never stored in the repo).
+    // Same key every build => a new APK installs OVER the old one.
+    // If the secrets are not set, Gradle falls back to its own throwaway debug key.
+    signingConfigs {
+        release {
+            def ksPath = System.getenv('KEYSTORE_FILE')
+            if (ksPath) {
+                storeFile file(ksPath)
+                storePassword System.getenv('KEYSTORE_PASSWORD')
+                keyAlias System.getenv('KEY_ALIAS')
+                keyPassword System.getenv('KEY_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            if (System.getenv('KEYSTORE_FILE')) signingConfig signingConfigs.release
+        }
+    }
 }

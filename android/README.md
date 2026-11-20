@@ -26,7 +26,7 @@ This project includes a GitHub Actions workflow (`.github/workflows/build-androi
 2. Open the **Actions** tab, choose **Build Audit Dashboard Android APK**, and (if it did not start by itself) click **Run workflow**.
 3. When the run succeeds, download the artifact **audit-dashboard-apk**, extract it, and install `app-debug.apk` on your phone.
 
-Every build is signed with the same key (`android/app/debug.keystore`), so a newer APK installs over the old one without uninstalling. This is a debug/sideload key, not a Play Store release key.
+Builds are signed with a key stored in GitHub Secrets (`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`), so a newer APK installs over the old one. No keystore is kept in the repo.
 
 ## Build locally with Android Studio
 
