@@ -1,0 +1,44 @@
+plugins {
+    id 'com.android.application'
+}
+
+def apkBuildNumber = (project.findProperty('apkVersionCode') ?: '2').toString().toInteger()
+
+android {
+    namespace 'com.auditdashboard.mobile'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.auditdashboard.mobile'
+        minSdk 24
+        targetSdk 34
+        versionCode apkBuildNumber
+        versionName "1.1.${apkBuildNumber}"
+    }
+
+    // Signing key comes from GitHub Secrets (never stored in the repo).
+    // Same key every build => a new APK installs OVER the old one.
+    signingConfigs {
+        release {
+            def ksPath = System.getenv('KEYSTORE_FILE')
+            if (ksPath) {
+                storeFile file(ksPath)
+                storePassword System.getenv('KEYSTORE_PASSWORD')
+                keyAlias System.getenv('KEY_ALIAS')
+                keyPassword System.getenv('KEY_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            if (System.getenv('KEYSTORE_FILE')) signingConfig signingConfigs.release
+        }
+        release {
+            // Non-debuggable build: WebView remote debugging stays off.
+            debuggable false
+            minifyEnabled false
+            if (System.getenv('KEYSTORE_FILE')) signingConfig signingConfigs.release
+        }
+    }
+}
