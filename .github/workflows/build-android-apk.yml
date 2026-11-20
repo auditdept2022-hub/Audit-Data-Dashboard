@@ -3,13 +3,14 @@ name: Build Audit Dashboard Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [ main, master ]
-    paths:
-      - 'android/**'
-      - '.github/workflows/build-android-apk.yml'
+    branches: [ main, master ]   # every upload/commit builds a fresh APK
 
 permissions:
-  contents: read
+  contents: write                # needed to publish the APK as a Release
+
+concurrency:
+  group: apk-build
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -45,9 +46,23 @@ jobs:
           "$SDKM" --sdk_root="$SDK_ROOT" "platforms;android-35" "build-tools;35.0.0"
           echo "sdk.dir=$SDK_ROOT" > android/local.properties
 
+      - name: Load signing key from GitHub Secrets
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            echo "KEYSTORE_FILE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+            echo "KEYSTORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> "$GITHUB_ENV"
+            echo "KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> "$GITHUB_ENV"
+            echo "KEY_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> "$GITHUB_ENV"
+          else
+            echo "No signing secrets set - using a temporary debug key."
+          fi
+
       - name: Build debug APK
         working-directory: android
-        run: gradle --no-daemon --stacktrace --console=plain assembleDebug
+        run: gradle --no-daemon --stacktrace --console=plain assembleDebug -PapkVersionCode=${{ github.run_number }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -56,6 +71,18 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      # Stable download link: Releases > "Latest APK" (replaced on every build).
+      - name: Publish APK to the "latest" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk audit-dashboard.apk
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest audit-dashboard.apk \
+            --title "Latest APK (build ${{ github.run_number }})" \
+            --notes "Built from commit ${{ github.sha }}. Install audit-dashboard.apk on your phone." \
+            --target "${{ github.sha }}"
 
       - name: Upload build reports (only if the build failed)
         if: failure()
