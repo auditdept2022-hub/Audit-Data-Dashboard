@@ -6,6 +6,8 @@
 // v192: scorecard no longer freezes # / Branch columns (all columns scroll horizontally); Drive root shows icon instead of 'All files' text; Snapshot Filter metrics menu no longer closes itself and no longer collapses on mobile address-bar resize; touch/hover smoothness fixes.
 // v191: fixes mobile scorecard table cascade specificity; preserves native 13-column desktop table in its own phone-width scroller.
 // Bump CACHE_VERSION any time you change what gets precached.
+// v267: phone performance CSS added to every page.
+// v266: Audit Risk & Schedule Analysis opens smoothly (lazy queue rows, deferred first render, scroll kept on refresh).
 // v265: Priority Audit Queue Apply button removed (live search); popups close one layer at a time.
 // v233: route authenticated default dashboard data requests to the Sheets API; improve live refresh diagnostics.
 // v231: Opex Home navigation fallback; v230: unified sub-app navigation.
@@ -51,7 +53,7 @@
 // v162: assistant speed pass (instant local answers, fewer POST round-trips, early wake-up, compact prompt for general chat).
 // v161: bounded Gemini overload failover/retry and removal of the chat Drive workspace.
 // v172: Drive-native user-corpus search with Shared Drive inclusion, exact phrases, expanded file-type filters, and faster cache refresh.
-const CACHE_VERSION = 'audit-dashboard-v265'
+const CACHE_VERSION = 'audit-dashboard-v267'
 // v141: native Google Sheets creation, flexible natural-language Drive destinations, explicit My Drive root handling and Docs/DOCX/PDF creation; v138 response profiles and v137 transport/template safeguards retained.
 // v137: CORS-resilient assistant file POST/result retrieval, API-key-scoped quota cooldowns, and guarded DOCX section saves.
 // v136: persistent daily-quota cooldown, stable-model preference over preview overrides, and precise template edits.
