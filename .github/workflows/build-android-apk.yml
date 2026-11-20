@@ -46,6 +46,14 @@ jobs:
           "$SDKM" --sdk_root="$SDK_ROOT" "platforms;android-35" "build-tools;35.0.0"
           echo "sdk.dir=$SDK_ROOT" > android/local.properties
 
+      # Safety net: always use the correct root Gradle file, even if a wrong
+      # build.gradle was uploaded into android/ by mistake.
+      - name: Restore android/build.gradle
+        run: |
+          printf "plugins {\n    id 'com.android.application' version '8.7.3' apply false\n}\n" > android/build.gradle
+          echo "--- android/build.gradle"; cat android/build.gradle
+          echo "--- android/app/build.gradle (first lines)"; head -8 android/app/build.gradle
+
       - name: Load signing key from GitHub Secrets
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
