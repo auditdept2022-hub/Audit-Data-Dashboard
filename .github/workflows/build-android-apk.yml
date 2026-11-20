@@ -46,82 +46,44 @@ jobs:
           "$SDKM" --sdk_root="$SDK_ROOT" "platforms;android-35" "build-tools;35.0.0"
           echo "sdk.dir=$SDK_ROOT" > android/local.properties
 
-      # Safety net: always write the two correct Gradle files, even if a
-      # build.gradle was uploaded to the wrong folder by mistake.
-      - name: Write correct Gradle files
-        run: |
-          cat > android/build.gradle <<'EOF_ROOT'
-          plugins {
-              id 'com.android.application' version '8.7.3' apply false
-          }
-          EOF_ROOT
-          cat > android/app/build.gradle <<'EOF_APP'
-          plugins {
-              id 'com.android.application'
-          }
-
-          def apkBuildNumber = (project.findProperty('apkVersionCode') ?: '2').toString().toInteger()
-
-          android {
-              namespace 'com.auditdashboard.mobile'
-              compileSdk 35
-
-              defaultConfig {
-                  applicationId 'com.auditdashboard.mobile'
-                  minSdk 24
-                  targetSdk 34
-                  versionCode apkBuildNumber
-                  versionName "1.1.${apkBuildNumber}"
-              }
-
-              // Signing key comes from GitHub Secrets (never stored in the repo).
-              // Same key every build => a new APK installs OVER the old one.
-              // If the secrets are not set, Gradle falls back to its own throwaway debug key.
-              signingConfigs {
-                  release {
-                      def ksPath = System.getenv('KEYSTORE_FILE')
-                      if (ksPath) {
-                          storeFile file(ksPath)
-                          storePassword System.getenv('KEYSTORE_PASSWORD')
-                          keyAlias System.getenv('KEY_ALIAS')
-                          keyPassword System.getenv('KEY_PASSWORD')
-                      }
-                  }
-              }
-
-              buildTypes {
-                  debug {
-                      if (System.getenv('KEYSTORE_FILE')) signingConfig signingConfigs.release
-                  }
-              }
-          }
-          EOF_APP
-          echo "--- android/build.gradle"; cat android/build.gradle
-          echo "--- android/app/build.gradle"; head -6 android/app/build.gradle
+      # The repo now contains the correct android/build.gradle and android/app/build.gradle,
+      # so nothing is overwritten at build time.
 
       - name: Load signing key from GitHub Secrets
+        id: signing
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           if [ -n "$KEYSTORE_B64" ]; then
-            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
             echo "KEYSTORE_FILE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
-            echo "KEYSTORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> "$GITHUB_ENV"
-            echo "KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> "$GITHUB_ENV"
-            echo "KEY_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> "$GITHUB_ENV"
+            echo "signed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "No signing secrets set - using a temporary debug key."
+            echo "No signing secrets set - building a debug APK with a temporary key."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build debug APK
+      # Signed builds ship a non-debuggable RELEASE apk; without secrets we fall back to debug.
+      - name: Build APK
         working-directory: android
-        run: gradle --no-daemon --stacktrace --console=plain assembleDebug -PapkVersionCode=${{ github.run_number }}
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ "${{ steps.signing.outputs.signed }}" = "true" ]; then
+            gradle --no-daemon --stacktrace --console=plain assembleRelease -PapkVersionCode=${{ github.run_number }}
+            echo "APK_PATH=android/app/build/outputs/apk/release/app-release.apk" >> "$GITHUB_ENV"
+          else
+            gradle --no-daemon --stacktrace --console=plain assembleDebug -PapkVersionCode=${{ github.run_number }}
+            echo "APK_PATH=android/app/build/outputs/apk/debug/app-debug.apk" >> "$GITHUB_ENV"
+          fi
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: audit-dashboard-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ env.APK_PATH }}
           if-no-files-found: error
           retention-days: 14
 
@@ -130,7 +92,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk audit-dashboard.apk
+          cp "$APK_PATH" audit-dashboard.apk
           gh release delete latest --yes --cleanup-tag || true
           gh release create latest audit-dashboard.apk \
             --title "Latest APK (build ${{ github.run_number }})" \
