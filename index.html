@@ -7016,6 +7016,14 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
   var filesEl = document.getElementById("geminiAssistantFiles");
   var aiState = { gemini: "checking", provider: (providerSelect && /^(?:auto|gemini|groq)$/.test(providerSelect.value) ? providerSelect.value : "auto"), checked: false, canPropose: false, canApprove: false, apiConfigured: false, geminiConfigured: false, groqConfigured: false, sending: false, reading: false, lastReplyAt: 0, files: [], history: [], pendingCount: 0 };
   var MAX_FILES = 10, MAX_INLINE_TOTAL = 8 * 1024 * 1024, MAX_TEXT_CHARS = 1000000;
+  // PDF.js keeps ordinary text PDFs out of the slow multimodal upload path.
+  // The extracted text cap is deliberately far below the generic 1 MB file cap.
+  var AI_PDF_TEXT_MAX_CHARS = 160000;
+  var AI_EXTRACTED_TEXT_TOTAL_MAX_CHARS = 240000;
+  var AI_PDF_MAX_TEXT_PAGES = 120;
+  var AI_PDF_INLINE_FALLBACK_MAX_BYTES = 3 * 1024 * 1024;
+  var AI_PDF_INLINE_FALLBACK_MAX_PAGES = 12;
+  var aiPdfLibPromise_ = null;
 
   function assistantApiBase_() {
     try { if (typeof defaultAppsScriptUrl !== "undefined" && defaultAppsScriptUrl) return String(defaultAppsScriptUrl); } catch (e) {}
@@ -7111,14 +7119,14 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       // doPost caches the parsed result before returning its ContentService
       // response, so a short retry handles only cache propagation/temporary read delay.
       var envelope = null;
-      var maxPolls = postTimedOut ? 24 : 3;
+      var maxPolls = postTimedOut ? 16 : 3;
       for (var attempt = 0; attempt < maxPolls; attempt++) {
         envelope = await assistantRequest_("aiAssistantResult", { requestId: requestId }, b.token);
         if (envelope && envelope.ready && envelope.result) break;
-        if (attempt < maxPolls - 1) await sleep_(postTimedOut ? 5000 : 250 * (attempt + 1));
+        if (attempt < maxPolls - 1) await sleep_(postTimedOut ? 3000 : 250 * (attempt + 1));
       }
       if (postTimedOut && (!envelope || !envelope.ready || !envelope.result)) {
-        var slow = new Error("The assistant request took too long to finish. Try a shorter question or a smaller attachment. Nothing was changed on the dashboard.");
+        var slow = new Error("The file analysis exceeded the server processing window and no completed answer was returned. Try a text-searchable PDF, fewer pages, or a smaller section. No dashboard changes were applied. Check Apps Script → Executions before retrying any action.");
         slow.transport = true;
         throw slow;
       }
@@ -7350,11 +7358,102 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
     text = String(text || "");
     return text.length > MAX_TEXT_CHARS ? text.slice(0, MAX_TEXT_CHARS) + "\n[...file truncated...]" : text;
   }
-  async function extractFile_(file) {
+  async function loadAssistantPdfLib_() {
+    if (window.pdfjsLib) return window.pdfjsLib;
+    if (!aiPdfLibPromise_) {
+      aiPdfLibPromise_ = (async function () {
+        var lib = await ensureScript_("pdfjsLib", "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js");
+        try { lib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; } catch (_e) {}
+        return lib;
+      })().catch(function (err) { aiPdfLibPromise_ = null; throw err; });
+    }
+    return aiPdfLibPromise_;
+  }
+  function pdfPageText_(items) {
+    var positioned = (items || []).filter(function (it) { return it && typeof it.str === "string" && it.str.trim(); }).map(function (it) {
+      var tr = Array.isArray(it.transform) ? it.transform : [];
+      return { text: String(it.str || ""), x: Number(tr[4]) || 0, y: Number(tr[5]) || 0, width: Number(it.width) || 0 };
+    });
+    if (!positioned.length) return "";
+    positioned.sort(function (a, b) {
+      if (Math.abs(a.y - b.y) > 2.5) return b.y - a.y;
+      return a.x - b.x;
+    });
+    var lines = [], line = "", lastY = null, lastEnd = null;
+    positioned.forEach(function (it) {
+      if (lastY === null || Math.abs(it.y - lastY) > 2.5) {
+        if (line.trim()) lines.push(line.trim());
+        line = it.text;
+      } else {
+        var gap = it.x - (lastEnd === null ? it.x : lastEnd);
+        line += (gap > 2 ? " " : "") + it.text;
+      }
+      lastY = it.y;
+      lastEnd = it.x + it.width;
+    });
+    if (line.trim()) lines.push(line.trim());
+    return lines.join("\n");
+  }
+  async function extractPdfText_(file, progress) {
+    var lib = await loadAssistantPdfLib_();
+    var data = new Uint8Array(await file.arrayBuffer());
+    var task = lib.getDocument({ data: data, useSystemFonts: true });
+    var doc = await task.promise;
+    var totalPages = Number(doc.numPages) || 0, pageLimit = Math.min(totalPages, AI_PDF_MAX_TEXT_PAGES);
+    var chunks = [], chars = 0, textPages = 0, pagesRead = 0, truncated = false;
+    try {
+      for (var p = 1; p <= pageLimit; p++) {
+        if (typeof progress === "function") progress("Extracting " + file.name + " · page " + p + " of " + totalPages + "…");
+        var page = await doc.getPage(p);
+        var content = await page.getTextContent({ normalizeWhitespace: true });
+        var pageText = pdfPageText_(content && content.items || []);
+        pagesRead = p;
+        if (pageText) {
+          textPages++;
+          var part = "\n[PAGE " + p + "]\n" + pageText;
+          var remaining = AI_PDF_TEXT_MAX_CHARS - chars;
+          if (remaining <= 0) { truncated = true; break; }
+          if (part.length > remaining) {
+            chunks.push(part.slice(0, remaining));
+            chars += remaining;
+            truncated = true;
+            break;
+          }
+          chunks.push(part);
+          chars += part.length;
+        }
+        if (chars >= AI_PDF_TEXT_MAX_CHARS) { truncated = true; break; }
+      }
+    } finally {
+      try { await doc.destroy(); } catch (_e) {}
+    }
+    return { text: chunks.join("\n"), totalPages: totalPages, pagesRead: pagesRead, textPages: textPages,
+      truncated: truncated || totalPages > pagesRead, emptyPages: Math.max(0, pagesRead - textPages) };
+  }
+  async function extractFile_(file, progress) {
     var lower = file.name.toLowerCase();
     var imgMime = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", heic: "image/heic", heif: "image/heif" };
     var ext = (lower.split(".").pop() || "");
-    if (ext === "pdf") return { name: file.name, kind: "inline", mime: "application/pdf", data: await readB64_(file), size: file.size };
+    if (ext === "pdf") {
+      var pdfResult = null, pdfError = null;
+      try { pdfResult = await extractPdfText_(file, progress); }
+      catch (pdfReadErr) { pdfError = pdfReadErr; console.warn("PDF text extraction failed; considering safe inline fallback:", pdfReadErr); }
+      if (pdfResult && pdfResult.text && pdfResult.text.replace(/\s/g, "").length >= 40) {
+        var note = "\n\n[PDF extraction note: " + pdfResult.textPages + " page(s) contained selectable text";
+        if (pdfResult.emptyPages) note += "; " + pdfResult.emptyPages + " page(s) had no selectable text";
+        if (pdfResult.truncated) note += "; extraction was limited to " + pdfResult.pagesRead + " of " + pdfResult.totalPages + " pages or " + AI_PDF_TEXT_MAX_CHARS.toLocaleString() + " characters";
+        note += ". Treat this as extracted text, not a visual inspection of the original PDF.]";
+        return { name: file.name, kind: "text", text: clipText_(pdfResult.text + note), size: 0 };
+      }
+      var pages = pdfResult ? pdfResult.totalPages : 0;
+      if (file.size <= AI_PDF_INLINE_FALLBACK_MAX_BYTES && (!pages || pages <= AI_PDF_INLINE_FALLBACK_MAX_PAGES)) {
+        return { name: file.name, kind: "inline", mime: "application/pdf", data: await readB64_(file), size: file.size };
+      }
+      if (pdfResult && !pdfResult.text) {
+        throw new Error(file.name + " appears to be scanned/image-only (no selectable text). To avoid another server timeout, split it into PDFs of 12 pages or fewer and keep each under 3 MB, or use a text-searchable PDF.");
+      }
+      throw new Error(file.name + " could not be read as text and is too large for the safe inline fallback. Try a text-searchable PDF or split it into smaller sections. " + (pdfError ? "PDF reader: " + String(pdfError.message || pdfError).slice(0, 140) : ""));
+    }
     if (imgMime[ext]) return { name: file.name, kind: "inline", mime: imgMime[ext], data: await readB64_(file), size: file.size };
     if (ext === "xlsx" || ext === "xls") {
       var X = window.XLSX || await ensureScript_("XLSX", (window.__EXPORT_LIB_URLS && window.__EXPORT_LIB_URLS.xlsx && window.__EXPORT_LIB_URLS.xlsx[0]) || "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js");
@@ -7402,9 +7501,18 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
         setStatus_("Reading " + file.name + "…");
         try {
           var inlineUsed = aiState.files.reduce(function (n, f) { return n + (f.size || 0); }, 0);
-          var item = await extractFile_(file);
+          var item = await extractFile_(file, function (message) { setStatus_(message); });
           if (item.kind === "inline" && inlineUsed + item.size > MAX_INLINE_TOTAL) { addMessage_(file.name + " is too large. Keep inline PDFs and images under about 8 MB in total per message.", "error"); continue; }
           if (item.kind === "text" && !String(item.text || "").trim()) { addMessage_(file.name + " has no readable text.", "error"); continue; }
+          if (item.kind === "text") {
+            var extractedUsed = aiState.files.reduce(function (n, f) { return n + (f.kind === "text" ? String(f.text || "").length : 0); }, 0);
+            var extractedRemaining = Math.max(0, AI_EXTRACTED_TEXT_TOTAL_MAX_CHARS - extractedUsed);
+            if (!extractedRemaining) { addMessage_(file.name + " was not added because the message already contains the maximum extracted text (" + AI_EXTRACTED_TEXT_TOTAL_MAX_CHARS.toLocaleString() + " characters). Send it separately.", "error"); continue; }
+            if (String(item.text || "").length > extractedRemaining) {
+              item.text = String(item.text || "").slice(0, extractedRemaining) + "\n\n[Attachment text limit reached. The remainder of this file was not sent; attach it in a separate message to analyze more.]";
+              addMessage_("Note: " + file.name + " was partially included to keep the combined attachment text within the safe " + AI_EXTRACTED_TEXT_TOTAL_MAX_CHARS.toLocaleString() + "-character limit. Send the file separately for a complete review.", "ai");
+            }
+          }
           aiState.files.push(item);
         } catch (err) { addMessage_(err.message || ("Could not read " + file.name), "error"); }
       }
