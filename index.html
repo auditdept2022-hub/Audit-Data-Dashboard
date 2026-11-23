@@ -7050,7 +7050,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       var timer = setTimeout(function () {
         if (settled) return;
         settled = true;
-        reject(new Error("The file upload did not return from the dashboard server before the timeout."));
+        reject(new Error("The assistant request did not return from the dashboard server before the timeout."));
       }, timeoutMs);
       frame.addEventListener("load", function () {
         if (settled) return;
@@ -7060,10 +7060,10 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       }, { once: true });
     });
   }
-  // Large POST: use a real HTML form submission (not cross-origin fetch), then
+  // AI chat POST: use a real HTML form submission (not cross-origin fetch), then
   // retrieve the actual server JSON over the authenticated GET/JSONP transport.
-  // This keeps uploads working even when the browser blocks reading Apps Script
-  // ContentService's cross-origin POST response.
+  // This keeps normal chat and uploads working when the browser blocks reading
+  // Apps Script ContentService's cross-origin POST response.
   async function assistantPost_(action, fields) {
     var b = await baseParams_(action, fields);
     var requestId = String((fields || {}).requestId || "");
@@ -7099,7 +7099,7 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       document.body.appendChild(form);
       var postFinished = waitForAssistantFrameLoad_(iframe, 240000);
       try { HTMLFormElement.prototype.submit.call(form); }
-      catch (submitErr) { throw new Error("The browser could not submit the assistant file request: " + String(submitErr && submitErr.message || submitErr)); }
+      catch (submitErr) { throw new Error("The browser could not submit the assistant request: " + String(submitErr && submitErr.message || submitErr)); }
       // v256: a slow upload is not necessarily a failed one. If the browser gives up waiting, keep
       // checking for the server's saved result for another ~2 minutes before reporting a timeout.
       var postTimedOut = false;
@@ -7118,12 +7118,12 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
         if (attempt < maxPolls - 1) await sleep_(postTimedOut ? 5000 : 250 * (attempt + 1));
       }
       if (postTimedOut && (!envelope || !envelope.ready || !envelope.result)) {
-        var slow = new Error("The server took too long to process the file. Try a smaller file, fewer pages, or send it again in a minute. Nothing was changed on the dashboard.");
+        var slow = new Error("The assistant request took too long to finish. Try a shorter question or a smaller attachment. Nothing was changed on the dashboard.");
         slow.transport = true;
         throw slow;
       }
       if (!envelope || !envelope.ready || !envelope.result) {
-        var missing = new Error("The upload request returned, but its result could not be retrieved. Check Apps Script > Executions before resending to avoid duplicating a completed action.");
+        var missing = new Error("The assistant request returned, but its result could not be retrieved. Check Apps Script > Executions before resending to avoid duplicating a completed action.");
         missing.transport = true;
         throw missing;
       }
@@ -7306,8 +7306,14 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       setStatus_(providerSetupMessage_());
       if (!aiState.sending) setGemini_("offline", "API key not set");
     } else if (aiState.checked && aiState.apiConfigured) {
-      setStatus_("");
-      if (!aiState.sending && !aiState.lastReplyAt) setGemini_("ready", "API key configured");
+      if (aiState.provider === "auto" && aiState.geminiConfigured && !aiState.groqConfigured) {
+        setStatus_("Auto is using Gemini for all requests. Add GROQ_API_KEY to enable the separate free-tier quick-chat route.");
+      } else if (aiState.provider === "auto" && aiState.groqConfigured && !aiState.geminiConfigured) {
+        setStatus_("Auto is using Groq only. Add GEMINI_API_KEY for larger dashboard reports and direct PDF/image analysis.");
+      } else {
+        setStatus_("");
+      }
+      if (!aiState.sending && !aiState.lastReplyAt) setGemini_("ready", "API key configured; connection is verified on the first reply");
     }
   }
   function changeProvider_() {
@@ -7912,24 +7918,17 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       if (sentFiles.length) {
         fields.attachments = JSON.stringify(sentFiles.map(function (f) { return f.kind === "inline" ? { name: f.name, kind: "inline", mime: f.mime, data: f.data } : { name: f.name, kind: "text", text: f.text }; }));
       }
-      // v162: POST goes through a hidden iframe plus a second "fetch the result" request, which
-      // roughly doubles the wait. Only use it when the payload genuinely cannot fit in a GET URL
-      // (files, dashboard figures, very long prompts). Keyword-based POST switching was removed.
-      var getUrlBudget = 5200; // characters of encoded fields; the token/secret add ~1.5 KB on top
-      var encodedSize = function () { var n = 0; Object.keys(fields).forEach(function (k) { n += encodeURIComponent(k).length + encodeURIComponent(String(fields[k])).length + 2; }); return n; };
-      if (!sentFiles.length && !dashboardViewJson && encodedSize() > getUrlBudget) {
-        // Try a slimmer history first (recent turns, trimmed) before falling back to POST.
-        var slim = history.slice(-8).map(function (item) { return { role: item.role, text: String(item.text || "").slice(0, 1200) }; });
-        fields.history = JSON.stringify(slim);
-      }
-      var needsPost = sentFiles.length > 0 || !!dashboardViewJson || (!sentFiles.length && encodedSize() > getUrlBudget);
+      // All chat turns use the authenticated POST + result-cache transport.
+      // The Apps Script generation budget is up to 150 seconds; the old GET/JSONP
+      // path gave up after about 60 seconds and could leave a completed AI request
+      // looking like a failure. POST keeps the request ID bound to its result and
+      // gives the browser enough time to retrieve the real server response.
+      // Small status/polling requests still use GET/JSONP through assistantRequest_.
       var callOnce_ = async function () {
-        if (needsPost) {
-          // Never auto-fallback after a POST transport error: the server may
-          // already have completed the request and created an approval proposal.
-          return await assistantPost_("aiAssistantChat", fields);
-        }
-        return await assistantRequest_("aiAssistantChat", fields);
+        // Do not resend after a transport timeout: the server may already have
+        // completed the turn or created an approval proposal. The POST helper
+        // checks the token-bound result cache before it reports a timeout.
+        return await assistantPost_("aiAssistantChat", fields);
       };
       var data;
       for (var attempt = 1; ; attempt++) {

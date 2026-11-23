@@ -3,7 +3,7 @@
 // v274: calendar rewritten for performance (index.html).
 // v273: images moved out of attendance_dashboard.html / Parts_Request.html into ./assets/ (precached); changelog moved to CHANGELOG.md.
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v275'
+const CACHE_VERSION = 'audit-dashboard-v276'
 // Only caches whose name starts with this prefix belong to this app (see activate).
 const CACHE_PREFIX = 'audit-dashboard-';
 const CACHE_NAME = CACHE_VERSION;
