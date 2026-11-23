@@ -1,9 +1,9 @@
 // service-worker.js — Audit Data Dashboard
-// v275: removed always-on GPU layers + blur from index.html.
+// v279: AI assistant reliability recovery; revalidate the corrected dashboard shell.
 // v274: calendar rewritten for performance (index.html).
 // v273: images moved out of attendance_dashboard.html / Parts_Request.html into ./assets/ (precached); changelog moved to CHANGELOG.md.
 // Bump CACHE_VERSION any time you change what gets precached.
-const CACHE_VERSION = 'audit-dashboard-v277'
+const CACHE_VERSION = 'audit-dashboard-v279'
 // Only caches whose name starts with this prefix belong to this app (see activate).
 const CACHE_PREFIX = 'audit-dashboard-';
 const CACHE_NAME = CACHE_VERSION;

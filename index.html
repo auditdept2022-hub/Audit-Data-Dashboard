@@ -7119,11 +7119,11 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       // doPost caches the parsed result before returning its ContentService
       // response, so a short retry handles only cache propagation/temporary read delay.
       var envelope = null;
-      var maxPolls = postTimedOut ? 16 : 3;
+      var maxPolls = postTimedOut ? 24 : 3;
       for (var attempt = 0; attempt < maxPolls; attempt++) {
         envelope = await assistantRequest_("aiAssistantResult", { requestId: requestId }, b.token);
         if (envelope && envelope.ready && envelope.result) break;
-        if (attempt < maxPolls - 1) await sleep_(postTimedOut ? 3000 : 250 * (attempt + 1));
+        if (attempt < maxPolls - 1) await sleep_(postTimedOut ? 5000 : 250 * (attempt + 1));
       }
       if (postTimedOut && (!envelope || !envelope.ready || !envelope.result)) {
         var slow = new Error("The file analysis exceeded the server processing window and no completed answer was returned. Try a text-searchable PDF, fewer pages, or a smaller section. No dashboard changes were applied. Check Apps Script → Executions before retrying any action.");
@@ -8026,17 +8026,33 @@ body[style*="overflow: hidden"]>header{position:fixed!important;top:0!important;
       if (sentFiles.length) {
         fields.attachments = JSON.stringify(sentFiles.map(function (f) { return f.kind === "inline" ? { name: f.name, kind: "inline", mime: f.mime, data: f.data } : { name: f.name, kind: "text", text: f.text }; }));
       }
-      // All chat turns use the authenticated POST + result-cache transport.
-      // The Apps Script generation budget is up to 150 seconds; the old GET/JSONP
-      // path gave up after about 60 seconds and could leave a completed AI request
-      // looking like a failure. POST keeps the request ID bound to its result and
-      // gives the browser enough time to retrieve the real server response.
-      // Small status/polling requests still use GET/JSONP through assistantRequest_.
+      // Keep short conversations on the established GET/JSONP path. This is
+      // the original working transport for normal chat and avoids the extra
+      // hidden-iframe + result-cache round trip for every simple message.
+      // Use POST only for files, dashboard snapshots, or genuinely large prompts.
+      var getUrlBudget = 5200; // encoded fields; token/secret add about 1.5 KB on top
+      var encodedSize = function () {
+        var n = 0;
+        Object.keys(fields).forEach(function (k) {
+          n += encodeURIComponent(k).length + encodeURIComponent(String(fields[k])).length + 2;
+        });
+        return n;
+      };
+      if (!sentFiles.length && !dashboardViewJson && encodedSize() > getUrlBudget) {
+        // Trim history before selecting POST for an oversized normal message.
+        var slim = history.slice(-8).map(function (item) {
+          return { role: item.role, text: String(item.text || "").slice(0, 1200) };
+        });
+        fields.history = JSON.stringify(slim);
+      }
+      var needsPost = sentFiles.length > 0 || !!dashboardViewJson || encodedSize() > getUrlBudget;
       var callOnce_ = async function () {
-        // Do not resend after a transport timeout: the server may already have
-        // completed the turn or created an approval proposal. The POST helper
-        // checks the token-bound result cache before it reports a timeout.
-        return await assistantPost_("aiAssistantChat", fields);
+        if (needsPost) {
+          // Never retry a POST automatically after an uncertain transport failure:
+          // the server may already have completed the request or created a proposal.
+          return await assistantPost_("aiAssistantChat", fields);
+        }
+        return await assistantRequest_("aiAssistantChat", fields);
       };
       var data;
       for (var attempt = 1; ; attempt++) {
